@@ -9,3 +9,26 @@
   outline: 2px solid var(--ring);
   outline-offset: 2px;
 }
+
+/* Hide horizontal scrollbar (keeps swipe) */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Confetti */
+.confetti-piece {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  background: hsl(var(--h), 80%, 55%);
+  border-radius: 1px;
+  transform: translate(-50%, -50%);
+  animation: confetti-pop 700ms ease-out forwards;
+  animation-delay: calc(var(--i) * 20ms);
+}
+@keyframes confetti-pop {
+  0%   { transform: translate(-50%, -50%) rotate(0deg); opacity: 1; }
+  60%  { transform: translate(calc(-50% + (var(--i) - 5) * 10px), calc(-50% - 30px)) rotate(180deg); }
+  100% { transform: translate(calc(-50% + (var(--i) - 5) * 18px), calc(-50% - 70px)) rotate(360deg); opacity: 0; }
+}

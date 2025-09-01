@@ -1,0 +1,638 @@
+{
+  "topics": [
+    {
+      "name": "1. Cost of living crisis & fiat inflation",
+      "cards": [
+        {
+          "id": "1-1",
+          "title": "Seeing Inflation at the Supermarket",
+          "duration_min": 3,
+          "content": "Picture a weekly grocery run with your family. The same basket—rice, cooking oil, soap—costs more than last season. That’s inflation eroding purchasing power. In many places, families face rising prices while wages lag, so the paycheck stretches fewer days. When money loses value, households cut back, stress rises, and planning gets harder. A simple story: a parent who used to budget for 30 days now makes the same list last only 22–23 days, trimming treats first, then essentials. Communities feel it too as local shops see fewer sales. In inflationary environments around the world, people look for ways to protect savings and transact without losing ground—one reason some turn to decentralized money that resists censorship and devaluation. :contentReference[oaicite:0]{index=0} :contentReference[oaicite:1]{index=1}",
+          "objectives": [
+            "Identify how inflation shows up in everyday spending",
+            "Connect household pressure to broader monetary conditions"
+          ],
+          "quiz": {
+            "question": "In an inflationary environment, what typically happens to a family’s purchasing power?",
+            "type": "multiple_choice",
+            "options": ["It increases without higher wages", "It stays the same month to month", "It decreases as prices rise", "It doubles due to subsidies"],
+            "correct_answer": "It decreases as prices rise",
+            "style_note": "Multiple choice with clear causality supports ISTJ/ISFJ recall; the family setting still resonates with ESFJ/ESFP."
+          }
+        },
+        {
+          "id": "1-2",
+          "title": "The ‘Hidden Tax’ on Savings",
+          "duration_min": 3,
+          "content": "Imagine grandparents saving for a grandchild’s school fees. The number in the account doesn’t shrink, but what it can buy does. That silent loss is why inflation feels like a hidden tax. In extreme cases, hyperinflation can devastate purchasing power fast—Venezuela’s crisis pushed people to seek alternatives that protect their savings and allow them to cross borders with value intact. A simple story: a family forced to relocate carries their nest egg not as cash but as knowledge (a memorized recovery phrase) so their savings arrive with them. Communities facing inflation often experiment with open, permissionless tools to save and transact outside failing currencies. :contentReference[oaicite:2]{index=2}",
+          "objectives": [
+            "Explain why inflation erodes savings over time",
+            "Recognize why people seek alternatives during currency crises"
+          ],
+          "quiz": {
+            "question": "Why is inflation often described as a ‘hidden tax’ on savers?",
+            "type": "multiple_choice",
+            "options": [
+              "Because purchasing power erodes even if the balance stays the same",
+              "Because banks secretly remove deposits",
+              "Because prices always fall over time",
+              "Because wages rise too quickly"
+            ],
+            "correct_answer": "Because purchasing power erodes even if the balance stays the same",
+            "style_note": "MCQ solidifies the core definition for ISTJ/ISFJ; options framed with everyday logic keep ESFJ/ESFP engaged."
+          }
+        },
+        {
+          "id": "1-3",
+          "title": "From Households to Main Street",
+          "duration_min": 3,
+          "content": "Think of a neighborhood bakery. Flour and power bills rise, so the baker adjusts prices. Regulars buy less; monthly cash flow tightens. Multiply that across barbers, tailors, and street vendors—local commerce slows, and community projects stall. Families and shopkeepers search for money that holds value better and can’t be frozen in a crisis. In regions with inflation and limited banking, people increasingly use decentralized, censorship-resistant tools to save and transact, building resilience from the bottom up. A short scenario: the PTA funds for school supplies don’t sit idle in a depreciating account; parents choose a tool that’s accessible without gatekeepers and is harder to debase. :contentReference[oaicite:3]{index=3} :contentReference[oaicite:4]{index=4}",
+          "objectives": [
+            "Relate inflation to small-business and community stress",
+            "Describe why people seek censorship-resistant saving and payments"
+          ],
+          "quiz": {
+            "question": "In communities with rising prices and weak banking access, which money trait is most valued?",
+            "type": "multiple_choice",
+            "options": [
+              "Easily printed supply",
+              "Centralized control",
+              "Censorship resistance and accessibility",
+              "High fees and delays"
+            ],
+            "correct_answer": "Censorship resistance and accessibility",
+            "style_note": "Property-focused MCQ supports ISTJ clarity; the community framing sustains ESFJ/ESFP/ISFJ appeal."
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Why you can’t save money in a cost of living crisis",
+      "cards": [
+        {
+          "id": "2-1",
+          "title": "When $100 Buys Less Next Year",
+          "duration_min": 3,
+          "content": "Suppose you set aside $100 monthly for a family goal. A year later, the number in the ledger is larger, but groceries, rent, and transport rose faster. The result: less real progress. In countries where inflation is chronic, people report the same struggle—bank balances grow, but budgets don’t stretch. Many look to money systems designed to preserve value and resist devaluation and debanking. Story: an aunt saving for medical bills learns that keeping value in a tool built for scarcity and permissionless access helps her stay ahead of local currency weakness and service outages. :contentReference[oaicite:5]{index=5} :contentReference[oaicite:6]{index=6}",
+          "objectives": [
+            "Connect nominal balances to real purchasing power",
+            "Explain why savers explore permissionless alternatives"
+          ],
+          "quiz": {
+            "question": "What is the main risk to savings during a cost-of-living crisis?",
+            "type": "multiple_choice",
+            "options": [
+              "Bank balances disappear overnight",
+              "Purchasing power erodes faster than deposits grow",
+              "Prices fall below wages",
+              "Banks raise interest more than inflation"
+            ],
+            "correct_answer": "Purchasing power erodes faster than deposits grow",
+            "style_note": "Direct MCQ reinforces factual understanding (ISTJ) and remains grounded in family budgeting for ISFJ/ESFJ/ESFP."
+          }
+        },
+        {
+          "id": "2-2",
+          "title": "Why Families Feel ‘On a Treadmill’",
+          "duration_min": 2,
+          "content": "A typical cycle: pay day arrives, bills claim a bigger share, and what’s left goes to basics. Savings become an emergency fund used every month. In places like Nigeria facing high inflation and unstable access to banking services, people turn to open networks to store value and transact when traditional rails fail or censor. A simple scene: parents top up school fees using a tool that doesn’t shut them out during protests or policy shocks. The feeling of running in place eases when value isn’t constantly diluted or blocked. :contentReference[oaicite:7]{index=7} :contentReference[oaicite:8]{index=8}",
+          "objectives": [
+            "Describe the monthly squeeze that prevents saving",
+            "Show how permissionless systems reduce blocking and devaluation risks"
+          ],
+          "quiz": {
+            "question": "Why do many families struggle to save in a cost-of-living crisis?",
+            "type": "multiple_choice",
+            "options": [
+              "Because rising expenses force them to dip into savings",
+              "Because banks forbid saving",
+              "Because prices and wages move equally",
+              "Because vacations are always unaffordable"
+            ],
+            "correct_answer": "Because rising expenses force them to dip into savings",
+            "style_note": "MCQ turns the reflection into clear recall for ISTJ/ISFJ while staying relatable for ESFJ/ESFP."
+          }
+        },
+        {
+          "id": "2-3",
+          "title": "Community Funds that Melt",
+          "duration_min": 3,
+          "content": "Imagine neighbors pooling money for a clinic. Months later, materials cost more; the fund buys less. This ‘melting fund’ stalls projects and morale. Communities in inflationary or restricted environments increasingly choose tools that are open to anyone with a phone and can’t be silently diluted by a central authority. Scenario: the committee shifts part of its fund into a censorship-resistant, globally accessible network to preserve value and keep timelines intact. Savings behavior improves when people see money that resists gatekeeping and devaluation. :contentReference[oaicite:9]{index=9}",
+          "objectives": [
+            "Explain how inflation undermines pooled goals",
+            "Identify traits communities seek to preserve shared savings"
+          ],
+          "quiz": {
+            "question": "What typically happens to community savings under persistent inflation?",
+            "type": "multiple_choice",
+            "options": [
+              "They grow stronger automatically",
+              "They lose purchasing power and delay projects",
+              "They are unaffected by prices",
+              "They always earn high, real returns"
+            ],
+            "correct_answer": "They lose purchasing power and delay projects",
+            "style_note": "MCQ focuses learners on the key consequence—useful for ISTJ/ISFJ—while the community lens keeps ESFJ/ESFP engaged."
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. How hard money fixes fiat inflation",
+      "cards": [
+        {
+          "id": "3-1",
+          "title": "What ‘Hard’ Means—In Practice",
+          "duration_min": 3,
+          "content": "Hard money is money that is difficult to debase. Practically, people reach for money that holds value and doesn’t depend on a single authority’s promises. In places where banking is limited and prices rise, families look for a currency that is decentralized, censorship-resistant, and accessible—traits that strengthen savings behavior. Think of it as a sturdier container for value in a storm. Story: a market vendor adopts a tool that offers access to a more stable monetary standard than her local unit, improving her ability to plan and save. :contentReference[oaicite:10]{index=10} :contentReference[oaicite:11]{index=11}",
+          "objectives": [
+            "Define ‘hard money’ as money that resists debasement",
+            "Link properties like decentralization and censorship-resistance to saving"
+          ],
+          "quiz": {
+            "question": "Which property best supports the idea of ‘hard money’?",
+            "type": "multiple_choice",
+            "options": [
+              "Easily increased supply by decree",
+              "Centralized issuer control",
+              "Resistance to censorship and debasement",
+              "Mandatory bank custody"
+            ],
+            "correct_answer": "Resistance to censorship and debasement",
+            "style_note": "MCQ on properties gives structure for ISTJ while real-life framing still connects with ESFJ/ESFP/ISFJ."
+          }
+        },
+        {
+          "id": "3-2",
+          "title": "A Family’s Plan that Finally Sticks",
+          "duration_min": 2,
+          "content": "Consider a household whose savings always lag prices. They switch to storing value in a system that isn’t run by their local bank and isn’t subject to abrupt debasement. Savings stop ‘leaking.’ When relatives abroad send support, it arrives without gatekeepers, and balances don’t vanish due to policy shocks. The parents can plan school fees a year ahead with greater confidence. This is how hard money behaves in real life: it enables ordinary families to protect value against inflation and debanking risks. :contentReference[oaicite:12]{index=12} :contentReference[oaicite:13]{index=13}",
+          "objectives": [
+            "Illustrate hard money through a household scenario",
+            "Show how permissionless savings reduce policy and censorship risk"
+          ],
+          "quiz": {
+            "question": "Which risk does hard-type money reduce for families?",
+            "type": "multiple_choice",
+            "options": [
+              "Sudden account closures and devaluation",
+              "Too much wage growth",
+              "Lower food prices",
+              "Guaranteed investment returns"
+            ],
+            "correct_answer": "Sudden account closures and devaluation",
+            "style_note": "Risk-focused MCQ supports ISTJ/ISFJ clarity; family stakes keep ESFJ/ESFP engaged."
+          }
+        },
+        {
+          "id": "3-3",
+          "title": "Community Stability, One Savings Pot at a Time",
+          "duration_min": 3,
+          "content": "When a village co-op saves in money that’s hard to debase and open to all, long-term projects become realistic. No single gatekeeper can freeze funds; participants don’t watch purchasing power evaporate between meetings. A story: a farmers’ collective uses a decentralized network for equipment savings, and members can contribute from abroad without intermediaries. The result is better planning, fewer delays, and greater trust in the shared pot. This is why hard money characteristics—open access and resistance to censorship—matter at the community level. :contentReference[oaicite:14]{index=14} :contentReference[oaicite:15]{index=15}",
+          "objectives": [
+            "Connect ‘hard money’ traits to cooperative planning",
+            "Explain why openness and censorship-resistance build trust"
+          ],
+          "quiz": {
+            "question": "What outcome can a co-op expect when saving in money that’s hard to debase?",
+            "type": "multiple_choice",
+            "options": [
+              "Funds are easily frozen by a gatekeeper",
+              "More reliable planning because value isn’t easily diluted or frozen",
+              "Members must rely on a single intermediary",
+              "Purchasing power vanishes between meetings"
+            ],
+            "correct_answer": "More reliable planning because value isn’t easily diluted or frozen",
+            "style_note": "MCQ highlights the key outcome succinctly for ISTJ/ISFJ; cooperative framing fits ESFJ/ESFP."
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Bitcoin as hard money",
+      "cards": [
+        {
+          "id": "4-1",
+          "title": "Why Bitcoin Fits the ‘Hard Money’ Mold",
+          "duration_min": 3,
+          "content": "Bitcoin is decentralized and not controlled by a central bank, making it resistant to debasement by decree. People use it to protect against currency devaluation and the risk of being cut off from accounts. Because it’s censorship-resistant and global, it behaves like hard money in practice: difficult to tamper with, easy to verify, and accessible to anyone with a phone. Story: a street vendor uses a simple wallet to store part of daily earnings in a form not easily frozen or quietly diluted, stabilizing family plans over time. :contentReference[oaicite:16]{index=16} :contentReference[oaicite:17]{index=17}",
+          "objectives": [
+            "Describe Bitcoin’s decentralization and resistance to devaluation",
+            "Relate Bitcoin’s traits to hard-money behavior"
+          ],
+          "quiz": {
+            "question": "Which pair of properties make Bitcoin act like hard money?",
+            "type": "multiple_choice",
+            "options": [
+              "Central issuance & easy censorship",
+              "Decentralization & censorship-resistance",
+              "Unlimited supply & bank controls",
+              "Opaque rules & permissioned access"
+            ],
+            "correct_answer": "Decentralization & censorship-resistance",
+            "style_note": "Property-matching MCQ provides structure for ISTJ while staying concise for ESFP/ESFJ."
+          }
+        },
+        {
+          "id": "4-2",
+          "title": "A Family Safeguards the Future",
+          "duration_min": 2,
+          "content": "A family saving for education faces sudden bank limits and price spikes. They move part of their savings into Bitcoin, a network where account closures by officials are harder to enforce and value isn’t tied to a single local currency. When relatives abroad contribute, funds arrive without gatekeepers. Over a year, the family feels progress again—not because prices stopped rising, but because their savings sit in a system designed to resist devaluation and debanking. :contentReference[oaicite:18]{index=18}",
+          "objectives": [
+            "Show how Bitcoin mitigates debanking and devaluation risk",
+            "Connect permissionless transfers to family planning"
+          ],
+          "quiz": {
+            "question": "Why might a family choose Bitcoin for part of their savings?",
+            "type": "multiple_choice",
+            "options": [
+              "To reduce the risk of account freezes and currency devaluation",
+              "To maximize short-term speculation",
+              "Because banks offer higher interest",
+              "To eliminate all volatility"
+            ],
+            "correct_answer": "To reduce the risk of account freezes and currency devaluation",
+            "style_note": "MCQ reinforces practical, purpose-driven reasoning for ISTJ/ISFJ while staying relatable for ESFJ/ESFP."
+          }
+        },
+        {
+          "id": "4-3",
+          "title": "Communities Using Bitcoin—From Phones to Shops",
+          "duration_min": 3,
+          "content": "Communities adopt Bitcoin in two reinforcing ways: as money for everyday saving and payments, and—indirectly—through mining that strengthens local infrastructure. In parts of Africa, smartphone wallets connect people to global markets without relying on fragile local rails; in parallel, mining has funded microgrids and electrification that keep small businesses running. Picture a village where merchants accept payments while a nearby site monetizes excess hydropower, stabilizing electricity for everyone. The social effect is compounding access and resilience. :contentReference[oaicite:19]{index=19} :contentReference[oaicite:20]{index=20}",
+          "objectives": [
+            "Explain everyday and infrastructure-level Bitcoin adoption",
+            "Describe social benefits when access and power reliability improve"
+          ],
+          "quiz": {
+            "question": "Which pairing reflects community-level Bitcoin use described here?",
+            "type": "multiple_choice",
+            "options": [
+              "Speculation only & power outages",
+              "Payments with wallets & mining that stabilizes microgrids",
+              "Bank loans & currency controls",
+              "Price caps & rationing"
+            ],
+            "correct_answer": "Payments with wallets & mining that stabilizes microgrids",
+            "style_note": "Concrete pairings in MCQ aid ISTJ memory; community storyline engages ESFJ/ESFP/ISFJ."
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Bitcoin as a savings mechanism & investment",
+      "cards": [
+        {
+          "id": "5-1",
+          "title": "The Digital ‘Family Piggy Bank’",
+          "duration_min": 3,
+          "content": "Think of Bitcoin as a savings jar that’s globally accessible and harder for authorities to silently dilute. Families in inflationary or restricted environments use it to protect value when local units weaken or accounts risk closure. A parent might set aside a portion of income each week into a wallet they control, gaining confidence that policy shocks won’t erase access. While prices and exchange rates can be volatile, the key is the system’s open, permissionless design aimed at preserving sovereignty over savings. :contentReference[oaicite:21]{index=21}",
+          "objectives": [
+            "Describe Bitcoin’s role in preserving household savings",
+            "Recognize permissionless custody as a protective factor"
+          ],
+          "quiz": {
+            "question": "What primary benefit do some families seek when saving in Bitcoin?",
+            "type": "multiple_choice",
+            "options": [
+              "Guaranteed price stability",
+              "Protection from censorship and devaluation risks",
+              "Government insurance on balances",
+              "Elimination of all fees and volatility"
+            ],
+            "correct_answer": "Protection from censorship and devaluation risks",
+            "style_note": "MCQ contrasts realistic vs. unrealistic benefits, aiding ISTJ discernment and ESFJ practicality."
+          }
+        },
+        {
+          "id": "5-2",
+          "title": "Saving that Crosses Borders",
+          "duration_min": 2,
+          "content": "Consider a family forced to move. Carrying cash is risky; bank access may be cut off. With Bitcoin, people have moved value across borders using a small device—or even a memorized recovery phrase—reclaiming savings at their destination. That portability changes outcomes: kids enroll in school sooner, medical care isn’t delayed, and relatives abroad can contribute directly. It’s not about speculation; it’s about turning fragile savings into portable security during upheaval. :contentReference[oaicite:22]{index=22}",
+          "objectives": [
+            "Explain Bitcoin’s portability for displaced families",
+            "Link self-custody to continuity of savings"
+          ],
+          "quiz": {
+            "question": "What makes Bitcoin savings portable in crisis scenarios?",
+            "type": "multiple_choice",
+            "options": [
+              "Heavy bullion bars",
+              "Dependence on a local bank branch",
+              "A recoverable key or phrase independent of location",
+              "Paper checks mailed internationally"
+            ],
+            "correct_answer": "A recoverable key or phrase independent of location",
+            "style_note": "Mechanism-focused MCQ supports ISTJ recall; the move-story context keeps ISFJ/ESFJ/ESFP engaged."
+          }
+        },
+        {
+          "id": "5-3",
+          "title": "Pooling for Tomorrow",
+          "duration_min": 3,
+          "content": "Diaspora relatives often fund community projects back home. When contributions flow through permissionless rails, donations avoid gatekeepers and arrive intact—even under financial restrictions. Communities in Cuba and Palestine have used Bitcoin for remittances and to protect savings from surveillance and oppression. Scenario: a town’s health fund receives small weekly contributions from abroad, disbursed transparently when equipment is ready to purchase. This savings-and-investment behavior builds local capacity in places where traditional rails are unreliable. :contentReference[oaicite:23]{index=23} :contentReference[oaicite:24]{index=24}",
+          "objectives": [
+            "Show how remittances and savings can bypass gatekeepers",
+            "Connect permissionless transfers to reliable community funding"
+          ],
+          "quiz": {
+            "question": "Why do some communities route contributions through Bitcoin?",
+            "type": "multiple_choice",
+            "options": [
+              "To receive and store value without censorship, even under restrictions",
+              "To guarantee high yields",
+              "To avoid all fees forever",
+              "To comply with local gatekeepers"
+            ],
+            "correct_answer": "To receive and store value without censorship, even under restrictions",
+            "style_note": "MCQ highlights the mission-focused benefit (ESFJ/ESFP) while staying precise for ISTJ/ISFJ."
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Bitcoin & global communities",
+      "cards": [
+        {
+          "id": "6-1",
+          "title": "Sending Value Without Borders",
+          "duration_min": 3,
+          "content": "Migration links families across continents. Traditional rails can be slow, costly, or blocked. Bitcoin enables people to send support without relying on a central gatekeeper—especially vital where authorities restrict accounts. Activists and ordinary families alike have routed donations and everyday help through Bitcoin when banks censored transfers. Story: a caregiver in the diaspora contributes weekly to a parent’s medicine fund through a wallet they both control, regardless of political tensions. :contentReference[oaicite:25]{index=25} :contentReference[oaicite:26]{index=26}",
+          "objectives": [
+            "Explain permissionless cross-border support",
+            "Recognize censorship-resistance as a social lifeline"
+          ],
+          "quiz": {
+            "question": "How does Bitcoin help global families and activists move funds?",
+            "type": "multiple_choice",
+            "options": [
+              "By guaranteeing higher wages",
+              "By bypassing account blocks and censorship",
+              "By eliminating all taxes",
+              "By providing free housing"
+            ],
+            "correct_answer": "By bypassing account blocks and censorship",
+            "style_note": "MCQ emphasizes the functional benefit for ISTJ clarity, with social relevance for ESFJ/ESFP/ISFJ."
+          }
+        },
+        {
+          "id": "6-2",
+          "title": "Smartphones, Wallets, and a Bigger Market",
+          "duration_min": 2,
+          "content": "In Senegal and elsewhere, entrepreneurs distribute smartphones with wallets so communities can save and trade beyond colonial currency systems. Skipping legacy infrastructure, people connect to global markets like they once leapfrogged landlines to mobiles. A corner shop can now accept value from abroad and pay suppliers directly. This changes the social map: new customers, better pricing, and fewer middlemen. Story: a student buys textbooks online using funds received from an aunt overseas, no bank approval required. :contentReference[oaicite:27]{index=27}",
+          "objectives": [
+            "Show how mobile wallets expand opportunity",
+            "Connect global access to local empowerment"
+          ],
+          "quiz": {
+            "question": "What is the ‘leapfrog’ effect in this context?",
+            "type": "multiple_choice",
+            "options": [
+              "Replacing phones with landlines",
+              "Bypassing legacy rails to join global markets",
+              "Eliminating internet access",
+              "Returning to barter"
+            ],
+            "correct_answer": "Bypassing legacy rails to join global markets",
+            "style_note": "MCQ with a vivid metaphor serves all types via clarity and story."
+          }
+        },
+        {
+          "id": "6-3",
+          "title": "Autonomy Under Pressure",
+          "duration_min": 3,
+          "content": "Authoritarian settings often pair inflation with surveillance. In Nigeria, activists accepted donations when banks blocked them; in Cuba, people used Bitcoin to transact beyond watchful state systems. Privacy-preserving traits protect speech and livelihood once offered by cash. Scenario: a community newspaper pays contributors despite platform bans, using wallets they control. The goal isn’t secrecy—it’s maintaining basic civic activity when centralized tools are weaponized. :contentReference[oaicite:28]{index=28} :contentReference[oaicite:29]{index=29}",
+          "objectives": [
+            "Relate Bitcoin’s privacy and openness to civil resilience",
+            "Identify examples where censorship-resistance sustained activity"
+          ],
+          "quiz": {
+            "question": "Why do communities under surveillance adopt Bitcoin tools?",
+            "type": "multiple_choice",
+            "options": [
+              "To increase surveillance and scoring",
+              "To keep saving and paying when banks and platforms censor them",
+              "To guarantee anonymity for any activity",
+              "To eliminate the need for electricity"
+            ],
+            "correct_answer": "To keep saving and paying when banks and platforms censor them",
+            "style_note": "MCQ distills the civic rationale for ISTJ/ISFJ while the lived-context options suit ESFJ/ESFP."
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Common criticisms of Bitcoin & rebuttals",
+      "cards": [
+        {
+          "id": "7-1",
+          "title": "“It’s Too Volatile”",
+          "duration_min": 3,
+          "content": "Volatility is real and acknowledged. Education is crucial so users understand swings and align usage with long-term goals like preserving savings from devaluation or enabling uncensorable payments. Families respond by allocating small, regular amounts and avoiding short-term bets. Story: a parent treats it like a savings discipline, not a lottery ticket—focusing on self-custody and purpose (school fees, emergency fund) rather than day-trading. The key rebuttal isn’t denial; it’s fit-for-purpose use where Bitcoin’s unique properties matter. :contentReference[oaicite:30]{index=30} :contentReference[oaicite:31]{index=31}",
+          "objectives": [
+            "Acknowledge volatility and emphasize education",
+            "Align Bitcoin use with long-term, purpose-driven goals"
+          ],
+          "quiz": {
+            "question": "What is a constructive response to Bitcoin’s volatility?",
+            "type": "multiple_choice",
+            "options": [
+              "Ignore it completely",
+              "Use education and disciplined, purpose-driven saving",
+              "Borrow heavily to buy more",
+              "Close all wallets during dips"
+            ],
+            "correct_answer": "Use education and disciplined, purpose-driven saving",
+            "style_note": "MCQ prompts practical judgment for ISTJ/ISFJ and keeps the family-purpose framing for ESFJ/ESFP."
+          }
+        },
+        {
+          "id": "7-2",
+          "title": "“It Wastes Energy” vs. What It Enables",
+          "duration_min": 3,
+          "content": "Critics focus on energy usage, but evidence shows miners often seek cheap renewables and can stabilize grids by flexing demand. In East Africa, projects monetize excess hydropower, funding microgrids and reliable electricity for families and shops. Unlike AI data centers, miners can pause during peak demand and ramp up when power is idle. Story: a rural clinic keeps lights on because mining absorbs surplus energy at night, making the small hydro site financially viable year-round. :contentReference[oaicite:32]{index=32} :contentReference[oaicite:33]{index=33}",
+          "objectives": [
+            "Explain demand-response and renewable alignment",
+            "Describe community benefits from monetizing stranded energy"
+          ],
+          "quiz": {
+            "question": "How can Bitcoin mining support local power systems?",
+            "type": "multiple_choice",
+            "options": [
+              "By requiring constant peak usage",
+              "By flexing demand and monetizing surplus renewable energy",
+              "By replacing all power plants",
+              "By consuming only fossil fuels"
+            ],
+            "correct_answer": "By flexing demand and monetizing surplus renewable energy",
+            "style_note": "MCQ anchors the technical idea for ISTJ/ISFJ; the clinic story keeps ESFJ/ESFP engaged."
+          }
+        },
+        {
+          "id": "7-3",
+          "title": "“It’s for Bad Actors” vs. Civil Freedoms",
+          "duration_min": 2,
+          "content": "Every technology can be misused, but the social question is whether it also protects legitimate activity. Centralized apps like super-apps can enable surveillance and scoring; CBDCs could deepen that trend. Bitcoin’s contrasting design—open, decentralized, and privacy-preserving—has helped activists and ordinary people maintain basic financial speech when banks shut doors. Story: a relief group receives donations after an account freeze, proving the tool’s civic value. :contentReference[oaicite:34]{index=34} :contentReference[oaicite:35]{index=35}",
+          "objectives": [
+            "Contrast centralized surveillance risks with Bitcoin’s properties",
+            "Recognize legitimate pro-social uses under repression"
+          ],
+          "quiz": {
+            "question": "Which risk is associated with CBDCs and some super-apps that Bitcoin’s design helps mitigate?",
+            "type": "multiple_choice",
+            "options": [
+              "Automatic wealth growth",
+              "Guaranteed anonymity for crime",
+              "Expanded financial surveillance and censorship",
+              "Elimination of all fraud"
+            ],
+            "correct_answer": "Expanded financial surveillance and censorship",
+            "style_note": "Direct comparison MCQ supports ISTJ logic and keeps social implications salient for ESFJ/ESFP/ISFJ."
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Best way to start buying Bitcoin (Dollar Cost Averaging)",
+      "cards": [
+        {
+          "id": "8-1",
+          "title": "Start Small, Start Regular (DCA)",
+          "duration_min": 3,
+          "content": "Because price swings exist, many beginners prefer a steady habit: buying small amounts on a schedule (Dollar Cost Averaging, or DCA). This educational approach reduces timing stress and turns saving into routine. Link it to a purpose—school fees, a rainy-day fund, or remittance support. Story: a caregiver sets a weekly amount that fits the budget, learns self-custody basics, and reviews progress monthly. Assumption note: we suggest DCA as a learning and budgeting discipline in response to volatility and the need for education; it is not a guarantee of returns. :contentReference[oaicite:36]{index=36}",
+          "objectives": [
+            "Introduce DCA as a beginner-friendly saving habit",
+            "Tie scheduled purchases to volatility management and learning"
+          ],
+          "quiz": {
+            "question": "What is the main benefit of a DCA approach for new users?",
+            "type": "multiple_choice",
+            "options": [
+              "Perfect market timing",
+              "Guaranteed profits",
+              "Reduced timing stress via small, regular purchases",
+              "Avoiding any education"
+            ],
+            "correct_answer": "Reduced timing stress via small, regular purchases",
+            "style_note": "MCQ emphasizes realistic benefits for ISTJ/ISFJ; purpose framing keeps ESFJ/ESFP engaged."
+          }
+        },
+        {
+          "id": "8-2",
+          "title": "Family Budget + DCA = Momentum",
+          "duration_min": 2,
+          "content": "A family sets a modest weekly amount (e.g., the price of two coffees) toward a long-term goal. They automate the purchase, learn how to hold keys safely, and avoid reacting to headlines. The point isn’t speed—it’s steadiness in the face of swings. Scenario: when a surprise expense hits, they pause or lower the contribution, then resume next month. Assumption note: presented as an educational budgeting strategy to cope with volatility—users should learn and choose what fits their situation. :contentReference[oaicite:37]{index=37}",
+          "objectives": [
+            "Show DCA inside a realistic family budget",
+            "Emphasize flexibility and learning over prediction"
+          ],
+          "quiz": {
+            "question": "How can a family keep DCA sustainable during surprise costs?",
+            "type": "multiple_choice",
+            "options": [
+              "By pausing or reducing contributions temporarily and resuming later",
+              "By borrowing to increase DCA during stress",
+              "By canceling DCA permanently",
+              "By ignoring household needs to keep buying"
+            ],
+            "correct_answer": "By pausing or reducing contributions temporarily and resuming later",
+            "style_note": "MCQ converts the scenario into a concrete decision rule—useful for ISTJ/ISFJ and practical for ESFJ/ESFP."
+          }
+        },
+        {
+          "id": "8-3",
+          "title": "Community Savings Circles",
+          "duration_min": 3,
+          "content": "Neighbors can form a transparent savings circle: each contributes a small, regular amount; funds are self-custodied with clear rules; and members teach each other basics. This turns DCA into a social habit that improves financial inclusion and saving behavior. Example: a women’s group uses weekly contributions for a shared education fund; members abroad can add donations permissionlessly. Assumption note: this applies DCA as a learning tool; it leverages the observed link between access, open tools, and improved saving. :contentReference[oaicite:38]{index=38} :contentReference[oaicite:39]{index=39}",
+          "objectives": [
+            "Adapt DCA to cooperative saving and inclusion",
+            "Model peer learning and transparent custody"
+          ],
+          "quiz": {
+            "question": "What makes a community DCA circle effective?",
+            "type": "multiple_choice",
+            "options": [
+              "Secret rules and gatekeepers",
+              "Clear contributions, self-custody, and peer education",
+              "One person holds all keys",
+              "Irregular, impulsive purchases"
+            ],
+            "correct_answer": "Clear contributions, self-custody, and peer education",
+            "style_note": "Process-oriented MCQ suits ISTJ/ISFJ; social teamwork appeals to ESFJ/ESFP."
+          }
+        }
+      ]
+    },
+    {
+      "name": "9. Bitcoin’s performance vs. other assets (real estate, stocks, gold, etc.)",
+      "cards": [
+        {
+          "id": "9-1",
+          "title": "Portability & Sovereignty vs. Physical Assets",
+          "duration_min": 3,
+          "content": "Real estate and bullion can be effective, but they’re heavy, illiquid, or permissioned. In crises, moving value across borders can be hard. Bitcoin differs: families have crossed borders with savings intact using a small device—or a memorized phrase—to restore access later. That portability and self-custody are a different kind of performance: keeping value reachable when life is unstable. Scenario: a family relocates and pays rent from savings they carried in their heads, not in a briefcase. :contentReference[oaicite:40]{index=40}",
+          "objectives": [
+            "Compare portability and custody across assets",
+            "Explain why access matters as much as price in crises"
+          ],
+          "quiz": {
+            "question": "Which feature distinguishes Bitcoin from real estate or gold in emergencies?",
+            "type": "multiple_choice",
+            "options": [
+              "Requires a local notary",
+              "Easily confiscated at borders",
+              "Portability via keys or a memorized phrase",
+              "Needs bank approval to move"
+            ],
+            "correct_answer": "Portability via keys or a memorized phrase",
+            "style_note": "Contrast-style MCQ supports ISTJ recall; the family move scenario appeals to ISFJ/ESFJ/ESFP."
+          }
+        },
+        {
+          "id": "9-2",
+          "title": "Censorship Resistance vs. Accounts and Apps",
+          "duration_min": 2,
+          "content": "Brokerage and bank accounts can be frozen; super-apps can track and score behavior. Bitcoin’s open design resists these controls, enabling donations and payments when centralized tools are weaponized. For activists and ordinary people, that functional reliability—being able to transact when it’s unpopular—is performance that matters. Story: a small newsroom keeps paying freelancers after an account freeze because contributors can receive value directly. :contentReference[oaicite:41]{index=41} :contentReference[oaicite:42]{index=42}",
+          "objectives": [
+            "Contrast censorship risks with Bitcoin’s openness",
+            "Define performance as reliability under pressure, not just returns"
+          ],
+          "quiz": {
+            "question": "What ‘performance’ advantage can Bitcoin offer compared to bank accounts?",
+            "type": "multiple_choice",
+            "options": [
+              "Guaranteed higher interest",
+              "Inability to send funds",
+              "Resilience to censorship and account freezes",
+              "Mandatory identity scoring"
+            ],
+            "correct_answer": "Resilience to censorship and account freezes",
+            "style_note": "Outcome-focused MCQ fits ISTJ/ISFJ structure; civic framing connects with ESFJ/ESFP."
+          }
+        },
+        {
+          "id": "9-3",
+          "title": "Community Impact vs. Extractive Models",
+          "duration_min": 3,
+          "content": "Some assets rely on extractive industries or rigid data centers. Bitcoin mining, by contrast, can monetize surplus renewable energy, flex with grid needs, and even be designed to leave profits local—funding microgrids and electrification. Compared to gold mining’s extractive footprint or AI centers that can’t easily pause, mining can stabilize power and support local development. Story: a micro-hydro site serves homes and shops because miners buy excess energy at night, keeping the project viable. :contentReference[oaicite:43]{index=43} :contentReference[oaicite:44]{index=44}",
+          "objectives": [
+            "Compare community effects across asset systems",
+            "Explain how flexible mining can support local development"
+          ],
+          "quiz": {
+            "question": "Which statement matches Bitcoin mining’s potential community impact?",
+            "type": "multiple_choice",
+            "options": [
+              "Always extracts value away from locals",
+              "Can stabilize microgrids by using surplus renewable power",
+              "Must run at peak constantly",
+              "Provides no local benefits"
+            ],
+            "correct_answer": "Can stabilize microgrids by using surplus renewable power",
+            "style_note": "Evidence-aligned MCQ helps ISTJ/ISFJ retention; the town-power story engages ESFJ/ESFP."
+          }
+        }
+      ]
+    }
+  ]
+}
