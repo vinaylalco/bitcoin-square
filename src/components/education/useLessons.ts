@@ -1,69 +1,45 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { supabase } from "../../lib/supabase";
 import type { TopicFile, LessonCardData } from "./types";
 
-// Keep imports statically analyzable for Vite
-const loaders = {
-  en: () => import("../../data/lessons.en.json"),
-  es: () => import("../../data/lessons.es.json"),
-};
+async function fetchJsonPublic(bucket: string, path: string): Promise<any> {
+  const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+  const url = data.publicUrl;
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Fetch failed ${res.status}`);
+  return res.json();
+}
 
-export function useLessons(): {
-  lessons: LessonCardData[];
-  loading: boolean;
-  error?: string;
-} {
+export function useLessons() {
   const { i18n } = useTranslation();
-  const [state, setState] = useState<{
-    lessons: LessonCardData[];
-    loading: boolean;
-    error?: string;
-  }>({ lessons: [], loading: true });
+  const [state, setState] = useState<{ lessons: LessonCardData[]; loading: boolean; error?: string }>({
+    lessons: [],
+    loading: true,
+  });
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function run() {
+    let alive = true;
+    (async () => {
       setState((s) => ({ ...s, loading: true, error: undefined }));
-
-      // device/site language -> 'es' or 'en' (fallback)
       const lang = i18n.language?.toLowerCase().startsWith("es") ? "es" : "en";
-
       try {
-        const mod = await (loaders[lang] ?? loaders.en)();
-        const data = (mod as any).default as TopicFile;
-
-        const flattened: LessonCardData[] = data.topics.flatMap((t) =>
-          t.cards.map((c) => ({ ...c, topicName: t.name }))
-        );
-
-        if (!cancelled) setState({ lessons: flattened, loading: false });
+        const data = (await fetchJsonPublic("lessons", `lessons.${lang}.json`)) as TopicFile;
+        const flat = data.topics.flatMap((t) => t.cards.map((c) => ({ ...c, topicName: t.name })));
+        if (alive) setState({ lessons: flat, loading: false });
       } catch (e: any) {
+        // Fallback to local for dev
         try {
-          const modEn = await loaders.en();
-          const dataEn = (modEn as any).default as TopicFile;
-          const flattenedEn: LessonCardData[] = dataEn.topics.flatMap((t) =>
-            t.cards.map((c) => ({ ...c, topicName: t.name }))
-          );
-          if (!cancelled)
-            setState({
-              lessons: flattenedEn,
-              loading: false,
-              error: e?.message || "Failed to load lessons",
-            });
+          const mod = await import(`../../data/lessons.${lang}.json`);
+          const data = (mod as any).default as TopicFile;
+          const flat = data.topics.flatMap((t) => t.cards.map((c) => ({ ...c, topicName: t.name })));
+          if (alive) setState({ lessons: flat, loading: false, error: `storage: ${e?.message}` });
         } catch (e2: any) {
-          if (!cancelled)
-            setState({
-              lessons: [],
-              loading: false,
-              error: e2?.message || "Failed to load lessons",
-            });
+          if (alive) setState({ lessons: [], loading: false, error: e2?.message || "load error" });
         }
       }
-    }
-
-    run();
-    // reload when language changes
+    })();
+    return () => { alive = false; };
   }, [i18n.language]);
 
   return state;

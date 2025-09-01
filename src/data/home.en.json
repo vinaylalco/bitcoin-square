@@ -1,0 +1,4 @@
+{ "sections": [
+  { "imageUrl": "/hero.png", "title": "Learn Bitcoin, fast", "body": "Short, high-impact lessons with quizzes." },
+  { "imageUrl": "/features.png", "title": "Track progress", "body": "Earn points as you go and level up." }
+] }

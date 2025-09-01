@@ -3,12 +3,14 @@ import { Outlet, Link, useLocation } from "react-router-dom";
 import { Book, User, Menu } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { supabase } from "./lib/supabase"; // adjust if your path differs
+import { useAdmin } from "./hooks/useAdmin";
 
 export default function App() {
   const [open, setOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
   const { t, i18n } = useTranslation();
   const loc = useLocation();
+  const { isAdmin } = useAdmin();
 
   // close drawer when route changes
   useEffect(() => setOpen(false), [loc.pathname]);
@@ -74,6 +76,12 @@ export default function App() {
             <span>Settings</span>
           </Link>
 
+          {isAdmin && (
+            <Link to="/cms" className="block hover:text-brand">
+              <span>CMS</span>
+            </Link>
+          )}
+          
           {/* Manual Language Selector (Hamburger only) */}
           <div className="pt-4 border-t border-neutral-200 dark:border-neutral-700">
             <p className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400 mb-2">
