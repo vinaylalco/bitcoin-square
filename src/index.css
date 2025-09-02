@@ -32,3 +32,36 @@
   60%  { transform: translate(calc(-50% + (var(--i) - 5) * 10px), calc(-50% - 30px)) rotate(180deg); }
   100% { transform: translate(calc(-50% + (var(--i) - 5) * 18px), calc(-50% - 70px)) rotate(360deg); opacity: 0; }
 }
+
+/* Hide horizontal scrollbar in the CardStack track */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Party popper animation */
+.popper {
+  position: absolute;
+  top: 0.75rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  pointer-events: none;
+}
+.popper .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 9999px;
+  animation: confetti-pop 700ms ease-out forwards;
+  opacity: 0.95;
+}
+.popper .dot:nth-child(2) { transform: translateX(-6px); }
+.popper .dot:nth-child(3) { transform: translateX(6px); }
+.popper .dot:nth-child(4) { transform: translateX(-10px); }
+.popper .dot:nth-child(5) { transform: translateX(10px); }
+.popper .dot:nth-child(6) { transform: translateX(0px); }
+
+@keyframes confetti-pop {
+  0%   { transform: translateY(0) scale(0.9); opacity: 1; }
+  60%  { opacity: 1; }
+  100% { transform: translateY(-24px) scale(0.6); opacity: 0; }
+}
