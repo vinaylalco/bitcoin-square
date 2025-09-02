@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import type { ContactContent } from "../../hooks/useContactContent";
 import { getContactContent, setContactContent } from "../../hooks/useContactContent";
+import RichTextEditor from "../../components/RichTextEditor";
 
 export default function ContactEditor() {
   const [content, setContent] = useState<ContactContent>(getContactContent());
@@ -29,18 +30,18 @@ export default function ContactEditor() {
     <form onSubmit={save} className="space-y-4">
       <div>
         <label className="block text-sm font-medium mb-1">Title</label>
-        <input
+        <RichTextEditor
           value={content.title}
-          onChange={(e) => setContent({ ...content, title: e.target.value })}
-          className="w-full px-3 py-2 rounded border border-neutral-300 dark:border-neutral-700 bg-transparent"
+          onChange={(html) => setContent({ ...content, title: html })}
+          className="w-full px-3 py-2 rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900"
         />
       </div>
       <div>
-        <label className="block text-sm font-medium mb-1">Body (HTML)</label>
-        <textarea
+        <label className="block text-sm font-medium mb-1">Body</label>
+        <RichTextEditor
           value={content.body}
-          onChange={(e) => setContent({ ...content, body: e.target.value })}
-          className="w-full min-h-[120px] px-3 py-2 rounded border border-neutral-300 dark:border-neutral-700 bg-transparent"
+          onChange={(html) => setContent({ ...content, body: html })}
+          className="w-full min-h-[120px] px-3 py-2 rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900"
         />
       </div>
       <div>

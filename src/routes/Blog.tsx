@@ -9,7 +9,10 @@ export default function Blog() {
       <h1 className="text-3xl font-bold">Blog</h1>
       {posts.map((p) => (
         <article key={p.id} className="space-y-2">
-          <h2 className="text-xl font-semibold">{p.title}</h2>
+          <h2
+            className="text-xl font-semibold"
+            dangerouslySetInnerHTML={{ __html: p.title }}
+          />
           <div className="prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: p.content }} />
         </article>
       ))}

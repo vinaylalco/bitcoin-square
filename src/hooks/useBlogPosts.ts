@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 export type BlogPost = {
   id: string;
-  title: string;
+  title: string; // HTML
   content: string; // HTML
 };
 

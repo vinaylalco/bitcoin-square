@@ -5,7 +5,10 @@ export default function Contact() {
   const { content } = useContactContent();
   return (
     <div className="px-4 sm:px-6 py-6 space-y-4">
-      <h1 className="text-3xl font-bold">{content.title}</h1>
+      <h1
+        className="text-3xl font-bold"
+        dangerouslySetInnerHTML={{ __html: content.title }}
+      />
       {content.body && (
         <div
           className="prose dark:prose-invert max-w-none"

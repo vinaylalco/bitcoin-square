@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 export type SocialLink = { label: string; url: string };
 export type ContactContent = {
-  title: string;
+  title: string; // HTML
   body: string; // HTML
   socials: SocialLink[];
 };
