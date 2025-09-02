@@ -1,6 +1,6 @@
 import React from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
-import { useRole } from "../hooks/userole";
+import { useRole } from "../hooks/useRole";
 
 export default function RequireAdmin() {
   const { role, loading } = useRole();
