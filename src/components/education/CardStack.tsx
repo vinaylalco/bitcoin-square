@@ -16,11 +16,7 @@ export default function CardStack({ lessons, onAdvance }: Props) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [containerW, setContainerW] = useState(1);
   const lastIndexRef = useRef(0);
-
-  /** Tracks whether each card has satisfied the "can advance" requirement */
-  const [canAdvanceMap, setCanAdvanceMap] = useState<Record<number, boolean>>(
-    {}
-  );
+  const [pop, setPop] = useState(false);
 
   // Measure container width
   useEffect(() => {
@@ -32,7 +28,7 @@ export default function CardStack({ lessons, onAdvance }: Props) {
     return () => ro.disconnect();
   }, []);
 
-  // Scroll listener: update index; forbid forward if current card not answered
+  // Scroll listener: update index (no gating — free navigation)
   useEffect(() => {
     const el = trackRef.current;
     if (!el) return;
@@ -44,20 +40,10 @@ export default function CardStack({ lessons, onAdvance }: Props) {
       requestAnimationFrame(() => {
         const idx = Math.round(el.scrollLeft / containerW);
 
-        // If trying to go forward but current card not answered -> snap back
-        const tryingForward = idx > activeIndex;
-        const currentAnswered = !!canAdvanceMap[activeIndex];
-        if (tryingForward && !currentAnswered) {
-          el.scrollTo({
-            left: activeIndex * containerW,
-            behavior: "smooth",
-          });
-          ticking = false;
-          return;
-        }
-
         if (idx !== activeIndex) {
           setActiveIndex(idx);
+
+          // Award points once when moving past the furthest index
           if (idx > lastIndexRef.current) {
             const delta = idx - lastIndexRef.current;
             onAdvance?.(idx, delta);
@@ -70,7 +56,7 @@ export default function CardStack({ lessons, onAdvance }: Props) {
 
     el.addEventListener("scroll", onScroll, { passive: true });
     return () => el.removeEventListener("scroll", onScroll);
-  }, [containerW, activeIndex, canAdvanceMap, onAdvance]);
+  }, [containerW, activeIndex, onAdvance]);
 
   // progress %
   const percent = useMemo(
@@ -83,30 +69,36 @@ export default function CardStack({ lessons, onAdvance }: Props) {
     const el = trackRef.current;
     if (!el) return;
     const clamped = Math.max(0, Math.min(total - 1, targetIndex));
-
-    // Before moving forward, enforce gating
-    if (clamped > activeIndex && !canAdvanceMap[activeIndex]) return;
-
     el.scrollTo({ left: clamped * containerW, behavior: "smooth" });
   };
 
-  const nextDisabled = !canAdvanceMap[activeIndex] || activeIndex >= total - 1;
+  // Party popper + smooth page scroll-to-top on card change
+  useEffect(() => {
+    // slight delay helps if layout shifts
+    setTimeout(() => {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }, 50);
 
-  // Keyboard support (left/right arrows)
+    setPop(true);
+    const t = setTimeout(() => setPop(false), 700);
+    return () => clearTimeout(t);
+  }, [activeIndex]);
+
+  // Keyboard support (desktop)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "ArrowLeft") {
         scrollToIndex(activeIndex - 1);
       } else if (e.key === "ArrowRight") {
-        if (!nextDisabled) scrollToIndex(activeIndex + 1);
+        scrollToIndex(activeIndex + 1);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [activeIndex, nextDisabled]);
+  }, [activeIndex]);
 
   return (
-    <section className="w-full">
+    <section className="w-full relative">
       {/* Progress bar + % */}
       <div className="px-4 sm:px-6 mb-3">
         <div className="flex items-center justify-between mb-1">
@@ -129,32 +121,35 @@ export default function CardStack({ lessons, onAdvance }: Props) {
         </div>
       </div>
 
+      {/* Confetti / party popper */}
+      {pop && (
+        <div className="popper z-30">
+          <span className="dot bg-brand" />
+          <span className="dot bg-yellow-400" />
+          <span className="dot bg-emerald-500" />
+          <span className="dot bg-rose-500" />
+          <span className="dot bg-blue-500" />
+          <span className="dot bg-orange-500" />
+        </div>
+      )}
+
       {/* Horizontal snap scroller */}
-      <div
-        className="relative"
-        // container is relative so overlay arrows can be centered over card
-      >
-        {/* Track */}
+      <div className="relative">
         <div
           ref={trackRef}
           className="flex gap-4 overflow-x-auto snap-x snap-mandatory scroll-smooth no-scrollbar px-0 relative z-10"
           style={{ scrollPadding: "0px" }}
         >
-          {lessons.map((l, i) => (
+          {lessons.map((l) => (
             <div key={l.id} className="snap-center w-full flex-shrink-0">
-              <LessonCard
-                lesson={l}
-                onAnswerStateChange={(ok) =>
-                  setCanAdvanceMap((m) => ({ ...m, [i]: ok }))
-                }
-              />
+              <LessonCard lesson={l} />
             </div>
           ))}
         </div>
 
-        {/* Overlay arrows (centered vertically, inset on sides) */}
+        {/* Overlay arrows (centered vertically, inset on sides) — hidden on mobile */}
         <button
-          className="grid place-items-center absolute left-2 top-1/2 -translate-y-1/2 h-11 w-11 rounded-full bg-white/90 dark:bg-neutral-800/90 border border-neutral-200 dark:border-neutral-700 shadow z-30"
+          className="hidden md:grid place-items-center absolute left-2 top-1/2 -translate-y-1/2 h-11 w-11 rounded-full bg-white/90 dark:bg-neutral-800/90 border border-neutral-200 dark:border-neutral-700 shadow z-30"
           onClick={() => scrollToIndex(activeIndex - 1)}
           aria-label="Previous lesson"
         >
@@ -162,14 +157,9 @@ export default function CardStack({ lessons, onAdvance }: Props) {
         </button>
 
         <button
-          className={`grid place-items-center absolute right-2 top-1/2 -translate-y-1/2 h-11 w-11 rounded-full border shadow z-30
-            ${nextDisabled
-              ? "bg-white/60 dark:bg-neutral-800/60 border-neutral-200 dark:border-neutral-700 opacity-50 pointer-events-none"
-              : "bg-white/90 dark:bg-neutral-800/90 border-neutral-200 dark:border-neutral-700"
-            }`}
+          className="hidden md:grid place-items-center absolute right-2 top-1/2 -translate-y-1/2 h-11 w-11 rounded-full bg-white/90 dark:bg-neutral-800/90 border border-neutral-200 dark:border-neutral-700 shadow z-30"
           onClick={() => scrollToIndex(activeIndex + 1)}
           aria-label="Next lesson"
-          aria-disabled={nextDisabled}
         >
           <ChevronRight className="h-6 w-6" />
         </button>

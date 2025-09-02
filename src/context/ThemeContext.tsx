@@ -1,47 +1,47 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 
 type Theme = "light" | "dark";
+type Ctx = { theme: Theme; setTheme: (t: Theme) => void; toggle: () => void };
 
-type ThemeContextType = {
-  theme: Theme;
-  toggleTheme: () => void;
-};
+const ThemeCtx = createContext<Ctx | null>(null);
 
-const ThemeContext = createContext<ThemeContextType>({
-  theme: "light",
-  toggleTheme: () => {},
-});
+function applyTheme(t: Theme) {
+  const root = document.documentElement;
+  if (t === "dark") root.classList.add("dark");
+  else root.classList.remove("dark");
+  localStorage.setItem("theme", t);
+}
+
+function getInitialTheme(): Theme {
+  try {
+    const stored = localStorage.getItem("theme") as Theme | null;
+    return stored === "dark" ? "dark" : "light";
+  } catch {
+    return "light";
+  }
+}
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>(() => {
-    // load initial value synchronously so flicker is avoided
-    const stored = localStorage.getItem("theme") as Theme | null;
-    if (stored) return stored;
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    return prefersDark ? "dark" : "light";
-  });
+  const [theme, setThemeState] = useState<Theme>(getInitialTheme);
 
-  // Apply to <html> on mount and whenever theme changes
   useEffect(() => {
-    if (theme === "dark") {
-      document.documentElement.classList.add("dark");
-      document.documentElement.classList.remove("light");
-    } else {
-      document.documentElement.classList.add("light");
-      document.documentElement.classList.remove("dark");
-    }
-    localStorage.setItem("theme", theme);
+    applyTheme(theme);
   }, [theme]);
 
-  const toggleTheme = () => setTheme((prev) => (prev === "light" ? "dark" : "light"));
-
-  return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
-      {children}
-    </ThemeContext.Provider>
+  const api = useMemo<Ctx>(
+    () => ({
+      theme,
+      setTheme: (t) => setThemeState(t),
+      toggle: () => setThemeState((p) => (p === "dark" ? "light" : "dark")),
+    }),
+    [theme]
   );
+
+  return <ThemeCtx.Provider value={api}>{children}</ThemeCtx.Provider>;
 }
 
 export function useTheme() {
-  return useContext(ThemeContext);
+  const ctx = useContext(ThemeCtx);
+  if (!ctx) throw new Error("useTheme must be used within ThemeProvider");
+  return ctx;
 }

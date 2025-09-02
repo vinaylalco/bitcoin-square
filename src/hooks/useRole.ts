@@ -1,49 +1,66 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 
-/**
- * useRole
- * - Returns { role: "admin" | "user" | null, loading }
- * - Matches email against VITE_ADMIN_EMAILS
- */
+type Role = "admin" | "user" | null;
+const CACHE_KEY = "bsq.role.v1";
+
+function readCache(): { role: Role; email?: string } | null {
+  try {
+    const raw = sessionStorage.getItem(CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+function writeCache(role: Role, email?: string) {
+  try {
+    sessionStorage.setItem(CACHE_KEY, JSON.stringify({ role, email }));
+  } catch {}
+}
+function computeRole(email?: string | null): Role {
+  const admins = (import.meta.env.VITE_ADMIN_EMAILS || "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  if (!email) return null;
+  return admins.includes(email.toLowerCase()) ? "admin" : "user";
+}
+
 export function useRole() {
-  const [role, setRole] = useState<"admin" | "user" | null>(null);
-  const [loading, setLoading] = useState(true);
+  const cached = readCache();
+  const [role, setRole] = useState<Role>(cached?.role ?? null);
+  const [loading, setLoading] = useState<boolean>(cached ? false : true);
 
   useEffect(() => {
-    let mounted = true;
+    let alive = true;
 
-    async function checkRole() {
-      setLoading(true);
-
-      const { data: sessionData } = await supabase.auth.getSession();
-      const email = sessionData.session?.user?.email?.toLowerCase();
-
-      const adminList = (import.meta.env.VITE_ADMIN_EMAILS || "")
-        .split(",")
-        .map((e) => e.trim().toLowerCase())
-        .filter(Boolean);
-
-      if (mounted) {
-        if (email && adminList.includes(email)) {
-          setRole("admin");
-        } else if (email) {
-          setRole("user");
-        } else {
-          setRole(null);
-        }
+    async function resolve() {
+      try {
+        const { data } = await supabase.auth.getUser();
+        const email = data?.user?.email ?? undefined;
+        const r = computeRole(email);
+        if (!alive) return;
+        setRole(r);
         setLoading(false);
+        writeCache(r, email);
+      } catch {
+        if (!alive) return;
+        setRole(null);
+        setLoading(false);
+        writeCache(null);
       }
     }
 
-    checkRole();
+    // hydrate immediately from cache, then reconcile
+    resolve();
 
-    const { data: sub } = supabase.auth.onAuthStateChange(() => checkRole());
-    return () => {
-      mounted = false;
-      sub?.subscription.unsubscribe();
-    };
+    const { data: sub } = supabase.auth.onAuthStateChange(() => {
+      setLoading(true);
+      resolve();
+    });
+
+    return () => sub?.subscription.unsubscribe();
   }, []);
-  
+
   return { role, loading };
 }
