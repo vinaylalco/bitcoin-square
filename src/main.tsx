@@ -15,15 +15,18 @@ import Settings from "./routes/Settings";
 import RequireAdmin from "./routes/RequireAdmin";
 import CMSLayout from "./routes/cms/CMSLayout";
 import CMSGate from "./routes/cms/CMSGate";
-import HomeEditor from "./routes/cms/HomeEditor";
 import LessonsEditor from "./routes/cms/LessonsEditor";
 import { loadHomeBoth, loadLessonsBoth } from "./routes/cms/loaders";
+import RouteError from "./routes/RouteError";
 import { ThemeProvider } from "./context/ThemeContext";
+import LessonsUpload from "./routes/cms/LessonsUpload"; // ✅ NEW
+import HomeEditor from "./routes/cms/HomeEditor";
 
 const router = createBrowserRouter([
   {
     path: "/",
     element: <App />,
+    errorElement: <RouteError />,              // ✅ friendly error UI
     children: [
       { index: true, element: <Home /> },
       { path: "education", element: <Education /> },
@@ -31,40 +34,36 @@ const router = createBrowserRouter([
       { path: "login", element: <Login /> },
       { path: "settings", element: <Settings /> },
 
-      // CMS: require admin, then preload data with a single skeleton. Editors mount once.
       {
         element: <RequireAdmin />,
+        errorElement: <RouteError />,          // ✅ errors under /cms/*
         children: [
           {
             path: "cms",
             element: <CMSLayout />,
+            errorElement: <RouteError />,      // ✅ per-layout boundary
             children: [
               {
                 index: true,
                 element: (
-                  <CMSGate
-                    loader={loadHomeBoth}
-                    render={(initial) => <HomeEditor initial={initial} />}
-                  />
+                  <CMSGate loader={loadHomeBoth} render={(initial) => <HomeEditor initial={initial} />} />
                 ),
               },
               {
                 path: "home",
                 element: (
-                  <CMSGate
-                    loader={loadHomeBoth}
-                    render={(initial) => <HomeEditor initial={initial} />}
-                  />
+                  <CMSGate loader={loadHomeBoth} render={(initial) => <HomeEditor initial={initial} />} />
                 ),
               },
               {
                 path: "lessons",
                 element: (
-                  <CMSGate
-                    loader={loadLessonsBoth}
-                    render={(initial) => <LessonsEditor initial={initial} />}
-                  />
+                  <CMSGate loader={loadLessonsBoth} render={(initial) => <LessonsEditor initial={initial} />} />
                 ),
+              },
+              {
+                path: "lessons/upload",
+                element: <LessonsUpload />,
               },
             ],
           },

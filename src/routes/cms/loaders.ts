@@ -2,25 +2,43 @@ import { supabase } from "../../lib/supabase";
 import type { HomeFile } from "../../hooks/useHomeContent";
 import type { TopicFile } from "../../components/education/types";
 
+function normalizeHome(input: any): HomeFile {
+  return {
+    hero: input?.hero
+      ? {
+          title: typeof input.hero.title === "string" ? input.hero.title : "",
+          subtitle: typeof input.hero.subtitle === "string" ? input.hero.subtitle : "",
+        }
+      : { title: "", subtitle: "" },
+    sections: Array.isArray(input?.sections) ? input.sections : [],
+  };
+}
+
+function normalizeLessons(input: any): TopicFile {
+  const topics = Array.isArray(input?.topics) ? input.topics : [];
+  return { topics };
+}
+
+async function fetchPublicJSON<T>(bucket: string, key: string, fallback: T): Promise<T> {
+  const { data } = supabase.storage.from(bucket).getPublicUrl(key);
+  const res = await fetch(data.publicUrl, { cache: "no-store" });
+  if (res.status === 404) return fallback;          // treat missing file as empty
+  if (!res.ok) throw new Error(`${bucket}/${key} ${res.status}`);
+  return (await res.json()) as T;
+}
+
 export async function loadHomeBoth(): Promise<{ en: HomeFile; es: HomeFile }> {
-  async function fetchHome(lang: "en" | "es"): Promise<HomeFile> {
-    const { data } = supabase.storage.from("homepage").getPublicUrl(`home.${lang}.json`);
-    const res = await fetch(data.publicUrl, { cache: "no-store" });
-    if (!res.ok) throw new Error(`home ${lang} fetch failed: ${res.status}`);
-    const json = (await res.json()) as HomeFile;
-    return { hero: json.hero ?? { title: "", subtitle: "" }, sections: Array.isArray(json.sections) ? json.sections : [] };
-  }
-  const [en, es] = await Promise.all([fetchHome("en"), fetchHome("es")]);
-  return { en, es };
+  const [enRaw, esRaw] = await Promise.all([
+    fetchPublicJSON<any>("homepage", "home.en.json", { hero: { title: "", subtitle: "" }, sections: [] }),
+    fetchPublicJSON<any>("homepage", "home.es.json", { hero: { title: "", subtitle: "" }, sections: [] }),
+  ]);
+  return { en: normalizeHome(enRaw), es: normalizeHome(esRaw) };
 }
 
 export async function loadLessonsBoth(): Promise<{ en: TopicFile; es: TopicFile }> {
-  async function fetchLessons(lang: "en" | "es"): Promise<TopicFile> {
-    const { data } = supabase.storage.from("lessons").getPublicUrl(`lessons.${lang}.json`);
-    const res = await fetch(data.publicUrl, { cache: "no-store" });
-    if (!res.ok) throw new Error(`lessons ${lang} fetch failed: ${res.status}`);
-    return res.json();
-  }
-  const [en, es] = await Promise.all([fetchLessons("en"), fetchLessons("es")]);
-  return { en, es };
+  const [enRaw, esRaw] = await Promise.all([
+    fetchPublicJSON<any>("lessons", "lessons.en.json", { topics: [] }),
+    fetchPublicJSON<any>("lessons", "lessons.es.json", { topics: [] }),
+  ]);
+  return { en: normalizeLessons(enRaw), es: normalizeLessons(esRaw) };
 }
