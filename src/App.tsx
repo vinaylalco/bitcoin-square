@@ -3,7 +3,7 @@ import { Outlet, NavLink, useLocation } from "react-router-dom";
 import { Menu, X, Home as HomeIcon, BookOpen, User, Settings } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { supabase } from "./lib/supabase";
-import { useRole } from "./hooks/userole";
+import { useRole } from "./hooks/useRole";
 import FocusTrap from "./components/FocusTrap";
 import { useSwipe } from "./hooks/useSwipe";
 import { useTheme } from "./context/ThemeContext";

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import type { TopicFile } from "../../components/education/types";
-import { useRole } from "../../hooks/userole";
+import { useRole } from "../../hooks/useRole";
 import { saveJson } from "../../lib/cmsClient";
 
 type Locale = "en" | "es";
