@@ -1,0 +1,33 @@
+import React from "react";
+import { useContactContent } from "../hooks/useContactContent";
+
+export default function Contact() {
+  const { content } = useContactContent();
+  return (
+    <div className="px-4 sm:px-6 py-6 space-y-4">
+      <h1 className="text-3xl font-bold">{content.title}</h1>
+      {content.body && (
+        <div
+          className="prose dark:prose-invert max-w-none"
+          dangerouslySetInnerHTML={{ __html: content.body }}
+        />
+      )}
+      {content.socials.length > 0 && (
+        <ul className="flex gap-4 mt-4">
+          {content.socials.map((s, i) => (
+            <li key={i}>
+              <a
+                href={s.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-brand hover:underline"
+              >
+                {s.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}

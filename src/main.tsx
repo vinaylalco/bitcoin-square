@@ -11,6 +11,8 @@ import Education from "./routes/Education";
 import Profile from "./routes/Profile";
 import Login from "./routes/Login";
 import Settings from "./routes/Settings";
+import Blog from "./routes/Blog";
+import Contact from "./routes/Contact";
 
 import RequireAdmin from "./routes/RequireAdmin";
 import CMSLayout from "./routes/cms/CMSLayout";
@@ -21,6 +23,9 @@ import RouteError from "./routes/RouteError";
 import { ThemeProvider } from "./context/ThemeContext";
 import LessonsUpload from "./routes/cms/LessonsUpload"; // ✅ NEW
 import HomeEditor from "./routes/cms/HomeEditor";
+import BlogEditor from "./routes/cms/BlogEditor";
+import ContactEditor from "./routes/cms/ContactEditor";
+import NewsletterAdmin from "./routes/cms/NewsletterAdmin";
 
 const router = createBrowserRouter([
   {
@@ -33,6 +38,8 @@ const router = createBrowserRouter([
       { path: "profile", element: <Profile /> },
       { path: "login", element: <Login /> },
       { path: "settings", element: <Settings /> },
+      { path: "blog", element: <Blog /> },
+      { path: "contact", element: <Contact /> },
 
       {
         element: <RequireAdmin />,
@@ -65,6 +72,9 @@ const router = createBrowserRouter([
                 path: "lessons/upload",
                 element: <LessonsUpload />,
               },
+              { path: "blog", element: <BlogEditor /> },
+              { path: "contact", element: <ContactEditor /> },
+              { path: "newsletter", element: <NewsletterAdmin /> },
             ],
           },
         ],
