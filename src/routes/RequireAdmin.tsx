@@ -6,14 +6,18 @@ export default function RequireAdmin() {
   const { role, loading } = useRole();
   const loc = useLocation();
 
-  if (loading) {
-    return <div className="p-4 text-sm text-neutral-500">Checking permissions…</div>;
-  }
+  // Render nothing while role resolves; CMSGate will handle skeleton + data preload.
+  if (loading) return null;
+
   if (role === null) {
+    // Not logged in
     return <Navigate to="/login" replace state={{ from: loc.pathname }} />;
   }
   if (role !== "admin") {
+    // Logged in but not admin
     return <Navigate to="/" replace />;
   }
+
+  // Admin
   return <Outlet />;
 }
