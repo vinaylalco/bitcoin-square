@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { fetchContactContent } from "../lib/strapi";
 
 export type SocialLink = { label: string; url: string };
 export type ContactContent = {
@@ -7,38 +9,30 @@ export type ContactContent = {
   socials: SocialLink[];
 };
 
-const KEY = "bsq.contact.v1";
-
-function load(): ContactContent {
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (raw) return JSON.parse(raw) as ContactContent;
-  } catch {}
-  return { title: "Contact", body: "", socials: [] };
-}
-
-function save(c: ContactContent) {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(c));
-  } catch {}
-}
-
-export function getContactContent(): ContactContent {
-  return load();
-}
-
-export function setContactContent(c: ContactContent) {
-  save(c);
-}
-
 export function useContactContent() {
-  const [content, setContent] = useState<ContactContent>(() => load());
+  const { i18n } = useTranslation();
+  const [content, setContent] = useState<ContactContent>({ title: "", body: "", socials: [] });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | undefined>();
+
   useEffect(() => {
-    setContent(load());
-  }, []);
-  const update = (c: ContactContent) => {
-    setContent(c);
-    save(c);
-  };
-  return { content, update };
+    let alive = true;
+    const lang: "en" | "es" = i18n.language?.toLowerCase().startsWith("es") ? "es" : "en";
+    (async () => {
+      setLoading(true);
+      try {
+        const data = await fetchContactContent(lang);
+        if (alive) setContent(data);
+      } catch (e: any) {
+        if (alive) setError(e?.message || "Failed to load contact content");
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [i18n.language]);
+
+  return { content, loading, error };
 }

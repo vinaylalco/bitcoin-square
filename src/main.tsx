@@ -14,18 +14,8 @@ import Settings from "./routes/Settings";
 import Blog from "./routes/Blog";
 import Contact from "./routes/Contact";
 
-import RequireAdmin from "./routes/RequireAdmin";
-import CMSLayout from "./routes/cms/CMSLayout";
-import CMSGate from "./routes/cms/CMSGate";
-import LessonsEditor from "./routes/cms/LessonsEditor";
-import { loadHomeBoth, loadLessonsBoth } from "./routes/cms/loaders";
 import RouteError from "./routes/RouteError";
 import { ThemeProvider } from "./context/ThemeContext";
-import LessonsUpload from "./routes/cms/LessonsUpload"; // ✅ NEW
-import HomeEditor from "./routes/cms/HomeEditor";
-import BlogEditor from "./routes/cms/BlogEditor";
-import ContactEditor from "./routes/cms/ContactEditor";
-import NewsletterAdmin from "./routes/cms/NewsletterAdmin";
 
 const router = createBrowserRouter([
   {
@@ -40,45 +30,6 @@ const router = createBrowserRouter([
       { path: "settings", element: <Settings /> },
       { path: "blog", element: <Blog /> },
       { path: "contact", element: <Contact /> },
-
-      {
-        element: <RequireAdmin />,
-        errorElement: <RouteError />,          // ✅ errors under /cms/*
-        children: [
-          {
-            path: "cms",
-            element: <CMSLayout />,
-            errorElement: <RouteError />,      // ✅ per-layout boundary
-            children: [
-              {
-                index: true,
-                element: (
-                  <CMSGate loader={loadHomeBoth} render={(initial) => <HomeEditor initial={initial} />} />
-                ),
-              },
-              {
-                path: "home",
-                element: (
-                  <CMSGate loader={loadHomeBoth} render={(initial) => <HomeEditor initial={initial} />} />
-                ),
-              },
-              {
-                path: "lessons",
-                element: (
-                  <CMSGate loader={loadLessonsBoth} render={(initial) => <LessonsEditor initial={initial} />} />
-                ),
-              },
-              {
-                path: "lessons/upload",
-                element: <LessonsUpload />,
-              },
-              { path: "blog", element: <BlogEditor /> },
-              { path: "contact", element: <ContactEditor /> },
-              { path: "newsletter", element: <NewsletterAdmin /> },
-            ],
-          },
-        ],
-      },
     ],
   },
 ]);

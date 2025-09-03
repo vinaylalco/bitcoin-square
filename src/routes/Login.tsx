@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { login, register } from "@/lib/strapi";
 import { useNavigate } from "react-router-dom";
 
 export default function Login() {
@@ -14,21 +14,12 @@ export default function Login() {
     setLoading(true);
     try {
       if (isSignUp) {
-        const { error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
-
-        alert(
-          "Sign-up successful! Please check your email inbox and click the confirmation link before logging in."
-        );
+        await register(email, email, password);
+        alert("Sign-up successful! You can now log in.");
         setIsSignUp(false); // switch back to login form
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        if (error) throw error;
-
-        navigate("/education"); // redirect to education page (not profile anymore)
+        await login(email, password);
+        navigate("/education"); // redirect to education page
       }
     } catch (err: any) {
       alert(err.message);

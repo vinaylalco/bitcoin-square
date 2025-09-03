@@ -2,8 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Outlet, NavLink, useLocation } from "react-router-dom";
 import { Menu, X, Home as HomeIcon, BookOpen, User, Settings, FileText, Mail } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { supabase } from "./lib/supabase";
-import { useRole } from "./hooks/useRole";
+import { getCurrentUser, onAuthStateChange } from "./lib/strapi";
 import FocusTrap from "./components/FocusTrap";
 import { useSwipe } from "./hooks/useSwipe";
 import { useTheme } from "./context/ThemeContext";
@@ -17,23 +16,19 @@ export default function App() {
   const [user, setUser] = useState<any>(null);
   const { t, i18n } = useTranslation();
   const loc = useLocation();
-  const { role } = useRole();
   const { theme } = useTheme(); // ensures theme context is mounted
 
-  const isCMS = loc.pathname.startsWith("/cms");
   const lang = (i18n.language || "en").toLowerCase().startsWith("es") ? "es" : "en";
   const changeLang = (lng: "en" | "es") => i18n.changeLanguage(lng);
 
   // Close drawer on route change
   useEffect(() => setOpen(false), [loc.pathname]);
 
-  // Supabase auth state
+  // Strapi auth state
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null));
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      setUser(session?.user ?? null);
-    });
-    return () => sub?.subscription.unsubscribe();
+    getCurrentUser().then((u) => setUser(u));
+    const unsub = onAuthStateChange((u) => setUser(u));
+    return unsub;
   }, []);
 
   // Body scroll lock while drawer open
@@ -158,10 +153,16 @@ export default function App() {
               <span>Settings</span>
             </NavLink>
 
-            {role === "admin" && (
-              <NavLink to="/cms" onClick={() => setOpen(false)} className="flex items-center gap-2 font-semibold hover:text-brand">
+            {user?.role?.type === "admin" && (
+              <a
+                href={`${import.meta.env.VITE_STRAPI_URL || "http://localhost:1337"}/admin`}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2 font-semibold hover:text-brand"
+              >
                 CMS
-              </NavLink>
+              </a>
             )}
 
             {/* Manual Language Selector */}
@@ -189,13 +190,13 @@ export default function App() {
       </aside>
 
       {/* Main content (pad bottom if bottom nav visible) */}
-      <main className={`flex-1 ${!isCMS ? "pb-[calc(64px+env(safe-area-inset-bottom))] sm:pb-0" : ""}`}>
+      <main className={`flex-1 pb-[calc(64px+env(safe-area-inset-bottom))] sm:pb-0`}>
         <Outlet />
-        {!isCMS && <Footer />}
+        <Footer />
       </main>
 
-      {/* Bottom nav (hidden on CMS routes and desktop) */}
-      {!isCMS && (
+      {/* Bottom nav (hidden on desktop) */}
+      {(
         <nav
           role="navigation"
           aria-label="App navigation"
