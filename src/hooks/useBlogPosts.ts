@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { fetchBlogPosts } from "../lib/strapi";
 
 export type BlogPost = {
   id: string;
@@ -6,40 +8,30 @@ export type BlogPost = {
   content: string; // HTML
 };
 
-const KEY = "bsq.blog.v1";
-
-function load(): BlogPost[] {
-  try {
-    const raw = localStorage.getItem(KEY);
-    return raw ? (JSON.parse(raw) as BlogPost[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function save(list: BlogPost[]) {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(list));
-  } catch {}
-}
-
-export function getBlogPosts(): BlogPost[] {
-  return load();
-}
-
-export function setBlogPosts(list: BlogPost[]) {
-  save(list);
-}
-
 export function useBlogPosts() {
+  const { i18n } = useTranslation();
   const [posts, setPosts] = useState<BlogPost[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | undefined>();
+
   useEffect(() => {
-    setPosts(load());
-  }, []);
-  const addPost = (post: BlogPost) => {
-    const updated = [...posts, post];
-    setPosts(updated);
-    save(updated);
-  };
-  return { posts, addPost, setPosts };
+    let alive = true;
+    const lang: "en" | "es" = i18n.language?.toLowerCase().startsWith("es") ? "es" : "en";
+    (async () => {
+      setLoading(true);
+      try {
+        const list = await fetchBlogPosts(lang);
+        if (alive) setPosts(list);
+      } catch (e: any) {
+        if (alive) setError(e?.message || "Failed to load posts");
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [i18n.language]);
+
+  return { posts, loading, error };
 }

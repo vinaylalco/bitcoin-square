@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { getCurrentUser, onAuthStateChange, logout } from "@/lib/strapi";
 import { useNavigate } from "react-router-dom";
 
 export default function Profile() {
@@ -7,15 +7,13 @@ export default function Profile() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUser(data.user));
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      (_, session) => setUser(session?.user ?? null)
-    );
-    return () => listener.subscription.unsubscribe();
+    getCurrentUser().then((u) => setUser(u));
+    const unsub = onAuthStateChange((u) => setUser(u));
+    return unsub;
   }, []);
 
-  async function handleLogout() {
-    await supabase.auth.signOut();
+  function handleLogout() {
+    logout();
     navigate("/login");
   }
 

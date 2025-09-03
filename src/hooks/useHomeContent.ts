@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { supabase } from "../lib/supabase";
+import { fetchHomeContent } from "../lib/strapi";
 
 export type CTA = {
   label: string;
@@ -48,10 +48,7 @@ function writeCache(lang: "en" | "es", data: HomeFile) {
 }
 
 async function fetchHome(lang: "en" | "es"): Promise<HomeFile> {
-  const { data } = supabase.storage.from("homepage").getPublicUrl(`home.${lang}.json`);
-  const res = await fetch(data.publicUrl, { cache: "no-store" });
-  if (!res.ok) throw new Error(`home ${lang} fetch failed: ${res.status}`);
-  const json = (await res.json()) as HomeFile;
+  const json = await fetchHomeContent(lang);
   return {
     hero: json.hero ?? undefined,
     sections: Array.isArray(json.sections) ? json.sections : [],
