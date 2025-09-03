@@ -1,12 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Outlet, NavLink, useLocation } from "react-router-dom";
-import { Menu, X, Home as HomeIcon, BookOpen, User, Settings } from "lucide-react";
+import { Menu, X, Home as HomeIcon, BookOpen, User, Settings, FileText, Mail } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { supabase } from "./lib/supabase";
 import { useRole } from "./hooks/useRole";
 import FocusTrap from "./components/FocusTrap";
 import { useSwipe } from "./hooks/useSwipe";
 import { useTheme } from "./context/ThemeContext";
+import Footer from "./components/Footer";
 
 export default function App() {
   const [open, setOpen] = useState(false);
@@ -130,6 +131,16 @@ export default function App() {
               <span>{t("nav.education") || "Education"}</span>
             </NavLink>
 
+            <NavLink to="/blog" onClick={() => setOpen(false)} className="flex items-center gap-2 hover:text-brand">
+              <FileText className="h-5 w-5" />
+              <span>Blog</span>
+            </NavLink>
+
+            <NavLink to="/contact" onClick={() => setOpen(false)} className="flex items-center gap-2 hover:text-brand">
+              <Mail className="h-5 w-5" />
+              <span>Contact</span>
+            </NavLink>
+
             {user ? (
               <NavLink to="/profile" onClick={() => setOpen(false)} className="flex items-center gap-2 hover:text-brand">
                 <User className="h-5 w-5" />
@@ -178,17 +189,18 @@ export default function App() {
       </aside>
 
       {/* Main content (pad bottom if bottom nav visible) */}
-      <main className={`flex-1 ${!isCMS ? "pb-[calc(64px+env(safe-area-inset-bottom))]" : ""}`}>
+      <main className={`flex-1 ${!isCMS ? "pb-[calc(64px+env(safe-area-inset-bottom))] sm:pb-0" : ""}`}>
         <Outlet />
+        {!isCMS && <Footer />}
       </main>
 
-      {/* Bottom nav (hidden on CMS routes) */}
+      {/* Bottom nav (hidden on CMS routes and desktop) */}
       {!isCMS && (
         <nav
           role="navigation"
           aria-label="App navigation"
           className="
-            fixed bottom-0 left-0 right-0 z-40
+            fixed bottom-0 left-0 right-0 z-40 sm:hidden
             border-t border-neutral-200 dark:border-neutral-800
             bg-white/95 dark:bg-neutral-900/95 backdrop-blur
             py-2 pb-[calc(8px+env(safe-area-inset-bottom))]
