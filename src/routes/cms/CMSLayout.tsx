@@ -9,8 +9,6 @@ export default function CMSLayout() {
         <NavLink to="/cms/lessons" className="px-3 py-1.5 rounded border dark:border-neutral-700">Lessons Editor</NavLink>
         <NavLink to="/cms/lessons/upload" className="px-3 py-1.5 rounded border dark:border-neutral-700">Lessons Upload</NavLink>
         <NavLink to="/cms/home" className="px-3 py-1.5 rounded border dark:border-neutral-700">Home Editor</NavLink>
-        <NavLink to="/cms/blog" className="px-3 py-1.5 rounded border dark:border-neutral-700">Blog Editor</NavLink>
-        <NavLink to="/cms/contact" className="px-3 py-1.5 rounded border dark:border-neutral-700">Contact Editor</NavLink>
         <NavLink to="/cms/newsletter" className="px-3 py-1.5 rounded border dark:border-neutral-700">Newsletter</NavLink>
       </nav>
       <Outlet />
