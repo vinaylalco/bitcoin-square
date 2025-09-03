@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Outlet, NavLink, useLocation } from "react-router-dom";
-import { Menu, X, Home as HomeIcon, BookOpen, User, Settings, FileText, Mail } from "lucide-react";
+import { Menu, X, Home as HomeIcon, BookOpen, User, Settings } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { supabase } from "./lib/supabase";
 import { useRole } from "./hooks/useRole";
@@ -129,16 +129,6 @@ export default function App() {
             <NavLink to="/education" onClick={() => setOpen(false)} className="flex items-center gap-2 hover:text-brand">
               <BookOpen className="h-5 w-5" />
               <span>{t("nav.education") || "Education"}</span>
-            </NavLink>
-
-            <NavLink to="/blog" onClick={() => setOpen(false)} className="flex items-center gap-2 hover:text-brand">
-              <FileText className="h-5 w-5" />
-              <span>Blog</span>
-            </NavLink>
-
-            <NavLink to="/contact" onClick={() => setOpen(false)} className="flex items-center gap-2 hover:text-brand">
-              <Mail className="h-5 w-5" />
-              <span>Contact</span>
             </NavLink>
 
             {user ? (
