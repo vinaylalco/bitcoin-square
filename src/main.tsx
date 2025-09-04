@@ -15,15 +15,9 @@ import Blog from "./routes/Blog";
 import Contact from "./routes/Contact";
 
 import RequireAdmin from "./routes/RequireAdmin";
-import CMSLayout from "./routes/cms/CMSLayout";
-import CMSGate from "./routes/cms/CMSGate";
-import LessonsEditor from "./routes/cms/LessonsEditor";
-import { loadHomeBoth, loadLessonsBoth } from "./routes/cms/loaders";
 import RouteError from "./routes/RouteError";
 import { ThemeProvider } from "./context/ThemeContext";
-import LessonsUpload from "./routes/cms/LessonsUpload"; // ✅ NEW
-import HomeEditor from "./routes/cms/HomeEditor";
-import NewsletterAdmin from "./routes/cms/NewsletterAdmin";
+import AdminApp from "./admin/AdminApp";
 
 const router = createBrowserRouter([
   {
@@ -41,37 +35,11 @@ const router = createBrowserRouter([
 
       {
         element: <RequireAdmin />,
-        errorElement: <RouteError />,          // ✅ errors under /cms/*
+        errorElement: <RouteError />, // errors under /cms/*
         children: [
           {
-            path: "cms",
-            element: <CMSLayout />,
-            errorElement: <RouteError />,      // ✅ per-layout boundary
-            children: [
-              {
-                index: true,
-                element: (
-                  <CMSGate loader={loadHomeBoth} render={(initial) => <HomeEditor initial={initial} />} />
-                ),
-              },
-              {
-                path: "home",
-                element: (
-                  <CMSGate loader={loadHomeBoth} render={(initial) => <HomeEditor initial={initial} />} />
-                ),
-              },
-              {
-                path: "lessons",
-                element: (
-                  <CMSGate loader={loadLessonsBoth} render={(initial) => <LessonsEditor initial={initial} />} />
-                ),
-              },
-              {
-                path: "lessons/upload",
-                element: <LessonsUpload />,
-              },
-              { path: "newsletter", element: <NewsletterAdmin /> },
-            ],
+            path: "cms/*",
+            element: <AdminApp />,
           },
         ],
       },
