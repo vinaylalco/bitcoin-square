@@ -22,7 +22,7 @@ function normalizeLessons(input: any): TopicFile {
 async function fetchPublicJSON<T>(bucket: string, key: string, fallback: T): Promise<T> {
   const { data } = supabase.storage.from(bucket).getPublicUrl(key);
   const res = await fetch(data.publicUrl, { cache: "no-store" });
-  if (res.status === 404) return fallback;          // treat missing file as empty
+  if (res.status === 400 || res.status === 404) return fallback;          // treat missing or unavailable file as empty
   if (!res.ok) throw new Error(`${bucket}/${key} ${res.status}`);
   return (await res.json()) as T;
 }
