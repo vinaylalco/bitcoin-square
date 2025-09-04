@@ -80,12 +80,22 @@ export async function getCurrentUser() {
 
 // Content ---------------------------------------------------------
 export async function fetchHomeContent(locale: "en" | "es"): Promise<HomeFile> {
-  const qs = new URLSearchParams({ locale, populate: "deep" });
+  const qs = new URLSearchParams({ locale, populate: "*" });
   const json = await strapiFetch(`/home?${qs.toString()}`);
   const attrs = json.data?.attributes || {};
+
+  const sections = (attrs.Section || []).map((s: any) => ({
+    imageUrl: s.image?.data?.attributes?.url || "",
+    heading: s.heading || "",
+    subtitle: s.subtitle || "",
+    buttonlabel: s.buttonlabel,
+    buttonlink: s.buttonlink,
+  }));
+
   return {
-    hero: attrs.hero || undefined,
-    sections: attrs.sections || [],
+    h1: attrs.h1 || "",
+    subtitle: attrs.subtitle || "",
+    sections,
   };
 }
 
@@ -111,7 +121,7 @@ export async function fetchContactContent(locale: "en" | "es"): Promise<ContactC
 }
 
 export async function fetchLessons(locale: "en" | "es"): Promise<LessonCardData[]> {
-  const qs = new URLSearchParams({ locale, populate: "deep" });
+  const qs = new URLSearchParams({ locale, populate: "*" });
   const json = await strapiFetch(`/lessons?${qs.toString()}`);
   const topics = json.data?.attributes?.topics || [];
   return topics.flatMap((t: any) =>

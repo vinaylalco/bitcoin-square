@@ -36,8 +36,9 @@ export default function Home() {
   }
 
   const c = content!;
-  const heroTitle = c.hero?.title || c.sections[0]?.title || "Bitcoin Square";
-  const heroSub = c.hero?.subtitle || c.sections[0]?.body || "";
+  console.log(c)
+  const heroTitle = c.h1 || "Bitcoin Square";
+  const heroSub = c.subtitle || "";
 
   return (
     <div className="pb-6">
@@ -57,14 +58,19 @@ export default function Home() {
         {c.sections.map((s, i) => {
           const shape = s.shape ?? autoShapeByIndex(i);
           const imgClass = shapeClasses(shape);
-          const alt = s.title || `section-${i}`;
-          const cta = s.cta && s.cta.label && s.cta.href ? s.cta : undefined;
+          const alt = s.heading || `section-${i}`;
+          const cta =
+            s.buttonlabel && s.buttonlink
+              ? { label: s.buttonlabel, href: s.buttonlink }
+              : undefined;
 
           const media = s.imageUrl ? (
             <img
               src={s.imageUrl}
               alt={alt}
-              className={`w-full h-56 sm:h-72 object-cover border border-neutral-200 dark:border-neutral-800 ${shape === "round" ? "p-1 bg-white dark:bg-neutral-900" : ""} ${imgClass}`}
+              className={`w-full h-56 sm:h-72 object-cover border border-neutral-200 dark:border-neutral-800 ${
+                shape === "round" ? "p-1 bg-white dark:bg-neutral-900" : ""
+              } ${imgClass}`}
               loading="lazy"
             />
           ) : (
@@ -77,10 +83,12 @@ export default function Home() {
 
           const text = (
             <div className={i % 2 === 0 ? "" : "md:order-1"}>
-              {s.title && <h2 className="text-2xl sm:text-3xl font-bold">{s.title}</h2>}
-              {s.body && (
+              {s.heading && (
+                <h2 className="text-2xl sm:text-3xl font-bold">{s.heading}</h2>
+              )}
+              {s.subtitle && (
                 <p className="mt-3 text-neutral-700 dark:text-neutral-300 text-base sm:text-lg leading-relaxed">
-                  {s.body}
+                  {s.subtitle}
                 </p>
               )}
               {cta && (

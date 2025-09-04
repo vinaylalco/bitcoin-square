@@ -2,24 +2,18 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { fetchHomeContent } from "../lib/strapi";
 
-export type CTA = {
-  label: string;
-  href: string;
-};
-
 export type HomeSection = {
   imageUrl: string;
-  title: string;
-  body: string;
-  cta?: CTA;
+  heading: string;
+  subtitle: string;
+  buttonlabel?: string;
+  buttonlink?: string;
   shape?: "round" | "square" | "blob";
 };
 
 export type HomeFile = {
-  hero?: {
-    title: string;
-    subtitle: string;
-  };
+  h1: string;
+  subtitle: string;
   sections: HomeSection[];
 };
 
@@ -48,11 +42,34 @@ function writeCache(lang: "en" | "es", data: HomeFile) {
 }
 
 async function fetchHome(lang: "en" | "es"): Promise<HomeFile> {
-  const json = await fetchHomeContent(lang);
-  return {
-    hero: json.hero ?? undefined,
-    sections: Array.isArray(json.sections) ? json.sections : [],
-  };
+  const url = `${import.meta.env.VITE_STRAPI_URL}/api/home?locale=${lang}&populate=*`;
+  const res = await fetch(url, {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${import.meta.env.VITE_STRAPI_TOKEN}`,
+    },
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`home ${lang} fetch failed: ${res.status} ${text}`);
+  }
+  const json = await res.json();
+  const attrs = json?.data?.attributes ?? {};
+  const hero = attrs.hero
+    ? { title: attrs.hero.title ?? "", subtitle: attrs.hero.subtitle ?? "" }
+    : undefined;
+  const sections: HomeSection[] = Array.isArray(attrs.sections)
+    ? attrs.sections.map((s: any) => ({
+        imageUrl: s?.image?.data?.attributes?.url ?? "",
+        title: s?.title ?? "",
+        body: s?.body ?? "",
+        cta: s?.cta
+          ? { label: s.cta.label ?? "", href: s.cta.href ?? "" }
+          : undefined,
+        shape: s?.shape ?? undefined,
+      }))
+    : [];
+  return { hero, sections };
 }
 
 export function useHomeContent(): State {
