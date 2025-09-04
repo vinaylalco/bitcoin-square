@@ -27,10 +27,10 @@ type State = { content: HomeFile | null; loading: boolean; error?: string };
 
 const TTL_MS = 10 * 60 * 1000; // 10 min
 
-function cacheKey(lang: "en" | "es") {
+function cacheKey(lang: "en" | "es" | "id") {
   return `bsq.home.${lang}.v1`;
 }
-function readCache(lang: "en" | "es"): HomeFile | null {
+function readCache(lang: "en" | "es" | "id"): HomeFile | null {
   try {
     const raw = sessionStorage.getItem(cacheKey(lang));
     if (!raw) return null;
@@ -41,13 +41,13 @@ function readCache(lang: "en" | "es"): HomeFile | null {
     return null;
   }
 }
-function writeCache(lang: "en" | "es", data: HomeFile) {
+function writeCache(lang: "en" | "es" | "id", data: HomeFile) {
   try {
     sessionStorage.setItem(cacheKey(lang), JSON.stringify({ ts: Date.now(), data }));
   } catch {}
 }
 
-async function fetchHome(lang: "en" | "es"): Promise<HomeFile> {
+async function fetchHome(lang: "en" | "es" | "id"): Promise<HomeFile> {
   const { data } = supabase.storage.from("homepage").getPublicUrl(`home.${lang}.json`);
   const res = await fetch(data.publicUrl, { cache: "no-store" });
   if (!res.ok) throw new Error(`home ${lang} fetch failed: ${res.status}`);
@@ -60,7 +60,11 @@ async function fetchHome(lang: "en" | "es"): Promise<HomeFile> {
 
 export function useHomeContent(): State {
   const { i18n } = useTranslation();
-  const lang: "en" | "es" = i18n.language?.toLowerCase().startsWith("es") ? "es" : "en";
+  const lang: "en" | "es" | "id" = i18n.language?.toLowerCase().startsWith("es")
+    ? "es"
+    : i18n.language?.toLowerCase().startsWith("id")
+    ? "id"
+    : "en";
 
   // Seed from cache to avoid flicker on return visits
   const cached = readCache(lang);

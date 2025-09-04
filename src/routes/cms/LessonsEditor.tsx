@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import type { TopicFile } from "../../components/education/types";
 import { saveJson } from "../../lib/cmsClient";
 
-type Locale = "en" | "es";
+type Locale = "en" | "es" | "id";
 
 /** Normalize any incoming JSON into a safe TopicFile shape */
 function normalizeTopicFile(input: any): TopicFile {
@@ -49,12 +49,13 @@ export default function LessonsEditor({
   initial,
 }: {
   // Allow undefined/null to be defensive; we normalize below
-  initial: { en?: TopicFile | null; es?: TopicFile | null };
+  initial: { en?: TopicFile | null; es?: TopicFile | null; id?: TopicFile | null };
 }) {
   const [tab, setTab] = useState<Locale>("en");
   const [data, setData] = useState<Record<Locale, TopicFile>>({
     en: normalizeTopicFile(initial?.en),
     es: normalizeTopicFile(initial?.es),
+    id: normalizeTopicFile(initial?.id),
   });
   const [saving, setSaving] = useState(false);
 
@@ -159,6 +160,12 @@ export default function LessonsEditor({
           onClick={() => setTab("es")}
         >
           ES
+        </button>
+        <button
+          className={`px-3 py-1.5 text-sm ${tab === "id" ? "bg-brand text-white" : ""}`}
+          onClick={() => setTab("id")}
+        >
+          ID
         </button>
       </div>
 

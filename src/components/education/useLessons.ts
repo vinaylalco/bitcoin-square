@@ -22,7 +22,11 @@ export function useLessons() {
     let alive = true;
     (async () => {
       setState((s) => ({ ...s, loading: true, error: undefined }));
-      const lang = i18n.language?.toLowerCase().startsWith("es") ? "es" : "en";
+      const lang = i18n.language?.toLowerCase().startsWith("es")
+        ? "es"
+        : i18n.language?.toLowerCase().startsWith("id")
+        ? "id"
+        : "en";
       try {
         const data = (await fetchJsonPublic("lessons", `lessons.${lang}.json`)) as TopicFile;
         const flat = data.topics.flatMap((t) => t.cards.map((c) => ({ ...c, topicName: t.name })));
