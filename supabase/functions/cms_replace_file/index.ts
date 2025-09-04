@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 type Body = {
   type: "lessons" | "home";
-  locale: "en" | "es";
+  locale: "en" | "es" | "id";
   content: unknown;
 };
 
@@ -27,7 +27,7 @@ serve(async (req) => {
 
   try {
     const body = (await req.json()) as Body;
-    if (!["lessons", "home"].includes(body.type) || !["en", "es"].includes(body.locale)) {
+    if (!["lessons", "home"].includes(body.type) || !["en", "es", "id"].includes(body.locale)) {
       return new Response("Invalid body", { status: 400 });
     }
 
