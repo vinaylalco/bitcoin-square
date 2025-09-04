@@ -1,7 +1,7 @@
 import { supabase } from "./supabase";
 
 type TypeKey = "home" | "lessons";
-type Locale = "en" | "es";
+type Locale = "en" | "es" | "id";
 
 // Feature flags / env
 const BASE_URL = (import.meta.env.VITE_SUPABASE_URL || "").trim(); // e.g. https://abcd.supabase.co

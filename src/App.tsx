@@ -21,8 +21,14 @@ export default function App() {
   const { theme } = useTheme(); // ensures theme context is mounted
 
   const isCMS = loc.pathname.startsWith("/cms");
-  const lang = (i18n.language || "en").toLowerCase().startsWith("es") ? "es" : "en";
-  const changeLang = (lng: "en" | "es") => i18n.changeLanguage(lng);
+  const lang = i18n.language
+    ? i18n.language.toLowerCase().startsWith("es")
+      ? "es"
+      : i18n.language.toLowerCase().startsWith("id")
+      ? "id"
+      : "en"
+    : "en";
+  const changeLang = (lng: "en" | "es" | "id") => i18n.changeLanguage(lng);
 
   // Close drawer on route change
   useEffect(() => setOpen(false), [loc.pathname]);
@@ -171,6 +177,13 @@ export default function App() {
                   aria-pressed={lang === "es"}
                 >
                   ES
+                </button>
+                <button
+                  onClick={() => changeLang("id")}
+                  className={`px-3 py-1.5 text-sm ${lang === "id" ? "bg-brand text-white" : ""}`}
+                  aria-pressed={lang === "id"}
+                >
+                  ID
                 </button>
               </div>
             </div>

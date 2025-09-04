@@ -3,7 +3,7 @@ import { supabase } from "../../lib/supabase";
 import type { HomeFile, HomeSection, CTA } from "../../hooks/useHomeContent";
 import { saveJson } from "../../lib/cmsClient";
 
-type Locale = "en" | "es";
+type Locale = "en" | "es" | "id";
 
 function normalizeHref(input: string): string {
   const href = input.trim();
@@ -27,12 +27,13 @@ function validateHome(data: HomeFile) {
 export default function HomeEditor({
   initial,
 }: {
-  initial: { en: HomeFile; es: HomeFile };
+  initial: { en: HomeFile; es: HomeFile; id: HomeFile };
 }) {
   const [tab, setTab] = useState<Locale>("en");
   const [data, setData] = useState<Record<Locale, HomeFile>>({
     en: initial.en,
     es: initial.es,
+    id: initial.id,
   });
   const [saving, setSaving] = useState(false);
   const [uploadingIdx, setUploadingIdx] = useState<number | null>(null);
@@ -137,6 +138,7 @@ export default function HomeEditor({
       <div className="inline-flex rounded-xl border dark:border-neutral-700 overflow-hidden">
         <button className={`px-3 py-1.5 text-sm ${tab === "en" ? "bg-brand text-white" : ""}`} onClick={() => setTab("en")}>EN</button>
         <button className={`px-3 py-1.5 text-sm ${tab === "es" ? "bg-brand text-white" : ""}`} onClick={() => setTab("es")}>ES</button>
+        <button className={`px-3 py-1.5 text-sm ${tab === "id" ? "bg-brand text-white" : ""}`} onClick={() => setTab("id")}>ID</button>
       </div>
 
       {/* Hero */}

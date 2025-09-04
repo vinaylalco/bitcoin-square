@@ -1,4 +1,4 @@
 {
   "nav": { "education": "Pendidikan", "profile": "Profil" },
-  "common": { "menu": "Menu" }
+  "common": { "menu": "Menu", "close": "Tutup" }
 }

@@ -18,7 +18,7 @@ import RequireAdmin from "./routes/RequireAdmin";
 import CMSLayout from "./routes/cms/CMSLayout";
 import CMSGate from "./routes/cms/CMSGate";
 import LessonsEditor from "./routes/cms/LessonsEditor";
-import { loadHomeBoth, loadLessonsBoth } from "./routes/cms/loaders";
+import { loadHomeAll, loadLessonsAll } from "./routes/cms/loaders";
 import RouteError from "./routes/RouteError";
 import { ThemeProvider } from "./context/ThemeContext";
 import LessonsUpload from "./routes/cms/LessonsUpload"; // ✅ NEW
@@ -51,19 +51,19 @@ const router = createBrowserRouter([
               {
                 index: true,
                 element: (
-                  <CMSGate loader={loadHomeBoth} render={(initial) => <HomeEditor initial={initial} />} />
+                  <CMSGate loader={loadHomeAll} render={(initial) => <HomeEditor initial={initial} />} />
                 ),
               },
               {
                 path: "home",
                 element: (
-                  <CMSGate loader={loadHomeBoth} render={(initial) => <HomeEditor initial={initial} />} />
+                  <CMSGate loader={loadHomeAll} render={(initial) => <HomeEditor initial={initial} />} />
                 ),
               },
               {
                 path: "lessons",
                 element: (
-                  <CMSGate loader={loadLessonsBoth} render={(initial) => <LessonsEditor initial={initial} />} />
+                  <CMSGate loader={loadLessonsAll} render={(initial) => <LessonsEditor initial={initial} />} />
                 ),
               },
               {

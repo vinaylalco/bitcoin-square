@@ -27,18 +27,20 @@ async function fetchPublicJSON<T>(bucket: string, key: string, fallback: T): Pro
   return (await res.json()) as T;
 }
 
-export async function loadHomeBoth(): Promise<{ en: HomeFile; es: HomeFile }> {
-  const [enRaw, esRaw] = await Promise.all([
+export async function loadHomeAll(): Promise<{ en: HomeFile; es: HomeFile; id: HomeFile }> {
+  const [enRaw, esRaw, idRaw] = await Promise.all([
     fetchPublicJSON<any>("homepage", "home.en.json", { hero: { title: "", subtitle: "" }, sections: [] }),
     fetchPublicJSON<any>("homepage", "home.es.json", { hero: { title: "", subtitle: "" }, sections: [] }),
+    fetchPublicJSON<any>("homepage", "home.id.json", { hero: { title: "", subtitle: "" }, sections: [] }),
   ]);
-  return { en: normalizeHome(enRaw), es: normalizeHome(esRaw) };
+  return { en: normalizeHome(enRaw), es: normalizeHome(esRaw), id: normalizeHome(idRaw) };
 }
 
-export async function loadLessonsBoth(): Promise<{ en: TopicFile; es: TopicFile }> {
-  const [enRaw, esRaw] = await Promise.all([
+export async function loadLessonsAll(): Promise<{ en: TopicFile; es: TopicFile; id: TopicFile }> {
+  const [enRaw, esRaw, idRaw] = await Promise.all([
     fetchPublicJSON<any>("lessons", "lessons.en.json", { topics: [] }),
     fetchPublicJSON<any>("lessons", "lessons.es.json", { topics: [] }),
+    fetchPublicJSON<any>("lessons", "lessons.id.json", { topics: [] }),
   ]);
-  return { en: normalizeLessons(enRaw), es: normalizeLessons(esRaw) };
+  return { en: normalizeLessons(enRaw), es: normalizeLessons(esRaw), id: normalizeLessons(idRaw) };
 }
