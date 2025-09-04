@@ -1,45 +1,31 @@
 import { useEffect, useState } from "react";
 
 export type BlogPost = {
-  id: string;
-  title: string; // HTML
-  content: string; // HTML
+  id: number;
+  title: string;
+  content: string;
 };
 
-const KEY = "bsq.blog.v1";
-
-function load(): BlogPost[] {
-  try {
-    const raw = localStorage.getItem(KEY);
-    return raw ? (JSON.parse(raw) as BlogPost[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function save(list: BlogPost[]) {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(list));
-  } catch {}
-}
-
-export function getBlogPosts(): BlogPost[] {
-  return load();
-}
-
-export function setBlogPosts(list: BlogPost[]) {
-  save(list);
-}
+const API_URL = import.meta.env.VITE_STRAPI_URL || "http://localhost:1337";
 
 export function useBlogPosts() {
   const [posts, setPosts] = useState<BlogPost[]>([]);
+
   useEffect(() => {
-    setPosts(load());
+    fetch(`${API_URL}/api/blog-posts`)
+      .then((res) => res.json())
+      .then((json) => {
+        const data = Array.isArray(json.data)
+          ? json.data.map((item: any) => ({
+              id: item.id,
+              title: item.attributes?.title ?? "",
+              content: item.attributes?.content ?? "",
+            }))
+          : [];
+        setPosts(data);
+      })
+      .catch(() => setPosts([]));
   }, []);
-  const addPost = (post: BlogPost) => {
-    const updated = [...posts, post];
-    setPosts(updated);
-    save(updated);
-  };
-  return { posts, addPost, setPosts };
+
+  return { posts };
 }
