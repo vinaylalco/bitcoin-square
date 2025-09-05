@@ -1,34 +1,34 @@
 import type { Schema, Struct } from '@strapi/strapi';
 
-export interface SharedRichText extends Struct.ComponentSchema {
-  collectionName: 'components_shared_rich_texts';
+export interface SharedCtaLink extends Struct.ComponentSchema {
+  collectionName: 'components_shared_cta_links';
   info: {
-    displayName: 'Rich Text';
-    icon: 'file-text';
+    displayName: 'CTALink';
   };
-  attributes: {
-    content: Schema.Attribute.RichText;
-  };
+  attributes: {};
 }
 
-export interface SharedSeo extends Struct.ComponentSchema {
-  collectionName: 'components_shared_seos';
+export interface SharedCtaSection extends Struct.ComponentSchema {
+  collectionName: 'components_shared_cta_sections';
   info: {
-    displayName: 'SEO';
-    icon: 'search';
+    displayName: 'CTASection';
   };
   attributes: {
-    metaDescription: Schema.Attribute.Text;
-    metaImage: Schema.Attribute.Media<'images'>;
-    metaTitle: Schema.Attribute.String & Schema.Attribute.Required;
+    ButtonLabel: Schema.Attribute.String;
+    ButtonUrl: Schema.Attribute.String;
+    H2: Schema.Attribute.String;
+    SectionImage: Schema.Attribute.Media<
+      'images' | 'files' | 'videos' | 'audios'
+    >;
+    SectionSubHeading: Schema.Attribute.String;
   };
 }
 
 declare module '@strapi/strapi' {
   export module Public {
     export interface ComponentSchemas {
-      'shared.rich-text': SharedRichText;
-      'shared.seo': SharedSeo;
+      'shared.cta-link': SharedCtaLink;
+      'shared.cta-section': SharedCtaSection;
     }
   }
 }

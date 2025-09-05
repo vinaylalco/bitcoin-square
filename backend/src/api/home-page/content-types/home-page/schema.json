@@ -1,0 +1,26 @@
+{
+  "kind": "singleType",
+  "collectionName": "home_pages",
+  "info": {
+    "singularName": "home-page",
+    "pluralName": "home-pages",
+    "displayName": "HomePage"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "H1": {
+      "type": "string"
+    },
+    "MainSubHeading": {
+      "type": "string"
+    },
+    "HomePageSection": {
+      "type": "component",
+      "component": "shared.cta-section",
+      "repeatable": true
+    }
+  }
+}
