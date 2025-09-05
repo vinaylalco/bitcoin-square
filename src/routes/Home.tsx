@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useStrapiQuery } from '../hooks/useStrapiQuery';
-import { Home, Lesson } from '../types/strapi';
+import type { Home, Lesson } from '../types/strapi';
 
 export default function HomePage() {
   const { data, isLoading, error } = useStrapiQuery<{ data: Home }>('home', '/api/home?populate=featuredLessons');

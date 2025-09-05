@@ -22,10 +22,33 @@ export type HomeSection = {
   shape?: 'round' | 'square' | 'blob';
 };
 
-export type Home = {
-  hero?: {
-    title: string;
-    subtitle?: string;
+export type Language = {
+  id: number;
+  attributes: {
+    code: string;
+    name: string;
   };
+};
+
+export type Lesson = {
+  id: number;
+  attributes: {
+    slug: string;
+    title: string;
+    summary?: string;
+    content?: string;
+    level?: string;
+    language?: {
+      data: Language | null;
+    };
+  };
+};
+
+export type Home = {
+  heroTitle: string;
+  heroSubtitle?: string;
   sections: HomeSection[];
+  featuredLessons?: {
+    data: Lesson[];
+  };
 };
