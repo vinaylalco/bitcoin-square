@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import App from "./App";
 import "./index.css";
@@ -13,6 +14,9 @@ import Login from "./routes/Login";
 import Settings from "./routes/Settings";
 import Blog from "./routes/Blog";
 import Contact from "./routes/Contact";
+import Lessons from './routes/Lessons';
+import LessonDetail from './routes/LessonDetail';
+import Languages from './routes/Languages';
 
 import RequireAdmin from "./routes/RequireAdmin";
 import CMSLayout from "./routes/cms/CMSLayout";
@@ -38,6 +42,9 @@ const router = createBrowserRouter([
       { path: "settings", element: <Settings /> },
       { path: "blog", element: <Blog /> },
       { path: "contact", element: <Contact /> },
+      { path: "lessons", element: <Lessons /> },
+      { path: "lessons/:slug", element: <LessonDetail /> },
+      { path: "languages", element: <Languages /> },
 
       {
         element: <RequireAdmin />,
@@ -79,10 +86,14 @@ const router = createBrowserRouter([
   },
 ]);
 
+const queryClient = new QueryClient();
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <ThemeProvider>
-      <RouterProvider router={router} />
-    </ThemeProvider>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
+        <RouterProvider router={router} />
+      </ThemeProvider>
+    </QueryClientProvider>
   </React.StrictMode>
 );
