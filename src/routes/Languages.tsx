@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useStrapiQuery } from '../hooks/useStrapiQuery';
-import { Language } from '../types/strapi';
+import type { Language } from '../types/strapi';
 
 export default function LanguagesPage() {
   const { data, isLoading, error } = useStrapiQuery<{ data: Language[] }>('languages', '/api/languages');

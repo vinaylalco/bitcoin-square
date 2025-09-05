@@ -1,6 +1,6 @@
 import { Link, useSearchParams } from 'react-router-dom';
 import { useStrapiQuery } from '../hooks/useStrapiQuery';
-import { Lesson } from '../types/strapi';
+import type { Lesson } from '../types/strapi';
 
 export default function LessonsPage() {
   const [params] = useSearchParams();
