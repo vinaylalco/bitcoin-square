@@ -1,40 +1,31 @@
-export interface StrapiImage {
-  url: string;
-  alternativeText?: string;
-  width?: number;
-  height?: number;
-}
+export type StrapiImage = {
+  data: {
+    id: number;
+    attributes: {
+      url: string;
+      alternativeText?: string;
+    };
+  } | null;
+};
 
-export interface Language {
-  id: number;
-  attributes: {
-    name: string;
-    code: string;
-    description?: string;
-    icon?: { data: { attributes: StrapiImage } } | null;
-  };
-}
+export type CTA = {
+  label: string;
+  href: string;
+};
 
-export interface Lesson {
+export type HomeSection = {
   id: number;
-  attributes: {
+  title?: string;
+  body?: string;
+  image?: StrapiImage;
+  cta?: CTA;
+  shape?: 'round' | 'square' | 'blob';
+};
+
+export type Home = {
+  hero?: {
     title: string;
-    slug: string;
-    summary?: string;
-    content?: string;
-    level?: 'beginner' | 'intermediate' | 'advanced';
-    duration?: number;
-    language?: { data: Language };
-    coverImage?: { data: { attributes: StrapiImage } } | null;
-    tags?: string[];
+    subtitle?: string;
   };
-}
-
-export interface Home {
-  id: number;
-  attributes: {
-    heroTitle: string;
-    heroSubtitle?: string;
-    featuredLessons?: { data: Lesson[] };
-  };
-}
+  sections: HomeSection[];
+};
