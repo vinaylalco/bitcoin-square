@@ -20,7 +20,13 @@ export default function Card({
       {topicName && (
         <p className="text-sm font-medium text-brand mb-1">{topicName}</p>
       )}
-      <h3 className="text-lg font-semibold">{card.title}</h3>
+      <h3
+        id={`card-title-${card.id}`}
+        tabIndex={-1}
+        className="text-lg font-semibold"
+      >
+        {card.title}
+      </h3>
       {card.duration_min !== undefined && (
         <p className="text-sm text-neutral-500">{card.duration_min} min</p>
       )}

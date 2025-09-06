@@ -3,9 +3,10 @@ import {
   useRef,
   useEffect,
   useCallback,
+  useMemo,
 } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import type { Card as CardType } from "../../types/lesson-plan";
+import type { Card as CardType, Topic } from "../../types/lesson-plan";
 import Card from "./Card";
 
 interface SliderCard extends CardType {
@@ -46,13 +47,28 @@ function createBezier(x1: number, y1: number, x2: number, y2: number) {
   return (x: number) => sampleCurveY(solveCurveX(x));
 }
 
-export default function Slider({ cards }: { cards: SliderCard[] }) {
+export default function Slider({
+  cards,
+  topics,
+}: {
+  cards: SliderCard[];
+  topics: Topic[];
+}) {
   const [index, setIndex] = useState(0);
   const total = cards.length;
   const containerRef = useRef<HTMLDivElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
   const [chrome, setChrome] = useState(0);
   const [reduceMotion, setReduceMotion] = useState(false);
+  const [tocOpen, setTocOpen] = useState(false);
+  const drawerRef = useRef<HTMLDivElement>(null);
+  const toggleRef = useRef<HTMLButtonElement>(null);
+
+  const idToIndex = useMemo(() => {
+    const map = new Map<string, number>();
+    cards.forEach((c, i) => map.set(c.id, i));
+    return map;
+  }, [cards]);
 
   useEffect(() => {
     setChrome(progressRef.current?.offsetHeight ?? 0);
@@ -105,7 +121,75 @@ export default function Slider({ cards }: { cards: SliderCard[] }) {
 
   const prev = () => animateScroll(index - 1);
   const next = () => animateScroll(index + 1);
+  const goToCardById = useCallback(
+    (id: string) => {
+      const idx = idToIndex.get(id);
+      if (idx !== undefined) {
+        animateScroll(idx);
+      }
+    },
+    [idToIndex, animateScroll]
+  );
+
+  const handleSelect = (id: string) => {
+    goToCardById(id);
+    setTocOpen(false);
+    const delay = reduceMotion ? 0 : 400;
+    setTimeout(() => {
+      const el = document.getElementById(`card-title-${id}`);
+      el?.focus();
+    }, delay);
+  };
+
   const percent = total > 0 ? Math.round(((index + 1) / total) * 100) : 0;
+
+  useEffect(() => {
+    if (!tocOpen) return;
+    const drawer = drawerRef.current;
+    if (!drawer) return;
+    const focusables = Array.from(
+      drawer.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      )
+    );
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    first?.focus();
+
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setTocOpen(false);
+        toggleRef.current?.focus();
+      } else if (e.key === "Tab") {
+        if (focusables.length === 0) return;
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        const idx = focusables.indexOf(document.activeElement as HTMLElement);
+        const nextIdx =
+          e.key === "ArrowDown"
+            ? (idx + 1) % focusables.length
+            : (idx - 1 + focusables.length) % focusables.length;
+        focusables[nextIdx].focus();
+      } else if (e.key === "Home") {
+        e.preventDefault();
+        first?.focus();
+      } else if (e.key === "End") {
+        e.preventDefault();
+        last?.focus();
+      }
+    };
+
+    drawer.addEventListener("keydown", handleKey);
+    return () => drawer.removeEventListener("keydown", handleKey);
+  }, [tocOpen]);
 
   return (
     <div style={{ "--chrome": `${chrome}px` } as React.CSSProperties}>
@@ -123,6 +207,16 @@ export default function Slider({ cards }: { cards: SliderCard[] }) {
         </div>
         <span className="ml-2 text-sm">{percent}%</span>
       </div>
+      <button
+        ref={toggleRef}
+        type="button"
+        onClick={() => setTocOpen((o) => !o)}
+        className="mb-4 text-sm underline"
+        aria-controls="toc-drawer"
+        aria-expanded={tocOpen}
+      >
+        Find a specific course section
+      </button>
       <div className="relative">
         <div
           ref={containerRef}
@@ -143,7 +237,10 @@ export default function Slider({ cards }: { cards: SliderCard[] }) {
           <button
             onClick={prev}
             aria-label="Previous"
-            className="hidden lg:flex items-center justify-center absolute left-0 top-1/2 -translate-y-1/2 -translate-x-full w-10 h-10 bg-white border rounded-full shadow"
+            className={[
+              "hidden lg:flex items-center justify-center absolute left-0 top-1/2 -translate-y-1/2 -translate-x-full",
+              "w-10 h-10 bg-white border rounded-full shadow",
+            ].join(" ")}
           >
             <ChevronLeft />
           </button>
@@ -152,11 +249,53 @@ export default function Slider({ cards }: { cards: SliderCard[] }) {
           <button
             onClick={next}
             aria-label="Next"
-            className="hidden lg:flex items-center justify-center absolute right-0 top-1/2 -translate-y-1/2 translate-x-full w-10 h-10 bg-white border rounded-full shadow"
+            className={[
+              "hidden lg:flex items-center justify-center absolute right-0 top-1/2 -translate-y-1/2 translate-x-full",
+              "w-10 h-10 bg-white border rounded-full shadow",
+            ].join(" ")}
           >
             <ChevronRight />
           </button>
         )}
+        <div
+          id="toc-drawer"
+          ref={drawerRef}
+          role="dialog"
+          aria-labelledby="toc-title"
+          className={`absolute inset-0 z-10 bg-white overflow-y-auto p-4 ${
+            reduceMotion ? "" : "transition duration-200 ease-out transform"
+          } ${
+            tocOpen
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 -translate-y-2 pointer-events-none"
+          }`}
+        >
+          <h2
+            id="toc-title"
+            className="font-semibold mb-2 sticky top-0 bg-white"
+          >
+            Course sections
+          </h2>
+          <ul className="space-y-2">
+            {topics.map((t) => (
+              <li key={t.name}>
+                <p className="font-medium">{t.name}</p>
+                <ul className="ml-4 space-y-1">
+                  {t.cards.map((c) => (
+                    <li key={c.id}>
+                      <button
+                        className="text-left w-full px-2 py-1 rounded focus:outline-none focus-visible:ring-2 ring-brand"
+                        onClick={() => handleSelect(c.id)}
+                      >
+                        {c.title}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
     </div>
   );
