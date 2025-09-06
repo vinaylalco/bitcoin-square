@@ -132,9 +132,8 @@ export default function Slider({ cards }: { cards: SliderCard[] }) {
             <div
               key={c.id}
               className="w-full flex-shrink-0 snap-start"
-              style={{ minHeight: "calc(100svh - var(--chrome))" }}
             >
-              <div className="h-full overflow-y-auto">
+              <div className="overflow-y-auto">
                 <Card card={c} topicName={c.topicName} />
               </div>
             </div>
