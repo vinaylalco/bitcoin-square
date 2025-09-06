@@ -36,6 +36,7 @@ export default function Card({
           {card.content && (
             <p className="whitespace-pre-line">{card.content}</p>
           )}
+          <h3 className="mt-2"><b>Learning Objectives:</b></h3>
           {card.objectives && card.objectives.length > 0 && (
             <ul className="mt-2 list-disc pl-5 space-y-1">
               {card.objectives.map((obj, i) => (
@@ -43,6 +44,7 @@ export default function Card({
               ))}
             </ul>
           )}
+          <h3 className="mt-2"><b>Quizz:</b></h3>
           {card.quiz && <Quiz quiz={card.quiz} />}
         </div>
       </div>
