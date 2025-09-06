@@ -2,9 +2,11 @@ import type { LessonPlan } from "../types/lesson-plan";
 
 // Support both Node and browser environments. In the browser, Vite exposes env
 // variables on `import.meta.env` while in Node tests we rely on `process.env`.
-const env = (typeof process !== "undefined" ? process.env : (import.meta as any).env) as {
-  [key: string]: string | undefined;
-};
+// Detect the runtime by checking for `window` to prefer the Vite-provided
+// values in the browser; otherwise fall back to Node's `process.env`.
+const env = (typeof window === "undefined"
+  ? process.env
+  : (import.meta as any).env) as { [key: string]: string | undefined };
 
 const BASE_URL = env.NEXT_PUBLIC_STRAPI_URL || env.VITE_STRAPI_URL || "";
 const TOKEN = env.STRAPI_TOKEN || env.VITE_STRAPI_TOKEN;
