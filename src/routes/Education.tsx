@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
-import Topic from "../components/lesson/Topic";
+import CardStack from "../components/education/CardStack";
+import type { LessonCardData } from "../components/education/types";
 import { useLessonPlan } from "../hooks/useLessonPlan";
 
 export default function Education() {
@@ -21,6 +22,25 @@ export default function Education() {
     return <div className="p-4 text-brand">Failed to load lesson plan.</div>;
   }
 
+  const lessons: LessonCardData[] =
+    data?.topics.flatMap((t) =>
+      t.cards.map((c) => ({
+        id: c.id,
+        title: c.title,
+        duration_min: c.duration_min || 0,
+        content: c.content || "",
+        objectives: c.objectives || [],
+        quiz: {
+          question: c.quiz?.question || "",
+          type: (c.quiz?.type as any) || "reflection",
+          options: c.quiz?.options || [],
+          correct_answer: c.quiz?.correct_answer || "",
+          style_note: c.quiz?.style_note,
+        },
+        topicName: t.name,
+      }))
+    ) || [];
+
   return (
     <div className="px-4 sm:px-6 pb-24">
       {data && data.locale !== locale && (
@@ -29,9 +49,7 @@ export default function Education() {
         </p>
       )}
       <h1 className="text-2xl font-bold mb-6">{data?.title || "Education"}</h1>
-      {data?.topics.map((t) => (
-        <Topic key={t.name} topic={t} />
-      ))}
+      <CardStack lessons={lessons} />
       {isFetching && <div className="text-sm text-neutral-500">Loading…</div>}
     </div>
   );
