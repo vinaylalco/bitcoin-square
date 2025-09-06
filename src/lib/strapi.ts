@@ -32,7 +32,9 @@ export async function getLessonPlan(
   // under a `localizations` array. We fetch all locales at once and then
   // select the requested one on the client.
   const params = new URLSearchParams();
-  params.set("populate", "localizations.LessonPlanJSON");
+  // Using `populate=*` ensures Strapi returns all nested relations,
+  // including the `localizations` array with `LessonPlanJSON` content.
+  params.set("populate", "*");
   const path = `/api/lesson-plans?${params.toString()}`;
   const json = await strapiFetch(path);
 

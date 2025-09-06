@@ -22,14 +22,17 @@ describe("getLessonPlan", () => {
       ],
     };
 
-    vi.spyOn(global, "fetch").mockResolvedValueOnce({
-      ok: true,
-      json: async () => mock,
-    } as any);
+    const fetchMock = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => mock,
+      } as any);
 
     process.env.NEXT_PUBLIC_STRAPI_URL = "http://test";
 
     const lesson = await getLessonPlan("es");
+    expect(fetchMock.mock.calls[0][0]).toContain("populate=%2A");
     expect(lesson).toEqual({ title: "Español", topics: [], locale: "es" });
   });
 
