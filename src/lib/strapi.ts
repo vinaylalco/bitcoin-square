@@ -24,24 +24,36 @@ export async function strapiFetch(path: string, init: RequestInit = {}): Promise
   return res.json();
 }
 
-export async function getLessonPlan(locale: string, slug = "education"): Promise<LessonPlan> {
-  const params = new URLSearchParams({ locale });
+export async function getLessonPlan(
+  locale: string,
+  slug = "education",
+): Promise<LessonPlan> {
+  // Strapi v5 returns the base locale entry with all localizations nested
+  // under a `localizations` array. We fetch all locales at once and then
+  // select the requested one on the client.
+  const params = new URLSearchParams();
+  // Using `populate=*` ensures Strapi returns all nested relations,
+  // including the `localizations` array with `LessonPlanJSON` content.
   params.set("populate", "*");
   const path = `/api/lesson-plans?${params.toString()}`;
   const json = await strapiFetch(path);
 
-  const entry =
-    json?.data?.find((d: any) => d?.attributes?.slug === slug) ??
-    json?.data?.[0];
+  // Find the requested lesson plan (currently only one supported)
+  const entry = json?.data?.[0];
+  if (!entry) {
+    return { topics: [], locale };
+  }
 
-  if (!entry && locale !== "en") {
-    return getLessonPlan("en", slug);
+  // Select the localization matching the requested locale if available
+  let source = entry;
+  if (entry.locale !== locale) {
+    const match = entry.localizations?.find((l: any) => l.locale === locale);
+    if (match) {
+      source = match;
+    }
   }
-  const lesson: LessonPlan = entry?.attributes?.LessonPlanJSON || { topics: [] };
-  if (entry?.attributes?.locale) {
-    lesson.locale = entry.attributes.locale;
-  } else {
-    lesson.locale = locale;
-  }
+
+  const lesson: LessonPlan = source?.LessonPlanJSON || { topics: [] };
+  lesson.locale = source?.locale || locale;
   return lesson;
 }
