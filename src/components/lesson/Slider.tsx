@@ -211,7 +211,7 @@ export default function Slider({
         ref={toggleRef}
         type="button"
         onClick={() => setTocOpen((o) => !o)}
-        className="mb-4 text-sm underline"
+        className="mb-4 block w-full text-sm font-medium border-4 border-brand bg-white text-neutral-900 py-2 rounded focus:outline-none focus-visible:ring-2 ring-brand"
         aria-controls="toc-drawer"
         aria-expanded={tocOpen}
       >
