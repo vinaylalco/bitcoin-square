@@ -1,0 +1,18 @@
+{
+  "kind": "collectionType",
+  "collectionName": "lesson_plans",
+  "info": {
+    "singularName": "lesson-plan",
+    "pluralName": "lesson-plans",
+    "displayName": "LessonPlan"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "LessonPlanJSON": {
+      "type": "json"
+    }
+  }
+}

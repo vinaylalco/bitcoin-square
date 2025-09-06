@@ -440,73 +440,28 @@ export interface ApiHomePageHomePage extends Struct.SingleTypeSchema {
   };
 }
 
-export interface ApiLanguageLanguage extends Struct.CollectionTypeSchema {
-  collectionName: 'languages';
+export interface ApiLessonPlanLessonPlan extends Struct.CollectionTypeSchema {
+  collectionName: 'lesson_plans';
   info: {
-    displayName: 'Language';
-    pluralName: 'languages';
-    singularName: 'language';
+    displayName: 'LessonPlan';
+    pluralName: 'lesson-plans';
+    singularName: 'lesson-plan';
   };
   options: {
     draftAndPublish: true;
   };
   attributes: {
-    code: Schema.Attribute.String &
-      Schema.Attribute.Required &
-      Schema.Attribute.Unique;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
-    description: Schema.Attribute.Text;
-    icon: Schema.Attribute.Media<'images'>;
+    LessonPlanJSON: Schema.Attribute.JSON;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
-      'api::language.language'
-    > &
-      Schema.Attribute.Private;
-    name: Schema.Attribute.String & Schema.Attribute.Required;
-    publishedAt: Schema.Attribute.DateTime;
-    updatedAt: Schema.Attribute.DateTime;
-    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-  };
-}
-
-export interface ApiLessonLesson extends Struct.CollectionTypeSchema {
-  collectionName: 'lessons';
-  info: {
-    displayName: 'Lesson';
-    pluralName: 'lessons';
-    singularName: 'lesson';
-  };
-  options: {
-    draftAndPublish: true;
-  };
-  attributes: {
-    content: Schema.Attribute.RichText;
-    coverImage: Schema.Attribute.Media<'images'>;
-    createdAt: Schema.Attribute.DateTime;
-    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    duration: Schema.Attribute.Integer;
-    language: Schema.Attribute.Relation<'manyToOne', 'api::language.language'> &
-      Schema.Attribute.Required;
-    level: Schema.Attribute.Enumeration<
-      ['beginner', 'intermediate', 'advanced']
-    > &
-      Schema.Attribute.DefaultTo<'beginner'>;
-    locale: Schema.Attribute.String & Schema.Attribute.Private;
-    localizations: Schema.Attribute.Relation<
-      'oneToMany',
-      'api::lesson.lesson'
+      'api::lesson-plan.lesson-plan'
     > &
       Schema.Attribute.Private;
     publishedAt: Schema.Attribute.DateTime;
-    slug: Schema.Attribute.UID<'title'> & Schema.Attribute.Required;
-    summary: Schema.Attribute.Text;
-    tags: Schema.Attribute.JSON;
-    title: Schema.Attribute.String & Schema.Attribute.Required;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -1024,8 +979,7 @@ declare module '@strapi/strapi' {
       'admin::transfer-token-permission': AdminTransferTokenPermission;
       'admin::user': AdminUser;
       'api::home-page.home-page': ApiHomePageHomePage;
-      'api::language.language': ApiLanguageLanguage;
-      'api::lesson.lesson': ApiLessonLesson;
+      'api::lesson-plan.lesson-plan': ApiLessonPlanLessonPlan;
       'plugin::content-releases.release': PluginContentReleasesRelease;
       'plugin::content-releases.release-action': PluginContentReleasesReleaseAction;
       'plugin::i18n.locale': PluginI18NLocale;
