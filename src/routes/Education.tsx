@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import Topic from "../components/lesson/Topic";
+import Slider from "../components/lesson/Slider";
 import { useLessonPlan } from "../hooks/useLessonPlan";
 
 export default function Education() {
@@ -21,6 +21,11 @@ export default function Education() {
     return <div className="p-4 text-brand">Failed to load lesson plan.</div>;
   }
 
+  const cards =
+    data?.topics.flatMap((t) =>
+      t.cards.map((c) => ({ ...c, topicName: t.name }))
+    ) ?? [];
+
   return (
     <div className="px-4 sm:px-6 pb-24">
       {data && data.locale !== locale && (
@@ -29,9 +34,7 @@ export default function Education() {
         </p>
       )}
       <h1 className="text-2xl font-bold mb-6">{data?.title || "Education"}</h1>
-      {data?.topics.map((t) => (
-        <Topic key={t.name} topic={t} />
-      ))}
+      {cards.length > 0 && <Slider cards={cards} />}
       {isFetching && <div className="text-sm text-neutral-500">Loading…</div>}
     </div>
   );

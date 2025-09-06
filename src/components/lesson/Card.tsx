@@ -1,9 +1,18 @@
 import type { Card as CardType } from "../../types/lesson-plan";
 import Quiz from "./Quiz";
 
-export default function Card({ card }: { card: CardType }) {
+export default function Card({
+  card,
+  topicName,
+}: {
+  card: CardType;
+  topicName?: string;
+}) {
   return (
     <article className="mb-4 p-4 border rounded">
+      {topicName && (
+        <p className="text-sm font-medium text-brand mb-1">{topicName}</p>
+      )}
       <h3 className="text-lg font-semibold">{card.title}</h3>
       {card.duration_min !== undefined && (
         <p className="text-sm text-neutral-500">{card.duration_min} min</p>
