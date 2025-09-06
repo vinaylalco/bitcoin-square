@@ -33,6 +33,7 @@ export async function getLessonPlan(locale: string, slug = "education"): Promise
   const entry =
     json?.data?.find((d: any) => d?.attributes?.slug === slug) ??
     json?.data?.[0];
+
   if (!entry && locale !== "en") {
     return getLessonPlan("en", slug);
   }
