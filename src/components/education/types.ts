@@ -15,6 +15,7 @@ export type LessonFromJson = {
   content: string;
   objectives: string[];
   quiz: Quiz;
+  youtube?: string;
 };
 
 export type TopicFile = {

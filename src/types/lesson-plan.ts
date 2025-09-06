@@ -13,6 +13,7 @@ export interface Card {
   content?: string;
   objectives?: string[];
   quiz?: Quiz;
+  youtube?: string;
   style_note?: string;
 }
 
