@@ -1,7 +1,13 @@
 import type { LessonPlan } from "../types/lesson-plan";
 
-const BASE_URL = process.env.NEXT_PUBLIC_STRAPI_URL || "";
-const TOKEN = process.env.STRAPI_TOKEN;
+// Support both Node and browser environments. In the browser, Vite exposes env
+// variables on `import.meta.env` while in Node tests we rely on `process.env`.
+const env = (typeof process !== "undefined" ? process.env : (import.meta as any).env) as {
+  [key: string]: string | undefined;
+};
+
+const BASE_URL = env.NEXT_PUBLIC_STRAPI_URL || env.VITE_STRAPI_URL || "";
+const TOKEN = env.STRAPI_TOKEN || env.VITE_STRAPI_TOKEN;
 
 export async function strapiFetch(path: string, init: RequestInit = {}): Promise<any> {
   const url = `${BASE_URL}${path}`;
