@@ -25,9 +25,15 @@ export async function strapiFetch(path: string, init: RequestInit = {}): Promise
 }
 
 export async function getLessonPlan(locale: string, slug = "education"): Promise<LessonPlan> {
-  const path = `/api/lesson-plans?locale=${locale}&filters[slug][$eq]=${slug}&populate=*`;
+  const params = new URLSearchParams({ locale });
+  params.set("populate", "*");
+  const path = `/api/lesson-plans?${params.toString()}`;
   const json = await strapiFetch(path);
-  const entry = json?.data?.[0];
+
+  const entry =
+    json?.data?.find((d: any) => d?.attributes?.slug === slug) ??
+    json?.data?.[0];
+
   if (!entry && locale !== "en") {
     return getLessonPlan("en", slug);
   }
