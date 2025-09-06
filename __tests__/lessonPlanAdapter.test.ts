@@ -6,14 +6,18 @@ describe("getLessonPlan", () => {
     vi.resetAllMocks();
   });
 
-  it("maps Strapi response to LessonPlan", async () => {
+  it("maps Strapi response to the requested locale", async () => {
     const mock = {
       data: [
         {
-          attributes: {
-            LessonPlanJSON: { title: "Test", topics: [] },
-            locale: "en",
-          },
+          locale: "en",
+          LessonPlanJSON: { title: "English", topics: [] },
+          localizations: [
+            {
+              locale: "es",
+              LessonPlanJSON: { title: "Español", topics: [] },
+            },
+          ],
         },
       ],
     };
@@ -25,31 +29,29 @@ describe("getLessonPlan", () => {
 
     process.env.NEXT_PUBLIC_STRAPI_URL = "http://test";
 
-    const lesson = await getLessonPlan("en");
-    expect(lesson).toEqual({ title: "Test", topics: [], locale: "en" });
+    const lesson = await getLessonPlan("es");
+    expect(lesson).toEqual({ title: "Español", topics: [], locale: "es" });
   });
 
   it("falls back to en when translation missing", async () => {
-    const es = { data: [] };
-    const en = {
+    const mock = {
       data: [
         {
-          attributes: {
-            LessonPlanJSON: { title: "English", topics: [] },
-            locale: "en",
-          },
+          locale: "en",
+          LessonPlanJSON: { title: "English", topics: [] },
+          localizations: [],
         },
       ],
     };
-    const fetchMock = vi.spyOn(global, "fetch");
-    fetchMock
-      .mockResolvedValueOnce({ ok: true, json: async () => es } as any)
-      .mockResolvedValueOnce({ ok: true, json: async () => en } as any);
+    const fetchMock = vi.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => mock,
+    } as any);
 
     process.env.NEXT_PUBLIC_STRAPI_URL = "http://test";
 
     const lesson = await getLessonPlan("es");
     expect(lesson.locale).toBe("en");
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
