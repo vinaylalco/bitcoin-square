@@ -9,7 +9,7 @@ export default function Card({
   topicName?: string;
 }) {
   return (
-    <article className="mb-4 p-4 border rounded">
+    <article className="p-4 border rounded h-full">
       {topicName && (
         <p className="text-sm font-medium text-brand mb-1">{topicName}</p>
       )}
