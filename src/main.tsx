@@ -17,6 +17,8 @@ import LessonDetail from "./routes/LessonDetail";
 import Languages from "./routes/Languages";
 import RouteError from "./routes/RouteError";
 import { ThemeProvider } from "./context/ThemeContext";
+import Shop from "./routes/Shop";
+import ProductDetail from "./routes/ProductDetail";
 
 const router = createBrowserRouter([
   {
@@ -32,6 +34,8 @@ const router = createBrowserRouter([
       { path: "lessons", element: <Lessons /> },
       { path: "lessons/:slug", element: <LessonDetail /> },
       { path: "languages", element: <Languages /> },
+      { path: "shop", element: <Shop /> },
+      { path: "shop/:id", element: <ProductDetail /> },
     ],
   },
 ]);

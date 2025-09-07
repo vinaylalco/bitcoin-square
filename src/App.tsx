@@ -1,6 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Outlet, NavLink, useLocation } from "react-router-dom";
-import { Menu, X, Home as HomeIcon, BookOpen, Settings } from "lucide-react";
+import {
+  Menu,
+  X,
+  Home as HomeIcon,
+  BookOpen,
+  Settings,
+  ShoppingCart,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import FocusTrap from "./components/FocusTrap";
 import { useSwipe } from "./hooks/useSwipe";
@@ -72,7 +79,14 @@ export default function App() {
           {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </button>
         <h1 className="font-semibold text-lg">Bitcoin Square</h1>
-        <div className="w-6" />
+        <NavLink
+          to="/shop"
+          className={({ isActive }) =>
+            `hover:text-brand ${isActive ? "text-brand font-semibold" : ""}`
+          }
+        >
+          Shop
+        </NavLink>
       </header>
 
       {/* Overlay (click-outside to close) */}
@@ -112,9 +126,26 @@ export default function App() {
               <span>Home</span>
             </NavLink>
 
-            <NavLink to="/education" onClick={() => setOpen(false)} className="flex items-center gap-2 hover:text-brand">
+            <NavLink
+              to="/education"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2 hover:text-brand"
+            >
               <BookOpen className="h-5 w-5" />
               <span>{t("nav.education") || "Education"}</span>
+            </NavLink>
+
+            <NavLink
+              to="/shop"
+              onClick={() => setOpen(false)}
+              className={({ isActive }) =>
+                `flex items-center gap-2 hover:text-brand ${
+                  isActive ? "text-brand font-semibold" : ""
+                }`
+              }
+            >
+              <ShoppingCart className="h-5 w-5" />
+              <span>Shop</span>
             </NavLink>
 
             <NavLink to="/settings" onClick={() => setOpen(false)} className="flex items-center gap-2 hover:text-brand">
@@ -164,16 +195,35 @@ export default function App() {
           "
       >
         <div className="mx-auto max-w-screen-sm flex justify-around">
-          <NavLink to="/" className="flex flex-col items-center">
+          <NavLink
+            to="/"
+            className={({ isActive }) =>
+              `flex flex-col items-center ${isActive ? "text-brand" : ""}`
+            }
+          >
             <HomeIcon className="h-6 w-6" />
             <span className="text-xs">Home</span>
           </NavLink>
 
-          <NavLink to="/education" className="flex flex-col items-center">
+          <NavLink
+            to="/education"
+            className={({ isActive }) =>
+              `flex flex-col items-center ${isActive ? "text-brand" : ""}`
+            }
+          >
             <BookOpen className="h-6 w-6" />
             <span className="text-xs">{t("nav.education") || "Education"}</span>
           </NavLink>
 
+          <NavLink
+            to="/shop"
+            className={({ isActive }) =>
+              `flex flex-col items-center ${isActive ? "text-brand" : ""}`
+            }
+          >
+            <ShoppingCart className="h-6 w-6" />
+            <span className="text-xs">Shop</span>
+          </NavLink>
         </div>
       </nav>
     </div>
