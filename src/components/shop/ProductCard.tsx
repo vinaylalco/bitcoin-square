@@ -23,7 +23,7 @@ export default function ProductCard({ product }: Props) {
       )}
       <div className="p-4 flex flex-col flex-1">
         <h3 className="font-semibold text-lg mb-1">{product.ProductName}</h3>
-        <p className="text-sm opacity-70 mb-2">{product.Price}</p>
+        <p className="text-sm opacity-70 mb-2">${product.Price}</p>
         <p
           className="text-sm flex-1 mb-4"
           style={{

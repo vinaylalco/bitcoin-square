@@ -44,6 +44,11 @@ export default function ProductDetail() {
 
   const product = data;
   const images = product.ProductImages || [];
+  const [index, setIndex] = React.useState(0);
+
+  const prev = () =>
+    setIndex((i) => (i - 1 + images.length) % images.length);
+  const next = () => setIndex((i) => (i + 1) % images.length);
 
   return (
     <div className="max-w-screen-md mx-auto p-4 space-y-4">
@@ -51,18 +56,45 @@ export default function ProductDetail() {
         Back to Shop
       </Link>
       <h2 className="text-3xl font-bold">{product.ProductName}</h2>
-      <p className="text-xl">{product.Price}</p>
-      <div className="flex flex-col gap-4">
-        {images.map((img, idx) => (
-          <img
-            key={idx}
-            src={resolveMedia(img.url)}
-            alt={img.alternativeText || product.ProductName}
-            className="w-full rounded-lg object-cover"
-            loading="lazy"
-          />
-        ))}
-      </div>
+      <p className="text-xl">${product.Price}</p>
+      {images.length > 0 && (
+        <div className="relative overflow-hidden rounded-lg">
+          <div
+            className="flex transition-transform duration-300 ease-out motion-reduce:transition-none"
+            style={{ transform: `translateX(-${index * 100}%)` }}
+          >
+            {images.map((img, idx) => (
+              <img
+                key={idx}
+                src={resolveMedia(img.url)}
+                alt={img.alternativeText || product.ProductName}
+                className="w-full flex-shrink-0 object-cover aspect-video"
+                loading="lazy"
+              />
+            ))}
+          </div>
+          {images.length > 1 && (
+            <>
+              <button
+                type="button"
+                onClick={prev}
+                aria-label="Previous image"
+                className="absolute top-1/2 left-2 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white hover:bg-black/75"
+              >
+                ‹
+              </button>
+              <button
+                type="button"
+                onClick={next}
+                aria-label="Next image"
+                className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white hover:bg-black/75"
+              >
+                ›
+              </button>
+            </>
+          )}
+        </div>
+      )}
       <p className="whitespace-pre-line">{product.Description}</p>
       <a
         href={resolveExternal(product.ButtonLink)}
