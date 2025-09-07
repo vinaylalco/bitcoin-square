@@ -1,15 +1,15 @@
 import React from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { fetchProduct, resolveMedia } from "../lib/strapi";
+import { fetchProduct, resolveMedia, resolveExternal } from "../lib/strapi";
 
 export default function ProductDetail() {
-  const { id } = useParams<{ id: string }>();
+  const { id: documentId } = useParams<{ id: string }>();
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["product", id],
-    queryFn: () => fetchProduct(id as string),
-    enabled: !!id,
+    queryKey: ["product", documentId],
+    queryFn: () => fetchProduct(documentId as string),
+    enabled: !!documentId,
   });
 
   if (isLoading) {
@@ -65,7 +65,7 @@ export default function ProductDetail() {
       </div>
       <p className="whitespace-pre-line">{product.Description}</p>
       <a
-        href={product.ButtonLink}
+        href={resolveExternal(product.ButtonLink)}
         target="_blank"
         rel="noopener noreferrer"
         className="inline-block bg-brand text-white px-4 py-2 rounded hover:bg-brand/90"

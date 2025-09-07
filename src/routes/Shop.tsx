@@ -37,7 +37,7 @@ export default function Shop() {
     <div className="max-w-screen-lg mx-auto p-4">
       <h2 className="text-2xl font-semibold mb-4">Shop</h2>
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-        {data && data.map((p) => <ProductCard key={p.id} product={p} />)}
+        {data && data.map((p) => <ProductCard key={p.documentId} product={p} />)}
       </div>
     </div>
   );

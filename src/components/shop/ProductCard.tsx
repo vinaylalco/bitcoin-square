@@ -1,7 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import type { Product } from "../../types/product";
-import { resolveMedia } from "../../lib/strapi";
+import { resolveMedia, resolveExternal } from "../../lib/strapi";
 
 interface Props {
   product: Product;
@@ -37,13 +37,13 @@ export default function ProductCard({ product }: Props) {
         </p>
         <div className="mt-auto flex gap-2">
           <Link
-            to={`/shop/${product.id}`}
+            to={`/shop/${product.documentId}`}
             className="flex-1 text-center rounded bg-neutral-200 dark:bg-neutral-800 px-3 py-2 text-sm hover:bg-neutral-300 dark:hover:bg-neutral-700"
           >
             Learn more
           </Link>
           <a
-            href={product.ButtonLink}
+            href={resolveExternal(product.ButtonLink)}
             target="_blank"
             rel="noopener noreferrer"
             className="flex-1 text-center rounded bg-brand text-white px-3 py-2 text-sm hover:bg-brand/90"

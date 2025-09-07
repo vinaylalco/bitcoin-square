@@ -68,6 +68,13 @@ export function resolveMedia(url?: string): string {
   return url.startsWith("http") ? url : `${API}${url}`;
 }
 
+export function resolveExternal(url?: string): string {
+  if (!url) return "";
+  return url.startsWith("http://") || url.startsWith("https://")
+    ? url
+    : `https://${url}`;
+}
+
 export async function fetchProducts(
   page = 1,
   pageSize = 12,
@@ -80,12 +87,13 @@ export async function fetchProducts(
   return json?.data || [];
 }
 
-export async function fetchProduct(id: string | number): Promise<Product | null> {
+export async function fetchProduct(documentId: string): Promise<Product | null> {
   try {
     const params = new URLSearchParams();
+    params.set("filters[documentId][$eq]", documentId);
     params.set("populate", "ProductImages");
-    const json = await strapiFetch(`/api/products/${id}?${params.toString()}`);
-    return json?.data || null;
+    const json = await strapiFetch(`/api/products?${params.toString()}`);
+    return json?.data?.[0] || null;
   } catch (err: any) {
     if ((err as Error).message === "Not Found") return null;
     throw err;
