@@ -1,4 +1,5 @@
 import type { LessonPlan } from "../types/lesson-plan";
+import type { Product } from "../types/product";
 
 // Support both Node and browser environments. In the browser, Vite exposes env
 // variables on `import.meta.env` while in Node tests we rely on `process.env`.
@@ -6,11 +7,13 @@ const env = (typeof process !== "undefined" ? process.env : (import.meta as any)
   [key: string]: string | undefined;
 };
 
-const BASE_URL = env.NEXT_PUBLIC_STRAPI_URL || env.VITE_STRAPI_URL || "";
+// Base API URL for Strapi
+const API =
+  env.VITE_API_URL || env.NEXT_PUBLIC_STRAPI_URL || env.VITE_STRAPI_URL || "";
 const TOKEN = env.STRAPI_TOKEN || env.VITE_STRAPI_TOKEN;
 
 export async function strapiFetch(path: string, init: RequestInit = {}): Promise<any> {
-  const url = `${BASE_URL}${path}`;
+  const url = `${API}${path}`;
   const headers: HeadersInit = {
     "Content-Type": "application/json",
     ...(init.headers || {}),
@@ -56,4 +59,35 @@ export async function getLessonPlan(
   const lesson: LessonPlan = source?.LessonPlanJSON || { topics: [] };
   lesson.locale = source?.locale || locale;
   return lesson;
+}
+
+// --- Products API ---
+
+export function resolveMedia(url?: string): string {
+  if (!url) return "";
+  return url.startsWith("http") ? url : `${API}${url}`;
+}
+
+export async function fetchProducts(
+  page = 1,
+  pageSize = 12,
+): Promise<Product[]> {
+  const params = new URLSearchParams();
+  params.set("populate", "ProductImages");
+  params.set("pagination[page]", String(page));
+  params.set("pagination[pageSize]", String(pageSize));
+  const json = await strapiFetch(`/api/products?${params.toString()}`);
+  return json?.data || [];
+}
+
+export async function fetchProduct(id: string | number): Promise<Product | null> {
+  try {
+    const params = new URLSearchParams();
+    params.set("populate", "ProductImages");
+    const json = await strapiFetch(`/api/products/${id}?${params.toString()}`);
+    return json?.data || null;
+  } catch (err: any) {
+    if ((err as Error).message === "Not Found") return null;
+    throw err;
+  }
 }
