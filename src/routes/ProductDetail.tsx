@@ -42,35 +42,35 @@ export default function ProductDetail() {
     );
   }
 
-  const { attributes } = data;
-  const images = attributes.ProductImages?.data || [];
+  const product = data;
+  const images = product.ProductImages || [];
 
   return (
     <div className="max-w-screen-md mx-auto p-4 space-y-4">
       <Link to="/shop" className="text-sm text-brand hover:underline">
         Back to Shop
       </Link>
-      <h2 className="text-3xl font-bold">{attributes.ProductName}</h2>
-      <p className="text-xl">{attributes.Price}</p>
+      <h2 className="text-3xl font-bold">{product.ProductName}</h2>
+      <p className="text-xl">{product.Price}</p>
       <div className="flex flex-col gap-4">
         {images.map((img, idx) => (
           <img
             key={idx}
-            src={resolveMedia(img.attributes.url)}
-            alt={img.attributes.alternativeText || attributes.ProductName}
+            src={resolveMedia(img.url)}
+            alt={img.alternativeText || product.ProductName}
             className="w-full rounded-lg object-cover"
             loading="lazy"
           />
         ))}
       </div>
-      <p className="whitespace-pre-line">{attributes.Description}</p>
+      <p className="whitespace-pre-line">{product.Description}</p>
       <a
-        href={attributes.ButtonLink}
+        href={product.ButtonLink}
         target="_blank"
         rel="noopener noreferrer"
         className="inline-block bg-brand text-white px-4 py-2 rounded hover:bg-brand/90"
       >
-        {attributes.ButtonLabel || "Buy now"}
+        {product.ButtonLabel || "Buy now"}
       </a>
       <Link to="/shop" className="block text-sm text-brand hover:underline">
         Back to Shop
