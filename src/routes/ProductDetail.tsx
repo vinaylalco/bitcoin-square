@@ -12,6 +12,11 @@ export default function ProductDetail() {
     enabled: !!documentId,
   });
 
+  const [index, setIndex] = React.useState(0);
+  React.useEffect(() => {
+    setIndex(0);
+  }, [data]);
+
   if (isLoading) {
     return (
       <div className="p-4">
@@ -44,7 +49,6 @@ export default function ProductDetail() {
 
   const product = data;
   const images = product.ProductImages || [];
-  const [index, setIndex] = React.useState(0);
 
   const prev = () =>
     setIndex((i) => (i - 1 + images.length) % images.length);
