@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 
-const STRAPI_URL = process.env.STRAPI_URL || 'http://localhost:1337';
+const STRAPI_URL =
+  process.env.VITE_STRAPI_URL || process.env.STRAPI_URL || 'http://localhost:1337';
 const TOKEN = process.env.STRAPI_TOKEN || '';
 
 async function request(path: string, data: any) {
