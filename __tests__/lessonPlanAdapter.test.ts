@@ -32,7 +32,10 @@ describe("getLessonPlan", () => {
     process.env.NEXT_PUBLIC_STRAPI_URL = "http://test";
 
     const lesson = await getLessonPlan("es");
-    expect(fetchMock.mock.calls[0][0]).toContain("populate=%2A");
+    const url = fetchMock.mock.calls[0][0] as string;
+    expect(url).toContain("fields%5B0%5D=LessonPlanJSON");
+    expect(url).toContain("populate%5Blocalizations%5D%5Bfields%5D%5B0%5D=LessonPlanJSON");
+    expect(url).toContain("sort%5B0%5D=publishedAt%3Adesc");
     expect(lesson).toEqual({ title: "Español", topics: [], locale: "es" });
   });
 

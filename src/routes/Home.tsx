@@ -1,6 +1,5 @@
-import { Link } from 'react-router-dom';
 import { useStrapiQuery } from '../hooks/useStrapiQuery';
-import type { Home, Lesson } from '../types/strapi';
+import type { Home } from '../types/strapi';
 
 export default function HomePage() {
   // const { data, isLoading, error } = useStrapiQuery<{ data: Home }>('home', '/api/home?populate=featuredLessons');
@@ -8,8 +7,6 @@ export default function HomePage() {
     'home',
     '/api/home-page?populate[HomePageSection][populate]=SectionImage'
   );
-  console.log(data)
-  console.log(error)
   if (isLoading) return <p>Loading...</p>;
   if (error || !data) return <p>Failed to load home.</p>;
 
@@ -17,10 +14,10 @@ export default function HomePage() {
   return (
     <div className="p-6 space-y-4">
       
-      <section class="px-4 sm:px-6 pt-8 pb-6">
-          <h1 class="text-4xl sm:text-5xl font-extrabold tracking-tight">{home.H1}</h1>
-          <p class="mt-3 text-neutral-700 dark:text-neutral-300 text-lg sm:text-xl max-w-3xl">{home.MainSubHeading}</p>
-          <div class="mt-4 h-1 w-16 bg-brand rounded-full"></div>
+      <section className="px-4 sm:px-6 pt-8 pb-6">
+          <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight">{home.H1}</h1>
+          <p className="mt-3 text-neutral-700 dark:text-neutral-300 text-lg sm:text-xl max-w-3xl">{home.MainSubHeading}</p>
+          <div className="mt-4 h-1 w-16 bg-brand rounded-full"></div>
       </section>
 
       {home?.HomePageSection?.length
@@ -30,7 +27,7 @@ export default function HomePage() {
               <div>
                 <img
                   key={section.id}
-                  src={`${import.meta.env.VITE_STRAPI_URL}${section.SectionImage.formats.medium.url}`}
+                  src={`${import.meta.env.VITE_STRAPI_URL}${section.SectionImage?.formats?.small?.url || section.SectionImage?.url || ''}`}
                   alt={section.H2}
                 />
               </div>
