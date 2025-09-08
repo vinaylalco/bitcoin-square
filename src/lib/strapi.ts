@@ -27,37 +27,72 @@ export async function strapiFetch(path: string, init: RequestInit = {}): Promise
   return res.json();
 }
 
+function toSlug(title?: string): string {
+  return (
+    title
+      ?.toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "") || ""
+  );
+}
+
+export async function getLessonPlans(locale: string): Promise<LessonPlan[]> {
+  const params = new URLSearchParams();
+  params.set("populate", "coverImage,localizations");
+  const path = `/api/lesson-plans?${params.toString()}`;
+  const json = await strapiFetch(path);
+
+  const entries: any[] = json?.data || [];
+  return entries.map((entry) => {
+    let source = entry;
+    if (entry.locale !== locale) {
+      const match = entry.localizations?.find((l: any) => l.locale === locale);
+      if (match) source = match;
+    }
+    const slug = entry.slug || toSlug(entry.title) || String(entry.id);
+    return {
+      id: entry.documentId || entry.id,
+      title: source.title,
+      slug,
+      description: source.description,
+      coverImage: resolveMedia(source.coverImage?.url),
+      topics: [],
+      locale: source.locale || entry.locale || locale,
+    } as LessonPlan;
+  });
+}
+
 export async function getLessonPlan(
   locale: string,
-  slug = "education",
+  slug: string,
 ): Promise<LessonPlan> {
-  // Strapi v5 returns the base locale entry with all localizations nested
-  // under a `localizations` array. We fetch all locales at once and then
-  // select the requested one on the client.
   const params = new URLSearchParams();
-  // Using `populate=*` ensures Strapi returns all nested relations,
-  // including the `localizations` array with `LessonPlanJSON` content.
   params.set("populate", "*");
   const path = `/api/lesson-plans?${params.toString()}`;
   const json = await strapiFetch(path);
 
-  // Find the requested lesson plan (currently only one supported)
-  const entry = json?.data?.[0];
+  const entries: any[] = json?.data || [];
+  const entry = entries.find((e) => {
+    const s = e.slug || toSlug(e.title) || String(e.id);
+    return s === slug;
+  });
   if (!entry) {
-    return { topics: [], locale };
+    throw new Error("Not Found");
   }
 
-  // Select the localization matching the requested locale if available
   let source = entry;
   if (entry.locale !== locale) {
     const match = entry.localizations?.find((l: any) => l.locale === locale);
-    if (match) {
-      source = match;
-    }
+    if (match) source = match;
   }
 
   const lesson: LessonPlan = source?.LessonPlanJSON || { topics: [] };
   lesson.locale = source?.locale || locale;
+  lesson.title = source?.title;
+  lesson.slug = entry.slug || toSlug(entry.title) || String(entry.id);
+  lesson.description = source?.description;
+  lesson.coverImage = resolveMedia(source?.coverImage?.url);
+  lesson.id = entry.documentId || entry.id;
   return lesson;
 }
 

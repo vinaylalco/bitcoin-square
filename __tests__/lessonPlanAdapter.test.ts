@@ -10,6 +10,7 @@ describe("getLessonPlan", () => {
     const mock = {
       data: [
         {
+          slug: "education",
           locale: "en",
           LessonPlanJSON: { title: "English", topics: [] },
           localizations: [
@@ -31,15 +32,16 @@ describe("getLessonPlan", () => {
 
     process.env.NEXT_PUBLIC_STRAPI_URL = "http://test";
 
-    const lesson = await getLessonPlan("es");
+    const lesson = await getLessonPlan("es", "education");
     expect(fetchMock.mock.calls[0][0]).toContain("populate=%2A");
-    expect(lesson).toEqual({ title: "Español", topics: [], locale: "es" });
+    expect(lesson).toMatchObject({ title: "Español", topics: [], locale: "es" });
   });
 
   it("falls back to en when translation missing", async () => {
     const mock = {
       data: [
         {
+          slug: "education",
           locale: "en",
           LessonPlanJSON: { title: "English", topics: [] },
           localizations: [],
@@ -53,7 +55,7 @@ describe("getLessonPlan", () => {
 
     process.env.NEXT_PUBLIC_STRAPI_URL = "http://test";
 
-    const lesson = await getLessonPlan("es");
+    const lesson = await getLessonPlan("es", "education");
     expect(lesson.locale).toBe("en");
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
