@@ -8,8 +8,7 @@ export default function HomePage() {
     'home',
     '/api/home-page?populate[HomePageSection][populate]=SectionImage'
   );
-  console.log(data)
-  console.log(error)
+
   if (isLoading) return <p>Loading...</p>;
   if (error || !data) return <p>Failed to load home.</p>;
 
@@ -30,7 +29,7 @@ export default function HomePage() {
               <div>
                 <img
                   key={section.id}
-                  src={`${import.meta.env.VITE_STRAPI_URL}${section.SectionImage.formats.medium.url}`}
+                  src={`${import.meta.env.VITE_STRAPI_URL}${section.SectionImage.formats.small.url}`}
                   alt={section.H2}
                 />
               </div>
