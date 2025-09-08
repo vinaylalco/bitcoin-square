@@ -38,26 +38,22 @@ function toSlug(title?: string): string {
 
 export async function getLessonPlans(locale: string): Promise<LessonPlan[]> {
   const params = new URLSearchParams();
-  params.set("populate", "coverImage,localizations");
+  params.set("filters[locale][$eq]", locale);
+  params.append("populate[0]", "coverImage");
   const path = `/api/lesson-plans?${params.toString()}`;
   const json = await strapiFetch(path);
 
   const entries: any[] = json?.data || [];
   return entries.map((entry) => {
-    let source = entry;
-    if (entry.locale !== locale) {
-      const match = entry.localizations?.find((l: any) => l.locale === locale);
-      if (match) source = match;
-    }
     const slug = entry.slug || toSlug(entry.title) || String(entry.id);
     return {
       id: entry.documentId || entry.id,
-      title: source.title,
+      title: entry.title,
       slug,
-      description: source.description,
-      coverImage: resolveMedia(source.coverImage?.url),
+      description: entry.description,
+      coverImage: resolveMedia(entry.coverImage?.url),
       topics: [],
-      locale: source.locale || entry.locale || locale,
+      locale: entry.locale || locale,
     } as LessonPlan;
   });
 }
