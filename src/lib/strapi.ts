@@ -9,7 +9,7 @@ const env = (typeof process !== "undefined" ? process.env : (import.meta as any)
 
 // Base API URL for Strapi
 const API =
-  env.VITE_API_URL || env.NEXT_PUBLIC_STRAPI_URL || env.VITE_STRAPI_URL || "";
+  env.VITE_STRAPI_URL || env.NEXT_PUBLIC_STRAPI_URL || env.VITE_API_URL || "";
 const TOKEN = env.STRAPI_TOKEN || env.VITE_STRAPI_TOKEN;
 
 export async function strapiFetch(path: string, init: RequestInit = {}): Promise<any> {
