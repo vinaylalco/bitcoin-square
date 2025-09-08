@@ -30,18 +30,13 @@ export async function strapiFetch(path: string, init: RequestInit = {}): Promise
   return res.json();
 }
 
-export async function getLessonPlan(
-  locale: string,
-  slug = "education",
-): Promise<LessonPlan> {
-  // Strapi v5 returns the base locale entry with all localizations nested
-  // under a `localizations` array. We fetch all locales at once and then
-  // select the requested one on the client.
+export async function getLessonPlan(locale: string): Promise<LessonPlan> {
+  // Fetch lesson plans with only the JSON field for the base locale and all
+  // localizations, sorted by publication date so the newest entry is first.
   const params = new URLSearchParams();
-  // Using `populate=*` ensures Strapi returns all nested relations,
-  // including the `localizations` array with `LessonPlanJSON` content.
-  params.set("populate", "*");
-  params.set("filters[slug][$eq]", slug);
+  params.set("fields[0]", "LessonPlanJSON");
+  params.set("populate[localizations][fields][0]", "LessonPlanJSON");
+  params.set("sort[0]", "publishedAt:desc");
   const path = `/api/lesson-plans?${params.toString()}`;
   const json = await strapiFetch(path);
 

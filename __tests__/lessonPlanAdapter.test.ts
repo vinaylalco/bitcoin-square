@@ -32,8 +32,10 @@ describe("getLessonPlan", () => {
     process.env.NEXT_PUBLIC_STRAPI_URL = "http://test";
 
     const lesson = await getLessonPlan("es");
-    expect(fetchMock.mock.calls[0][0]).toContain("populate=%2A");
-    expect(fetchMock.mock.calls[0][0]).toContain("filters%5Bslug%5D%5B%24eq%5D=education");
+    const url = fetchMock.mock.calls[0][0] as string;
+    expect(url).toContain("fields%5B0%5D=LessonPlanJSON");
+    expect(url).toContain("populate%5Blocalizations%5D%5Bfields%5D%5B0%5D=LessonPlanJSON");
+    expect(url).toContain("sort%5B0%5D=publishedAt%3Adesc");
     expect(lesson).toEqual({ title: "Español", topics: [], locale: "es" });
   });
 
@@ -57,19 +59,5 @@ describe("getLessonPlan", () => {
     const lesson = await getLessonPlan("es");
     expect(lesson.locale).toBe("en");
     expect(fetchMock).toHaveBeenCalledTimes(1);
-  });
-
-  it("uses slug parameter when provided", async () => {
-    const mock = { data: [] };
-    const fetchMock = vi
-      .spyOn(global, "fetch")
-      .mockResolvedValueOnce({ ok: true, json: async () => mock } as any);
-
-    process.env.NEXT_PUBLIC_STRAPI_URL = "http://test";
-
-    await getLessonPlan("en", "custom-slug");
-    expect(fetchMock.mock.calls[0][0]).toContain(
-      "filters%5Bslug%5D%5B%24eq%5D=custom-slug",
-    );
   });
 });
