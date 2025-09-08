@@ -1,11 +1,13 @@
 import { useTranslation } from "react-i18next";
+import { useParams } from "react-router-dom";
 import Slider from "../components/lesson/Slider";
 import { useLessonPlan } from "../hooks/useLessonPlan";
 
-export default function Education() {
+export default function CourseDetail() {
   const { i18n } = useTranslation();
+  const { slug = "" } = useParams();
   const locale = i18n.language?.toLowerCase().startsWith("es") ? "es" : "en";
-  const { data, isLoading, error, isFetching } = useLessonPlan(locale);
+  const { data, isLoading, error, isFetching } = useLessonPlan(locale, slug);
 
   if (isLoading && !data) {
     return (
@@ -18,6 +20,9 @@ export default function Education() {
   }
 
   if (error) {
+    if (error.message === "Not Found") {
+      return <div className="p-4">Course not found.</div>;
+    }
     return <div className="p-4 text-brand">Failed to load lesson plan.</div>;
   }
 

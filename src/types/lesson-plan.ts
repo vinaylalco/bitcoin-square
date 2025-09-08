@@ -23,7 +23,11 @@ export interface Topic {
 }
 
 export interface LessonPlan {
+  id?: string | number;
   title?: string;
+  slug?: string;
+  description?: string;
+  coverImage?: string;
   topics: Topic[];
   locale?: string;
 }

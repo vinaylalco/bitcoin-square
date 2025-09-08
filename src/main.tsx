@@ -8,7 +8,8 @@ import "./index.css";
 import "./i18n";
 
 import Home from "./routes/Home";
-import Education from "./routes/Education";
+import CourseDirectory from "./routes/CourseDirectory";
+import CourseDetail from "./routes/CourseDetail";
 import Settings from "./routes/Settings";
 import Blog from "./routes/Blog";
 import Contact from "./routes/Contact";
@@ -27,7 +28,8 @@ const router = createBrowserRouter([
     errorElement: <RouteError />,              // ✅ friendly error UI
     children: [
       { index: true, element: <Home /> },
-      { path: "education", element: <Education /> },
+      { path: "education", element: <CourseDirectory /> },
+      { path: "education/:slug", element: <CourseDetail /> },
       { path: "settings", element: <Settings /> },
       { path: "blog", element: <Blog /> },
       { path: "contact", element: <Contact /> },
