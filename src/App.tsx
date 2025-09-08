@@ -1,9 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Outlet, NavLink, useLocation } from "react-router-dom";
-import { Menu, X, Home as HomeIcon, BookOpen, User, Settings } from "lucide-react";
+import {
+  Menu,
+  X,
+  Home as HomeIcon,
+  BookOpen,
+  Settings,
+  ShoppingCart,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { supabase } from "./lib/supabase";
-import { useRole } from "./hooks/useRole";
 import FocusTrap from "./components/FocusTrap";
 import { useSwipe } from "./hooks/useSwipe";
 import { useTheme } from "./context/ThemeContext";
@@ -14,27 +19,15 @@ export default function App() {
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const drawerRef = useRef<HTMLDivElement | null>(null);
 
-  const [user, setUser] = useState<any>(null);
   const { t, i18n } = useTranslation();
   const loc = useLocation();
-  const { role } = useRole();
   const { theme } = useTheme(); // ensures theme context is mounted
-
-  const isCMS = loc.pathname.startsWith("/cms");
   const lang = (i18n.language || "en").toLowerCase().startsWith("es") ? "es" : "en";
   const changeLang = (lng: "en" | "es") => i18n.changeLanguage(lng);
 
   // Close drawer on route change
   useEffect(() => setOpen(false), [loc.pathname]);
 
-  // Supabase auth state
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null));
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      setUser(session?.user ?? null);
-    });
-    return () => sub?.subscription.unsubscribe();
-  }, []);
 
   // Body scroll lock while drawer open
   useEffect(() => {
@@ -86,7 +79,14 @@ export default function App() {
           {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </button>
         <h1 className="font-semibold text-lg">Bitcoin Square</h1>
-        <div className="w-6" />
+        <NavLink
+          to="/shop"
+          className={({ isActive }) =>
+            `hover:text-brand ${isActive ? "text-brand font-semibold" : ""}`
+          }
+        >
+          Shop
+        </NavLink>
       </header>
 
       {/* Overlay (click-outside to close) */}
@@ -126,33 +126,32 @@ export default function App() {
               <span>Home</span>
             </NavLink>
 
-            <NavLink to="/education" onClick={() => setOpen(false)} className="flex items-center gap-2 hover:text-brand">
+            <NavLink
+              to="/education"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2 hover:text-brand"
+            >
               <BookOpen className="h-5 w-5" />
               <span>{t("nav.education") || "Education"}</span>
             </NavLink>
 
-            {user ? (
-              <NavLink to="/profile" onClick={() => setOpen(false)} className="flex items-center gap-2 hover:text-brand">
-                <User className="h-5 w-5" />
-                <span>{t("nav.profile") || "Profile"}</span>
-              </NavLink>
-            ) : (
-              <NavLink to="/login" onClick={() => setOpen(false)} className="flex items-center gap-2 hover:text-brand">
-                <User className="h-5 w-5" />
-                <span>Login</span>
-              </NavLink>
-            )}
+            <NavLink
+              to="/shop"
+              onClick={() => setOpen(false)}
+              className={({ isActive }) =>
+                `flex items-center gap-2 hover:text-brand ${
+                  isActive ? "text-brand font-semibold" : ""
+                }`
+              }
+            >
+              <ShoppingCart className="h-5 w-5" />
+              <span>Shop</span>
+            </NavLink>
 
             <NavLink to="/settings" onClick={() => setOpen(false)} className="flex items-center gap-2 hover:text-brand">
               <Settings className="h-5 w-5" />
               <span>Settings</span>
             </NavLink>
-
-            {role === "admin" && (
-              <NavLink to="/cms" onClick={() => setOpen(false)} className="flex items-center gap-2 font-semibold hover:text-brand">
-                CMS
-              </NavLink>
-            )}
 
             {/* Manual Language Selector */}
             <div className="pt-4 border-t border-neutral-200 dark:border-neutral-800">
@@ -179,14 +178,13 @@ export default function App() {
       </aside>
 
       {/* Main content (pad bottom if bottom nav visible) */}
-      <main className={`flex-1 ${!isCMS ? "pb-[calc(64px+env(safe-area-inset-bottom))] sm:pb-0" : ""}`}>
+      <main className="flex-1 pb-[calc(64px+env(safe-area-inset-bottom))] sm:pb-0">
         <Outlet />
-        {!isCMS && <Footer />}
+        <Footer />
       </main>
 
-      {/* Bottom nav (hidden on CMS routes and desktop) */}
-      {!isCMS && (
-        <nav
+      {/* Bottom nav (hidden on desktop) */}
+      <nav
           role="navigation"
           aria-label="App navigation"
           className="
@@ -195,27 +193,39 @@ export default function App() {
             bg-white/95 dark:bg-neutral-900/95 backdrop-blur
             py-2 pb-[calc(8px+env(safe-area-inset-bottom))]
           "
-        >
-          <div className="mx-auto max-w-screen-sm flex justify-around">
-            <NavLink to="/" className="flex flex-col items-center">
-              <HomeIcon className="h-6 w-6" />
-              <span className="text-xs">Home</span>
-            </NavLink>
+      >
+        <div className="mx-auto max-w-screen-sm flex justify-around">
+          <NavLink
+            to="/"
+            className={({ isActive }) =>
+              `flex flex-col items-center ${isActive ? "text-brand" : ""}`
+            }
+          >
+            <HomeIcon className="h-6 w-6" />
+            <span className="text-xs">Home</span>
+          </NavLink>
 
-            <NavLink to="/education" className="flex flex-col items-center">
-              <BookOpen className="h-6 w-6" />
-              <span className="text-xs">{t("nav.education") || "Education"}</span>
-            </NavLink>
+          <NavLink
+            to="/education"
+            className={({ isActive }) =>
+              `flex flex-col items-center ${isActive ? "text-brand" : ""}`
+            }
+          >
+            <BookOpen className="h-6 w-6" />
+            <span className="text-xs">{t("nav.education") || "Education"}</span>
+          </NavLink>
 
-            {user && (
-              <NavLink to="/profile" className="flex flex-col items-center">
-                <User className="h-6 w-6" />
-                <span className="text-xs">{t("nav.profile") || "Profile"}</span>
-              </NavLink>
-            )}
-          </div>
-        </nav>
-      )}
+          <NavLink
+            to="/shop"
+            className={({ isActive }) =>
+              `flex flex-col items-center ${isActive ? "text-brand" : ""}`
+            }
+          >
+            <ShoppingCart className="h-6 w-6" />
+            <span className="text-xs">Shop</span>
+          </NavLink>
+        </div>
+      </nav>
     </div>
   );
 }
