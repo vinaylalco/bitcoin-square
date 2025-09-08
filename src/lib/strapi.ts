@@ -7,13 +7,16 @@ const env = (typeof process !== "undefined" ? process.env : (import.meta as any)
   [key: string]: string | undefined;
 };
 
-// Base API URL for Strapi
-const API =
-  env.VITE_API_URL || env.NEXT_PUBLIC_STRAPI_URL || env.VITE_STRAPI_URL || "";
+function getApiUrl(): string | undefined {
+  return env.VITE_API_URL || env.NEXT_PUBLIC_STRAPI_URL || env.VITE_STRAPI_URL;
+}
+
 const TOKEN = env.STRAPI_TOKEN || env.VITE_STRAPI_TOKEN;
 
 export async function strapiFetch(path: string, init: RequestInit = {}): Promise<any> {
-  const url = `${API}${path}`;
+  const base = getApiUrl();
+  if (!base) throw new Error("VITE_STRAPI_URL not set");
+  const url = `${base}${path}`;
   const headers: HeadersInit = {
     "Content-Type": "application/json",
     ...(init.headers || {}),
@@ -38,6 +41,7 @@ export async function getLessonPlan(
   // Using `populate=*` ensures Strapi returns all nested relations,
   // including the `localizations` array with `LessonPlanJSON` content.
   params.set("populate", "*");
+  params.set("filters[slug][$eq]", slug);
   const path = `/api/lesson-plans?${params.toString()}`;
   const json = await strapiFetch(path);
 
@@ -65,7 +69,8 @@ export async function getLessonPlan(
 
 export function resolveMedia(url?: string): string {
   if (!url) return "";
-  return url.startsWith("http") ? url : `${API}${url}`;
+  const base = getApiUrl();
+  return url.startsWith("http") || !base ? url : `${base}${url}`;
 }
 
 export function resolveExternal(url?: string): string {
