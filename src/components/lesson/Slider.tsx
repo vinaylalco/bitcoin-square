@@ -288,7 +288,7 @@ export default function Slider({
             ref={drawerRef}
             role="dialog"
             aria-labelledby="toc-title-mobile"
-            className={`lg:hidden absolute inset-0 z-10 bg-white overflow-y-auto p-4 ${
+            className={`lg:hidden absolute inset-0 z-10 bg-white dark:bg-neutral-900 overflow-y-auto p-4 ${
               reduceMotion ? "" : "transition duration-200 ease-out transform"
             } ${
               tocOpen
@@ -298,7 +298,7 @@ export default function Slider({
           >
             <h2
               id="toc-title-mobile"
-              className="font-semibold mb-2 sticky top-0 bg-white"
+              className="font-semibold mb-2 sticky top-0 bg-white dark:bg-neutral-900"
             >
               Course Content
             </h2>
@@ -307,7 +307,7 @@ export default function Slider({
         </div>
       </div>
       <nav
-        className="hidden lg:block lg:w-1/4 lg:pl-4"
+        className="hidden lg:block lg:w-1/4 lg:pl-4 bg-white dark:bg-neutral-900"
         aria-labelledby="toc-title-desktop"
       >
         <h2 id="toc-title-desktop" className="font-semibold mb-2">
