@@ -191,112 +191,130 @@ export default function Slider({
     return () => drawer.removeEventListener("keydown", handleKey);
   }, [tocOpen]);
 
-  return (
-    <div style={{ "--chrome": `${chrome}px` } as React.CSSProperties}>
-      <div className="flex items-center mb-4">
-        <div
-          ref={progressRef}
-          className="h-2 flex-1 bg-neutral-200 rounded overflow-hidden"
-          role="progressbar"
-          aria-label={`Lesson ${index + 1} of ${total} (${percent}%)`}
-          aria-valuemin={1}
-          aria-valuemax={total}
-          aria-valuenow={index + 1}
-        >
-          <div className="h-full bg-brand" style={{ width: `${percent}%` }} />
-        </div>
-        <span className="ml-2 text-sm">{percent}%</span>
-      </div>
-      <button
-        ref={toggleRef}
-        type="button"
-        onClick={() => setTocOpen((o) => !o)}
-        className="mb-4 block w-full text-lg font-large border-2 border-brand bg-white text-neutral-900 py-2 rounded focus:outline-none focus-visible:ring-2 ring-brand"
-        aria-controls="toc-drawer"
-        aria-expanded={tocOpen}
-      >
-        Course Structure
-      </button>
-      <div className="relative">
-        <div
-          ref={containerRef}
-          className="flex overflow-x-auto snap-x snap-mandatory"
-        >
-          {cards.map((c) => (
-            <div
-              key={c.id}
-              className="w-full flex-shrink-0 snap-start"
-            >
-              <div className="overflow-y-auto">
-                <Card card={c} topicName={c.topicName} />
-              </div>
-            </div>
-          ))}
-        </div>
-        {index > 0 && (
-          <button
-            onClick={prev}
-            aria-label="Previous"
-            className={[
-              "hidden lg:flex items-center justify-center absolute left-0 top-1/2 -translate-y-1/2 -translate-x-full",
-              "w-10 h-10 bg-white border rounded-full shadow",
-            ].join(" ")}
-          >
-            <ChevronLeft />
-          </button>
-        )}
-        {index < total - 1 && (
-          <button
-            onClick={next}
-            aria-label="Next"
-            className={[
-              "hidden lg:flex items-center justify-center absolute right-0 top-1/2 -translate-y-1/2 translate-x-full",
-              "w-10 h-10 bg-white border rounded-full shadow",
-            ].join(" ")}
-          >
-            <ChevronRight />
-          </button>
-        )}
-        <div
-          id="toc-drawer"
-          ref={drawerRef}
-          role="dialog"
-          aria-labelledby="toc-title"
-          className={`absolute inset-0 z-10 bg-white overflow-y-auto p-4 ${
-            reduceMotion ? "" : "transition duration-200 ease-out transform"
-          } ${
-            tocOpen
-              ? "opacity-100 translate-y-0"
-              : "opacity-0 -translate-y-2 pointer-events-none"
-          }`}
-        >
-          <h2
-            id="toc-title"
-            className="font-semibold mb-2 sticky top-0 bg-white"
-          >
-            Course sections
-          </h2>
-          <ul className="space-y-2">
-            {topics.map((t) => (
-              <li key={t.name}>
-                <p className="font-medium">{t.name}</p>
-                <ul className="ml-4 space-y-1">
-                  {t.cards.map((c) => (
-                    <li key={c.id}>
-                      <button
-                        className="text-left w-full px-2 py-1 rounded focus:outline-none focus-visible:ring-2 ring-brand"
-                        onClick={() => handleSelect(c.id)}
-                      >
-                        {c.title}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+  const tocContent = (
+    <ul className="space-y-2">
+      {topics.map((t) => (
+        <li key={t.name}>
+          <p className="font-medium">{t.name}</p>
+          <ul className="ml-4 space-y-1">
+            {t.cards.map((c) => (
+              <li key={c.id}>
+                <button
+                  className="text-left w-full px-2 py-1 rounded focus:outline-none focus-visible:ring-2 ring-brand"
+                  onClick={() => handleSelect(c.id)}
+                >
+                  {c.title}
+                </button>
               </li>
             ))}
           </ul>
+        </li>
+      ))}
+    </ul>
+  );
+
+  return (
+    <div
+      className="lg:flex"
+      style={{ "--chrome": `${chrome}px` } as React.CSSProperties}
+    >
+      <div className="lg:w-3/4 lg:pr-4">
+        <div className="flex items-center mb-4">
+          <div
+            ref={progressRef}
+            className="h-2 flex-1 bg-neutral-200 rounded overflow-hidden"
+            role="progressbar"
+            aria-label={`Lesson ${index + 1} of ${total} (${percent}%)`}
+            aria-valuemin={1}
+            aria-valuemax={total}
+            aria-valuenow={index + 1}
+          >
+            <div className="h-full bg-brand" style={{ width: `${percent}%` }} />
+          </div>
+          <span className="ml-2 text-sm">{percent}%</span>
+        </div>
+        <button
+          ref={toggleRef}
+          type="button"
+          onClick={() => setTocOpen((o) => !o)}
+          className="mb-4 block w-full text-lg font-large border-2 border-brand bg-white text-neutral-900 py-2 rounded focus:outline-none focus-visible:ring-2 ring-brand lg:hidden"
+          aria-controls="toc-drawer"
+          aria-expanded={tocOpen}
+        >
+          Course Content
+        </button>
+        <div className="relative">
+          <div
+            ref={containerRef}
+            className="flex overflow-x-auto snap-x snap-mandatory"
+          >
+            {cards.map((c) => (
+              <div
+                key={c.id}
+                className="w-full flex-shrink-0 snap-start"
+              >
+                <div className="overflow-y-auto">
+                  <Card card={c} topicName={c.topicName} />
+                </div>
+              </div>
+            ))}
+          </div>
+          {index > 0 && (
+            <button
+              onClick={prev}
+              aria-label="Previous"
+              className={[
+                "hidden lg:flex items-center justify-center absolute left-0 top-1/2 -translate-y-1/2 -translate-x-full",
+                "w-10 h-10 bg-white border rounded-full shadow",
+              ].join(" ")}
+            >
+              <ChevronLeft />
+            </button>
+          )}
+          {index < total - 1 && (
+            <button
+              onClick={next}
+              aria-label="Next"
+              className={[
+                "hidden lg:flex items-center justify-center absolute right-0 top-1/2 -translate-y-1/2 translate-x-full",
+                "w-10 h-10 bg-white border rounded-full shadow",
+              ].join(" ")}
+            >
+              <ChevronRight />
+            </button>
+          )}
+          <div
+            id="toc-drawer"
+            ref={drawerRef}
+            role="dialog"
+            aria-labelledby="toc-title-mobile"
+            className={`lg:hidden absolute inset-0 z-10 bg-white overflow-y-auto p-4 ${
+              reduceMotion ? "" : "transition duration-200 ease-out transform"
+            } ${
+              tocOpen
+                ? "opacity-100 translate-y-0"
+                : "opacity-0 -translate-y-2 pointer-events-none"
+            }`}
+          >
+            <h2
+              id="toc-title-mobile"
+              className="font-semibold mb-2 sticky top-0 bg-white"
+            >
+              Course Content
+            </h2>
+            {tocContent}
+          </div>
         </div>
       </div>
+      <nav
+        className="hidden lg:block lg:w-1/4 lg:pl-4"
+        aria-labelledby="toc-title-desktop"
+      >
+        <h2 id="toc-title-desktop" className="font-semibold mb-2">
+          Course Content
+        </h2>
+        {tocContent}
+      </nav>
     </div>
   );
 }
