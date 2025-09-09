@@ -192,7 +192,7 @@ export default function Slider({
   }, [tocOpen]);
 
   const tocContent = (
-    <ul className="space-y-2 text-black">
+    <ul className="space-y-2 text-neutral-900 dark:text-neutral-100">
       {topics.map((t) => (
         <li key={t.name}>
           <p className="font-medium">{t.name}</p>
@@ -200,7 +200,7 @@ export default function Slider({
             {t.cards.map((c) => (
               <li key={c.id}>
                 <button
-                  className="text-left w-full px-2 py-1 rounded focus:outline-none focus-visible:ring-2 ring-brand text-black underline decoration-red-500"
+                  className="text-left w-full px-2 py-1 rounded focus:outline-none focus-visible:ring-2 ring-brand underline decoration-red-500 text-neutral-900 dark:text-neutral-100"
                   onClick={() => handleSelect(c.id)}
                 >
                   {c.title}
@@ -237,7 +237,7 @@ export default function Slider({
           ref={toggleRef}
           type="button"
           onClick={() => setTocOpen((o) => !o)}
-          className="mb-4 block w-full text-lg font-large border-2 border-brand bg-white text-neutral-900 py-2 rounded focus:outline-none focus-visible:ring-2 ring-brand lg:hidden"
+          className="mb-4 block w-full text-lg font-large border-2 border-brand bg-white text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100 py-2 rounded focus:outline-none focus-visible:ring-2 ring-brand lg:hidden"
           aria-controls="toc-drawer"
           aria-expanded={tocOpen}
         >
