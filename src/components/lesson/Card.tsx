@@ -30,7 +30,7 @@ export default function Card({
       {card.duration_min !== undefined && (
         <p className="text-sm text-neutral-500">{card.duration_min} min</p>
       )}
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+      <div className="mt-4 space-y-4">
         <div>
           {videoId ? (
             <YouTubeVideo videoId={videoId} title={card.title} />
@@ -38,21 +38,25 @@ export default function Card({
             <VideoGhost />
           )}
         </div>
-        <div>
-          {card.content && (
-            <p className="whitespace-pre-line">{card.content}</p>
-          )}
-          <h3 className="mt-2"><b>Learning Objectives:</b></h3>
-          {card.objectives && card.objectives.length > 0 && (
+        {card.content && (
+          <p className="whitespace-pre-line">{card.content}</p>
+        )}
+        {card.objectives && card.objectives.length > 0 && (
+          <div>
+            <h3 className="font-bold">Learning Objectives:</h3>
             <ul className="mt-2 list-disc pl-5 space-y-1">
               {card.objectives.map((obj, i) => (
                 <li key={i}>{obj}</li>
               ))}
             </ul>
-          )}
-          <h3 className="mt-2"><b>Quizz:</b></h3>
-          {card.quiz && <Quiz quiz={card.quiz} />}
-        </div>
+          </div>
+        )}
+        {card.quiz && (
+          <div>
+            <h3 className="font-bold">Quiz:</h3>
+            <Quiz quiz={card.quiz} />
+          </div>
+        )}
       </div>
     </article>
   );
