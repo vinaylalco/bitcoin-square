@@ -18,6 +18,15 @@ export async function strapiFetch<T>(path: string, init?: RequestInit): Promise<
     ...(init?.headers || {}),
   };
   const res = await fetch(`${base}${path}`, { ...init, headers });
-  if (!res.ok) throw new Error(res.statusText);
+  if (!res.ok) {
+    let message = res.statusText;
+    try {
+      const err = await res.json();
+      message = (err as any)?.error?.message || message;
+    } catch {
+      // ignore JSON parse errors and fall back to status text
+    }
+    throw new Error(message);
+  }
   return res.json() as Promise<T>;
 }
