@@ -1,10 +1,10 @@
-import { generatePrivateKey, getPublicKey } from "nostr-tools";
+import { bytesToHex, generateSecretKey, getPublicKey } from "nostr-tools";
 
 export default {
   async beforeCreate(event) {
-    const sk = generatePrivateKey();
+    const sk = generateSecretKey();
     const pk = getPublicKey(sk);
-    event.params.data.nostrPrivateKey = sk;
+    event.params.data.nostrPrivateKey = bytesToHex(sk);
     event.params.data.nostrPublicKey = pk;
   },
 };
