@@ -10,7 +10,8 @@ const env = (typeof process !== 'undefined' ? process.env : (import.meta as any)
 };
 
 export async function strapiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const base = env.VITE_STRAPI_URL || env.NEXT_PUBLIC_STRAPI_URL || env.VITE_API_URL || '';
+  const base =
+    env.VITE_STRAPI_URL || env.NEXT_PUBLIC_STRAPI_URL || env.VITE_API_URL || 'http://localhost:1337';
   const token = typeof window !== 'undefined' ? localStorage.getItem('jwt') : undefined;
   const headers = {
     'Content-Type': 'application/json',
