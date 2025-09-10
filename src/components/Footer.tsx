@@ -57,7 +57,8 @@ export default function Footer() {
           >
             <Instagram
               className="h-6 w-6 text-black dark:text-white"
-              fill="currentColor"
+              stroke="currentColor"
+              fill="none"
             />
           </a>
         </div>
