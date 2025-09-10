@@ -3,7 +3,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function Dashboard() {
-  const { user, logout } = useAuth();
+  const { user, logout, nostrPrivKey } = useAuth();
   const nav = useNavigate();
 
   if (!user) return <Navigate to="/login" replace />;
@@ -19,6 +19,30 @@ export default function Dashboard() {
       <p><strong>Email:</strong> {user.email}</p>
       {user.username && <p><strong>Username:</strong> {user.username}</p>}
       <p><strong>User ID:</strong> {user.id}</p>
+      {user.nostrPublicKey && (
+        <p className="break-all">
+          <strong>Nostr Public Key:</strong> {user.nostrPublicKey}{' '}
+          <button
+            type="button"
+            className="text-brand underline ml-2"
+            onClick={() => navigator.clipboard.writeText(user.nostrPublicKey || '')}
+          >
+            Copy
+          </button>
+        </p>
+      )}
+      {nostrPrivKey && (
+        <p className="break-all">
+          <strong>Nostr Private Key:</strong> {nostrPrivKey}{' '}
+          <button
+            type="button"
+            className="text-brand underline ml-2"
+            onClick={() => navigator.clipboard.writeText(nostrPrivKey)}
+          >
+            Copy
+          </button>
+        </p>
+      )}
       <button onClick={handleLogout} className="mt-4 bg-brand text-white p-2">Logout</button>
     </div>
   );
