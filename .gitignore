@@ -11,6 +11,8 @@ node_modules
 dist
 dist-ssr
 *.local
+backend
+backend_old
 
 # Environment variables
 .env
