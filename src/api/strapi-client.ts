@@ -10,11 +10,24 @@ const env = (typeof process !== 'undefined' ? process.env : (import.meta as any)
 };
 
 export async function strapiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const base = env.VITE_STRAPI_URL || env.NEXT_PUBLIC_STRAPI_URL || env.VITE_API_URL || '';
-  const res = await fetch(`${base}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
-    ...init,
-  });
-  if (!res.ok) throw new Error(res.statusText);
+  const base =
+    env.VITE_STRAPI_URL || env.NEXT_PUBLIC_STRAPI_URL || env.VITE_API_URL || 'http://localhost:1337';
+  const token = typeof window !== 'undefined' ? localStorage.getItem('jwt') : undefined;
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(init?.headers || {}),
+  };
+  const res = await fetch(`${base}${path}`, { ...init, headers });
+  if (!res.ok) {
+    let message = res.statusText;
+    try {
+      const err = await res.json();
+      message = (err as any)?.error?.message || message;
+    } catch {
+      // ignore JSON parse errors and fall back to status text
+    }
+    throw new Error(message);
+  }
   return res.json() as Promise<T>;
 }
