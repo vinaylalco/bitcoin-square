@@ -8,12 +8,13 @@ export default function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [storeRecovery, setStoreRecovery] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     try {
-      await register(email, password);
-      nav('/');
+      await register(email, password, storeRecovery);
+      nav('/dashboard');
     } catch (err: any) {
       setError(err.message || 'Registration failed');
     }
@@ -40,6 +41,17 @@ export default function Register() {
           placeholder="Password"
           className="w-full border p-2"
         />
+        <label className="flex items-center space-x-2 text-sm">
+          <input
+            type="checkbox"
+            checked={storeRecovery}
+            onChange={(e) => setStoreRecovery(e.target.checked)}
+          />
+          <span>Store encrypted private key for recovery</span>
+        </label>
+        <p className="text-xs text-red-600">
+          If you lose your password and recovery key, you lose access to your Nostr identity.
+        </p>
         <button type="submit" className="w-full bg-brand text-white p-2">Create Account</button>
       </form>
       <div className="mt-4 text-sm">
