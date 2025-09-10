@@ -1,4 +1,6 @@
-import { bytesToHex, generateSecretKey, getPublicKey } from "nostr-tools";
+import { generateSecretKey, getPublicKey } from "nostr-tools";
+
+const bytesToHex = (bytes: Uint8Array): string => Buffer.from(bytes).toString("hex");
 
 export default {
   async beforeCreate(event) {
