@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { strapiFetch } from "../api/strapi-client";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
@@ -6,7 +7,7 @@ export default function ForgotPassword() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await fetch("/api/auth/forgot-password", {
+    await strapiFetch("/api/auth/forgot-password", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { strapiFetch } from "../api/strapi-client";
 
 interface User {
   id: number;
@@ -40,24 +41,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const login = async (identifier: string, password: string) => {
-    const res = await fetch("/api/auth/local", {
+    const data = await strapiFetch("/api/auth/local", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ identifier, password }),
     });
-    if (!res.ok) throw new Error("Login failed");
-    const data = await res.json();
     handleAuth(data);
   };
 
   const register = async (email: string, password: string) => {
-    const res = await fetch("/api/auth/local/register", {
+    const data = await strapiFetch("/api/auth/local/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password, username: email }),
     });
-    if (!res.ok) throw new Error("Registration failed");
-    const data = await res.json();
     handleAuth(data);
   };
 
