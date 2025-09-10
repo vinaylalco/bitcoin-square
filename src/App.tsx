@@ -7,6 +7,7 @@ import {
   BookOpen,
   Settings,
   ShoppingCart,
+  LayoutDashboard,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import FocusTrap from "./components/FocusTrap";
@@ -155,15 +156,25 @@ export default function App() {
               <span>Settings</span>
             </NavLink>
             {user ? (
-              <button
-                onClick={() => {
-                  logout();
-                  setOpen(false);
-                }}
-                className="flex items-center gap-2 hover:text-brand"
-              >
-                <span>Logout</span>
-              </button>
+              <>
+                <NavLink
+                  to="/dashboard"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-2 hover:text-brand"
+                >
+                  <LayoutDashboard className="h-5 w-5" />
+                  <span>Dashboard</span>
+                </NavLink>
+                <button
+                  onClick={() => {
+                    logout();
+                    setOpen(false);
+                  }}
+                  className="flex items-center gap-2 hover:text-brand"
+                >
+                  <span>Logout</span>
+                </button>
+              </>
             ) : (
               <NavLink
                 to="/login"

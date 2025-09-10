@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function Login() {
-  const { login } = useAuth();
+  const { user, login } = useAuth();
   const nav = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -13,11 +13,13 @@ export default function Login() {
     e.preventDefault();
     try {
       await login(email, password);
-      nav('/');
+      nav('/dashboard');
     } catch (err: any) {
       setError(err.message || 'Login failed');
     }
   }
+
+  if (user) return <Navigate to="/dashboard" replace />;
 
   return (
     <div className="max-w-sm mx-auto p-4">

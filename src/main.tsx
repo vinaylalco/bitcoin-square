@@ -24,6 +24,7 @@ import Login from "./routes/Login";
 import Register from "./routes/Register";
 import ForgotPassword from "./routes/ForgotPassword";
 import ResetPassword from "./routes/ResetPassword";
+import Dashboard from "./routes/Dashboard";
 import { AuthProvider } from "./context/AuthContext";
 
 const router = createBrowserRouter([
@@ -44,6 +45,7 @@ const router = createBrowserRouter([
       { path: "shop", element: <Shop /> },
       { path: "shop/:id", element: <ProductDetail /> },
       { path: "login", element: <Login /> },
+      { path: "dashboard", element: <Dashboard /> },
       { path: "register", element: <Register /> },
       { path: "forgot-password", element: <ForgotPassword /> },
       { path: "reset-password", element: <ResetPassword /> },
