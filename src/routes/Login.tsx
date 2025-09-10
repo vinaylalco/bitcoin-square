@@ -15,7 +15,12 @@ export default function Login() {
       await login(email, password);
       nav('/dashboard');
     } catch (err: any) {
-      setError(err.message || 'Login failed');
+      const msg = err?.message ?? '';
+      if (msg.toLowerCase().includes('bad request')) {
+        setError('Incorrect user or password, try again');
+      } else {
+        setError(msg || 'Login failed');
+      }
     }
   }
 
