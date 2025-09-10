@@ -187,46 +187,11 @@ export default function App() {
         </FocusTrap>
       </aside>
 
-      {/* Main content (pad bottom if bottom nav visible) */}
-      <main className="flex-1 pb-[calc(64px+env(safe-area-inset-bottom))] sm:pb-0">
+      {/* Main content */}
+      <main className="flex-1">
         <Outlet />
         <Footer />
       </main>
-
-      {/* Bottom nav (hidden on desktop) */}
-      <nav
-          role="navigation"
-          aria-label="App navigation"
-          className="
-            fixed bottom-0 left-0 right-0 z-40 sm:hidden
-            border-t border-neutral-200 dark:border-neutral-800
-            bg-white/95 dark:bg-neutral-900/95 backdrop-blur
-            py-2 pb-[calc(8px+env(safe-area-inset-bottom))]
-          "
-      >
-        <div className="mx-auto max-w-screen-sm flex justify-around">
-          <NavLink
-            to="/"
-            className={({ isActive }) =>
-              `flex flex-col items-center ${isActive ? "text-brand" : ""}`
-            }
-          >
-            <HomeIcon className="h-6 w-6" />
-            <span className="text-xs">Home</span>
-          </NavLink>
-
-          <NavLink
-            to="/education"
-            className={({ isActive }) =>
-              `flex flex-col items-center ${isActive ? "text-brand" : ""}`
-            }
-          >
-            <BookOpen className="h-6 w-6" />
-            <span className="text-xs">{t("nav.education") || "Education"}</span>
-          </NavLink>
-
-        </div>
-      </nav>
     </div>
   );
 }
