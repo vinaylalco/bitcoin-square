@@ -12,6 +12,7 @@ import { useTranslation } from "react-i18next";
 import FocusTrap from "./components/FocusTrap";
 import { useSwipe } from "./hooks/useSwipe";
 import { useTheme } from "./context/ThemeContext";
+import { useAuth } from "./context/AuthContext";
 import Footer from "./components/Footer";
 
 export default function App() {
@@ -22,6 +23,7 @@ export default function App() {
   const { t, i18n } = useTranslation();
   const loc = useLocation();
   const { theme } = useTheme(); // ensures theme context is mounted
+  const { user, logout } = useAuth();
   const lang = (i18n.language || "en").toLowerCase().startsWith("es") ? "es" : "en";
   const changeLang = (lng: "en" | "es") => i18n.changeLanguage(lng);
 
@@ -152,6 +154,25 @@ export default function App() {
               <Settings className="h-5 w-5" />
               <span>Settings</span>
             </NavLink>
+            {user ? (
+              <button
+                onClick={() => {
+                  logout();
+                  setOpen(false);
+                }}
+                className="flex items-center gap-2 hover:text-brand"
+              >
+                <span>Logout</span>
+              </button>
+            ) : (
+              <NavLink
+                to="/login"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2 hover:text-brand"
+              >
+                <span>Login</span>
+              </NavLink>
+            )}
 
             {/* Manual Language Selector */}
             <div className="pt-4 border-t border-neutral-200 dark:border-neutral-800">
