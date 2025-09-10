@@ -2,7 +2,7 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
 
   const copy = (text: string) => {
@@ -53,6 +53,13 @@ export default function Dashboard() {
           <p>No courses yet.</p>
         )}
       </div>
+      <button
+        type="button"
+        className="underline text-sm mt-4"
+        onClick={logout}
+      >
+        Logout
+      </button>
     </div>
   );
 }
