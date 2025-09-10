@@ -5,8 +5,6 @@ interface User {
   id: number;
   username: string;
   email: string;
-  nostr_public_key?: string;
-  nostr_private_key?: string;
   [key: string]: unknown;
 }
 

@@ -5,10 +5,6 @@ export default function Dashboard() {
   const { user, logout } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
 
-  const copy = (text: string) => {
-    if (navigator?.clipboard) navigator.clipboard.writeText(text);
-  };
-
   return (
     <div className="p-4 max-w-2xl mx-auto space-y-4">
       <h1 className="text-2xl font-semibold">Dashboard</h1>
@@ -16,31 +12,6 @@ export default function Dashboard() {
         <h2 className="font-medium">Account</h2>
         <p>Email: {user.email}</p>
       </div>
-      {user.nostr_public_key && (
-        <div>
-          <h2 className="font-medium">Nostr Keys</h2>
-          <p className="break-all">
-            Public Key: {user.nostr_public_key}
-            <button
-              type="button"
-              className="ml-2 underline text-sm"
-              onClick={() => copy(user.nostr_public_key!)}
-            >
-              Copy
-            </button>
-          </p>
-          <p className="break-all">
-            Private Key: {user.nostr_private_key}
-            <button
-              type="button"
-              className="ml-2 underline text-sm"
-              onClick={() => copy(user.nostr_private_key!)}
-            >
-              Copy
-            </button>
-          </p>
-        </div>
-      )}
       <div>
         <h2 className="font-medium">Enrolled Courses</h2>
         {Array.isArray((user as any).courses) && (user as any).courses.length ? (
