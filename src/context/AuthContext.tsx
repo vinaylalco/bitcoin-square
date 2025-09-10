@@ -33,11 +33,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const handleAuth = (data: any) => {
+  const handleAuth = async (data: any) => {
     setToken(data.jwt);
-    setUser(data.user);
     localStorage.setItem("jwt", data.jwt);
-    localStorage.setItem("user", JSON.stringify(data.user));
+    const profile = await strapiFetch<User>("/api/users/me");
+    setUser(profile);
+    localStorage.setItem("user", JSON.stringify(profile));
   };
 
   const login = async (identifier: string, password: string) => {
@@ -46,7 +47,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ identifier, password }),
     });
-    handleAuth(data);
+    await handleAuth(data);
   };
 
   const register = async (email: string, password: string) => {
@@ -55,7 +56,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password, username: email }),
     });
-    handleAuth(data);
+    await handleAuth(data);
   };
 
   const logout = () => {

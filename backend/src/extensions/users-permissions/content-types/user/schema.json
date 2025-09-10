@@ -56,8 +56,7 @@
       "type": "string"
     },
     "nostrPrivateKey": {
-      "type": "string",
-      "private": true
+      "type": "string"
     },
     "role": {
       "type": "relation",
