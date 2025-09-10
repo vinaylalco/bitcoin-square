@@ -51,8 +51,8 @@ export default function Login() {
       </form>
       <div className="mt-4 text-sm">
         <Link to="/register" className="text-brand">Create account</Link>
-        {' | '}
-        <Link to="/forgot-password" className="text-brand">Forgot password?</Link>
+        {/* {' | '}
+        <Link to="/forgot-password" className="text-brand">Forgot password?</Link> */}
       </div>
     </div>
   );
