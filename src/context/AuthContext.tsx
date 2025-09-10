@@ -15,7 +15,14 @@ interface AuthContextType {
 const AuthCtx = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(() => {
+    try {
+      const raw = localStorage.getItem('user');
+      return raw ? (JSON.parse(raw) as User) : null;
+    } catch {
+      return null;
+    }
+  });
   const [token, setToken] = useState<string | null>(() => {
     try { return localStorage.getItem('jwt'); } catch { return null; }
   });
@@ -28,7 +35,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   function applyAuth(res: AuthResponse) {
     setUser(res.user);
     setToken(res.jwt);
-    try { localStorage.setItem('jwt', res.jwt); } catch {}
+    try {
+      localStorage.setItem('jwt', res.jwt);
+      localStorage.setItem('user', JSON.stringify(res.user));
+    } catch {}
   }
 
   async function login(email: string, password: string) {
@@ -49,7 +59,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   function logout() {
     setUser(null);
     setToken(null);
-    try { localStorage.removeItem('jwt'); } catch {}
+    try {
+      localStorage.removeItem('jwt');
+      localStorage.removeItem('user');
+    } catch {}
   }
 
   return (
