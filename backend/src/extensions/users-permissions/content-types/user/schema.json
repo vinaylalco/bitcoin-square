@@ -52,10 +52,10 @@
     "provider": {
       "type": "string"
     },
-    "nostrPublicKey": {
+    "nostr_public_key": {
       "type": "string"
     },
-    "nostrPrivateKey": {
+    "nostr_private_key": {
       "type": "string"
     },
     "role": {

@@ -16,25 +16,25 @@ export default function Dashboard() {
         <h2 className="font-medium">Account</h2>
         <p>Email: {user.email}</p>
       </div>
-      {user.nostrPublicKey && (
+      {user.nostr_public_key && (
         <div>
           <h2 className="font-medium">Nostr Keys</h2>
           <p className="break-all">
-            Public Key: {user.nostrPublicKey}
+            Public Key: {user.nostr_public_key}
             <button
               type="button"
               className="ml-2 underline text-sm"
-              onClick={() => copy(user.nostrPublicKey!)}
+              onClick={() => copy(user.nostr_public_key!)}
             >
               Copy
             </button>
           </p>
           <p className="break-all">
-            Private Key: {user.nostrPrivateKey}
+            Private Key: {user.nostr_private_key}
             <button
               type="button"
               className="ml-2 underline text-sm"
-              onClick={() => copy(user.nostrPrivateKey!)}
+              onClick={() => copy(user.nostr_private_key!)}
             >
               Copy
             </button>
