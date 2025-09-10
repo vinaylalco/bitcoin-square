@@ -7,12 +7,14 @@ import {
   BookOpen,
   Settings,
   ShoppingCart,
+  User,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import FocusTrap from "./components/FocusTrap";
 import { useSwipe } from "./hooks/useSwipe";
 import { useTheme } from "./context/ThemeContext";
 import Footer from "./components/Footer";
+import { useAuth } from "./context/AuthContext";
 
 export default function App() {
   const [open, setOpen] = useState(false);
@@ -24,6 +26,7 @@ export default function App() {
   const { theme } = useTheme(); // ensures theme context is mounted
   const lang = (i18n.language || "en").toLowerCase().startsWith("es") ? "es" : "en";
   const changeLang = (lng: "en" | "es") => i18n.changeLanguage(lng);
+  const { user } = useAuth();
 
   // Close drawer on route change
   useEffect(() => setOpen(false), [loc.pathname]);
@@ -148,6 +151,26 @@ export default function App() {
               <span>Shop</span>
             </NavLink>
 
+            {user ? (
+              <NavLink
+                to="/dashboard"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2 hover:text-brand"
+              >
+                <User className="h-5 w-5" />
+                <span>Dashboard</span>
+              </NavLink>
+            ) : (
+              <NavLink
+                to="/login"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2 hover:text-brand"
+              >
+                <User className="h-5 w-5" />
+                <span>Login</span>
+              </NavLink>
+            )}
+
             <NavLink to="/settings" onClick={() => setOpen(false)} className="flex items-center gap-2 hover:text-brand">
               <Settings className="h-5 w-5" />
               <span>Settings</span>
@@ -224,6 +247,18 @@ export default function App() {
             <ShoppingCart className="h-6 w-6" />
             <span className="text-xs">Shop</span>
           </NavLink>
+
+          {user && (
+            <NavLink
+              to="/dashboard"
+              className={({ isActive }) =>
+                `flex flex-col items-center ${isActive ? "text-brand" : ""}`
+              }
+            >
+              <User className="h-6 w-6" />
+              <span className="text-xs">Dashboard</span>
+            </NavLink>
+          )}
         </div>
       </nav>
     </div>

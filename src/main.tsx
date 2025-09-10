@@ -20,6 +20,11 @@ import RouteError from "./routes/RouteError";
 import { ThemeProvider } from "./context/ThemeContext";
 import Shop from "./routes/Shop";
 import ProductDetail from "./routes/ProductDetail";
+import Login from "./routes/Login";
+import Register from "./routes/Register";
+import ForgotPassword from "./routes/ForgotPassword";
+import Dashboard from "./routes/Dashboard";
+import { AuthProvider } from "./context/AuthContext";
 
 const router = createBrowserRouter([
   {
@@ -38,6 +43,10 @@ const router = createBrowserRouter([
       { path: "languages", element: <Languages /> },
       { path: "shop", element: <Shop /> },
       { path: "shop/:id", element: <ProductDetail /> },
+      { path: "login", element: <Login /> },
+      { path: "register", element: <Register /> },
+      { path: "forgot-password", element: <ForgotPassword /> },
+      { path: "dashboard", element: <Dashboard /> },
     ],
   },
 ]);
@@ -48,8 +57,10 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <RouterProvider router={router} />
+        <AuthProvider>
+          <RouterProvider router={router} />
+        </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>
-  </React.StrictMode>
+  </React.StrictMode>,
 );
