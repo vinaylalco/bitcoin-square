@@ -6,7 +6,6 @@ import {
   Home as HomeIcon,
   BookOpen,
   Settings,
-  ShoppingCart,
   LayoutDashboard,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -82,14 +81,7 @@ export default function App() {
           {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </button>
         <h1 className="font-semibold text-lg">Bitcoin Square</h1>
-        <NavLink
-          to="/shop"
-          className={({ isActive }) =>
-            `hover:text-brand ${isActive ? "text-brand font-semibold" : ""}`
-          }
-        >
-          Shop
-        </NavLink>
+        <div className="w-6" />
       </header>
 
       {/* Overlay (click-outside to close) */}
@@ -137,20 +129,6 @@ export default function App() {
               <BookOpen className="h-5 w-5" />
               <span>{t("nav.education") || "Education"}</span>
             </NavLink>
-
-            <NavLink
-              to="/shop"
-              onClick={() => setOpen(false)}
-              className={({ isActive }) =>
-                `flex items-center gap-2 hover:text-brand ${
-                  isActive ? "text-brand font-semibold" : ""
-                }`
-              }
-            >
-              <ShoppingCart className="h-5 w-5" />
-              <span>Shop</span>
-            </NavLink>
-
             <NavLink to="/settings" onClick={() => setOpen(false)} className="flex items-center gap-2 hover:text-brand">
               <Settings className="h-5 w-5" />
               <span>Settings</span>
@@ -247,15 +225,6 @@ export default function App() {
             <span className="text-xs">{t("nav.education") || "Education"}</span>
           </NavLink>
 
-          <NavLink
-            to="/shop"
-            className={({ isActive }) =>
-              `flex flex-col items-center ${isActive ? "text-brand" : ""}`
-            }
-          >
-            <ShoppingCart className="h-6 w-6" />
-            <span className="text-xs">Shop</span>
-          </NavLink>
         </div>
       </nav>
     </div>

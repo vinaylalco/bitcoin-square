@@ -1,6 +1,6 @@
-import { Link } from 'react-router-dom';
 import { useStrapiQuery } from '../hooks/useStrapiQuery';
-import type { Home, Lesson } from '../types/strapi';
+import type { Home } from '../types/strapi';
+import HomeGhost from '../components/home/HomeGhost';
 
 export default function HomePage() {
   // const { data, isLoading, error } = useStrapiQuery<{ data: Home }>('home', '/api/home?populate=featuredLessons');
@@ -9,7 +9,7 @@ export default function HomePage() {
     '/api/home-page?populate[HomePageSection][populate]=SectionImage'
   );
 
-  if (isLoading) return <p>Loading...</p>;
+  if (isLoading) return <HomeGhost />;
   if (error || !data) return <p>Failed to load home.</p>;
 
   const home = data.data;
