@@ -11,10 +11,13 @@ const env = (typeof process !== 'undefined' ? process.env : (import.meta as any)
 
 export async function strapiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const base = env.VITE_STRAPI_URL || env.NEXT_PUBLIC_STRAPI_URL || env.VITE_API_URL || '';
-  const res = await fetch(`${base}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
-    ...init,
-  });
+  const token = typeof window !== 'undefined' ? localStorage.getItem('jwt') : undefined;
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(init?.headers || {}),
+  };
+  const res = await fetch(`${base}${path}`, { ...init, headers });
   if (!res.ok) throw new Error(res.statusText);
   return res.json() as Promise<T>;
 }

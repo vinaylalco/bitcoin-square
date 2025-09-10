@@ -5,6 +5,10 @@ export default function Dashboard() {
   const { user } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
 
+  const copy = (text: string) => {
+    if (navigator?.clipboard) navigator.clipboard.writeText(text);
+  };
+
   return (
     <div className="p-4 max-w-2xl mx-auto space-y-4">
       <h1 className="text-2xl font-semibold">Dashboard</h1>
@@ -15,8 +19,26 @@ export default function Dashboard() {
       {user.nostrPublicKey && (
         <div>
           <h2 className="font-medium">Nostr Keys</h2>
-          <p>Public Key: {user.nostrPublicKey}</p>
-          <p>Private Key: {user.nostrPrivateKey}</p>
+          <p className="break-all">
+            Public Key: {user.nostrPublicKey}
+            <button
+              type="button"
+              className="ml-2 underline text-sm"
+              onClick={() => copy(user.nostrPublicKey!)}
+            >
+              Copy
+            </button>
+          </p>
+          <p className="break-all">
+            Private Key: {user.nostrPrivateKey}
+            <button
+              type="button"
+              className="ml-2 underline text-sm"
+              onClick={() => copy(user.nostrPrivateKey!)}
+            >
+              Copy
+            </button>
+          </p>
         </div>
       )}
       <div>
