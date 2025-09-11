@@ -50,6 +50,12 @@
     },
     "nostrPrivateKey": {
       "type": "text"
+    },
+    "accessGrants": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::access-grant.access-grant",
+      "mappedBy": "user"
     }
   }
 }

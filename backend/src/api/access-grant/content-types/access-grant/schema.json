@@ -12,15 +12,17 @@
   "attributes": {
     "user": {
       "type": "relation",
-      "relation": "oneToOne",
+      "relation": "manyToOne",
       "target": "plugin::users-permissions.user",
-      "required": true
+      "required": true,
+      "inversedBy": "accessGrants"
     },
     "course": {
       "type": "relation",
-      "relation": "oneToOne",
+      "relation": "manyToOne",
       "target": "api::course.course",
-      "required": true
+      "required": true,
+      "inversedBy": "accessGrants"
     }
   }
 }
