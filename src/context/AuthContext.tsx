@@ -2,13 +2,12 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { AuthResponse } from '../api/auth';
 import { login as apiLogin, register as apiRegister, resetPassword as apiReset } from '../api/auth';
 import { strapiFetch } from '../api/strapi-client';
-import { generateNostrKeyPair, encryptPrivateKey, decryptPrivateKey } from '../utils/nostr';
+import { generateNostrKeyPair, encryptPrivateKey } from '../utils/nostr';
 
-interface User { id: number; email: string; username?: string; nostrPublicKey?: string; nostrEncryptedKey?: string }
+interface User { id: number; email: string; username?: string; nostrPublicKey?: string; nostrPrivateKey?: string }
 interface AuthContextType {
   user: User | null;
   token: string | null;
-  nostrPrivKey: string | null;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, storeRecovery: boolean) => Promise<void>;
   logout: () => void;
@@ -29,9 +28,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(() => {
     try { return localStorage.getItem('jwt'); } catch { return null; }
   });
-  const [nostrPrivKey, setNostrPrivKey] = useState<string | null>(() => {
-    try { return localStorage.getItem('nostrPrivKey'); } catch { return null; }
-  });
 
   useEffect(() => {
     if (!token) return;
@@ -50,24 +46,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   async function login(email: string, password: string) {
     const res = await apiLogin(email, password);
     applyAuth(res);
-    if (res.user.nostrEncryptedKey) {
-      try {
-        const priv = await decryptPrivateKey(res.user.nostrEncryptedKey, password);
-        setNostrPrivKey(priv);
-        try { localStorage.setItem('nostrPrivKey', priv); } catch {}
-      } catch {}
-    }
   }
 
   async function register(email: string, password: string, storeRecovery: boolean) {
     const res = await apiRegister(email, password);
     applyAuth(res);
     const { pub, priv } = generateNostrKeyPair();
-    setNostrPrivKey(priv);
-    try { localStorage.setItem('nostrPrivKey', priv); } catch {}
     const body: any = { nostrPublicKey: pub };
     if (storeRecovery) {
-      body.nostrEncryptedKey = await encryptPrivateKey(priv, password);
+      body.nostrPrivateKey = await encryptPrivateKey(priv, password);
     }
     await strapiFetch(`/api/users/${res.user.id}`, {
       method: 'PUT',
@@ -85,16 +72,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   function logout() {
     setUser(null);
     setToken(null);
-     setNostrPrivKey(null);
     try {
       localStorage.removeItem('jwt');
       localStorage.removeItem('user');
-      localStorage.removeItem('nostrPrivKey');
     } catch {}
   }
 
   return (
-    <AuthCtx.Provider value={{ user, token, nostrPrivKey, login, register, logout, reset }}>
+    <AuthCtx.Provider value={{ user, token, login, register, logout, reset }}>
       {children}
     </AuthCtx.Provider>
   );
