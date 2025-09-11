@@ -7,16 +7,23 @@ import { getYouTubeId } from "../../lib/getYouTubeId";
 export default function Card({
   card,
   topicName,
+  purchased,
+  onPurchase,
 }: {
   card: CardType;
   topicName?: string;
+  /** Whether the user has purchased the course */
+  purchased?: boolean;
+  /** Callback to trigger checkout */
+  onPurchase?: () => void;
 }) {
   const videoId = card.youtube ? getYouTubeId(card.youtube) : null;
   if (card.youtube && !videoId && import.meta.env.DEV) {
     console.warn(`Invalid YouTube ID or URL: ${card.youtube}`);
   }
+  const locked = card.locked && !purchased;
   return (
-    <article className="p-4 border rounded h-full">
+    <article className="relative p-4 border rounded h-full">
       {topicName && (
         <p className="text-sm font-medium text-brand mb-1">{topicName}</p>
       )}
@@ -58,6 +65,17 @@ export default function Card({
           </div>
         )}
       </div>
+      {locked && (
+        <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
+          <button
+            type="button"
+            onClick={onPurchase}
+            className="px-4 py-2 bg-brand text-white rounded"
+          >
+            Purchase Course
+          </button>
+        </div>
+      )}
     </article>
   );
 }

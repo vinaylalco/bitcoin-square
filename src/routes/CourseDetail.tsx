@@ -2,12 +2,15 @@ import { useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
 import Slider from "../components/lesson/Slider";
 import { useLessonPlan } from "../hooks/useLessonPlan";
+import { useAuth } from "../context/AuthContext";
+import { checkout } from "../api/checkout";
 
 export default function CourseDetail() {
   const { i18n } = useTranslation();
   const { slug = "" } = useParams();
   const locale = i18n.language?.toLowerCase().startsWith("es") ? "es" : "en";
   const { data, isLoading, error, isFetching } = useLessonPlan(locale, slug);
+  const { user, token } = useAuth();
 
   if (isLoading && !data) {
     return (
@@ -33,6 +36,29 @@ export default function CourseDetail() {
 
   const topics = data?.topics ?? [];
 
+  async function handlePurchase() {
+    if (!data) return;
+    try {
+      let email: string | undefined;
+      if (!user) {
+        email = window.prompt("Enter your email to continue") || undefined;
+        if (!email) return;
+      }
+      const res = await checkout({
+        productType: "course",
+        productId: data.id!,
+        email,
+        token: token || undefined,
+      });
+      if (res.url) {
+        window.location.href = res.url;
+      }
+    } catch (err) {
+      console.error(err);
+      window.alert("Failed to start checkout");
+    }
+  }
+
   return (
     <div className="px-4 sm:px-6 pb-24">
       {data && data.locale !== locale && (
@@ -41,7 +67,14 @@ export default function CourseDetail() {
         </p>
       )}
       <h1 className="text-2xl font-bold mb-6">{data?.title || "Education"}</h1>
-      {cards.length > 0 && <Slider cards={cards} topics={topics} />}
+      {cards.length > 0 && (
+        <Slider
+          cards={cards}
+          topics={topics}
+          purchased={data?.purchased}
+          onPurchase={handlePurchase}
+        />
+      )}
       {isFetching && <div className="text-sm text-neutral-500">Loading…</div>}
     </div>
   );

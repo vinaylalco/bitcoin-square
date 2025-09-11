@@ -15,6 +15,11 @@ export interface Card {
   quiz?: Quiz;
   youtube?: string;
   style_note?: string;
+  /**
+   * Whether this card is locked behind a purchase.
+   * Cards without this flag are assumed to be free.
+   */
+  locked?: boolean;
 }
 
 export interface Topic {
@@ -30,4 +35,6 @@ export interface LessonPlan {
   coverImage?: string;
   topics: Topic[];
   locale?: string;
+  /** Indicates if the current user has purchased this course */
+  purchased?: boolean;
 }
