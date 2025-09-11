@@ -1,6 +1,6 @@
 import Stripe from 'stripe';
 import { randomBytes } from 'crypto';
-import { generateNostrKeyPair, encryptPrivateKey } from '../../utils/nostr';
+import { generateNostrKeyPair, encryptPrivateKey } from '../../../utils/nostr';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
 
