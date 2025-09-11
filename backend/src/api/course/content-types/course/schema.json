@@ -21,6 +21,12 @@
       "type": "decimal",
       "required": true
     },
+    "modules": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::course-module.course-module",
+      "mappedBy": "course"
+    },
     "accessGrants": {
       "type": "relation",
       "relation": "oneToMany",

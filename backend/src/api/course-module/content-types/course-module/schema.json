@@ -1,0 +1,31 @@
+{
+  "kind": "collectionType",
+  "collectionName": "course_modules",
+  "info": {
+    "singularName": "course-module",
+    "pluralName": "course-modules",
+    "displayName": "Course Module"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "attributes": {
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "content": {
+      "type": "text"
+    },
+    "isFree": {
+      "type": "boolean",
+      "default": false
+    },
+    "course": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::course.course",
+      "inversedBy": "modules"
+    }
+  }
+}
