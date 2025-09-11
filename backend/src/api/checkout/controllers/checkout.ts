@@ -24,7 +24,10 @@ export default {
     let price = 0;
     try {
       const uid = `api::${productType}.${productType}`;
-      const product = await strapi.entityService.findOne(uid, productId);
+      const product: any = await strapi.entityService.findOne(
+        uid as any,
+        productId
+      );
       if (product) {
         productName = product.title || product.name || productType;
         price = product.price || 0;
@@ -54,7 +57,7 @@ export default {
       customer_email: customerEmail,
     });
 
-    await strapi.entityService.create('api::order.order', {
+    await strapi.entityService.create('api::order.order' as any, {
       data: {
         user: userId,
         email: customerEmail,

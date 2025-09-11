@@ -4,4 +4,4 @@
 
 import { factories } from '@strapi/strapi';
 
-export default factories.createCoreRouter('api::order.order');
+export default factories.createCoreRouter('api::order.order' as any);
