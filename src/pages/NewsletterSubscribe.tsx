@@ -46,14 +46,17 @@ export default function NewsletterSubscribe() {
     <div className="p-6 space-y-4">
       <section className="px-4 sm:px-6 pt-8 pb-6 text-center">
         <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight">Newsletter</h1>
-        <h2 className="mt-3 text-neutral-700 dark:text-neutral-300 text-lg sm:text-xl max-w-3xl">
-          Stay up to date with our upcoming features and offering. We won't spam you.
+        <h2 className="mt-3 text-neutral-700 dark:text-neutral-300 text-lg sm:text-xl">
+          Stay up to date with our upcoming features and offerings.
         </h2>
+        <h3 className="mt-3 text-neutral-700 dark:text-neutral-300 text-sm sm:text-xl">
+          No spam, just value.
+        </h3>
         <div className="mt-4 h-1 w-16 bg-brand rounded-full mx-auto"></div>
       </section>
 
       <section className="px-4 sm:px-6">
-        <div className="w-full max-w-md mx-auto bg-white p-6 rounded-lg shadow">
+        <div className="w-full max-w-md mx-auto bg-white p-6 rounded-lg">
           <form onSubmit={handleSubscribe} className="space-y-4">
             <div>
               <input
