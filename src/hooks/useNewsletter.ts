@@ -3,6 +3,7 @@ import { apiFetch } from '../lib/api';
 
 export interface NewsletterSubList {
   id: number;
+  documentId: string;
   subscribers: string[];
 }
 
@@ -31,10 +32,18 @@ export function useSubscribe() {
         '/api/newsletter-sub-lists',
       );
       const list = res.data[0];
-      if (!list) throw new Error('Newsletter list not found');
+
+      // If no list exists yet, create it with the email
+      if (!list) {
+        return apiFetch('/api/newsletter-sub-lists', {
+          method: 'POST',
+          body: JSON.stringify({ data: { subscribers: [email] } }),
+        });
+      }
+
       const subscribers = list.subscribers ? [...list.subscribers] : [];
       if (!subscribers.includes(email)) subscribers.push(email);
-      return apiFetch(`/api/newsletter-sub-lists/${list.id}`, {
+      return apiFetch(`/api/newsletter-sub-lists/${list.documentId}`, {
         method: 'PUT',
         body: JSON.stringify({ data: { subscribers } }),
       });
@@ -53,11 +62,11 @@ export function useUnsubscribe() {
         '/api/newsletter-sub-lists',
       );
       const list = res.data[0];
-      if (!list) throw new Error('Newsletter list not found');
+      if (!list) return; // nothing to do
       const subscribers = list.subscribers
         ? list.subscribers.filter((e) => e !== email)
         : [];
-      return apiFetch(`/api/newsletter-sub-lists/${list.id}`, {
+      return apiFetch(`/api/newsletter-sub-lists/${list.documentId}`, {
         method: 'PUT',
         body: JSON.stringify({ data: { subscribers } }),
       });
