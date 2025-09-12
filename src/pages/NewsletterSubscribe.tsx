@@ -51,11 +51,20 @@ export default function NewsletterSubscribe() {
 
   return (
     <div className="min-h-[60vh] flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white dark:bg-neutral-800 p-6 rounded-lg shadow">
+      <div className="w-full max-w-md bg-white dark:bg-neutral-800 p-6 rounded-lg">
         {isLoading && <p className="mb-4">Loading...</p>}
         {isError && (
           <p className="mb-4 text-red-600">Failed to load subscribers.</p>
         )}
+
+        <div className="mb-4 text-center space-y-1">
+          <h2 className="text-2xl font-semibold">Newsletter</h2>
+          <p className="text-sm text-neutral-600 dark:text-neutral-300">
+            Stay up to date with our upcoming features and offerings.
+            <br />
+            No spam, just value.
+          </p>
+        </div>
 
         <form onSubmit={handleSubscribe} className="space-y-4">
           <div>

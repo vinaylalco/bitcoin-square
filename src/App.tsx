@@ -8,6 +8,7 @@ import {
   Settings,
   LayoutDashboard,
   Mail,
+  ShoppingCart,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import FocusTrap from "./components/FocusTrap";
@@ -137,6 +138,14 @@ export default function App() {
             >
               <Mail className="h-5 w-5" />
               <span>{t("nav.newsletter") || "Newsletter"}</span>
+            </NavLink>
+            <NavLink
+              to="/shop"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2 hover:text-brand"
+            >
+              <ShoppingCart className="h-5 w-5" />
+              <span>Shop</span>
             </NavLink>
             <NavLink to="/settings" onClick={() => setOpen(false)} className="flex items-center gap-2 hover:text-brand">
               <Settings className="h-5 w-5" />
