@@ -1,38 +1,78 @@
-import { useEffect, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiFetch } from '../lib/api';
 
-const KEY = "bsq.newsletter.v1";
-
-function load(): string[] {
-  try {
-    const raw = localStorage.getItem(KEY);
-    return raw ? (JSON.parse(raw) as string[]) : [];
-  } catch {
-    return [];
-  }
+export interface NewsletterSubList {
+  id: number;
+  documentId: string;
+  subscribers: string[];
 }
 
-function save(list: string[]) {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(list));
-  } catch {}
+interface StrapiCollectionResponse<T> {
+  data: T[];
+  meta?: unknown;
 }
 
-export function addSubscriber(email: string) {
-  const list = load();
-  if (!list.includes(email)) {
-    list.push(email);
-    save(list);
-  }
+export function useNewsletter() {
+  return useQuery<NewsletterSubList | undefined>({
+    queryKey: ['newsletter'],
+    queryFn: async () => {
+      const res = await apiFetch<StrapiCollectionResponse<NewsletterSubList>>(
+        '/api/newsletter-sub-lists',
+      );
+      return res.data[0];
+    },
+  });
 }
 
-export function getSubscribers(): string[] {
-  return load();
+export function useSubscribe() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (email: string) => {
+      const res = await apiFetch<StrapiCollectionResponse<NewsletterSubList>>(
+        '/api/newsletter-sub-lists',
+      );
+      const list = res.data[0];
+
+      // If no list exists yet, create it with the email
+      if (!list) {
+        return apiFetch('/api/newsletter-sub-lists', {
+          method: 'POST',
+          body: JSON.stringify({ data: { subscribers: [email] } }),
+        });
+      }
+
+      const subscribers = list.subscribers ? [...list.subscribers] : [];
+      if (!subscribers.includes(email)) subscribers.push(email);
+      return apiFetch(`/api/newsletter-sub-lists/${list.documentId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ data: { subscribers } }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['newsletter'] });
+    },
+  });
 }
 
-export function useSubscribers() {
-  const [subs, setSubs] = useState<string[]>([]);
-  useEffect(() => {
-    setSubs(load());
-  }, []);
-  return subs;
+export function useUnsubscribe() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (email: string) => {
+      const res = await apiFetch<StrapiCollectionResponse<NewsletterSubList>>(
+        '/api/newsletter-sub-lists',
+      );
+      const list = res.data[0];
+      if (!list) return; // nothing to do
+      const subscribers = list.subscribers
+        ? list.subscribers.filter((e) => e !== email)
+        : [];
+      return apiFetch(`/api/newsletter-sub-lists/${list.documentId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ data: { subscribers } }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['newsletter'] });
+    },
+  });
 }

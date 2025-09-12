@@ -26,6 +26,7 @@ import ForgotPassword from "./routes/ForgotPassword";
 import ResetPassword from "./routes/ResetPassword";
 import Dashboard from "./routes/Dashboard";
 import { AuthProvider } from "./context/AuthContext";
+import NewsletterSubscribe from "./pages/NewsletterSubscribe";
 
 const router = createBrowserRouter([
   {
@@ -49,6 +50,7 @@ const router = createBrowserRouter([
       { path: "register", element: <Register /> },
       { path: "forgot-password", element: <ForgotPassword /> },
       { path: "reset-password", element: <ResetPassword /> },
+      { path: "newsletter", element: <NewsletterSubscribe /> },
     ],
   },
 ]);
