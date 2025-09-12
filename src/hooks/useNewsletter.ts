@@ -10,7 +10,9 @@ export function useNewsletter() {
   return useQuery<NewsletterSubList>({
     queryKey: ['newsletter'],
     queryFn: async () => {
-      const res = await apiFetch<NewsletterSubList[]>('/newsletter-sub-lists');
+      const res = await apiFetch<NewsletterSubList[]>(
+        '/api/newsletter-sub-lists',
+      );
       return res[0];
     },
   });
@@ -20,11 +22,13 @@ export function useSubscribe() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (email: string) => {
-      const res = await apiFetch<NewsletterSubList[]>('/newsletter-sub-lists');
+      const res = await apiFetch<NewsletterSubList[]>(
+        '/api/newsletter-sub-lists',
+      );
       const list = res[0];
       const subscribers = list.subscribers || [];
       if (!subscribers.includes(email)) subscribers.push(email);
-      return apiFetch(`/newsletter-sub-lists/${list.id}`, {
+      return apiFetch(`/api/newsletter-sub-lists/${list.id}`, {
         method: 'PUT',
         body: JSON.stringify({ subscribers }),
       });
@@ -39,10 +43,12 @@ export function useUnsubscribe() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (email: string) => {
-      const res = await apiFetch<NewsletterSubList[]>('/newsletter-sub-lists');
+      const res = await apiFetch<NewsletterSubList[]>(
+        '/api/newsletter-sub-lists',
+      );
       const list = res[0];
       const subscribers = (list.subscribers || []).filter((e) => e !== email);
-      return apiFetch(`/newsletter-sub-lists/${list.id}`, {
+      return apiFetch(`/api/newsletter-sub-lists/${list.id}`, {
         method: 'PUT',
         body: JSON.stringify({ subscribers }),
       });
