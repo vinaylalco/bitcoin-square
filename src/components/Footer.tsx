@@ -23,6 +23,14 @@ export default function Footer() {
           >
             Education
           </NavLink>
+          <NavLink
+            to="/newsletter"
+            className={({ isActive }) =>
+              `${isActive ? "text-brand" : "hover:text-brand"}`
+            }
+          >
+            Newsletter
+          </NavLink>
         </nav>
         <p className="opacity-70">&copy; {new Date().getFullYear()} Bitcoin Square</p>
         <div className="flex justify-center gap-4">
