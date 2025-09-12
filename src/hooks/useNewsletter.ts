@@ -1,51 +1,57 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../lib/api';
 
-export interface NewsletterSubList {
-  id: number;
-  documentId: string;
-  subscribers: string[];
+export interface NewsletterSubscriber {
+  email: string;
 }
 
-interface StrapiCollectionResponse<T> {
-  data: T[];
+export interface HomePage {
+  id: number;
+  documentId: string;
+  newsletterSubscribers: NewsletterSubscriber[];
+}
+
+interface StrapiSingleResponse<T> {
+  data: T;
   meta?: unknown;
 }
 
+/**
+ * Fetch the current list of newsletter subscribers from the HomePage single type.
+ */
 export function useNewsletter() {
-  return useQuery<NewsletterSubList | undefined>({
+  return useQuery<NewsletterSubscriber[]>({
     queryKey: ['newsletter'],
     queryFn: async () => {
-      const res = await apiFetch<StrapiCollectionResponse<NewsletterSubList>>(
-        '/api/newsletter-sub-lists',
+      const res = await apiFetch<StrapiSingleResponse<HomePage>>(
+        '/api/home-page?populate=*',
       );
-      return res.data[0];
+      return res.data.newsletterSubscribers ?? [];
     },
   });
 }
 
+/**
+ * Add an email to the newsletterSubscribers array.
+ */
 export function useSubscribe() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (email: string) => {
-      const res = await apiFetch<StrapiCollectionResponse<NewsletterSubList>>(
-        '/api/newsletter-sub-lists',
+      const res = await apiFetch<StrapiSingleResponse<HomePage>>(
+        '/api/home-page?populate=*',
       );
-      const list = res.data[0];
-
-      // If no list exists yet, create it with the email
-      if (!list) {
-        return apiFetch('/api/newsletter-sub-lists', {
-          method: 'POST',
-          body: JSON.stringify({ data: { subscribers: [email] } }),
-        });
+      const subscribers = res.data.newsletterSubscribers
+        ? [...res.data.newsletterSubscribers]
+        : [];
+      if (!subscribers.some((s) => s.email === email)) {
+        subscribers.push({ email });
       }
-
-      const subscribers = list.subscribers ? [...list.subscribers] : [];
-      if (!subscribers.includes(email)) subscribers.push(email);
-      return apiFetch(`/api/newsletter-sub-lists/${list.documentId}`, {
+      return apiFetch('/api/home-page', {
         method: 'PUT',
-        body: JSON.stringify({ data: { subscribers } }),
+        body: JSON.stringify({
+          data: { newsletterSubscribers: subscribers },
+        }),
       });
     },
     onSuccess: () => {
@@ -54,21 +60,24 @@ export function useSubscribe() {
   });
 }
 
+/**
+ * Remove an email from the newsletterSubscribers array.
+ */
 export function useUnsubscribe() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (email: string) => {
-      const res = await apiFetch<StrapiCollectionResponse<NewsletterSubList>>(
-        '/api/newsletter-sub-lists',
+      const res = await apiFetch<StrapiSingleResponse<HomePage>>(
+        '/api/home-page?populate=*',
       );
-      const list = res.data[0];
-      if (!list) return; // nothing to do
-      const subscribers = list.subscribers
-        ? list.subscribers.filter((e) => e !== email)
+      const subscribers = res.data.newsletterSubscribers
+        ? res.data.newsletterSubscribers.filter((s) => s.email !== email)
         : [];
-      return apiFetch(`/api/newsletter-sub-lists/${list.documentId}`, {
+      return apiFetch('/api/home-page', {
         method: 'PUT',
-        body: JSON.stringify({ data: { subscribers } }),
+        body: JSON.stringify({
+          data: { newsletterSubscribers: subscribers },
+        }),
       });
     },
     onSuccess: () => {
@@ -76,3 +85,4 @@ export function useUnsubscribe() {
     },
   });
 }
+
