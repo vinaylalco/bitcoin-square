@@ -1,10 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../lib/api';
 
+const LIST_ENDPOINT =
+  '/api/newsletter-sub-lists?filters[documentId][$notNull]=true&fields[0]=documentId&fields[1]=subscribers';
+
 export interface NewsletterSubList {
   id: number;
   documentId?: string;
-  subscribers: string[];
+  subscribers?: string[];
 }
 
 interface StrapiCollectionResponse<T> {
@@ -16,9 +19,7 @@ export function useNewsletter() {
   return useQuery<NewsletterSubList | undefined>({
     queryKey: ['newsletter'],
     queryFn: async () => {
-      const res = await apiFetch<StrapiCollectionResponse<NewsletterSubList>>(
-        '/api/newsletter-sub-lists?fields=documentId',
-      );
+      const res = await apiFetch<StrapiCollectionResponse<NewsletterSubList>>(LIST_ENDPOINT);
       return res.data[0];
     },
   });
@@ -28,9 +29,7 @@ export function useSubscribe() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (email: string) => {
-      const res = await apiFetch<StrapiCollectionResponse<NewsletterSubList>>(
-        '/api/newsletter-sub-lists?fields=documentId',
-      );
+      const res = await apiFetch<StrapiCollectionResponse<NewsletterSubList>>(LIST_ENDPOINT);
       const list = res.data[0];
 
       // If no list exists yet, create it with the email
@@ -58,9 +57,7 @@ export function useUnsubscribe() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (email: string) => {
-      const res = await apiFetch<StrapiCollectionResponse<NewsletterSubList>>(
-        '/api/newsletter-sub-lists?fields=documentId',
-      );
+      const res = await apiFetch<StrapiCollectionResponse<NewsletterSubList>>(LIST_ENDPOINT);
       const list = res.data[0];
       if (!list) return; // nothing to do
       const subscribers = list.subscribers
