@@ -7,6 +7,8 @@ import {
   BookOpen,
   Settings,
   LayoutDashboard,
+  Mail,
+  ShoppingBag,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import FocusTrap from "./components/FocusTrap";
@@ -128,6 +130,22 @@ export default function App() {
             >
               <BookOpen className="h-5 w-5" />
               <span>{t("nav.education") || "Education"}</span>
+            </NavLink>
+            <NavLink
+              to="/shop"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2 hover:text-brand"
+            >
+              <ShoppingBag className="h-5 w-5" />
+              <span>Shop</span>
+            </NavLink>
+            <NavLink
+              to="/newsletter"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2 hover:text-brand"
+            >
+              <Mail className="h-5 w-5" />
+              <span>Newsletter</span>
             </NavLink>
             <NavLink to="/settings" onClick={() => setOpen(false)} className="flex items-center gap-2 hover:text-brand">
               <Settings className="h-5 w-5" />
