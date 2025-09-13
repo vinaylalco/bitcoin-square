@@ -43,17 +43,17 @@ export default function NewsletterSubscribe() {
   };
 
   return (
-    <div className="p-6 space-y-4">
-      <section className="px-4 sm:px-6 pt-8 pb-6 text-center">
+    <div className="p-6 space-y-4 text-center">
+      <section className="px-4 sm:px-6 pt-8 pb-6">
         <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight">Newsletter</h1>
-        <h2 className="mt-3 text-neutral-700 dark:text-neutral-300 text-lg sm:text-xl max-w-3xl">
-          Stay up to date with our upcoming features and offering. We won't spam you.
+        <h2 className="mt-3 text-neutral-700 dark:text-neutral-300 text-lg sm:text-xl max-w-3xl mx-auto">
+          No spam, just value. Stay up to date with our upcoming features and offerings.
         </h2>
         <div className="mt-4 h-1 w-16 bg-brand rounded-full mx-auto"></div>
       </section>
 
       <section className="px-4 sm:px-6">
-        <div className="w-full max-w-md mx-auto bg-white p-6 rounded-lg shadow">
+        <div className="w-full max-w-md mx-auto bg-white p-6 rounded-lg shadow text-center">
           <form onSubmit={handleSubscribe} className="space-y-4">
             <div>
               <input
@@ -61,7 +61,7 @@ export default function NewsletterSubscribe() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
-                className="w-full border border-neutral-300 rounded px-3 py-2"
+                className="w-full border border-neutral-300 rounded px-3 py-2 text-center"
               />
               {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
             </div>
