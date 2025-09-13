@@ -1,38 +1,61 @@
-import { useEffect, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { strapiFetch } from '../lib/api';
 
-const KEY = "bsq.newsletter.v1";
-
-function load(): string[] {
-  try {
-    const raw = localStorage.getItem(KEY);
-    return raw ? (JSON.parse(raw) as string[]) : [];
-  } catch {
-    return [];
-  }
+export interface Subscriber {
+  email: string;
 }
 
-function save(list: string[]) {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(list));
-  } catch {}
+export interface NewsletterSubList {
+  id: number;
+  subscribers: Subscriber[];
 }
 
-export function addSubscriber(email: string) {
-  const list = load();
-  if (!list.includes(email)) {
-    list.push(email);
-    save(list);
-  }
+const ENDPOINT = '/newsletter-sub-lists';
+
+async function fetchNewsletter(): Promise<NewsletterSubList | undefined> {
+  const json: any = await strapiFetch<any>(ENDPOINT);
+  const data = Array.isArray(json) ? json : json?.data;
+  return data ? data[0] : undefined;
 }
 
-export function getSubscribers(): string[] {
-  return load();
+export function useNewsletter() {
+  return useQuery<NewsletterSubList | undefined>({
+    queryKey: ['newsletter'],
+    queryFn: fetchNewsletter,
+  });
 }
 
-export function useSubscribers() {
-  const [subs, setSubs] = useState<string[]>([]);
-  useEffect(() => {
-    setSubs(load());
-  }, []);
-  return subs;
+interface MutationArgs {
+  id: number;
+  subscribers: Subscriber[];
+  email: string;
+}
+
+export function useSubscribe() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, subscribers, email }: MutationArgs) => {
+      const exists = subscribers.some((s) => s.email === email);
+      const updated = exists ? subscribers : [...subscribers, { email }];
+      return await strapiFetch(`${ENDPOINT}/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ subscribers: updated }),
+      });
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['newsletter'] }),
+  });
+}
+
+export function useUnsubscribe() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, subscribers, email }: MutationArgs) => {
+      const updated = subscribers.filter((s) => s.email !== email);
+      return await strapiFetch(`${ENDPOINT}/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ subscribers: updated }),
+      });
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['newsletter'] }),
+  });
 }
