@@ -7,6 +7,8 @@ import {
   BookOpen,
   Settings,
   LayoutDashboard,
+  Mail,
+  ShoppingCart,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import FocusTrap from "./components/FocusTrap";
@@ -26,6 +28,7 @@ export default function App() {
   const { user, logout } = useAuth();
   const lang = (i18n.language || "en").toLowerCase().startsWith("es") ? "es" : "en";
   const changeLang = (lng: "en" | "es") => i18n.changeLanguage(lng);
+  const isNewsletter = loc.pathname === "/newsletter";
 
   // Close drawer on route change
   useEffect(() => setOpen(false), [loc.pathname]);
@@ -73,19 +76,23 @@ export default function App() {
     <div className="min-h-screen bg-white text-black dark:bg-neutral-900 dark:text-neutral-100 flex flex-col">
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 dark:border-neutral-800">
-        <button
-          ref={triggerRef}
-          onClick={() => setOpen((v) => !v)}
-          aria-label={open ? (t("common.close") || "Close menu") : (t("common.menu") || "Open menu")}
-        >
-          {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-        </button>
+        {!isNewsletter ? (
+          <button
+            ref={triggerRef}
+            onClick={() => setOpen((v) => !v)}
+            aria-label={open ? (t("common.close") || "Close menu") : (t("common.menu") || "Open menu")}
+          >
+            {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+          </button>
+        ) : (
+          <div className="w-6" />
+        )}
         <h1 className="font-semibold text-lg">Bitcoin Square</h1>
         <div className="w-6" />
       </header>
 
       {/* Overlay (click-outside to close) */}
-      {open && (
+      {!isNewsletter && open && (
         <div
           className="fixed inset-0 bg-black/30 backdrop-blur-[1px] z-40"
           onClick={() => setOpen(false)}
@@ -94,27 +101,28 @@ export default function App() {
       )}
 
       {/* Drawer */}
-      <aside
-        ref={drawerRef}
-        className={`fixed top-0 left-0 h-full w-72 bg-neutral-100 dark:bg-neutral-900 shadow-lg transform transition-transform duration-300 z-50 ${
-          open ? "translate-x-0" : "-translate-x-full"
-        }`}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Main menu"
-      >
-        <FocusTrap active={open} onDeactivate={() => setOpen(false)} returnFocusRef={triggerRef}>
-          <div className="p-4 space-y-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-semibold opacity-70">Menu</span>
-              <button
-                onClick={() => setOpen(false)}
-                className="rounded-lg border border-neutral-300 dark:border-neutral-700 px-2 py-1 text-sm"
-                aria-label="Close menu"
-              >
-                Close
-              </button>
-            </div>
+      {!isNewsletter && (
+        <aside
+          ref={drawerRef}
+          className={`fixed top-0 left-0 h-full w-72 bg-neutral-100 dark:bg-neutral-900 shadow-lg transform transition-transform duration-300 z-50 ${
+            open ? "translate-x-0" : "-translate-x-full"
+          }`}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Main menu"
+        >
+          <FocusTrap active={open} onDeactivate={() => setOpen(false)} returnFocusRef={triggerRef}>
+            <div className="p-4 space-y-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-semibold opacity-70">Menu</span>
+                <button
+                  onClick={() => setOpen(false)}
+                  className="rounded-lg border border-neutral-300 dark:border-neutral-700 px-2 py-1 text-sm"
+                  aria-label="Close menu"
+                >
+                  Close
+                </button>
+              </div>
 
             <NavLink to="/" onClick={() => setOpen(false)} className="flex items-center gap-2 hover:text-brand">
               <HomeIcon className="h-5 w-5" />
@@ -128,6 +136,22 @@ export default function App() {
             >
               <BookOpen className="h-5 w-5" />
               <span>{t("nav.education") || "Education"}</span>
+            </NavLink>
+            <NavLink
+              to="/newsletter"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2 hover:text-brand"
+            >
+              <Mail className="h-5 w-5" />
+              <span>{t("nav.newsletter") || "Newsletter"}</span>
+            </NavLink>
+            <NavLink
+              to="/shop"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2 hover:text-brand"
+            >
+              <ShoppingCart className="h-5 w-5" />
+              <span>Shop</span>
             </NavLink>
             <NavLink to="/settings" onClick={() => setOpen(false)} className="flex items-center gap-2 hover:text-brand">
               <Settings className="h-5 w-5" />
@@ -186,6 +210,7 @@ export default function App() {
           </div>
         </FocusTrap>
       </aside>
+      )}
 
       {/* Main content */}
       <main className="flex-1">
