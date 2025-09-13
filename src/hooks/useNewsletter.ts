@@ -17,7 +17,7 @@ export function useNewsletter() {
     queryKey: ['newsletter'],
     queryFn: async () => {
       const res = await apiFetch<StrapiCollectionResponse<NewsletterSubList>>(
-        '/api/newsletter-sub-lists',
+        '/api/newsletter-sub-lists?fields=documentId',
       );
       return res.data[0];
     },
@@ -29,7 +29,7 @@ export function useSubscribe() {
   return useMutation({
     mutationFn: async (email: string) => {
       const res = await apiFetch<StrapiCollectionResponse<NewsletterSubList>>(
-        '/api/newsletter-sub-lists',
+        '/api/newsletter-sub-lists?fields=documentId',
       );
       const list = res.data[0];
 
@@ -60,7 +60,7 @@ export function useUnsubscribe() {
   return useMutation({
     mutationFn: async (email: string) => {
       const res = await apiFetch<StrapiCollectionResponse<NewsletterSubList>>(
-        '/api/newsletter-sub-lists',
+        '/api/newsletter-sub-lists?fields=documentId',
       );
       const list = res.data[0];
       if (!list) return; // nothing to do
