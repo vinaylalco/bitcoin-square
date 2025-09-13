@@ -3,7 +3,7 @@ import { apiFetch } from '../lib/api';
 
 export interface NewsletterSubList {
   id: number;
-  documentId: string;
+  documentId?: string | null;
   subscribers: string[];
 }
 
@@ -43,7 +43,8 @@ export function useSubscribe() {
 
       const subscribers = list.subscribers ? [...list.subscribers] : [];
       if (!subscribers.includes(email)) subscribers.push(email);
-      return apiFetch(`/api/newsletter-sub-lists/${list.documentId}`, {
+      const listId = list.documentId ?? list.id;
+      return apiFetch(`/api/newsletter-sub-lists/${listId}`, {
         method: 'PUT',
         body: JSON.stringify({ data: { subscribers } }),
       });
@@ -66,7 +67,8 @@ export function useUnsubscribe() {
       const subscribers = list.subscribers
         ? list.subscribers.filter((e) => e !== email)
         : [];
-      return apiFetch(`/api/newsletter-sub-lists/${list.documentId}`, {
+      const listId = list.documentId ?? list.id;
+      return apiFetch(`/api/newsletter-sub-lists/${listId}`, {
         method: 'PUT',
         body: JSON.stringify({ data: { subscribers } }),
       });
