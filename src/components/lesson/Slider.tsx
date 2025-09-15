@@ -6,11 +6,12 @@ import {
   useMemo,
 } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import type { Card as CardType, Topic } from "../../types/lesson-plan";
+import type { Card as CardType, Module } from "../../types/lesson-plan";
 import Card from "./Card";
 
 interface SliderCard extends CardType {
   topicName: string;
+  moduleName: string;
 }
 
 function createBezier(x1: number, y1: number, x2: number, y2: number) {
@@ -49,10 +50,10 @@ function createBezier(x1: number, y1: number, x2: number, y2: number) {
 
 export default function Slider({
   cards,
-  topics,
+  modules,
 }: {
   cards: SliderCard[];
-  topics: Topic[];
+  modules: Module[];
 }) {
   const [index, setIndex] = useState(0);
   const total = cards.length;
@@ -193,18 +194,25 @@ export default function Slider({
 
   const tocContent = (
     <ul className="space-y-2 text-neutral-900 dark:text-neutral-100">
-      {topics.map((t) => (
-        <li key={t.name}>
-          <p className="font-medium">{t.name}</p>
-          <ul className="ml-4 space-y-1">
-            {t.cards.map((c) => (
-              <li key={c.id}>
-                <button
-                  className="text-left w-full px-2 py-1 rounded focus:outline-none focus-visible:ring-2 ring-brand underline decoration-red-500 text-neutral-900 dark:text-neutral-100"
-                  onClick={() => handleSelect(c.id)}
-                >
-                  {c.title}
-                </button>
+      {modules.map((m) => (
+        <li key={m.id}>
+          <p className="font-medium">{m.name}</p>
+          <ul className="ml-4 space-y-2">
+            {m.topics.map((t) => (
+              <li key={t.id}>
+                <p className="font-medium">{t.name}</p>
+                <ul className="ml-4 space-y-1">
+                  {t.cards.map((c) => (
+                    <li key={c.id}>
+                      <button
+                        className="text-left w-full px-2 py-1 rounded focus:outline-none focus-visible:ring-2 ring-brand underline decoration-red-500 text-neutral-900 dark:text-neutral-100"
+                        onClick={() => handleSelect(c.id)}
+                      >
+                        {c.title}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
               </li>
             ))}
           </ul>

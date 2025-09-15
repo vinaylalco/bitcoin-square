@@ -1,8 +1,15 @@
 {
-  "topics": [
-    {
-      "name": "1. Crisis del costo de vida e inflación fiduciaria",
-      "cards": [
+  "course": {
+    "id": "btc-course-es",
+    "name": "BTC Curso Completo",
+    "modules": [
+      {
+        "id": "module-1",
+        "name": "Módulo 1",
+        "topics": [
+          {
+            "name": "1. Crisis del costo de vida e inflación fiduciaria",
+            "cards": [
         {
           "id": "1-1",
           "title": "Viendo la inflación en el supermercado",
@@ -630,5 +637,8 @@
         }
       ]
     }
-  ]
+        ]
+      }
+    ]
+  }
 }

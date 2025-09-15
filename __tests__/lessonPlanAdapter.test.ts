@@ -12,11 +12,13 @@ describe("getLessonPlan", () => {
         {
           slug: "education",
           locale: "en",
-          LessonPlanJSON: { title: "English", topics: [] },
+          LessonPlanJSON: { course: { id: "en", name: "English", modules: [] } },
           localizations: [
             {
               locale: "es",
-              LessonPlanJSON: { title: "Español", topics: [] },
+              LessonPlanJSON: {
+                course: { id: "es", name: "Español", modules: [] },
+              },
             },
           ],
         },
@@ -34,7 +36,7 @@ describe("getLessonPlan", () => {
 
     const lesson = await getLessonPlan("es", "education");
     expect(fetchMock.mock.calls[0][0]).toContain("populate=%2A");
-    expect(lesson).toMatchObject({ title: "Español", topics: [], locale: "es" });
+    expect(lesson).toMatchObject({ title: "Español", modules: [], locale: "es" });
   });
 
   it("falls back to en when translation missing", async () => {
@@ -43,7 +45,7 @@ describe("getLessonPlan", () => {
         {
           slug: "education",
           locale: "en",
-          LessonPlanJSON: { title: "English", topics: [] },
+          LessonPlanJSON: { course: { id: "en", name: "English", modules: [] } },
           localizations: [],
         },
       ],

@@ -26,12 +26,17 @@ export default function CourseDetail() {
     return <div className="p-4 text-brand">Failed to load lesson plan.</div>;
   }
 
+  const modules = data?.modules ?? [];
   const cards =
-    data?.topics.flatMap((t) =>
-      t.cards.map((c) => ({ ...c, topicName: t.name }))
+    modules.flatMap((m) =>
+      m.topics.flatMap((t) =>
+        t.cards.map((c) => ({
+          ...c,
+          topicName: t.name,
+          moduleName: m.name,
+        })),
+      ),
     ) ?? [];
-
-  const topics = data?.topics ?? [];
 
   return (
     <div className="px-4 sm:px-6 pb-24">
@@ -41,7 +46,7 @@ export default function CourseDetail() {
         </p>
       )}
       <h1 className="text-2xl font-bold mb-6">{data?.title || "Education"}</h1>
-      {cards.length > 0 && <Slider cards={cards} topics={topics} />}
+      {cards.length > 0 && <Slider cards={cards} modules={modules} />}
       {isFetching && <div className="text-sm text-neutral-500">Loading…</div>}
     </div>
   );
