@@ -27,6 +27,9 @@ import ResetPassword from "./routes/ResetPassword";
 import Dashboard from "./routes/Dashboard";
 import { AuthProvider } from "./context/AuthContext";
 import NewsletterSubscribe from "./pages/NewsletterSubscribe";
+import MyCourses from "./routes/MyCourses";
+import PurchaseSuccess from "./routes/PurchaseSuccess";
+import PurchaseCancel from "./routes/PurchaseCancel";
 
 const router = createBrowserRouter([
   {
@@ -51,6 +54,9 @@ const router = createBrowserRouter([
       { path: "forgot-password", element: <ForgotPassword /> },
       { path: "reset-password", element: <ResetPassword /> },
       { path: "newsletter", element: <NewsletterSubscribe /> },
+      { path: "my-courses", element: <MyCourses /> },
+      { path: "purchase/success", element: <PurchaseSuccess /> },
+      { path: "purchase/cancel", element: <PurchaseCancel /> },
     ],
   },
 ]);

@@ -2,12 +2,19 @@ import { useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
 import Slider from "../components/lesson/Slider";
 import { useLessonPlan } from "../hooks/useLessonPlan";
+import { useCheckoutLessonPlan } from "../hooks/useCheckoutLessonPlan";
+import { useMyPurchases } from "../hooks/useMyPurchases";
 
 export default function CourseDetail() {
   const { i18n } = useTranslation();
   const { slug = "" } = useParams();
   const locale = i18n.language?.toLowerCase().startsWith("es") ? "es" : "en";
   const { data, isLoading, error, isFetching } = useLessonPlan(locale, slug);
+  const { data: purchases } = useMyPurchases();
+  const checkout = useCheckoutLessonPlan(data?.id);
+  const hasPurchased = purchases?.some(
+    (p) => p.lessonPlan?.id === data?.id && p.paymentStatus === "paid",
+  );
 
   if (isLoading && !data) {
     return (
@@ -41,6 +48,15 @@ export default function CourseDetail() {
         </p>
       )}
       <h1 className="text-2xl font-bold mb-6">{data?.title || "Education"}</h1>
+      {!hasPurchased && data?.id && (
+        <button
+          type="button"
+          onClick={() => checkout.mutate()}
+          className="mb-6 bg-brand text-white px-4 py-2 rounded hover:bg-brand/90"
+        >
+          Buy Now
+        </button>
+      )}
       {cards.length > 0 && <Slider cards={cards} topics={topics} />}
       {isFetching && <div className="text-sm text-neutral-500">Loading…</div>}
     </div>
