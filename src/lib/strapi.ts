@@ -45,10 +45,17 @@ export async function getLessonPlans(locale: string): Promise<LessonPlan[]> {
 
   const entries: any[] = json?.data || [];
   return entries.map((entry) => {
-    const slug = entry.slug || toSlug(entry.title) || String(entry.id);
+    const module = entry.LessonPlanJSON?.module || {};
+    const slug =
+      entry.slug ||
+      module.id ||
+      toSlug(module.name) ||
+      toSlug(entry.title) ||
+      String(entry.id);
+
     return {
       id: entry.documentId || entry.id,
-      title: entry.title,
+      title: entry.title || module.name,
       slug,
       description: entry.description,
       coverImage: resolveMedia(entry.coverImage?.url),
@@ -69,7 +76,13 @@ export async function getLessonPlan(
 
   const entries: any[] = json?.data || [];
   const entry = entries.find((e) => {
-    const s = e.slug || toSlug(e.title) || String(e.id);
+    const module = e.LessonPlanJSON?.module || {};
+    const s =
+      e.slug ||
+      module.id ||
+      toSlug(module.name) ||
+      toSlug(e.title) ||
+      String(e.id);
     return s === slug;
   });
   if (!entry) {
@@ -82,13 +95,26 @@ export async function getLessonPlan(
     if (match) source = match;
   }
 
-  const lesson: LessonPlan = source?.LessonPlanJSON || { topics: [] };
-  lesson.locale = source?.locale || locale;
-  lesson.title = source?.title;
-  lesson.slug = entry.slug || toSlug(entry.title) || String(entry.id);
-  lesson.description = source?.description;
-  lesson.coverImage = resolveMedia(source?.coverImage?.url);
-  lesson.id = entry.documentId || entry.id;
+  const baseModule = entry.LessonPlanJSON?.module || { topics: [] };
+  const srcJson = source?.LessonPlanJSON || {};
+  const module = srcJson.module
+    ? srcJson.module
+    : { ...baseModule, topics: srcJson.topics || baseModule.topics || [] };
+
+  const lesson: LessonPlan = {
+    id: entry.documentId || entry.id,
+    title: source?.title || module.name || baseModule.name,
+    slug:
+      entry.slug ||
+      baseModule.id ||
+      toSlug(baseModule.name) ||
+      String(entry.id),
+    description: source?.description ?? entry.description,
+    coverImage: resolveMedia(source?.coverImage?.url || entry.coverImage?.url),
+    topics: module.topics || [],
+    locale: source?.locale || entry.locale || locale,
+  };
+
   return lesson;
 }
 
