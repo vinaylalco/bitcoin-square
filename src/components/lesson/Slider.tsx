@@ -50,9 +50,15 @@ function createBezier(x1: number, y1: number, x2: number, y2: number) {
 export default function Slider({
   cards,
   topics,
+  purchased,
+  onPurchase,
 }: {
   cards: SliderCard[];
   topics: Topic[];
+  /** Whether the user has purchased the course */
+  purchased?: boolean;
+  /** Callback to initiate purchase */
+  onPurchase?: () => void;
 }) {
   const [index, setIndex] = useState(0);
   const total = cards.length;
@@ -249,12 +255,14 @@ export default function Slider({
             className="flex overflow-x-auto snap-x snap-mandatory"
           >
             {cards.map((c) => (
-              <div
-                key={c.id}
-                className="w-full flex-shrink-0 snap-start"
-              >
+              <div key={c.id} className="w-full flex-shrink-0 snap-start">
                 <div className="overflow-y-auto">
-                  <Card card={c} topicName={c.topicName} />
+                  <Card
+                    card={c}
+                    topicName={c.topicName}
+                    purchased={purchased}
+                    onPurchase={onPurchase}
+                  />
                 </div>
               </div>
             ))}
