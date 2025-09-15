@@ -1,4 +1,4 @@
-# collect-react.sh
+# ./collect-react.sh
 #!/bin/bash
 
 OUTPUT="react-context.txt"
