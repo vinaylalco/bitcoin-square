@@ -59,6 +59,55 @@ describe("getLessonPlan", () => {
     expect(lesson.locale).toBe("en");
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
+
+  it("resolves course slug from id or name", async () => {
+    const byIdMock = {
+      data: [
+        {
+          id: 1,
+          locale: "en",
+          title: "Course via ID",
+          LessonPlanJSON: {
+            title: "Course via ID",
+            topics: [],
+            course: { id: "c-101" },
+          },
+          localizations: [],
+        },
+      ],
+    };
+
+    const byNameMock = {
+      data: [
+        {
+          id: 2,
+          locale: "en",
+          title: "Course via Name",
+          LessonPlanJSON: {
+            title: "Course via Name",
+            topics: [],
+            course: { name: "Course 101" },
+          },
+          localizations: [],
+        },
+      ],
+    };
+
+    const fetchMock = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValueOnce({ ok: true, json: async () => byIdMock } as any)
+      .mockResolvedValueOnce({ ok: true, json: async () => byNameMock } as any);
+
+    process.env.NEXT_PUBLIC_STRAPI_URL = "http://test";
+
+    const byId = await getLessonPlan("en", "c-101");
+    expect(byId).toMatchObject({ slug: "c-101" });
+
+    const byName = await getLessonPlan("en", "course-101");
+    expect(byName).toMatchObject({ slug: "course-101" });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe("getLessonPlans", () => {
