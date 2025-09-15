@@ -12,11 +12,19 @@ describe("getLessonPlan", () => {
         {
           slug: "education",
           locale: "en",
-          LessonPlanJSON: { title: "English", topics: [] },
+          LessonPlanJSON: {
+            module: {
+              id: "M1",
+              name: "English Module",
+              topics: [{ name: "Topic EN", cards: [] }],
+            },
+          },
           localizations: [
             {
               locale: "es",
-              LessonPlanJSON: { title: "Español", topics: [] },
+              LessonPlanJSON: {
+                topics: [{ name: "Topic ES", cards: [] }],
+              },
             },
           ],
         },
@@ -33,8 +41,10 @@ describe("getLessonPlan", () => {
     process.env.NEXT_PUBLIC_STRAPI_URL = "http://test";
 
     const lesson = await getLessonPlan("es", "education");
-    expect(fetchMock.mock.calls[0][0]).toContain("populate=%2A");
-    expect(lesson).toMatchObject({ title: "Español", topics: [], locale: "es" });
+    expect(fetchMock.mock.calls[0][0]).toContain("populate=*");
+    expect(lesson.locale).toBe("es");
+    expect(lesson.topics).toEqual([{ name: "Topic ES", cards: [] }]);
+    expect(lesson.title).toBe("English Module");
   });
 
   it("falls back to en when translation missing", async () => {
@@ -43,7 +53,9 @@ describe("getLessonPlan", () => {
         {
           slug: "education",
           locale: "en",
-          LessonPlanJSON: { title: "English", topics: [] },
+          LessonPlanJSON: {
+            module: { id: "M1", name: "English Module", topics: [] },
+          },
           localizations: [],
         },
       ],
