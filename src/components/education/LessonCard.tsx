@@ -1,15 +1,72 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import type { LessonCardData } from "./types";
+import LightningAnimation from "../LightningAnimation";
+import { usePoints } from "../../context/PointsContext";
+import { useAuth } from "../../context/AuthContext";
 
-export default function LessonCard({ lesson }: { lesson: LessonCardData }) {
+type Props = {
+  lesson: LessonCardData;
+  isActive?: boolean;
+  onRequestNext?: () => void;
+};
+
+export default function LessonCard({ lesson, isActive = false, onRequestNext }: Props) {
   const { id, title, content, objectives, quiz, duration_min, topicName } = lesson;
+  const { completeLesson, hasCompleted } = usePoints();
+  const { user } = useAuth();
 
-  // Local UI state (no gating)
   const [selected, setSelected] = useState<string>("");
   const [text, setText] = useState<string>("");
+  const [showAnswer, setShowAnswer] = useState(false);
+  const [textError, setTextError] = useState<string | null>(null);
+  const [strikeActive, setStrikeActive] = useState(false);
+  const [loginPrompt, setLoginPrompt] = useState(false);
 
+  const alreadyCompleted = hasCompleted(id);
   const isCorrect = quiz.type === "multiple_choice" && selected === quiz.correct_answer;
   const hasText = quiz.type !== "multiple_choice" && text.trim().length > 0;
+
+  useEffect(() => {
+    if (user) {
+      setLoginPrompt(false);
+    }
+  }, [user]);
+
+  const handleStrikeComplete = useCallback(() => {
+    setStrikeActive(false);
+    onRequestNext?.();
+  }, [onRequestNext]);
+
+  const triggerCompletion = useCallback(() => {
+    if (!isActive || strikeActive) return;
+    setStrikeActive(true);
+    completeLesson(id, 10).then(() => {
+      if (!user) {
+        setLoginPrompt(true);
+      }
+    });
+  }, [completeLesson, id, isActive, strikeActive, user]);
+
+  const handleOptionSelect = (opt: string) => {
+    setSelected(opt);
+    if (quiz.correct_answer === opt) {
+      triggerCompletion();
+    }
+  };
+
+  const handleToggleAnswer = () => {
+    if (!hasText) {
+      setTextError("Please add your answer before viewing the solution.");
+      return;
+    }
+    setTextError(null);
+    setShowAnswer((prev) => {
+      if (!prev) {
+        triggerCompletion();
+      }
+      return !prev;
+    });
+  };
 
   return (
     <article className="relative w-full px-4 sm:px-6">
@@ -57,7 +114,7 @@ export default function LessonCard({ lesson }: { lesson: LessonCardData }) {
                     name={`q-${id}`}
                     className="accent-brand"
                     checked={selected === opt}
-                    onChange={() => setSelected(opt)}
+                    onChange={() => handleOptionSelect(opt)}
                   />
                   <span>{opt}</span>
                 </label>
@@ -71,33 +128,72 @@ export default function LessonCard({ lesson }: { lesson: LessonCardData }) {
                     : "text-neutral-500 dark:text-neutral-400"
                 }`}
               >
-                {selected ? (isCorrect ? "Correct ✓" : "Try again") : "Select an answer (optional)"}
+                {selected
+                  ? isCorrect
+                    ? alreadyCompleted
+                      ? "Completed! Points saved."
+                      : "Correct! +10 points"
+                    : "Try again"
+                  : "Select an answer"}
               </p>
             </div>
           ) : (
-            <div>
+            <div className="space-y-3">
               <textarea
                 className="mt-2 w-full rounded-md border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 p-3 text-lg min-h-28"
                 rows={4}
                 placeholder={
                   quiz.type === "reflection"
-                    ? "Write your reflection… (optional)"
-                    : "What would you do in this scenario? (optional)"
+                    ? "Write your reflection…"
+                    : "What would you do in this scenario?"
                 }
                 value={text}
-                onChange={(e) => setText(e.target.value)}
+                onChange={(e) => {
+                  setText(e.target.value);
+                  if (textError) setTextError(null);
+                }}
               />
-              <p
-                className={`mt-3 text-base font-medium ${
-                  hasText ? "text-emerald-600" : "text-neutral-500 dark:text-neutral-400"
-                }`}
-              >
-                {hasText ? "Nice thoughts!" : "You can skip this and continue"}
-              </p>
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleToggleAnswer}
+                  className="inline-flex items-center justify-center rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:bg-brand/50"
+                  disabled={!hasText || strikeActive}
+                >
+                  {showAnswer ? "Hide answer" : "Show answer"}
+                </button>
+                <span
+                  className={`text-sm ${
+                    hasText
+                      ? "text-emerald-600"
+                      : "text-neutral-500 dark:text-neutral-400"
+                  }`}
+                >
+                  {hasText ? "Ready to check your thoughts" : "Add a response to continue"}
+                </span>
+              </div>
+              {textError && <p className="text-sm text-brand">{textError}</p>}
+              {showAnswer && quiz.correct_answer && (
+                <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-sm dark:border-neutral-700 dark:bg-neutral-800/60">
+                  <p className="font-semibold text-neutral-900 dark:text-neutral-100">Suggested answer</p>
+                  <p className="mt-1 text-neutral-700 dark:text-neutral-200">{quiz.correct_answer}</p>
+                </div>
+              )}
+              {(showAnswer || alreadyCompleted) && (
+                <p className="text-base font-medium text-emerald-600">Answer checked! +10 points</p>
+              )}
             </div>
+          )}
+
+          {loginPrompt && !user && (
+            <p className="mt-4 text-sm font-medium text-brand">
+              Log in or create an account to make sure your points are saved.
+            </p>
           )}
         </section>
       </div>
+
+      <LightningAnimation active={strikeActive} onComplete={handleStrikeComplete} />
     </article>
   );
 }
