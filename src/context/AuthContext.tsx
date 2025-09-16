@@ -13,6 +13,13 @@ import {
 } from '../api/auth';
 import { strapiFetch } from '../api/strapi-client';
 import {
+  computeMergedProgress,
+  createEmptyLocalProgress,
+  hasLocalData,
+  persistLocalProgress,
+  readLocalProgress,
+} from '../utils/localProgress';
+import {
   decryptPrivateKey,
   encryptPrivateKey,
   generateNostrKeyPair,
@@ -154,6 +161,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const syncLocalProgressAfterAuth = useCallback(
+    async (baseUser: User | null, jwt: string) => {
+      if (!baseUser || !jwt) return;
+      const progress = readLocalProgress();
+      if (!hasLocalData(progress)) return;
+
+      const mergeResult = computeMergedProgress(progress, baseUser);
+      if (!mergeResult) {
+        persistLocalProgress(createEmptyLocalProgress());
+        return;
+      }
+
+      try {
+        await strapiFetch(`/api/users/${baseUser.id}`, {
+          method: 'PUT',
+          headers: { Authorization: `Bearer ${jwt}` },
+          body: JSON.stringify({
+            points: mergeResult.updatedPoints,
+            lessonCompletions: mergeResult.updatedCompletions,
+            studyStreak: mergeResult.updatedStudyStreak,
+            lastStudyDate: mergeResult.updatedLastStudyDate,
+          }),
+        });
+        updateUser((prev) =>
+          prev
+            ? {
+                ...prev,
+                points: mergeResult.updatedPoints,
+                lessonCompletions: mergeResult.updatedCompletions,
+                studyStreak: mergeResult.updatedStudyStreak,
+                lastStudyDate: mergeResult.updatedLastStudyDate,
+              }
+            : prev,
+        );
+        persistLocalProgress(createEmptyLocalProgress());
+      } catch (error) {
+        console.error('Failed to sync stored lesson progress', error);
+      }
+    },
+    [updateUser],
+  );
+
   function applyAuth(res: AuthResponse) {
     const normalized = normalizeUser(res.user);
     setUser(normalized);
@@ -170,6 +219,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function login(email: string, password: string) {
     const res = await apiLogin(email, password);
+    const normalized = normalizeUser(res.user);
     applyAuth(res);
     if (res.user.nostrEncryptedKey) {
       try {
@@ -180,10 +230,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } catch {}
       } catch {}
     }
+    await syncLocalProgressAfterAuth(normalized, res.jwt);
   }
 
   async function register(email: string, password: string, storeRecovery: boolean) {
     const res = await apiRegister(email, password);
+    const normalized = normalizeUser(res.user);
     applyAuth(res);
     const { pub, priv } = generateNostrKeyPair();
     setNostrPrivKey(priv);
@@ -200,11 +252,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       body: JSON.stringify(body),
     });
     updateUser((prev) => (prev ? { ...prev, ...body } : prev));
+    await syncLocalProgressAfterAuth(normalized, res.jwt);
   }
 
   async function reset(code: string, password: string, confirm: string) {
     const res = await apiReset(code, password, confirm);
+    const normalized = normalizeUser(res.user);
     applyAuth(res);
+    await syncLocalProgressAfterAuth(normalized, res.jwt);
   }
 
   function logout() {

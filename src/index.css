@@ -162,16 +162,20 @@
 }
 
 .points-hud__value {
-  display: block;
+  display: inline-block;
   font-size: 1.6rem;
   font-weight: 700;
   letter-spacing: 0.02em;
   transition: color 200ms ease;
+  will-change: color, transform;
 }
 
 .points-hud__value--lightning {
-  animation: points-number-glow 0.65s ease-out;
+  animation:
+    points-number-glow 0.65s ease-out,
+    points-number-shake 0.6s cubic-bezier(0.36, 0.07, 0.19, 0.97);
   color: #fde047;
+  transform-origin: center;
 }
 
 .points-hud__divider {
@@ -379,14 +383,35 @@
 @keyframes points-number-glow {
   0% {
     text-shadow: 0 0 0 rgba(250, 204, 21, 0);
-    transform: scale(1);
   }
   40% {
     text-shadow: 0 0 22px rgba(250, 204, 21, 0.7);
-    transform: scale(1.09);
   }
   100% {
     text-shadow: 0 0 0 rgba(250, 204, 21, 0);
-    transform: scale(1);
+  }
+}
+
+@keyframes points-number-shake {
+  0% {
+    transform: scale(1) translate3d(0, 0, 0) rotate(0);
+  }
+  18% {
+    transform: scale(1.05) translate3d(-2px, -2px, 0) rotate(-1.5deg);
+  }
+  36% {
+    transform: scale(1.08) translate3d(2px, -1px, 0) rotate(1.2deg);
+  }
+  52% {
+    transform: scale(1.06) translate3d(-1px, 2px, 0) rotate(-0.9deg);
+  }
+  68% {
+    transform: scale(1.04) translate3d(2px, 1px, 0) rotate(0.6deg);
+  }
+  84% {
+    transform: scale(1.02) translate3d(-1px, 0, 0) rotate(-0.3deg);
+  }
+  100% {
+    transform: scale(1) translate3d(0, 0, 0) rotate(0);
   }
 }

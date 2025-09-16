@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Flame, LogIn, UserRound, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -19,6 +19,7 @@ export default function LessonPointsCounter({
 }: LessonPointsCounterProps) {
   const [animateStrike, setAnimateStrike] = useState(false);
   const lastPoints = useRef(points);
+  const audioContextRef = useRef<AudioContext | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -34,6 +35,74 @@ export default function LessonPointsCounter({
     lastPoints.current = points;
     return undefined;
   }, [points]);
+
+  useEffect(() => {
+    return () => {
+      const ctx = audioContextRef.current;
+      if (ctx && ctx.state !== "closed") {
+        void ctx.close().catch(() => undefined);
+      }
+      audioContextRef.current = null;
+    };
+  }, []);
+
+  const playLightningSound = useCallback(async () => {
+    if (typeof window === "undefined") return;
+    const win = window as typeof window & { webkitAudioContext?: typeof AudioContext };
+    const AudioContextCtor = win.AudioContext ?? win.webkitAudioContext;
+    if (!AudioContextCtor) return;
+
+    let ctx = audioContextRef.current;
+    if (!ctx || ctx.state === "closed") {
+      ctx = new AudioContextCtor();
+      audioContextRef.current = ctx;
+    }
+    if (ctx.state === "suspended") {
+      try {
+        await ctx.resume();
+      } catch {
+        // Ignore resume failures and attempt playback regardless
+      }
+    }
+
+    const duration = 0.45;
+    const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * duration), ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < data.length; i += 1) {
+      const progress = i / data.length;
+      const envelope = Math.pow(1 - progress, 2.4);
+      const noise = (Math.random() * 2 - 1) * envelope * 0.65;
+      const crackle = Math.sin(progress * Math.PI * 18) * envelope * 0.2;
+      const rumble = Math.sin(progress * Math.PI * 5) * envelope * 0.35;
+      const value = noise + crackle + rumble;
+      data[i] = Math.max(-1, Math.min(1, value));
+    }
+
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.value = 1800;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.28;
+
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+
+    const startTime = ctx.currentTime + 0.02;
+    source.start(startTime);
+    source.onended = () => {
+      source.disconnect();
+      filter.disconnect();
+      gain.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!animateStrike) return;
+    void playLightningSound();
+  }, [animateStrike, playLightningSound]);
 
   const formattedPoints = useMemo(() => points.toLocaleString(), [points]);
   const normalizedStreak = Math.max(0, Math.floor(studyStreak));
