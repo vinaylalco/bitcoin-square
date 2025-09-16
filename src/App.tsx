@@ -16,6 +16,7 @@ import { useSwipe } from "./hooks/useSwipe";
 import { useTheme } from "./context/ThemeContext";
 import { useAuth } from "./context/AuthContext";
 import Footer from "./components/Footer";
+import PointsCounter from "./components/PointsCounter";
 
 export default function App() {
   const [open, setOpen] = useState(false);
@@ -210,6 +211,7 @@ export default function App() {
         <Outlet />
         <Footer />
       </main>
+      <PointsCounter />
     </div>
   );
 }

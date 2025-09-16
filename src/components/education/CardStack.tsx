@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import LessonCard from "./LessonCard";
 import type { LessonCardData } from "./types";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -65,12 +65,15 @@ export default function CardStack({ lessons, onAdvance }: Props) {
     [activeIndex, total]
   );
 
-  const scrollToIndex = (targetIndex: number) => {
-    const el = trackRef.current;
-    if (!el) return;
-    const clamped = Math.max(0, Math.min(total - 1, targetIndex));
-    el.scrollTo({ left: clamped * containerW, behavior: "smooth" });
-  };
+  const scrollToIndex = useCallback(
+    (targetIndex: number) => {
+      const el = trackRef.current;
+      if (!el) return;
+      const clamped = Math.max(0, Math.min(total - 1, targetIndex));
+      el.scrollTo({ left: clamped * containerW, behavior: "smooth" });
+    },
+    [containerW, total],
+  );
 
   // Party popper + smooth page scroll-to-top on card change
   useEffect(() => {
@@ -82,7 +85,15 @@ export default function CardStack({ lessons, onAdvance }: Props) {
     setPop(true);
     const t = setTimeout(() => setPop(false), 700);
     return () => clearTimeout(t);
-  }, [activeIndex]);
+  }, [activeIndex, scrollToIndex]);
+
+  const handleCardComplete = useCallback(
+    (index: number) => {
+      if (index !== activeIndex) return;
+      scrollToIndex(index + 1);
+    },
+    [activeIndex, scrollToIndex],
+  );
 
   // Keyboard support (desktop)
   useEffect(() => {
@@ -140,9 +151,13 @@ export default function CardStack({ lessons, onAdvance }: Props) {
           className="flex gap-4 overflow-x-auto snap-x snap-mandatory scroll-smooth no-scrollbar px-0 relative z-10"
           style={{ scrollPadding: "0px" }}
         >
-          {lessons.map((l) => (
+          {lessons.map((l, idx) => (
             <div key={l.id} className="snap-center w-full flex-shrink-0">
-              <LessonCard lesson={l} />
+              <LessonCard
+                lesson={l}
+                isActive={idx === activeIndex}
+                onRequestNext={() => handleCardComplete(idx)}
+              />
             </div>
           ))}
         </div>

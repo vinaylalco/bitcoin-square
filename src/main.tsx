@@ -27,6 +27,7 @@ import ResetPassword from "./routes/ResetPassword";
 import Dashboard from "./routes/Dashboard";
 import { AuthProvider } from "./context/AuthContext";
 import NewsletterSubscribe from "./pages/NewsletterSubscribe";
+import { PointsProvider } from "./context/PointsContext";
 
 const router = createBrowserRouter([
   {
@@ -61,9 +62,11 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <ThemeProvider>
-          <RouterProvider router={router} />
-        </ThemeProvider>
+        <PointsProvider>
+          <ThemeProvider>
+            <RouterProvider router={router} />
+          </ThemeProvider>
+        </PointsProvider>
       </AuthProvider>
     </QueryClientProvider>
   </React.StrictMode>

@@ -4,7 +4,15 @@ import { login as apiLogin, register as apiRegister, resetPassword as apiReset }
 import { strapiFetch } from '../api/strapi-client';
 import { generateNostrKeyPair, encryptPrivateKey, decryptPrivateKey } from '../utils/nostr';
 
-interface User { id: number; email: string; username?: string; nostrPublicKey?: string; nostrEncryptedKey?: string }
+interface User {
+  id: number;
+  email: string;
+  username?: string;
+  nostrPublicKey?: string;
+  nostrEncryptedKey?: string;
+  points?: number;
+  lessonCompletions?: string[];
+}
 interface AuthContextType {
   user: User | null;
   token: string | null;
@@ -13,6 +21,7 @@ interface AuthContextType {
   register: (email: string, password: string, storeRecovery: boolean) => Promise<void>;
   logout: () => void;
   reset: (code: string, password: string, confirm: string) => Promise<void>;
+  updateUser: (updates: Partial<User>) => void;
 }
 
 const AuthCtx = createContext<AuthContextType | null>(null);
@@ -46,6 +55,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('user', JSON.stringify(res.user));
     } catch {}
   }
+
+  const updateUser = React.useCallback((updates: Partial<User>) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, ...updates };
+      try {
+        localStorage.setItem('user', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }, []);
 
   async function login(email: string, password: string) {
     const res = await apiLogin(email, password);
@@ -94,7 +114,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthCtx.Provider value={{ user, token, nostrPrivKey, login, register, logout, reset }}>
+    <AuthCtx.Provider value={{ user, token, nostrPrivKey, login, register, logout, reset, updateUser }}>
       {children}
     </AuthCtx.Provider>
   );
