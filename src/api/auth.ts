@@ -10,6 +10,8 @@ export interface AuthResponse {
     nostrEncryptedKey?: string;
     points?: number | null;
     lessonCompletions?: Record<string, unknown> | null;
+    studyStreak?: number | null;
+    lastStudyDate?: string | null;
   };
 }
 
