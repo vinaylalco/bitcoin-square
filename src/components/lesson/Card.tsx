@@ -31,13 +31,13 @@ export default function Card({
         <p className="text-sm text-neutral-500">{card.duration_min} min</p>
       )}
       <div className="mt-4 space-y-4">
-        <div>
+        {/*<div>
           {videoId ? (
             <YouTubeVideo videoId={videoId} title={card.title} />
           ) : (
             <VideoGhost />
           )}
-        </div>
+        </div>*/}
         {card.content && (
           <p className="whitespace-pre-line">{card.content}</p>
         )}

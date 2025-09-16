@@ -71,7 +71,12 @@ export async function getLessonPlan(
 
   const entries: any[] = json?.data || [];
   const entry = entries.find((e) => {
-    const s = e.slug || toSlug(e.title) || String(e.id);
+      const s =
+      e.slug ||
+      e.LessonPlanJSON?.course?.id ||
+      toSlug(e.LessonPlanJSON?.course?.name) ||
+      toSlug(e.title) ||
+      String(e.id);
     return s === slug;
   });
   if (!entry) {
@@ -90,7 +95,13 @@ export async function getLessonPlan(
   } as LessonPlan;
   lesson.locale = source?.locale || locale;
   lesson.title = course.name || source?.title;
-  lesson.slug = entry.slug || toSlug(lesson.title) || course.id || String(entry.id);
+  // lesson.slug = entry.slug || toSlug(lesson.title) || course.id || String(entry.id);
+  lesson.slug =
+    entry.slug ||
+    entry.LessonPlanJSON?.course?.id ||
+    toSlug(entry.LessonPlanJSON?.course?.name) ||
+    toSlug(entry.title) ||
+    String(entry.id);
   lesson.description = source?.description;
   lesson.coverImage = resolveMedia(source?.coverImage?.url);
   lesson.id = entry.documentId || entry.id;
