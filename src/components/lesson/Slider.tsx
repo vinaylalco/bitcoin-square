@@ -345,15 +345,15 @@ export default function Slider({
         >
           Course Content
         </button>
-        <div className="relative">
+        <div className="relative lg:flex-1 lg:min-h-0">
           <div
             ref={containerRef}
-            className="flex overflow-x-auto snap-x snap-mandatory"
+            className="flex overflow-x-auto snap-x snap-mandatory lg:h-full"
           >
             {cards.map((c) => (
               <div
                 key={c.id}
-                className="w-full flex-shrink-0 snap-start"
+                className="w-full flex-shrink-0 snap-start lg:flex lg:h-full lg:flex-col"
               >
                 <div ref={registerCardWrapper(c.id)}>
                   <Card card={c} topicName={c.topicName} />
