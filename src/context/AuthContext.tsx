@@ -30,6 +30,8 @@ export interface User {
   nostrEncryptedKey?: string;
   points: number;
   lessonCompletions: LessonCompletionMap;
+  studyStreak: number;
+  lastStudyDate: string | null;
 }
 
 function normalizePoints(value: unknown): number {
@@ -39,6 +41,22 @@ function normalizePoints(value: unknown): number {
     if (Number.isFinite(parsed)) return parsed;
   }
   return 0;
+}
+
+function normalizeStudyStreak(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return Math.max(0, Math.floor(value));
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return Math.max(0, Math.floor(parsed));
+  }
+  return 0;
+}
+
+function normalizeLastStudyDate(value: unknown): string | null {
+  if (typeof value === 'string' && value.trim().length > 0) {
+    return value;
+  }
+  return null;
 }
 
 function normalizeLessonCompletions(raw: unknown): LessonCompletionMap {
@@ -68,9 +86,14 @@ function normalizeUser(raw: any | null | undefined): User | null {
     ...raw,
     points: normalizePoints(raw.points),
     lessonCompletions: normalizeLessonCompletions(raw.lessonCompletions),
+    studyStreak: normalizeStudyStreak(raw.studyStreak),
+    lastStudyDate: normalizeLastStudyDate(raw.lastStudyDate),
   };
   if (!normalized.lessonCompletions) {
     normalized.lessonCompletions = {};
+  }
+  if (!normalized.lastStudyDate) {
+    normalized.lastStudyDate = null;
   }
   return normalized;
 }
