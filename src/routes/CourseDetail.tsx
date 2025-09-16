@@ -46,7 +46,13 @@ export default function CourseDetail() {
         </p>
       )}
       <h1 className="text-2xl font-bold mb-6">{data?.title || "Education"}</h1>
-      {cards.length > 0 && <Slider cards={cards} modules={modules} />}
+      {cards.length > 0 && (
+        <Slider
+          cards={cards}
+          modules={modules}
+          courseTitle={data?.title || "Education"}
+        />
+      )}
       {isFetching && <div className="text-sm text-neutral-500">Loading…</div>}
     </div>
   );
