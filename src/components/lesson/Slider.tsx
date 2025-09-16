@@ -66,6 +66,10 @@ export default function Slider({
   const [tocOpen, setTocOpen] = useState(false);
   const drawerRef = useRef<HTMLDivElement>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
+  const progressContainerRef = useRef<HTMLDivElement>(null);
+  const columnRef = useRef<HTMLDivElement>(null);
+  const cardWrappers = useRef(new Map<string, HTMLDivElement>());
+  const [navHeight, setNavHeight] = useState<number | null>(null);
 
   const idToIndex = useMemo(() => {
     const map = new Map<string, number>();
@@ -146,6 +150,66 @@ export default function Slider({
 
   const percent = total > 0 ? Math.round(((index + 1) / total) * 100) : 0;
   const activeCardId = cards[index]?.id;
+
+  const registerCardWrapper = useCallback(
+    (id: string) => (node: HTMLDivElement | null) => {
+      if (node) {
+        cardWrappers.current.set(id, node);
+      } else {
+        cardWrappers.current.delete(id);
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    const activeId = activeCardId;
+    if (!activeId) {
+      setNavHeight(null);
+      return;
+    }
+    const cardEl = cardWrappers.current.get(activeId);
+    if (!cardEl) {
+      setNavHeight(null);
+      return;
+    }
+
+    const updateHeight = () => {
+      const cardHeight = cardEl.offsetHeight;
+      const progressHeight = progressContainerRef.current?.offsetHeight ?? 0;
+      let gap = 0;
+      if (columnRef.current && typeof window !== "undefined") {
+        const styles = window.getComputedStyle(columnRef.current);
+        gap = parseFloat(styles.rowGap || "0");
+      }
+      setNavHeight(cardHeight + progressHeight + gap);
+    };
+
+    updateHeight();
+
+    const observers: ResizeObserver[] = [];
+
+    if (typeof ResizeObserver !== "undefined") {
+      const cardObserver = new ResizeObserver(updateHeight);
+      cardObserver.observe(cardEl);
+      observers.push(cardObserver);
+
+      if (progressContainerRef.current) {
+        const progressObserver = new ResizeObserver(updateHeight);
+        progressObserver.observe(progressContainerRef.current);
+        observers.push(progressObserver);
+      }
+
+      return () => {
+        observers.forEach((observer) => observer.disconnect());
+      };
+    }
+
+    window.addEventListener("resize", updateHeight);
+    return () => {
+      window.removeEventListener("resize", updateHeight);
+    };
+  }, [activeCardId, cards]);
 
   useEffect(() => {
     if (!tocOpen) return;
@@ -250,11 +314,14 @@ export default function Slider({
 
   return (
     <div
-      className="lg:flex"
+      className="lg:flex lg:items-start"
       style={{ "--chrome": `${chrome}px` } as React.CSSProperties}
     >
-      <div className="lg:w-2/3 lg:pr-4">
-        <div className="flex items-center mb-4">
+      <div
+        ref={columnRef}
+        className="lg:w-2/3 lg:pr-4 flex flex-col gap-4"
+      >
+        <div ref={progressContainerRef} className="flex items-center">
           <div
             ref={progressRef}
             className="h-2 flex-1 bg-neutral-200 rounded overflow-hidden"
@@ -272,7 +339,7 @@ export default function Slider({
           ref={toggleRef}
           type="button"
           onClick={() => setTocOpen((o) => !o)}
-          className="mb-4 block w-full text-lg font-large border-2 border-brand bg-white text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100 py-2 rounded focus:outline-none focus-visible:ring-2 ring-brand lg:hidden"
+          className="block w-full text-lg font-large border-2 border-brand bg-white text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100 py-2 rounded focus:outline-none focus-visible:ring-2 ring-brand lg:hidden"
           aria-controls="toc-drawer"
           aria-expanded={tocOpen}
         >
@@ -288,7 +355,7 @@ export default function Slider({
                 key={c.id}
                 className="w-full flex-shrink-0 snap-start"
               >
-                <div className="overflow-y-auto">
+                <div ref={registerCardWrapper(c.id)}>
                   <Card card={c} topicName={c.topicName} />
                 </div>
               </div>
@@ -347,11 +414,16 @@ export default function Slider({
         </div>
       </div>
       <nav
-        className="hidden lg:block lg:w-1/3 lg:pl-4 bg-white dark:bg-neutral-900"
+        className="hidden lg:flex lg:w-1/3 lg:pl-4 bg-white dark:bg-neutral-900"
+        style={
+          navHeight
+            ? { height: navHeight, maxHeight: navHeight }
+            : undefined
+        }
         aria-labelledby="course-title-desktop"
       >
-        <div className="space-y-4">
-          <div className="space-y-1">
+        <div className="flex h-full w-full flex-col min-h-0">
+          <div className="space-y-1 shrink-0">
             <h2
               id="course-title-desktop"
               className="text-lg font-semibold text-neutral-900 dark:text-neutral-100"
@@ -362,7 +434,9 @@ export default function Slider({
               Course Content
             </p>
           </div>
-          {tocContent}
+          <div className="mt-4 flex-1 overflow-y-auto pr-2 lg:min-h-0">
+            {tocContent}
+          </div>
         </div>
       </nav>
     </div>
