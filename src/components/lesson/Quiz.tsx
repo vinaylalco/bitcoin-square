@@ -1,13 +1,58 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import type { Quiz as QuizType } from "../../types/lesson-plan";
 
-export default function Quiz({ quiz }: { quiz: QuizType }) {
+interface QuizProps {
+  quiz: QuizType;
+  onComplete?: () => void;
+  isCompleted?: boolean;
+}
+
+export default function Quiz({ quiz, onComplete, isCompleted = false }: QuizProps) {
   const [selected, setSelected] = useState<string | null>(null);
   const [status, setStatus] = useState<"correct" | "incorrect" | null>(null);
   const [showAnswer, setShowAnswer] = useState(false);
+  const [completed, setCompleted] = useState(isCompleted);
+  const [textAnswer, setTextAnswer] = useState("");
+  const [textError, setTextError] = useState<string | null>(null);
   const groupId = useId();
 
+  useEffect(() => {
+    if (isCompleted && !completed) {
+      setCompleted(true);
+      if (quiz.type === "multiple_choice" && quiz.correct_answer) {
+        setSelected(quiz.correct_answer);
+        setStatus("correct");
+      } else if (quiz.type !== "multiple_choice") {
+        setShowAnswer(true);
+      }
+    } else if (!isCompleted && completed) {
+      setCompleted(false);
+      setSelected(null);
+      setStatus(null);
+      if (quiz.type !== "multiple_choice") {
+        setShowAnswer(false);
+      }
+    }
+  }, [completed, isCompleted, quiz]);
+
   if (quiz.type !== "multiple_choice") {
+    const handleToggleAnswer = () => {
+      if (!showAnswer) {
+        if (!textAnswer.trim()) {
+          setTextError("Please enter your answer before revealing the solution.");
+          return;
+        }
+        setTextError(null);
+        if (!completed) {
+          setCompleted(true);
+          onComplete?.();
+        }
+        setShowAnswer(true);
+      } else {
+        setShowAnswer(false);
+      }
+    };
+
     return (
       <div className="space-y-3">
         <p className="text-base font-medium text-neutral-900 dark:text-neutral-100">
@@ -16,12 +61,24 @@ export default function Quiz({ quiz }: { quiz: QuizType }) {
         <textarea
           className="min-h-[120px] w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-neutral-900 shadow-sm transition focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/40 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
           rows={4}
+          value={textAnswer}
+          onChange={(event) => {
+            setTextAnswer(event.target.value);
+            if (textError && event.target.value.trim()) {
+              setTextError(null);
+            }
+          }}
         />
+        {textError && (
+          <p className="text-sm text-red-600 dark:text-red-400" role="alert">
+            {textError}
+          </p>
+        )}
         {quiz.correct_answer && (
           <div className="space-y-2">
             <button
               type="button"
-              onClick={() => setShowAnswer((s) => !s)}
+              onClick={handleToggleAnswer}
               className="inline-flex items-center justify-center rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
             >
               {showAnswer ? "Hide answer" : "Show answer"}
@@ -41,13 +98,17 @@ export default function Quiz({ quiz }: { quiz: QuizType }) {
   }
 
   const handleSelect = (opt: string) => {
-    if (selected === opt) {
+    if (selected === opt && !completed) {
       setSelected(null);
       setStatus(null);
       return;
     }
     setSelected(opt);
     setStatus(opt === quiz.correct_answer ? "correct" : "incorrect");
+    if (opt === quiz.correct_answer && !completed) {
+      setCompleted(true);
+      onComplete?.();
+    }
   };
 
   const getStateClasses = (opt: string) => {

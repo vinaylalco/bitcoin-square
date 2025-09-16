@@ -6,9 +6,13 @@ import placeholderImage from "/mugshots/cesar.jpeg";
 export default function Card({
   card,
   topicName,
+  onQuizComplete,
+  quizCompleted,
 }: {
   card: CardType;
   topicName?: string;
+  onQuizComplete?: () => void;
+  quizCompleted?: boolean;
 }) {
   const videoId = card.youtube ? getYouTubeId(card.youtube) : null;
   if (card.youtube && !videoId && import.meta.env.DEV) {
@@ -104,7 +108,11 @@ export default function Card({
             >
               Quiz
             </h2>
-            <Quiz quiz={card.quiz} />
+            <Quiz
+              quiz={card.quiz}
+              onComplete={onQuizComplete}
+              isCompleted={quizCompleted}
+            />
           </section>
         )}
       </div>

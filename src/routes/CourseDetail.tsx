@@ -51,6 +51,7 @@ export default function CourseDetail() {
           cards={cards}
           modules={modules}
           courseTitle={data?.title || "Education"}
+          lessonSlug={data?.slug || slug}
         />
       )}
       {isFetching && <div className="text-sm text-neutral-500">Loading…</div>}

@@ -2,7 +2,15 @@ import { strapiFetch } from './strapi-client';
 
 export interface AuthResponse {
   jwt: string;
-  user: { id: number; email: string; username?: string; nostrPublicKey?: string; nostrEncryptedKey?: string };
+  user: {
+    id: number;
+    email: string;
+    username?: string;
+    nostrPublicKey?: string;
+    nostrEncryptedKey?: string;
+    points?: number | null;
+    lessonCompletions?: Record<string, unknown> | null;
+  };
 }
 
 export function register(email: string, password: string) {
