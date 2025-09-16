@@ -1,7 +1,7 @@
 import type { Card as CardType } from "../../types/lesson-plan";
 import Quiz from "./Quiz";
 import { getYouTubeId } from "../../lib/getYouTubeId";
-import placeholderImage from "../../assets/lesson-placeholder.svg";
+import placeholderImage from "/mugshots/cesar.jpeg";
 
 export default function Card({
   card,
