@@ -8,9 +8,6 @@ import LessonPointsCounter from "./LessonPointsCounter";
 import type { QuizCompletionMeta } from "./Quiz";
 import {
   calculateNextStudyStreak,
-  computeMergedProgress,
-  createEmptyLocalProgress,
-  hasLocalData,
   normalizeCardId,
   normalizeLessonCompletionList,
   type LocalProgress,
@@ -99,15 +96,16 @@ export default function Slider({
       normalizeLessonCompletionList(user?.lessonCompletions?.[lessonSlug] ?? []).forEach((id) => {
         initial.add(id);
       });
-      normalizeLessonCompletionList(
-        initialLocalProgress.lessonCompletions?.[lessonSlug] ?? [],
-      ).forEach((id) => {
-        initial.add(id);
-      });
+      if (!user) {
+        normalizeLessonCompletionList(
+          initialLocalProgress.lessonCompletions?.[lessonSlug] ?? [],
+        ).forEach((id) => {
+          initial.add(id);
+        });
+      }
     }
     return initial;
   });
-  const hasSyncedLocalRef = useRef(false);
 
   const idToIndex = useMemo(() => {
     const map = new Map<string, number>();
@@ -121,81 +119,26 @@ export default function Slider({
     normalizeLessonCompletionList(user?.lessonCompletions?.[lessonSlug] ?? []).forEach((id) => {
       next.add(id);
     });
-    normalizeLessonCompletionList(localProgress.lessonCompletions?.[lessonSlug] ?? []).forEach(
-      (id) => {
-        next.add(id);
-      },
-    );
+    if (!user) {
+      normalizeLessonCompletionList(localProgress.lessonCompletions?.[lessonSlug] ?? []).forEach(
+        (id) => {
+          next.add(id);
+        },
+      );
+    }
     setCompletedCardIds(next);
   }, [user, lessonSlug, localProgress]);
 
-  const syncLocalProgress = useCallback(
-    async (progress: LocalProgress) => {
-      if (!user || !token) return;
-      const mergeResult = computeMergedProgress(progress, user);
-      if (!mergeResult) {
-        if (hasLocalData(progress)) {
-          const cleared = createEmptyLocalProgress();
-          setLocalProgress(cleared);
-          persistLocalProgress(cleared);
-          setDisplayPoints(user.points);
-          setDisplayStreak(user.studyStreak);
-        }
-        return;
-      }
-
-      try {
-        await strapiFetch(`/api/users/${user.id}`, {
-          method: "PUT",
-          headers: { Authorization: `Bearer ${token}` },
-          body: JSON.stringify({
-            points: mergeResult.updatedPoints,
-            lessonCompletions: mergeResult.updatedCompletions,
-            studyStreak: mergeResult.updatedStudyStreak,
-            lastStudyDate: mergeResult.updatedLastStudyDate,
-          }),
-        });
-        updateUser((prev) =>
-          prev
-            ? {
-                ...prev,
-                points: mergeResult.updatedPoints,
-                lessonCompletions: mergeResult.updatedCompletions,
-                studyStreak: mergeResult.updatedStudyStreak,
-                lastStudyDate: mergeResult.updatedLastStudyDate,
-              }
-            : prev,
-        );
-        setDisplayPoints(mergeResult.updatedPoints);
-        setDisplayStreak(mergeResult.updatedStudyStreak);
-        const cleared = createEmptyLocalProgress();
-        setLocalProgress(cleared);
-        persistLocalProgress(cleared);
-      } catch (error) {
-        console.error("Failed to sync stored lesson progress", error);
-        hasSyncedLocalRef.current = false;
-      }
-    },
-    [token, updateUser, user],
-  );
-
   useEffect(() => {
-    if (user && token) {
-      const hasLocal = hasLocalData(localProgress);
-      if (hasLocal && !hasSyncedLocalRef.current) {
-        hasSyncedLocalRef.current = true;
-        syncLocalProgress(localProgress);
-      } else if (!hasLocal) {
-        setDisplayPoints(user.points ?? 0);
-        setDisplayStreak(user.studyStreak ?? 0);
-      }
+    if (user) {
+      setDisplayPoints(user.points ?? 0);
+      setDisplayStreak(user.studyStreak ?? 0);
       setShowLoginPrompt(false);
-    } else if (!user) {
-      hasSyncedLocalRef.current = false;
+    } else {
       setDisplayPoints(localProgress.points);
       setDisplayStreak(localProgress.studyStreak);
     }
-  }, [user, token, localProgress, syncLocalProgress]);
+  }, [user, localProgress]);
 
   useEffect(() => {
     setChrome(progressRef.current?.offsetHeight ?? 0);

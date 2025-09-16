@@ -2,52 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Flame, LogIn, UserRound, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
 
-function createThunderBuffer(ctx: BaseAudioContext): AudioBuffer {
-  const duration = 1.1;
-  const length = Math.floor(ctx.sampleRate * duration);
-  const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
-  const data = buffer.getChannelData(0);
-
-  let low = 0;
-  let mid = 0;
-  const rumblePhaseA = Math.random() * Math.PI * 2;
-  const rumblePhaseB = Math.random() * Math.PI * 2;
-
-  for (let i = 0; i < length; i += 1) {
-    const t = i / ctx.sampleRate;
-    const norm = t / duration;
-
-    const white = Math.random() * 2 - 1;
-    low += 0.03 * (white - low);
-    mid += 0.18 * (white - mid);
-    const high = white - mid;
-
-    const boltEnvelope = norm < 0.18 ? Math.exp(-norm * 42) : 0;
-    const secondaryEnvelope = norm > 0.22 ? Math.exp(-(norm - 0.22) * 18) * 0.6 : 0;
-    const bolt = (high * 0.7 + mid * 0.3) * boltEnvelope;
-    const secondaryBolt = (high * 0.45 + mid * 0.55) * secondaryEnvelope;
-
-    const rumbleEnvelope = Math.pow(Math.max(0, 1 - norm), 1.15);
-    const rumbleNoise = low * 0.55 * rumbleEnvelope;
-    const rumbleSine =
-      Math.sin(2 * Math.PI * 48 * t + rumblePhaseA) * 0.26 * rumbleEnvelope +
-      Math.sin(2 * Math.PI * 32 * t + rumblePhaseB) * 0.18 * rumbleEnvelope;
-
-    const flutter = Math.sin(2 * Math.PI * 8 * t) * 0.08 * rumbleEnvelope;
-
-    const aftershockEnvelope = norm > 0.34 ? Math.pow(1 - Math.min(1, (norm - 0.34) / 0.7), 2.4) : 0;
-    const aftershockNoise = (mid * 0.22 + low * 0.18) * aftershockEnvelope;
-    const aftershockTone =
-      norm > 0.34 ? Math.sin(2 * Math.PI * 96 * (t - 0.34)) * 0.12 * aftershockEnvelope : 0;
-
-    const combined =
-      bolt + secondaryBolt + rumbleNoise + rumbleSine + flutter + aftershockNoise + aftershockTone;
-    data[i] = Math.max(-1, Math.min(1, combined * 0.82));
-  }
-
-  return buffer;
-}
-
 function createReverbImpulse(ctx: BaseAudioContext): AudioBuffer {
   const duration = 0.9;
   const length = Math.floor(ctx.sampleRate * duration);
@@ -82,6 +36,9 @@ export default function LessonPointsCounter({
   const lastPoints = useRef(points);
   const audioContextRef = useRef<AudioContext | null>(null);
   const thunderBufferRef = useRef<AudioBuffer | null>(null);
+  const thunderDataRef = useRef<ArrayBuffer | null>(null);
+  const thunderBufferCtxRef = useRef<AudioContext | null>(null);
+  const thunderBufferPromiseRef = useRef<Promise<AudioBuffer> | null>(null);
   const reverbBufferRef = useRef<AudioBuffer | null>(null);
 
   useEffect(() => {
@@ -107,6 +64,8 @@ export default function LessonPointsCounter({
       }
       audioContextRef.current = null;
       thunderBufferRef.current = null;
+      thunderBufferCtxRef.current = null;
+      thunderBufferPromiseRef.current = null;
       reverbBufferRef.current = null;
     };
   }, []);
@@ -122,6 +81,8 @@ export default function LessonPointsCounter({
       ctx = new AudioContextCtor();
       audioContextRef.current = ctx;
       thunderBufferRef.current = null;
+      thunderBufferCtxRef.current = null;
+      thunderBufferPromiseRef.current = null;
       reverbBufferRef.current = null;
     }
     if (ctx.state === "suspended") {
@@ -132,15 +93,42 @@ export default function LessonPointsCounter({
       }
     }
 
-    if (!thunderBufferRef.current) {
-      thunderBufferRef.current = createThunderBuffer(ctx);
+    try {
+      if (!thunderBufferRef.current || thunderBufferCtxRef.current !== ctx) {
+        if (!thunderBufferPromiseRef.current || thunderBufferCtxRef.current !== ctx) {
+          thunderBufferPromiseRef.current = (async () => {
+            if (!thunderDataRef.current) {
+              const response = await fetch("/thunder.mp3");
+              if (!response.ok) {
+                throw new Error(`Failed to load thunder sound: ${response.status}`);
+              }
+              thunderDataRef.current = await response.arrayBuffer();
+            }
+            const decoded = await ctx.decodeAudioData(thunderDataRef.current.slice(0));
+            thunderBufferCtxRef.current = ctx;
+            thunderBufferRef.current = decoded;
+            return decoded;
+          })();
+        }
+        const buffer = await thunderBufferPromiseRef.current;
+        thunderBufferPromiseRef.current = null;
+        thunderBufferRef.current = buffer;
+      }
+    } catch (error) {
+      console.error("Failed to load thunder sound", error);
+      thunderBufferPromiseRef.current = null;
+      return;
     }
+
+    const buffer = thunderBufferRef.current;
+    if (!buffer) return;
+
     if (!reverbBufferRef.current) {
       reverbBufferRef.current = createReverbImpulse(ctx);
     }
 
     const source = ctx.createBufferSource();
-    source.buffer = thunderBufferRef.current;
+    source.buffer = buffer;
 
     const convolver = ctx.createConvolver();
     convolver.buffer = reverbBufferRef.current;
@@ -164,7 +152,7 @@ export default function LessonPointsCounter({
 
     const startTime = ctx.currentTime + 0.02;
     source.start(startTime);
-    source.stop(startTime + (thunderBufferRef.current?.duration ?? 1.1) + 0.1);
+    source.stop(startTime + buffer.duration + 0.1);
     source.onended = () => {
       source.disconnect();
       convolver.disconnect();
