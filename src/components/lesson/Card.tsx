@@ -54,7 +54,7 @@ export default function Card({
           <img
             src={headerImage}
             alt={`Cover art for ${card.title}`}
-            className="h-28 w-28 rounded-2xl border-4 border-white object-cover shadow-xl dark:border-black"
+            className="h-27 w-28 rounded-2xl border-4 border-white object-cover shadow-xl dark:border-black"
           />
         </div>
       </header>
