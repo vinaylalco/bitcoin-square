@@ -204,12 +204,14 @@ export default function Slider({
             {m.topics.map((t) => (
               <div key={t.id} className="space-y-2">
                 <div className="flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                  <ChevronRight />
+                  <ChevronRight className="text-brand" />
                   <b><span>{t.name}</span></b>
                 </div>
                 <ul className="space-y-1 pl-6">
                   {t.cards.map((c) => {
                     const isActive = activeCardId === c.id;
+                    const cardIndex = idToIndex.get(c.id);
+                    const isCompleted = cardIndex !== undefined && cardIndex < index;
                     return (
                       <li key={c.id}>
                         <button
@@ -224,7 +226,15 @@ export default function Slider({
                           ].join(" ")}
                           onClick={() => handleSelect(c.id)}
                         >
-                          {c.title}
+                          <span className="flex items-center gap-2">
+                            <span className="flex w-4 justify-center">
+                              {isCompleted ? (
+                                <Check className="h-4 w-4 text-brand" aria-hidden="true" />
+                              ) : null}
+                            </span>
+                            <span>{c.title}</span>
+                            {isCompleted ? <span className="sr-only">(completed)</span> : null}
+                          </span>
                         </button>
                       </li>
                     );
@@ -243,7 +253,7 @@ export default function Slider({
       className="lg:flex"
       style={{ "--chrome": `${chrome}px` } as React.CSSProperties}
     >
-      <div className="lg:w-3/4 lg:pr-4">
+      <div className="lg:w-2/3 lg:pr-4">
         <div className="flex items-center mb-4">
           <div
             ref={progressRef}
@@ -337,7 +347,7 @@ export default function Slider({
         </div>
       </div>
       <nav
-        className="hidden lg:block lg:w-1/4 lg:pl-4 bg-white dark:bg-neutral-900"
+        className="hidden lg:block lg:w-1/3 lg:pl-4 bg-white dark:bg-neutral-900"
         aria-labelledby="course-title-desktop"
       >
         <div className="space-y-4">
