@@ -5,7 +5,7 @@ import {
   useCallback,
   useMemo,
 } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Card as CardType, Module } from "../../types/lesson-plan";
 import Card from "./Card";
 
@@ -51,9 +51,11 @@ function createBezier(x1: number, y1: number, x2: number, y2: number) {
 export default function Slider({
   cards,
   modules,
+  courseTitle,
 }: {
   cards: SliderCard[];
   modules: Module[];
+  courseTitle?: string;
 }) {
   const [index, setIndex] = useState(0);
   const total = cards.length;
@@ -143,6 +145,7 @@ export default function Slider({
   };
 
   const percent = total > 0 ? Math.round(((index + 1) / total) * 100) : 0;
+  const activeCardId = cards[index]?.id;
 
   useEffect(() => {
     if (!tocOpen) return;
@@ -193,32 +196,46 @@ export default function Slider({
   }, [tocOpen]);
 
   const tocContent = (
-    <ul className="space-y-2 text-neutral-900 dark:text-neutral-100">
+    <div className="space-y-6 text-neutral-900 dark:text-neutral-100">
       {modules.map((m) => (
-        <li key={m.id}>
-          <p className="font-medium">{m.name}</p>
-          <ul className="ml-4 space-y-2">
+        <div key={m.id} className="space-y-4">
+          <p className="font-semibold">{m.name}</p>
+          <div className="space-y-4">
             {m.topics.map((t) => (
-              <li key={t.id}>
-                <p className="font-medium">{t.name}</p>
-                <ul className="ml-4 space-y-1">
-                  {t.cards.map((c) => (
-                    <li key={c.id}>
-                      <button
-                        className="text-left w-full px-2 py-1 rounded focus:outline-none focus-visible:ring-2 ring-brand underline decoration-red-500 text-neutral-900 dark:text-neutral-100"
-                        onClick={() => handleSelect(c.id)}
-                      >
-                        {c.title}
-                      </button>
-                    </li>
-                  ))}
+              <div key={t.id} className="space-y-2">
+                <div className="flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                  <Check className="h-4 w-4 text-brand" aria-hidden="true" />
+                  <span>{t.name}</span>
+                </div>
+                <ul className="space-y-1 pl-6">
+                  {t.cards.map((c) => {
+                    const isActive = activeCardId === c.id;
+                    return (
+                      <li key={c.id}>
+                        <button
+                          type="button"
+                          aria-current={isActive ? "true" : undefined}
+                          className={[
+                            "text-left w-full px-2 py-1 rounded focus:outline-none focus-visible:ring-2 ring-brand text-sm transition-colors",
+                            "text-neutral-900 dark:text-neutral-100",
+                            isActive
+                              ? "bg-neutral-100 dark:bg-neutral-800"
+                              : "hover:bg-neutral-100 dark:hover:bg-neutral-800/60",
+                          ].join(" ")}
+                          onClick={() => handleSelect(c.id)}
+                        >
+                          {c.title}
+                        </button>
+                      </li>
+                    );
+                  })}
                 </ul>
-              </li>
+              </div>
             ))}
-          </ul>
-        </li>
+          </div>
+        </div>
       ))}
-    </ul>
+    </div>
   );
 
   return (
@@ -295,7 +312,7 @@ export default function Slider({
             id="toc-drawer"
             ref={drawerRef}
             role="dialog"
-            aria-labelledby="toc-title-mobile"
+            aria-labelledby="course-title-mobile"
             className={`lg:hidden absolute inset-0 z-10 bg-white dark:bg-neutral-900 overflow-y-auto p-4 ${
               reduceMotion ? "" : "transition duration-200 ease-out transform"
             } ${
@@ -304,24 +321,39 @@ export default function Slider({
                 : "opacity-0 -translate-y-2 pointer-events-none"
             }`}
           >
-            <h2
-              id="toc-title-mobile"
-              className="font-semibold mb-2 sticky top-0 bg-white dark:bg-neutral-900"
-            >
-              Course Content
-            </h2>
+            <div className="sticky top-0 bg-white dark:bg-neutral-900 pb-3">
+              <h2
+                id="course-title-mobile"
+                className="text-lg font-semibold text-neutral-900 dark:text-neutral-100"
+              >
+                {courseTitle || "Course Content"}
+              </h2>
+              <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                Course Content
+              </p>
+            </div>
             {tocContent}
           </div>
         </div>
       </div>
       <nav
         className="hidden lg:block lg:w-1/4 lg:pl-4 bg-white dark:bg-neutral-900"
-        aria-labelledby="toc-title-desktop"
+        aria-labelledby="course-title-desktop"
       >
-        <h2 id="toc-title-desktop" className="font-semibold mb-2">
-          Course Content
-        </h2>
-        {tocContent}
+        <div className="space-y-4">
+          <div className="space-y-1">
+            <h2
+              id="course-title-desktop"
+              className="text-lg font-semibold text-neutral-900 dark:text-neutral-100"
+            >
+              {courseTitle || "Course Content"}
+            </h2>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400">
+              Course Content
+            </p>
+          </div>
+          {tocContent}
+        </div>
       </nav>
     </div>
   );
