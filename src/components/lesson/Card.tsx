@@ -1,14 +1,18 @@
 import type { Card as CardType } from "../../types/lesson-plan";
-import Quiz from "./Quiz";
+import Quiz, { type QuizCompletionMeta } from "./Quiz";
 import { getYouTubeId } from "../../lib/getYouTubeId";
 import placeholderImage from "/mugshots/cesar.jpeg";
 
 export default function Card({
   card,
   topicName,
+  onQuizComplete,
+  quizCompleted,
 }: {
   card: CardType;
   topicName?: string;
+  onQuizComplete?: (meta?: QuizCompletionMeta) => void;
+  quizCompleted?: boolean;
 }) {
   const videoId = card.youtube ? getYouTubeId(card.youtube) : null;
   if (card.youtube && !videoId && import.meta.env.DEV) {
@@ -104,7 +108,11 @@ export default function Card({
             >
               Quiz
             </h2>
-            <Quiz quiz={card.quiz} />
+            <Quiz
+              quiz={card.quiz}
+              onComplete={(meta) => onQuizComplete?.(meta)}
+              isCompleted={quizCompleted}
+            />
           </section>
         )}
       </div>

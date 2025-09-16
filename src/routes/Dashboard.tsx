@@ -20,6 +20,9 @@ export default function Dashboard() {
       <p><strong>Email:</strong> {user.email}</p>
       {user.username && <p><strong>Username:</strong> {user.username}</p>}
       <p><strong>User ID:</strong> {user.id}</p>
+      <p>
+        <strong>Study streak:</strong> {Math.max(0, Math.floor(user.studyStreak))} days in a row
+      </p>
       {user.nostrPublicKey && (
         <p className="break-all">
           <strong>Nostr Public Key:</strong> {user.nostrPublicKey}{' '}
