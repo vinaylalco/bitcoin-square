@@ -27,7 +27,7 @@ export default function Card({
           className="absolute inset-0 z-0 bg-black dark:bg-white"
           aria-hidden="true"
         />
-        <div className="relative z-10 flex flex-col gap-3">
+        <div className="relative z-10 flex flex-col gap-3 pr-0 sm:pr-24 lg:pr-32">
           {topicName && (
             <p className="text-sm font-semibold uppercase tracking-wide text-neutral-300 dark:text-neutral-600">
               {topicName}
@@ -46,7 +46,7 @@ export default function Card({
             </p>
           )}
         </div>
-        <div className="pointer-events-none absolute -bottom-12 left-6 z-20">
+        <div className="pointer-events-none absolute -bottom-12 right-6 z-20">
           <img
             src={headerImage}
             alt={`Cover art for ${card.title}`}
