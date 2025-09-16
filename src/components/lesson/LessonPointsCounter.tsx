@@ -2,6 +2,67 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Flame, LogIn, UserRound, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
 
+function createThunderBuffer(ctx: BaseAudioContext): AudioBuffer {
+  const duration = 1.1;
+  const length = Math.floor(ctx.sampleRate * duration);
+  const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+
+  let low = 0;
+  let mid = 0;
+  const rumblePhaseA = Math.random() * Math.PI * 2;
+  const rumblePhaseB = Math.random() * Math.PI * 2;
+
+  for (let i = 0; i < length; i += 1) {
+    const t = i / ctx.sampleRate;
+    const norm = t / duration;
+
+    const white = Math.random() * 2 - 1;
+    low += 0.03 * (white - low);
+    mid += 0.18 * (white - mid);
+    const high = white - mid;
+
+    const boltEnvelope = norm < 0.18 ? Math.exp(-norm * 42) : 0;
+    const secondaryEnvelope = norm > 0.22 ? Math.exp(-(norm - 0.22) * 18) * 0.6 : 0;
+    const bolt = (high * 0.7 + mid * 0.3) * boltEnvelope;
+    const secondaryBolt = (high * 0.45 + mid * 0.55) * secondaryEnvelope;
+
+    const rumbleEnvelope = Math.pow(Math.max(0, 1 - norm), 1.15);
+    const rumbleNoise = low * 0.55 * rumbleEnvelope;
+    const rumbleSine =
+      Math.sin(2 * Math.PI * 48 * t + rumblePhaseA) * 0.26 * rumbleEnvelope +
+      Math.sin(2 * Math.PI * 32 * t + rumblePhaseB) * 0.18 * rumbleEnvelope;
+
+    const flutter = Math.sin(2 * Math.PI * 8 * t) * 0.08 * rumbleEnvelope;
+
+    const aftershockEnvelope = norm > 0.34 ? Math.pow(1 - Math.min(1, (norm - 0.34) / 0.7), 2.4) : 0;
+    const aftershockNoise = (mid * 0.22 + low * 0.18) * aftershockEnvelope;
+    const aftershockTone =
+      norm > 0.34 ? Math.sin(2 * Math.PI * 96 * (t - 0.34)) * 0.12 * aftershockEnvelope : 0;
+
+    const combined =
+      bolt + secondaryBolt + rumbleNoise + rumbleSine + flutter + aftershockNoise + aftershockTone;
+    data[i] = Math.max(-1, Math.min(1, combined * 0.82));
+  }
+
+  return buffer;
+}
+
+function createReverbImpulse(ctx: BaseAudioContext): AudioBuffer {
+  const duration = 0.9;
+  const length = Math.floor(ctx.sampleRate * duration);
+  const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+
+  for (let i = 0; i < length; i += 1) {
+    const norm = i / length;
+    const decay = Math.pow(1 - norm, 3.1);
+    data[i] = (Math.random() * 2 - 1) * decay * 0.55;
+  }
+
+  return buffer;
+}
+
 interface LessonPointsCounterProps {
   points: number;
   studyStreak: number;
@@ -20,6 +81,8 @@ export default function LessonPointsCounter({
   const [animateStrike, setAnimateStrike] = useState(false);
   const lastPoints = useRef(points);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const thunderBufferRef = useRef<AudioBuffer | null>(null);
+  const reverbBufferRef = useRef<AudioBuffer | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -43,10 +106,12 @@ export default function LessonPointsCounter({
         void ctx.close().catch(() => undefined);
       }
       audioContextRef.current = null;
+      thunderBufferRef.current = null;
+      reverbBufferRef.current = null;
     };
   }, []);
 
-  const playLightningSound = useCallback(async () => {
+  const playThunderSound = useCallback(async () => {
     if (typeof window === "undefined") return;
     const win = window as typeof window & { webkitAudioContext?: typeof AudioContext };
     const AudioContextCtor = win.AudioContext ?? win.webkitAudioContext;
@@ -56,6 +121,8 @@ export default function LessonPointsCounter({
     if (!ctx || ctx.state === "closed") {
       ctx = new AudioContextCtor();
       audioContextRef.current = ctx;
+      thunderBufferRef.current = null;
+      reverbBufferRef.current = null;
     }
     if (ctx.state === "suspended") {
       try {
@@ -65,44 +132,51 @@ export default function LessonPointsCounter({
       }
     }
 
-    const duration = 0.45;
-    const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * duration), ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < data.length; i += 1) {
-      const progress = i / data.length;
-      const envelope = Math.pow(1 - progress, 2.4);
-      const noise = (Math.random() * 2 - 1) * envelope * 0.65;
-      const crackle = Math.sin(progress * Math.PI * 18) * envelope * 0.2;
-      const rumble = Math.sin(progress * Math.PI * 5) * envelope * 0.35;
-      const value = noise + crackle + rumble;
-      data[i] = Math.max(-1, Math.min(1, value));
+    if (!thunderBufferRef.current) {
+      thunderBufferRef.current = createThunderBuffer(ctx);
+    }
+    if (!reverbBufferRef.current) {
+      reverbBufferRef.current = createReverbImpulse(ctx);
     }
 
     const source = ctx.createBufferSource();
-    source.buffer = buffer;
-    const filter = ctx.createBiquadFilter();
-    filter.type = "lowpass";
-    filter.frequency.value = 1800;
-    const gain = ctx.createGain();
-    gain.gain.value = 0.28;
+    source.buffer = thunderBufferRef.current;
 
-    source.connect(filter);
-    filter.connect(gain);
+    const convolver = ctx.createConvolver();
+    convolver.buffer = reverbBufferRef.current;
+    convolver.normalize = true;
+
+    const compressor = ctx.createDynamicsCompressor();
+    compressor.threshold.value = -24;
+    compressor.knee.value = 20;
+    compressor.ratio.value = 4;
+    compressor.attack.value = 0.005;
+    compressor.release.value = 0.25;
+
+    const gain = ctx.createGain();
+    gain.gain.value = 0.42;
+
+    source.connect(convolver);
+    source.connect(compressor);
+    convolver.connect(gain);
+    compressor.connect(gain);
     gain.connect(ctx.destination);
 
     const startTime = ctx.currentTime + 0.02;
     source.start(startTime);
+    source.stop(startTime + (thunderBufferRef.current?.duration ?? 1.1) + 0.1);
     source.onended = () => {
       source.disconnect();
-      filter.disconnect();
+      convolver.disconnect();
+      compressor.disconnect();
       gain.disconnect();
     };
   }, []);
 
   useEffect(() => {
     if (!animateStrike) return;
-    void playLightningSound();
-  }, [animateStrike, playLightningSound]);
+    void playThunderSound();
+  }, [animateStrike, playThunderSound]);
 
   const formattedPoints = useMemo(() => points.toLocaleString(), [points]);
   const normalizedStreak = Math.max(0, Math.floor(studyStreak));

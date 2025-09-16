@@ -7,6 +7,31 @@ export interface LocalProgress {
   lastStudyDate: string | null;
 }
 
+export function normalizeCardId(value: unknown): string | null {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value);
+  }
+  return null;
+}
+
+export function normalizeLessonCompletionList(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const seen = new Set<string>();
+  value.forEach((entry) => {
+    const normalized = normalizeCardId(entry);
+    if (normalized && !seen.has(normalized)) {
+      seen.add(normalized);
+    }
+  });
+  return Array.from(seen.values());
+}
+
 export function createEmptyLocalProgress(): LocalProgress {
   return { points: 0, lessonCompletions: {}, studyStreak: 0, lastStudyDate: null };
 }
@@ -100,8 +125,9 @@ export function readLocalProgress(): LocalProgress {
     const lessonCompletions: Record<string, string[]> = {};
     if (parsed.lessonCompletions && typeof parsed.lessonCompletions === "object") {
       Object.entries(parsed.lessonCompletions).forEach(([key, value]) => {
-        if (Array.isArray(value)) {
-          lessonCompletions[key] = value.filter((item): item is string => typeof item === "string");
+        const normalized = normalizeLessonCompletionList(value);
+        if (normalized.length > 0) {
+          lessonCompletions[key] = normalized;
         }
       });
     }
@@ -159,13 +185,20 @@ export function computeMergedProgress(
     typeof user.studyStreak === "number" && Number.isFinite(user.studyStreak)
       ? Math.max(0, Math.floor(user.studyStreak))
       : 0;
-  const updatedCompletions: Record<string, string[]> = { ...(user.lessonCompletions ?? {}) };
+  const updatedCompletions: Record<string, string[]> = {};
+  Object.entries(user.lessonCompletions ?? {}).forEach(([slug, ids]) => {
+    const normalized = normalizeLessonCompletionList(ids ?? []);
+    if (normalized.length > 0) {
+      updatedCompletions[slug] = normalized;
+    }
+  });
   let newCardCount = 0;
 
   Object.entries(progress.lessonCompletions).forEach(([slugKey, ids]) => {
-    if (!Array.isArray(ids) || ids.length === 0) return;
+    const normalizedIds = normalizeLessonCompletionList(ids);
+    if (normalizedIds.length === 0) return;
     const existing = new Set(updatedCompletions[slugKey] ?? []);
-    const additions = ids.filter((id) => typeof id === "string" && !existing.has(id));
+    const additions = normalizedIds.filter((id) => !existing.has(id));
     if (additions.length > 0) {
       updatedCompletions[slugKey] = [...existing, ...additions];
       newCardCount += additions.length;

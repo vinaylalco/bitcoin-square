@@ -11,6 +11,8 @@ import {
   computeMergedProgress,
   createEmptyLocalProgress,
   hasLocalData,
+  normalizeCardId,
+  normalizeLessonCompletionList,
   type LocalProgress,
   persistLocalProgress,
   readLocalProgress,
@@ -68,6 +70,7 @@ export default function Slider({
 }) {
   const [index, setIndex] = useState(0);
   const total = cards.length;
+  const toCardKey = useCallback((value: unknown) => normalizeCardId(value) ?? String(value), []);
   const containerRef = useRef<HTMLDivElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
   const [chrome, setChrome] = useState(0);
@@ -93,15 +96,13 @@ export default function Slider({
   const [completedCardIds, setCompletedCardIds] = useState<Set<string>>(() => {
     const initial = new Set<string>();
     if (lessonSlug) {
-      (user?.lessonCompletions?.[lessonSlug] ?? []).forEach((id) => {
-        if (typeof id === "string") {
-          initial.add(id);
-        }
+      normalizeLessonCompletionList(user?.lessonCompletions?.[lessonSlug] ?? []).forEach((id) => {
+        initial.add(id);
       });
-      (initialLocalProgress.lessonCompletions?.[lessonSlug] ?? []).forEach((id) => {
-        if (typeof id === "string") {
-          initial.add(id);
-        }
+      normalizeLessonCompletionList(
+        initialLocalProgress.lessonCompletions?.[lessonSlug] ?? [],
+      ).forEach((id) => {
+        initial.add(id);
       });
     }
     return initial;
@@ -110,23 +111,21 @@ export default function Slider({
 
   const idToIndex = useMemo(() => {
     const map = new Map<string, number>();
-    cards.forEach((c, i) => map.set(c.id, i));
+    cards.forEach((c, i) => map.set(toCardKey(c.id), i));
     return map;
-  }, [cards]);
+  }, [cards, toCardKey]);
 
   useEffect(() => {
     if (!lessonSlug) return;
     const next = new Set<string>();
-    (user?.lessonCompletions?.[lessonSlug] ?? []).forEach((id) => {
-      if (typeof id === "string") {
-        next.add(id);
-      }
+    normalizeLessonCompletionList(user?.lessonCompletions?.[lessonSlug] ?? []).forEach((id) => {
+      next.add(id);
     });
-    (localProgress.lessonCompletions?.[lessonSlug] ?? []).forEach((id) => {
-      if (typeof id === "string") {
+    normalizeLessonCompletionList(localProgress.lessonCompletions?.[lessonSlug] ?? []).forEach(
+      (id) => {
         next.add(id);
-      }
-    });
+      },
+    );
     setCompletedCardIds(next);
   }, [user, lessonSlug, localProgress]);
 
@@ -291,6 +290,7 @@ export default function Slider({
 
   const handleCardCompletion = useCallback(
     (cardId: string, meta?: QuizCompletionMeta) => {
+      const normalizedId = toCardKey(cardId);
       if (!lessonSlug) return;
 
       const currentIndex = index;
@@ -319,14 +319,14 @@ export default function Slider({
         advance();
       };
 
-      if (completedCardIds.has(cardId)) {
+      if (completedCardIds.has(normalizedId)) {
         scheduleAdvance();
         return;
       }
 
       setCompletedCardIds((prevSet) => {
         const nextSet = new Set(prevSet);
-        nextSet.add(cardId);
+        nextSet.add(normalizedId);
         return nextSet;
       });
 
@@ -338,14 +338,16 @@ export default function Slider({
         let updatedLastStudyDate = user.lastStudyDate ?? null;
         updateUser((prev) => {
           if (!prev) return prev;
-          const existing = prev.lessonCompletions?.[lessonSlug] ?? [];
-          if (existing.includes(cardId)) {
+          const existing = normalizeLessonCompletionList(
+            prev.lessonCompletions?.[lessonSlug] ?? [],
+          );
+          if (existing.includes(normalizedId)) {
             updatedPoints = prev.points ?? 0;
             updatedStreak = prev.studyStreak ?? 0;
             updatedLastStudyDate = prev.lastStudyDate ?? null;
             return prev;
           }
-          const nextLesson = [...existing, cardId];
+          const nextLesson = [...existing, normalizedId];
           updatedPoints = (prev.points ?? 0) + 10;
           updatedCompletions = {
             ...prev.lessonCompletions,
@@ -385,12 +387,14 @@ export default function Slider({
       } else {
         let updatedProgress: LocalProgress | null = null;
         setLocalProgress((prevState) => {
-          const existing = prevState.lessonCompletions[lessonSlug] ?? [];
-          if (existing.includes(cardId)) {
+          const existing = normalizeLessonCompletionList(
+            prevState.lessonCompletions[lessonSlug] ?? [],
+          );
+          if (existing.includes(normalizedId)) {
             updatedProgress = null;
             return prevState;
           }
-          const nextLesson = [...existing, cardId];
+          const nextLesson = [...existing, normalizedId];
           const streakResult = calculateNextStudyStreak(prevState.studyStreak, prevState.lastStudyDate);
           updatedProgress = {
             points: prevState.points + 10,
@@ -421,6 +425,7 @@ export default function Slider({
       lessonSlug,
       scrollToColumnTop,
       token,
+      toCardKey,
       total,
       updateUser,
       user,
@@ -428,17 +433,18 @@ export default function Slider({
   );
 
   const handleSelect = (id: string) => {
-    goToCardById(id);
+    const key = toCardKey(id);
+    goToCardById(key);
     setTocOpen(false);
     const delay = reduceMotion ? 0 : 400;
     setTimeout(() => {
-      const el = document.getElementById(`card-title-${id}`);
+      const el = document.getElementById(`card-title-${key}`);
       el?.focus();
     }, delay);
   };
 
   const percent = total > 0 ? Math.round(((index + 1) / total) * 100) : 0;
-  const activeCardId = cards[index]?.id;
+  const activeCardId = cards[index] ? toCardKey(cards[index].id) : undefined;
 
   const registerCardWrapper = useCallback(
     (id: string) => (node: HTMLDivElement | null) => {
@@ -562,13 +568,14 @@ export default function Slider({
                 </div>
                 <ul className="space-y-1 pl-6">
                   {t.cards.map((c) => {
-                    const isActive = activeCardId === c.id;
-                    const cardIndex = idToIndex.get(c.id);
+                    const cardKey = toCardKey(c.id);
+                    const isActive = activeCardId === cardKey;
+                    const cardIndex = idToIndex.get(cardKey);
                     const isCompleted =
-                      completedCardIds.has(c.id) ||
+                      completedCardIds.has(cardKey) ||
                       (!c.quiz && cardIndex !== undefined && cardIndex < index);
                     return (
-                      <li key={c.id}>
+                      <li key={cardKey}>
                         <button
                           type="button"
                           aria-current={isActive ? "true" : undefined}
@@ -579,7 +586,7 @@ export default function Slider({
                               ? "bg-neutral-100 dark:bg-neutral-800"
                               : "hover:bg-neutral-100 dark:hover:bg-neutral-800/60",
                           ].join(" ")}
-                          onClick={() => handleSelect(c.id)}
+                          onClick={() => handleSelect(cardKey)}
                         >
                           <span className="flex items-center gap-2">
                             <span className="flex w-4 justify-center">
@@ -644,15 +651,15 @@ export default function Slider({
           >
             {cards.map((c) => (
               <div
-                key={c.id}
+                key={toCardKey(c.id)}
                 className="w-full flex-shrink-0 snap-start lg:flex lg:h-full lg:flex-col"
               >
-                <div ref={registerCardWrapper(c.id)}>
+                <div ref={registerCardWrapper(toCardKey(c.id))}>
                   <Card
                     card={c}
                     topicName={c.topicName}
                     onQuizComplete={(meta) => handleCardCompletion(c.id, meta)}
-                    quizCompleted={completedCardIds.has(c.id)}
+                    quizCompleted={completedCardIds.has(toCardKey(c.id))}
                   />
                 </div>
               </div>

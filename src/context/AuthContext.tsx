@@ -16,6 +16,7 @@ import {
   computeMergedProgress,
   createEmptyLocalProgress,
   hasLocalData,
+  normalizeLessonCompletionList,
   persistLocalProgress,
   readLocalProgress,
 } from '../utils/localProgress';
@@ -79,8 +80,8 @@ function normalizeLessonCompletions(raw: unknown): LessonCompletionMap {
   if (typeof value !== 'object' || value === null) return {};
   const result: LessonCompletionMap = {};
   Object.entries(value as Record<string, unknown>).forEach(([key, val]) => {
-    if (Array.isArray(val)) {
-      const entries = val.filter((item): item is string => typeof item === 'string');
+    const entries = normalizeLessonCompletionList(val);
+    if (entries.length > 0) {
       result[key] = entries;
     }
   });
