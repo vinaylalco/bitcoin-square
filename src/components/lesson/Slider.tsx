@@ -250,10 +250,10 @@ export default function Slider({
 
   return (
     <div
-      className="lg:flex"
+      className="lg:flex lg:items-stretch"
       style={{ "--chrome": `${chrome}px` } as React.CSSProperties}
     >
-      <div className="lg:w-2/3 lg:pr-4">
+      <div className="lg:w-2/3 lg:pr-4 lg:flex lg:flex-col lg:min-h-0">
         <div className="flex items-center mb-4">
           <div
             ref={progressRef}
@@ -278,17 +278,17 @@ export default function Slider({
         >
           Course Content
         </button>
-        <div className="relative">
+        <div className="relative lg:flex-1 lg:min-h-0">
           <div
             ref={containerRef}
-            className="flex overflow-x-auto snap-x snap-mandatory"
+            className="flex overflow-x-auto snap-x snap-mandatory lg:h-full"
           >
             {cards.map((c) => (
               <div
                 key={c.id}
-                className="w-full flex-shrink-0 snap-start"
+                className="w-full flex-shrink-0 snap-start lg:flex lg:h-full lg:flex-col"
               >
-                <div className="overflow-y-auto">
+                <div className="overflow-y-auto lg:h-full lg:min-h-0">
                   <Card card={c} topicName={c.topicName} />
                 </div>
               </div>
@@ -347,11 +347,11 @@ export default function Slider({
         </div>
       </div>
       <nav
-        className="hidden lg:block lg:w-1/3 lg:pl-4 bg-white dark:bg-neutral-900"
+        className="hidden lg:flex lg:w-1/3 lg:pl-4 bg-white dark:bg-neutral-900 lg:min-h-0"
         aria-labelledby="course-title-desktop"
       >
-        <div className="space-y-4">
-          <div className="space-y-1">
+        <div className="flex h-full w-full flex-col lg:min-h-0">
+          <div className="space-y-1 shrink-0">
             <h2
               id="course-title-desktop"
               className="text-lg font-semibold text-neutral-900 dark:text-neutral-100"
@@ -362,7 +362,9 @@ export default function Slider({
               Course Content
             </p>
           </div>
-          {tocContent}
+          <div className="mt-4 flex-1 overflow-y-auto pr-2 lg:min-h-0">
+            {tocContent}
+          </div>
         </div>
       </nav>
     </div>
