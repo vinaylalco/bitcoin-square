@@ -204,8 +204,8 @@ export default function Slider({
             {m.topics.map((t) => (
               <div key={t.id} className="space-y-2">
                 <div className="flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                  <Check className="h-4 w-4 text-brand" aria-hidden="true" />
-                  <span>{t.name}</span>
+                  <ChevronRight />
+                  <b><span>{t.name}</span></b>
                 </div>
                 <ul className="space-y-1 pl-6">
                   {t.cards.map((c) => {
