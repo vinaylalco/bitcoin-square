@@ -8,10 +8,146 @@ import {
 import { Check, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Card as CardType, Module } from "../../types/lesson-plan";
 import Card from "./Card";
+import { strapiFetch } from "../../api/strapi-client";
+import { useAuth } from "../../context/AuthContext";
+import LessonPointsCounter from "./LessonPointsCounter";
 
 interface SliderCard extends CardType {
   topicName: string;
   moduleName: string;
+}
+
+const LOCAL_PROGRESS_STORAGE_KEY = "lesson-progress";
+
+interface LocalProgress {
+  points: number;
+  lessonCompletions: Record<string, string[]>;
+  studyStreak: number;
+  lastStudyDate: string | null;
+}
+
+function parseDateKey(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return null;
+  }
+  return trimmed;
+}
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+function getTodayKey(): string {
+  const now = new Date();
+  const month = `${now.getMonth() + 1}`.padStart(2, "0");
+  const day = `${now.getDate()}`.padStart(2, "0");
+  return `${now.getFullYear()}-${month}-${day}`;
+}
+
+function toUtcTimestamp(key: string | null): number | null {
+  if (!key) return null;
+  const match = key.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if ([year, month, day].some((part) => !Number.isFinite(part))) return null;
+  return Date.UTC(year, month - 1, day);
+}
+
+function differenceInDays(from: string | null, to: string): number | null {
+  const fromTs = toUtcTimestamp(from);
+  const toTs = toUtcTimestamp(to);
+  if (fromTs === null || toTs === null) return null;
+  return Math.round((toTs - fromTs) / MS_PER_DAY);
+}
+
+function calculateNextStudyStreak(
+  currentStreak: number | null | undefined,
+  lastStudyDate: string | null | undefined,
+): { streak: number; lastStudyDate: string; changed: boolean } {
+  const today = getTodayKey();
+  const normalizedStreak =
+    typeof currentStreak === "number" && Number.isFinite(currentStreak)
+      ? Math.max(0, Math.floor(currentStreak))
+      : 0;
+  const diff = differenceInDays(lastStudyDate ?? null, today);
+  if (diff === null) {
+    return { streak: 1, lastStudyDate: today, changed: true };
+  }
+  if (diff === 0) {
+    const streak = Math.max(normalizedStreak, 1);
+    return {
+      streak,
+      lastStudyDate: today,
+      changed: streak !== normalizedStreak || lastStudyDate !== today,
+    };
+  }
+  if (diff === 1) {
+    return { streak: Math.max(normalizedStreak, 0) + 1, lastStudyDate: today, changed: true };
+  }
+  if (diff > 1) {
+    return { streak: 1, lastStudyDate: today, changed: true };
+  }
+  // diff < 0 (future date stored) – reset and normalise
+  return { streak: 1, lastStudyDate: today, changed: true };
+}
+
+function readLocalProgress(): LocalProgress {
+  if (typeof window === "undefined") {
+    return { points: 0, lessonCompletions: {}, studyStreak: 0, lastStudyDate: null };
+  }
+  try {
+    const raw = window.localStorage.getItem(LOCAL_PROGRESS_STORAGE_KEY);
+    if (!raw) {
+      return { points: 0, lessonCompletions: {}, studyStreak: 0, lastStudyDate: null };
+    }
+    const parsed = JSON.parse(raw) as {
+      points?: unknown;
+      lessonCompletions?: Record<string, unknown>;
+      studyStreak?: unknown;
+      lastStudyDate?: unknown;
+    };
+    const pointsValue =
+      typeof parsed.points === "number" && Number.isFinite(parsed.points)
+        ? parsed.points
+        : Number(parsed.points ?? 0);
+    const lessonCompletions: Record<string, string[]> = {};
+    if (parsed.lessonCompletions && typeof parsed.lessonCompletions === "object") {
+      Object.entries(parsed.lessonCompletions).forEach(([key, value]) => {
+        if (Array.isArray(value)) {
+          lessonCompletions[key] = value.filter((item): item is string => typeof item === "string");
+        }
+      });
+    }
+    const studyStreakValue =
+      typeof parsed.studyStreak === "number" && Number.isFinite(parsed.studyStreak)
+        ? Math.max(0, Math.floor(parsed.studyStreak))
+        : Number.isFinite(Number(parsed.studyStreak))
+          ? Math.max(0, Math.floor(Number(parsed.studyStreak)))
+          : 0;
+    const lastStudyDate = parseDateKey(parsed.lastStudyDate) ?? null;
+    return {
+      points: Number.isFinite(pointsValue) ? pointsValue : 0,
+      lessonCompletions,
+      studyStreak: studyStreakValue,
+      lastStudyDate,
+    };
+  } catch {
+    return { points: 0, lessonCompletions: {}, studyStreak: 0, lastStudyDate: null };
+  }
+}
+
+function persistLocalProgress(progress: LocalProgress) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(LOCAL_PROGRESS_STORAGE_KEY, JSON.stringify(progress));
+  } catch {}
+}
+
+function hasLocalData(progress: LocalProgress): boolean {
+  if (progress.points > 0 || progress.studyStreak > 0) return true;
+  return Object.values(progress.lessonCompletions).some((list) => list.length > 0);
 }
 
 function createBezier(x1: number, y1: number, x2: number, y2: number) {
@@ -52,10 +188,12 @@ export default function Slider({
   cards,
   modules,
   courseTitle,
+  lessonSlug,
 }: {
   cards: SliderCard[];
   modules: Module[];
   courseTitle?: string;
+  lessonSlug?: string;
 }) {
   const [index, setIndex] = useState(0);
   const total = cards.length;
@@ -70,12 +208,170 @@ export default function Slider({
   const columnRef = useRef<HTMLDivElement>(null);
   const cardWrappers = useRef(new Map<string, HTMLDivElement>());
   const [navHeight, setNavHeight] = useState<number | null>(null);
+  const { user, token, updateUser } = useAuth();
+  const initialLocalProgress = useMemo(() => readLocalProgress(), []);
+  const [localProgress, setLocalProgress] = useState<LocalProgress>(initialLocalProgress);
+  const [displayPoints, setDisplayPoints] = useState<number>(
+    () => user?.points ?? initialLocalProgress.points ?? 0,
+  );
+  const [displayStreak, setDisplayStreak] = useState<number>(
+    () => user?.studyStreak ?? initialLocalProgress.studyStreak ?? 0,
+  );
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  const [completedCardIds, setCompletedCardIds] = useState<Set<string>>(() => {
+    const initial = new Set<string>();
+    if (lessonSlug) {
+      (user?.lessonCompletions?.[lessonSlug] ?? []).forEach((id) => {
+        if (typeof id === "string") {
+          initial.add(id);
+        }
+      });
+      (initialLocalProgress.lessonCompletions?.[lessonSlug] ?? []).forEach((id) => {
+        if (typeof id === "string") {
+          initial.add(id);
+        }
+      });
+    }
+    return initial;
+  });
+  const hasSyncedLocalRef = useRef(false);
 
   const idToIndex = useMemo(() => {
     const map = new Map<string, number>();
     cards.forEach((c, i) => map.set(c.id, i));
     return map;
   }, [cards]);
+
+  useEffect(() => {
+    if (!lessonSlug) return;
+    const next = new Set<string>();
+    (user?.lessonCompletions?.[lessonSlug] ?? []).forEach((id) => {
+      if (typeof id === "string") {
+        next.add(id);
+      }
+    });
+    (localProgress.lessonCompletions?.[lessonSlug] ?? []).forEach((id) => {
+      if (typeof id === "string") {
+        next.add(id);
+      }
+    });
+    setCompletedCardIds(next);
+  }, [user, lessonSlug, localProgress]);
+
+  const syncLocalProgress = useCallback(
+    async (progress: LocalProgress) => {
+      if (!user || !token) return;
+      const updatedCompletions: Record<string, string[]> = {
+        ...user.lessonCompletions,
+      };
+      let newCardCount = 0;
+
+      Object.entries(progress.lessonCompletions).forEach(([slugKey, ids]) => {
+        if (!Array.isArray(ids) || ids.length === 0) return;
+        const existing = new Set(updatedCompletions[slugKey] ?? []);
+        const additions = ids.filter((id) => typeof id === "string" && !existing.has(id));
+        if (additions.length > 0) {
+          updatedCompletions[slugKey] = [...existing, ...additions];
+          newCardCount += additions.length;
+        }
+      });
+
+      if (newCardCount === 0) {
+        if (hasLocalData(progress)) {
+          const cleared: LocalProgress = {
+            points: 0,
+            lessonCompletions: {},
+            studyStreak: 0,
+            lastStudyDate: null,
+          };
+          setLocalProgress(cleared);
+          persistLocalProgress(cleared);
+          setDisplayPoints(user.points ?? 0);
+          setDisplayStreak(user.studyStreak ?? 0);
+        }
+        return;
+      }
+
+      const updatedPoints = (user.points ?? 0) + newCardCount * 10;
+      const progressStreak = Math.max(0, Math.floor(progress.studyStreak));
+      const progressLastDate = progress.lastStudyDate ?? null;
+      const progressTimestamp = toUtcTimestamp(progressLastDate);
+      const userTimestamp = toUtcTimestamp(user.lastStudyDate ?? null);
+      let nextStreak = user.studyStreak ?? 0;
+      let nextLastStudyDate = user.lastStudyDate ?? null;
+
+      if (progressTimestamp !== null) {
+        const shouldAdoptStreak =
+          progressStreak > 0 &&
+          (userTimestamp === null ||
+            progressTimestamp > userTimestamp ||
+            progressStreak > (user.studyStreak ?? 0));
+
+        if (shouldAdoptStreak) {
+          nextStreak = progressStreak;
+          nextLastStudyDate = progressLastDate;
+        } else if (userTimestamp === null || progressTimestamp > userTimestamp) {
+          nextLastStudyDate = progressLastDate;
+        }
+      }
+
+      try {
+        await strapiFetch(`/api/users/${user.id}`, {
+          method: "PUT",
+          headers: { Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            points: updatedPoints,
+            lessonCompletions: updatedCompletions,
+            studyStreak: nextStreak,
+            lastStudyDate: nextLastStudyDate,
+          }),
+        });
+        updateUser((prev) =>
+          prev
+            ? {
+                ...prev,
+                points: updatedPoints,
+                lessonCompletions: updatedCompletions,
+                studyStreak: nextStreak,
+                lastStudyDate: nextLastStudyDate,
+              }
+            : prev,
+        );
+        setDisplayPoints(updatedPoints);
+        setDisplayStreak(nextStreak);
+        const cleared: LocalProgress = {
+          points: 0,
+          lessonCompletions: {},
+          studyStreak: 0,
+          lastStudyDate: null,
+        };
+        setLocalProgress(cleared);
+        persistLocalProgress(cleared);
+      } catch (error) {
+        console.error("Failed to sync stored lesson progress", error);
+        hasSyncedLocalRef.current = false;
+      }
+    },
+    [token, updateUser, user],
+  );
+
+  useEffect(() => {
+    if (user && token) {
+      const hasLocal = hasLocalData(localProgress);
+      if (hasLocal && !hasSyncedLocalRef.current) {
+        hasSyncedLocalRef.current = true;
+        syncLocalProgress(localProgress);
+      } else if (!hasLocal) {
+        setDisplayPoints(user.points ?? 0);
+        setDisplayStreak(user.studyStreak ?? 0);
+      }
+      setShowLoginPrompt(false);
+    } else if (!user) {
+      hasSyncedLocalRef.current = false;
+      setDisplayPoints(localProgress.points);
+      setDisplayStreak(localProgress.studyStreak);
+    }
+  }, [user, token, localProgress, syncLocalProgress]);
 
   useEffect(() => {
     setChrome(progressRef.current?.offsetHeight ?? 0);
@@ -136,6 +432,134 @@ export default function Slider({
       }
     },
     [idToIndex, animateScroll]
+  );
+
+  const scrollToColumnTop = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const column = columnRef.current;
+    if (!column) return;
+    const rect = column.getBoundingClientRect();
+    const top = Math.max(0, window.scrollY + rect.top - 24);
+    window.scrollTo({
+      top,
+      behavior: reduceMotion ? "auto" : "smooth",
+    });
+  }, [reduceMotion]);
+
+  const handleCardCompletion = useCallback(
+    (cardId: string) => {
+      if (!lessonSlug) return;
+      if (completedCardIds.has(cardId)) {
+        if (index < total - 1) {
+          animateScroll(index + 1);
+          scrollToColumnTop();
+        }
+        return;
+      }
+
+      setCompletedCardIds((prevSet) => {
+        const nextSet = new Set(prevSet);
+        nextSet.add(cardId);
+        return nextSet;
+      });
+
+      if (user && token) {
+        setShowLoginPrompt(false);
+        let updatedPoints = user.points ?? 0;
+        let updatedCompletions: Record<string, string[]> | null = null;
+        let updatedStreak = user.studyStreak ?? 0;
+        let updatedLastStudyDate = user.lastStudyDate ?? null;
+        updateUser((prev) => {
+          if (!prev) return prev;
+          const existing = prev.lessonCompletions?.[lessonSlug] ?? [];
+          if (existing.includes(cardId)) {
+            updatedPoints = prev.points ?? 0;
+            updatedStreak = prev.studyStreak ?? 0;
+            updatedLastStudyDate = prev.lastStudyDate ?? null;
+            return prev;
+          }
+          const nextLesson = [...existing, cardId];
+          updatedPoints = (prev.points ?? 0) + 10;
+          updatedCompletions = {
+            ...prev.lessonCompletions,
+            [lessonSlug]: nextLesson,
+          };
+          const streakResult = calculateNextStudyStreak(prev.studyStreak, prev.lastStudyDate);
+          updatedStreak = streakResult.streak;
+          updatedLastStudyDate = streakResult.lastStudyDate;
+          return {
+            ...prev,
+            points: updatedPoints,
+            lessonCompletions: updatedCompletions,
+            studyStreak: updatedStreak,
+            lastStudyDate: updatedLastStudyDate,
+          };
+        });
+        if (updatedCompletions) {
+          setDisplayPoints(updatedPoints);
+          setDisplayStreak(updatedStreak);
+          (async () => {
+            try {
+              await strapiFetch(`/api/users/${user.id}`, {
+                method: "PUT",
+                headers: { Authorization: `Bearer ${token}` },
+                body: JSON.stringify({
+                  points: updatedPoints,
+                  lessonCompletions: updatedCompletions,
+                  studyStreak: updatedStreak,
+                  lastStudyDate: updatedLastStudyDate,
+                }),
+              });
+            } catch (error) {
+              console.error("Failed to save lesson progress", error);
+            }
+          })();
+        }
+      } else {
+        let updatedProgress: LocalProgress | null = null;
+        setLocalProgress((prevState) => {
+          const existing = prevState.lessonCompletions[lessonSlug] ?? [];
+          if (existing.includes(cardId)) {
+            updatedProgress = null;
+            return prevState;
+          }
+          const nextLesson = [...existing, cardId];
+          const streakResult = calculateNextStudyStreak(prevState.studyStreak, prevState.lastStudyDate);
+          updatedProgress = {
+            points: prevState.points + 10,
+            lessonCompletions: {
+              ...prevState.lessonCompletions,
+              [lessonSlug]: nextLesson,
+            },
+            studyStreak: streakResult.streak,
+            lastStudyDate: streakResult.lastStudyDate,
+          };
+          return updatedProgress;
+        });
+        if (updatedProgress) {
+          persistLocalProgress(updatedProgress);
+          setDisplayPoints(updatedProgress.points);
+          setDisplayStreak(updatedProgress.studyStreak);
+          setShowLoginPrompt(true);
+        }
+      }
+
+      if (index < total - 1) {
+        animateScroll(index + 1);
+        scrollToColumnTop();
+      }
+    },
+    [
+      animateScroll,
+      completedCardIds,
+      index,
+      lessonSlug,
+      scrollToColumnTop,
+      token,
+      total,
+      updateUser,
+      user,
+    ]
   );
 
   const handleSelect = (id: string) => {
@@ -275,7 +699,9 @@ export default function Slider({
                   {t.cards.map((c) => {
                     const isActive = activeCardId === c.id;
                     const cardIndex = idToIndex.get(c.id);
-                    const isCompleted = cardIndex !== undefined && cardIndex < index;
+                    const isCompleted =
+                      completedCardIds.has(c.id) ||
+                      (!c.quiz && cardIndex !== undefined && cardIndex < index);
                     return (
                       <li key={c.id}>
                         <button
@@ -313,10 +739,11 @@ export default function Slider({
   );
 
   return (
-    <div
-      className="lg:flex lg:items-start"
-      style={{ "--chrome": `${chrome}px` } as React.CSSProperties}
-    >
+    <>
+      <div
+        className="lg:flex lg:items-start"
+        style={{ "--chrome": `${chrome}px` } as React.CSSProperties}
+      >
       <div
         ref={columnRef}
         className="lg:w-2/3 lg:pr-4 flex flex-col gap-4"
@@ -356,7 +783,12 @@ export default function Slider({
                 className="w-full flex-shrink-0 snap-start lg:flex lg:h-full lg:flex-col"
               >
                 <div ref={registerCardWrapper(c.id)}>
-                  <Card card={c} topicName={c.topicName} />
+                  <Card
+                    card={c}
+                    topicName={c.topicName}
+                    onQuizComplete={() => handleCardCompletion(c.id)}
+                    quizCompleted={completedCardIds.has(c.id)}
+                  />
                 </div>
               </div>
             ))}
@@ -439,6 +871,14 @@ export default function Slider({
           </div>
         </div>
       </nav>
-    </div>
+      </div>
+      <LessonPointsCounter
+        points={displayPoints}
+        studyStreak={displayStreak}
+        isLoggedIn={Boolean(user)}
+        showLoginPrompt={showLoginPrompt}
+        onDismissPrompt={() => setShowLoginPrompt(false)}
+      />
+    </>
   );
 }
