@@ -50,6 +50,8 @@ function createBezier(x1: number, y1: number, x2: number, y2: number) {
   return (x: number) => sampleCurveY(solveCurveX(x));
 }
 
+const clampPoints = (value: number) => Math.max(0, value);
+
 export default function Slider({
   cards,
   modules,
@@ -81,7 +83,7 @@ export default function Slider({
   const initialLocalProgress = useMemo(() => readLocalProgress(), []);
   const [localProgress, setLocalProgress] = useState<LocalProgress>(initialLocalProgress);
   const [displayPoints, setDisplayPoints] = useState<number>(
-    () => user?.points ?? initialLocalProgress.points ?? 0,
+    () => clampPoints(user?.points ?? initialLocalProgress.points ?? 0),
   );
   const [displayStreak, setDisplayStreak] = useState<number>(
     () => user?.studyStreak ?? initialLocalProgress.studyStreak ?? 0,
@@ -141,14 +143,15 @@ export default function Slider({
         let updatedPoints: number | null = null;
         updateUser((prev) => {
           if (!prev) return prev;
-          const nextPoints = (prev.points ?? 0) + delta;
+          const nextPoints = clampPoints((prev.points ?? 0) + delta);
           updatedPoints = nextPoints;
           return { ...prev, points: nextPoints };
         });
         if (updatedPoints !== null) {
-          setDisplayPoints(updatedPoints);
+          const safePoints = clampPoints(updatedPoints);
+          setDisplayPoints(safePoints);
           setLocalProgress((prevState) => {
-            const nextProgress = { ...prevState, points: updatedPoints };
+            const nextProgress = { ...prevState, points: safePoints };
             persistLocalProgress(nextProgress);
             return nextProgress;
           });
@@ -157,7 +160,7 @@ export default function Slider({
               await strapiFetch(`/api/users/${user.id}`, {
                 method: "PUT",
                 headers: { Authorization: `Bearer ${token}` },
-                body: JSON.stringify({ points: updatedPoints }),
+                body: JSON.stringify({ points: safePoints }),
               });
             } catch (error) {
               console.error("Failed to update points", error);
@@ -167,12 +170,13 @@ export default function Slider({
       } else {
         let updatedProgress: LocalProgress | null = null;
         setLocalProgress((prevState) => {
-          const nextPoints = prevState.points + delta;
-          updatedProgress = { ...prevState, points: nextPoints };
-          return updatedProgress;
+          const nextPoints = clampPoints(prevState.points + delta);
+          const nextProgress = { ...prevState, points: nextPoints };
+          persistLocalProgress(nextProgress);
+          updatedProgress = nextProgress;
+          return nextProgress;
         });
         if (updatedProgress) {
-          persistLocalProgress(updatedProgress);
           setDisplayPoints(updatedProgress.points);
         }
       }
@@ -279,11 +283,11 @@ export default function Slider({
 
   useEffect(() => {
     if (user) {
-      setDisplayPoints(user.points ?? 0);
+      setDisplayPoints(clampPoints(user.points ?? 0));
       setDisplayStreak(user.studyStreak ?? 0);
       setShowLoginPrompt(false);
     } else {
-      setDisplayPoints(localProgress.points);
+      setDisplayPoints(clampPoints(localProgress.points));
       setDisplayStreak(localProgress.studyStreak);
     }
   }, [user, localProgress]);
@@ -470,7 +474,7 @@ export default function Slider({
 
         if (user && token) {
           setShowLoginPrompt(false);
-          let updatedPoints = user.points ?? 0;
+          let updatedPoints = clampPoints(user.points ?? 0);
           let updatedCompletions: Record<string, string[]> | null = null;
           let updatedStreak = user.studyStreak ?? 0;
           let updatedLastStudyDate = user.lastStudyDate ?? null;
@@ -488,7 +492,7 @@ export default function Slider({
             }
             const nextLesson = [...existing, normalizedId];
             nextLessonCompletions = nextLesson;
-            updatedPoints = (prev.points ?? 0) + 10;
+            updatedPoints = clampPoints((prev.points ?? 0) + 10);
             updatedCompletions = {
               ...prev.lessonCompletions,
               [lessonSlug]: nextLesson,
@@ -505,11 +509,12 @@ export default function Slider({
             };
           });
           if (updatedCompletions) {
-            setDisplayPoints(updatedPoints);
+            const safePoints = clampPoints(updatedPoints);
+            setDisplayPoints(safePoints);
             setDisplayStreak(updatedStreak);
             setLocalProgress((prevState) => {
               const nextProgress: LocalProgress = {
-                points: updatedPoints,
+                points: safePoints,
                 lessonCompletions: {
                   ...prevState.lessonCompletions,
                   [lessonSlug]: nextLessonCompletions
@@ -530,7 +535,7 @@ export default function Slider({
                   method: "PUT",
                   headers: { Authorization: `Bearer ${token}` },
                   body: JSON.stringify({
-                    points: updatedPoints,
+                    points: safePoints,
                     lessonCompletions: updatedCompletions,
                     studyStreak: updatedStreak,
                     lastStudyDate: updatedLastStudyDate,
@@ -556,8 +561,9 @@ export default function Slider({
               prevState.studyStreak,
               prevState.lastStudyDate,
             );
-            updatedProgress = {
-              points: prevState.points + 10,
+            const nextPoints = clampPoints(prevState.points + 10);
+            const nextProgress: LocalProgress = {
+              points: nextPoints,
               lessonCompletions: {
                 ...prevState.lessonCompletions,
                 [lessonSlug]: nextLesson,
@@ -565,10 +571,11 @@ export default function Slider({
               studyStreak: streakResult.streak,
               lastStudyDate: streakResult.lastStudyDate,
             };
-            return updatedProgress;
+            persistLocalProgress(nextProgress);
+            updatedProgress = nextProgress;
+            return nextProgress;
           });
           if (updatedProgress) {
-            persistLocalProgress(updatedProgress);
             setDisplayPoints(updatedProgress.points);
             setDisplayStreak(updatedProgress.studyStreak);
             setShowLoginPrompt(true);

@@ -139,7 +139,7 @@ export function readLocalProgress(): LocalProgress {
           : 0;
     const lastStudyDate = parseDateKey(parsed.lastStudyDate) ?? null;
     return {
-      points: Number.isFinite(pointsValue) ? pointsValue : 0,
+      points: Number.isFinite(pointsValue) ? Math.max(0, pointsValue) : 0,
       lessonCompletions,
       studyStreak: studyStreakValue,
       lastStudyDate,
