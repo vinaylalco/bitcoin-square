@@ -45,14 +45,16 @@ export async function getLessonPlans(locale: string): Promise<LessonPlan[]> {
 
   const entries: any[] = json?.data || [];
   return entries.map((entry) => {
-    const slug = entry.slug || toSlug(entry.title) || String(entry.id);
+    const course = entry.LessonPlanJSON?.course || {};
+    const title = course.name || entry.title;
+    const slug = entry.slug || toSlug(title) || course.id || String(entry.id);
     return {
       id: entry.documentId || entry.id,
-      title: entry.title,
+      title,
       slug,
       description: entry.description,
       coverImage: resolveMedia(entry.coverImage?.url),
-      topics: [],
+      modules: course.modules || [],
       locale: entry.locale || locale,
     } as LessonPlan;
   });
@@ -69,7 +71,12 @@ export async function getLessonPlan(
 
   const entries: any[] = json?.data || [];
   const entry = entries.find((e) => {
-    const s = e.slug || toSlug(e.title) || String(e.id);
+      const s =
+      e.slug ||
+      e.LessonPlanJSON?.course?.id ||
+      toSlug(e.LessonPlanJSON?.course?.name) ||
+      toSlug(e.title) ||
+      String(e.id);
     return s === slug;
   });
   if (!entry) {
@@ -82,10 +89,19 @@ export async function getLessonPlan(
     if (match) source = match;
   }
 
-  const lesson: LessonPlan = source?.LessonPlanJSON || { topics: [] };
+  const course = source?.LessonPlanJSON?.course || {};
+  const lesson: LessonPlan = {
+    modules: course.modules || [],
+  } as LessonPlan;
   lesson.locale = source?.locale || locale;
-  lesson.title = source?.title;
-  lesson.slug = entry.slug || toSlug(entry.title) || String(entry.id);
+  lesson.title = course.name || source?.title;
+  // lesson.slug = entry.slug || toSlug(lesson.title) || course.id || String(entry.id);
+  lesson.slug =
+    entry.slug ||
+    entry.LessonPlanJSON?.course?.id ||
+    toSlug(entry.LessonPlanJSON?.course?.name) ||
+    toSlug(entry.title) ||
+    String(entry.id);
   lesson.description = source?.description;
   lesson.coverImage = resolveMedia(source?.coverImage?.url);
   lesson.id = entry.documentId || entry.id;

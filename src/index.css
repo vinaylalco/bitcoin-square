@@ -65,3 +65,429 @@
   60%  { opacity: 1; }
   100% { transform: translateY(-24px) scale(0.6); opacity: 0; }
 }
+
+/* Lesson points HUD */
+:root {
+  --points-hud-border: rgba(15, 23, 42, 0.55);
+  --points-hud-background: linear-gradient(
+    135deg,
+    rgba(15, 23, 42, 0.95),
+    rgba(30, 41, 59, 0.95)
+  );
+  --points-hud-shadow: 0 22px 40px rgba(15, 23, 42, 0.6);
+  --points-hud-text: #f8fafc;
+}
+
+html.dark,
+body.dark {
+  --points-hud-border: rgba(148, 163, 184, 0.4);
+  --points-hud-background: linear-gradient(
+    135deg,
+    rgba(248, 250, 252, 0.94),
+    rgba(226, 232, 240, 0.94)
+  );
+  --points-hud-shadow: 0 22px 40px rgba(15, 23, 42, 0.18);
+  --points-hud-text: #0f172a;
+}
+
+.points-hud {
+  position: relative;
+  border-radius: 1.5rem;
+  overflow: hidden;
+  border: 1px solid var(--points-hud-border);
+  background: var(--points-hud-background);
+  box-shadow: var(--points-hud-shadow);
+  backdrop-filter: blur(22px);
+  color: var(--points-hud-text);
+}
+
+.points-hud-panel {
+  position: relative;
+  border: 1px solid var(--points-hud-border);
+  background: var(--points-hud-background);
+  box-shadow: var(--points-hud-shadow);
+  backdrop-filter: blur(22px);
+  color: var(--points-hud-text);
+}
+
+.points-hud__surface {
+  background: var(--points-hud-background);
+  color: var(--points-hud-text);
+}
+
+.points-hud::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 22% 28%, rgba(148, 163, 184, 0.25), transparent 55%),
+    radial-gradient(circle at 78% 24%, rgba(59, 130, 246, 0.3), transparent 60%);
+  opacity: 0.85;
+}
+
+.dark .points-hud::before {
+  background: radial-gradient(circle at 20% 22%, rgba(37, 99, 235, 0.18), transparent 55%),
+    radial-gradient(circle at 82% 18%, rgba(251, 191, 36, 0.22), transparent 60%);
+}
+
+.points-hud--lightning::after {
+  content: "";
+  position: absolute;
+  top: -25%;
+  left: 65%;
+  width: 80px;
+  height: 180px;
+  background: linear-gradient(135deg, #fde047 0%, #facc15 45%, #f97316 100%);
+  clip-path: polygon(48% 0%, 62% 0%, 40% 46%, 66% 46%, 32% 100%, 18% 100%, 40% 58%, 20% 58%);
+  filter: drop-shadow(0 0 12px rgba(250, 204, 21, 0.6));
+  animation: points-lightning-strike 0.65s ease-out forwards;
+  pointer-events: none;
+}
+
+.points-hud__glow,
+.points-hud__noise {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.points-hud__glow {
+  background: radial-gradient(circle at 15% 85%, rgba(96, 165, 250, 0.35), transparent 60%),
+    radial-gradient(circle at 70% 70%, rgba(251, 191, 36, 0.2), transparent 65%);
+  mix-blend-mode: screen;
+  opacity: 0.7;
+  transition: opacity 200ms ease;
+}
+
+.points-hud--lightning .points-hud__glow {
+  opacity: 1;
+}
+
+.points-hud__noise {
+  background-image: linear-gradient(
+      120deg,
+      rgba(255, 255, 255, 0.12) 0%,
+      rgba(255, 255, 255, 0.02) 30%,
+      rgba(255, 255, 255, 0.08) 60%,
+      rgba(255, 255, 255, 0.02) 100%
+    );
+  opacity: 0.2;
+}
+
+.points-hud__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 0.9rem;
+  background: rgba(248, 250, 252, 0.16);
+  box-shadow: inset 0 0 12px rgba(248, 250, 252, 0.22);
+  color: #f8fafc;
+}
+
+.dark .points-hud__icon {
+  background: rgba(15, 23, 42, 0.08);
+  box-shadow: inset 0 0 15px rgba(15, 23, 42, 0.12);
+  color: inherit;
+}
+
+.points-hud__icon--points {
+  background: linear-gradient(135deg, rgba(248, 250, 252, 0.05), rgba(250, 204, 21, 0.6));
+  color: #facc15;
+}
+
+.points-hud__icon--streak {
+  background: linear-gradient(135deg, rgba(248, 250, 252, 0.05), rgba(248, 113, 113, 0.6));
+  color: #fb7185;
+}
+
+.points-hud__label {
+  display: block;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  opacity: 0.85;
+  font-weight: 600;
+  color: rgba(248, 250, 252, 0.75);
+}
+
+.dark .points-hud__label {
+  color: rgba(51, 65, 85, 0.7);
+  opacity: 0.8;
+}
+
+.points-hud__value {
+  display: inline-block;
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  transition: color 200ms ease;
+  will-change: color, transform;
+  color: #f8fafc;
+}
+
+.dark .points-hud__value {
+  color: #0f172a;
+}
+
+.points-hud__value--lightning {
+  animation:
+    points-number-glow 0.65s ease-out,
+    points-number-shake 0.6s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+  color: #fde047;
+  transform-origin: center;
+}
+
+.points-hud__divider {
+  width: 70%;
+  height: 1px;
+  margin-inline: auto;
+  background: linear-gradient(to right, transparent, rgba(148, 163, 184, 0.6), transparent);
+}
+
+.dark .points-hud__divider {
+  background: linear-gradient(to right, transparent, rgba(30, 41, 59, 0.2), transparent);
+}
+
+.points-hud__account {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, rgba(148, 163, 184, 0.35), rgba(59, 130, 246, 0.9));
+  color: white;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.35);
+  transition: transform 200ms ease, box-shadow 200ms ease;
+}
+
+.points-hud__account:hover,
+.points-hud__account:focus-visible {
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 16px 28px rgba(59, 130, 246, 0.5);
+}
+
+.points-hud__login {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 9999px;
+  background: rgba(248, 250, 252, 0.18);
+  color: #f8fafc;
+  box-shadow: 0 10px 20px rgba(148, 163, 184, 0.3);
+  text-decoration: none;
+  transition: transform 200ms ease, box-shadow 200ms ease, background 200ms ease;
+}
+
+.points-hud__login:hover,
+.points-hud__login:focus-visible {
+  background: rgba(248, 250, 252, 0.26);
+  transform: translateY(-2px) scale(1.04);
+  box-shadow: 0 14px 24px rgba(148, 163, 184, 0.38);
+}
+
+.dark .points-hud__login {
+  background: rgba(15, 23, 42, 0.18);
+  color: #0f172a;
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.35);
+}
+
+.dark .points-hud__login:hover,
+.dark .points-hud__login:focus-visible {
+  background: rgba(15, 23, 42, 0.24);
+}
+
+.points-hud__prompt {
+  max-width: 280px;
+  padding: 1.25rem;
+  border-radius: 1.1rem;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 20px 35px rgba(15, 23, 42, 0.25);
+  backdrop-filter: blur(14px);
+}
+
+.dark .points-hud__prompt {
+  background: rgba(17, 24, 39, 0.92);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+.points-hud__cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1.1rem;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  transition: transform 200ms ease, box-shadow 200ms ease, background 200ms ease;
+}
+
+.points-hud__cta--primary {
+  background: linear-gradient(135deg, #f97316, #facc15);
+  color: #0f172a;
+  box-shadow: 0 10px 22px rgba(249, 115, 22, 0.35);
+}
+
+.points-hud__cta--primary:hover,
+.points-hud__cta--primary:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 28px rgba(249, 115, 22, 0.45);
+}
+
+.points-hud__cta--ghost {
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  background: transparent;
+  color: #0f172a;
+}
+
+.dark .points-hud__cta--ghost {
+  border-color: rgba(148, 163, 184, 0.5);
+  color: rgba(226, 232, 240, 0.9);
+}
+
+.points-hud__cta--ghost:hover,
+.points-hud__cta--ghost:focus-visible {
+  transform: translateY(-1px);
+  background: rgba(15, 23, 42, 0.05);
+}
+
+.dark .points-hud__cta--ghost:hover,
+.dark .points-hud__cta--ghost:focus-visible {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.quiz-option {
+  position: relative;
+  overflow: hidden;
+  transition: border-color 200ms ease, background-color 200ms ease, box-shadow 200ms ease;
+}
+
+.quiz-option--flash::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  border: 2px solid rgba(250, 204, 21, 0.8);
+  box-shadow: 0 0 20px rgba(250, 204, 21, 0.45);
+  opacity: 0;
+  animation: quiz-option-border-flash 0.65s ease-out forwards;
+  pointer-events: none;
+}
+
+.quiz-answer {
+  --quiz-answer-bg: rgba(59, 130, 246, 0.08);
+  display: inline-block;
+  padding: 0.8rem 1.1rem;
+  border-radius: 0.85rem;
+  background: var(--quiz-answer-bg);
+  box-shadow: inset 0 0 0 rgba(59, 130, 246, 0.12);
+  line-height: 1.6;
+}
+
+.dark .quiz-answer {
+  --quiz-answer-bg: rgba(59, 130, 246, 0.22);
+  box-shadow: inset 0 0 0 rgba(59, 130, 246, 0.18);
+}
+
+.quiz-answer--highlight {
+  animation: quiz-answer-highlight 2.4s ease-out forwards;
+}
+
+@keyframes quiz-option-border-flash {
+  0% {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  35% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  70% {
+    opacity: 0.45;
+    transform: scale(1.05);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes quiz-answer-highlight {
+  0% {
+    transform: scale(1);
+    background: var(--quiz-answer-bg);
+    box-shadow: 0 0 0 rgba(250, 204, 21, 0);
+  }
+  20% {
+    transform: scale(1.06);
+    background: rgba(250, 204, 21, 0.34);
+    box-shadow: 0 24px 48px rgba(250, 204, 21, 0.28);
+  }
+  55% {
+    transform: scale(1.03);
+    background: rgba(250, 204, 21, 0.24);
+    box-shadow: 0 16px 30px rgba(250, 204, 21, 0.18);
+  }
+  100% {
+    transform: scale(1);
+    background: var(--quiz-answer-bg);
+    box-shadow: 0 0 0 rgba(250, 204, 21, 0);
+  }
+}
+
+@keyframes points-lightning-strike {
+  0% {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.9) rotate(18deg);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(4px) scale(1.05) rotate(12deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(40px) scale(0.9) rotate(10deg);
+  }
+}
+
+@keyframes points-number-glow {
+  0% {
+    text-shadow: 0 0 0 rgba(250, 204, 21, 0);
+  }
+  40% {
+    text-shadow: 0 0 22px rgba(250, 204, 21, 0.7);
+  }
+  100% {
+    text-shadow: 0 0 0 rgba(250, 204, 21, 0);
+  }
+}
+
+@keyframes points-number-shake {
+  0% {
+    transform: scale(1) translate3d(0, 0, 0) rotate(0);
+  }
+  18% {
+    transform: scale(1.05) translate3d(-2px, -2px, 0) rotate(-1.5deg);
+  }
+  36% {
+    transform: scale(1.08) translate3d(2px, -1px, 0) rotate(1.2deg);
+  }
+  52% {
+    transform: scale(1.06) translate3d(-1px, 2px, 0) rotate(-0.9deg);
+  }
+  68% {
+    transform: scale(1.04) translate3d(2px, 1px, 0) rotate(0.6deg);
+  }
+  84% {
+    transform: scale(1.02) translate3d(-1px, 0, 0) rotate(-0.3deg);
+  }
+  100% {
+    transform: scale(1) translate3d(0, 0, 0) rotate(0);
+  }
+}

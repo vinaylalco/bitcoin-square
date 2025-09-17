@@ -1,7 +1,14 @@
 {
-  "topics": [
-    {
-      "name": "1. Cost of living crisis & fiat inflation",
+  "course": {
+    "id": "btc-course-en",
+    "name": "BTC Full Course",
+    "modules": [
+      {
+        "id": "module-1",
+        "name": "Module 1",
+        "topics": [
+          {
+            "name": "1. Cost of living crisis & fiat inflation",
       "cards": [
         {
           "id": "1-1",
@@ -635,5 +642,8 @@
         }
       ]
     }
-  ]
+        ]
+      }
+    ]
+  }
 }

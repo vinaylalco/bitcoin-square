@@ -19,13 +19,23 @@ export type LessonFromJson = {
 };
 
 export type TopicFile = {
-  topics: {
-    name: string;           // topic name
-    cards: LessonFromJson[]; // 3 cards per topic
-  }[];
+  course: {
+    id: string;
+    name: string;
+    modules: {
+      id: string;
+      name: string;
+      topics: {
+        id: string;
+        name: string; // topic name
+        cards: LessonFromJson[]; // 3 cards per topic
+      }[];
+    }[];
+  };
 };
 
-// Flattened item Card UI consumes (adds topicName to each lesson)
+// Flattened item Card UI consumes (adds topicName and moduleName to each lesson)
 export type LessonCardData = LessonFromJson & {
   topicName: string;
+  moduleName: string;
 };

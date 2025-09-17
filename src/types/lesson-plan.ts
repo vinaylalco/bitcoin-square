@@ -18,8 +18,15 @@ export interface Card {
 }
 
 export interface Topic {
+  id: string;
   name: string;
   cards: Card[];
+}
+
+export interface Module {
+  id: string;
+  name: string;
+  topics: Topic[];
 }
 
 export interface LessonPlan {
@@ -28,6 +35,6 @@ export interface LessonPlan {
   slug?: string;
   description?: string;
   coverImage?: string;
-  topics: Topic[];
+  modules: Module[];
   locale?: string;
 }
