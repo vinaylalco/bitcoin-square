@@ -328,18 +328,16 @@ export default function Slider({
           })();
         }
       } else {
-        let updatedProgress: LocalProgress | null = null;
         setLocalProgress((prevState) => {
           const existing = normalizeLessonCompletionList(
             prevState.lessonCompletions[lessonSlug] ?? [],
           );
           if (existing.includes(normalizedId)) {
-            updatedProgress = null;
             return prevState;
           }
           const nextLesson = [...existing, normalizedId];
           const streakResult = calculateNextStudyStreak(prevState.studyStreak, prevState.lastStudyDate);
-          updatedProgress = {
+          const nextProgress: LocalProgress = {
             points: prevState.points + 10,
             lessonCompletions: {
               ...prevState.lessonCompletions,
@@ -348,14 +346,12 @@ export default function Slider({
             studyStreak: streakResult.streak,
             lastStudyDate: streakResult.lastStudyDate,
           };
-          return updatedProgress;
-        });
-        if (updatedProgress) {
-          persistLocalProgress(updatedProgress);
-          setDisplayPoints(updatedProgress.points);
-          setDisplayStreak(updatedProgress.studyStreak);
+          persistLocalProgress(nextProgress);
+          setDisplayPoints(nextProgress.points);
+          setDisplayStreak(nextProgress.studyStreak);
           setShowLoginPrompt(true);
-        }
+          return nextProgress;
+        });
       }
 
       scheduleAdvance();
