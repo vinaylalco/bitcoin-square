@@ -147,6 +147,11 @@ export default function Slider({
         });
         if (updatedPoints !== null) {
           setDisplayPoints(updatedPoints);
+          setLocalProgress((prevState) => {
+            const nextProgress = { ...prevState, points: updatedPoints };
+            persistLocalProgress(nextProgress);
+            return nextProgress;
+          });
           (async () => {
             try {
               await strapiFetch(`/api/users/${user.id}`, {
@@ -469,6 +474,7 @@ export default function Slider({
           let updatedCompletions: Record<string, string[]> | null = null;
           let updatedStreak = user.studyStreak ?? 0;
           let updatedLastStudyDate = user.lastStudyDate ?? null;
+          let nextLessonCompletions: string[] | null = null;
           updateUser((prev) => {
             if (!prev) return prev;
             const existing = normalizeLessonCompletionList(
@@ -481,6 +487,7 @@ export default function Slider({
               return prev;
             }
             const nextLesson = [...existing, normalizedId];
+            nextLessonCompletions = nextLesson;
             updatedPoints = (prev.points ?? 0) + 10;
             updatedCompletions = {
               ...prev.lessonCompletions,
@@ -500,6 +507,23 @@ export default function Slider({
           if (updatedCompletions) {
             setDisplayPoints(updatedPoints);
             setDisplayStreak(updatedStreak);
+            setLocalProgress((prevState) => {
+              const nextProgress: LocalProgress = {
+                points: updatedPoints,
+                lessonCompletions: {
+                  ...prevState.lessonCompletions,
+                  [lessonSlug]: nextLessonCompletions
+                    ? nextLessonCompletions
+                    : normalizeLessonCompletionList(
+                        prevState.lessonCompletions[lessonSlug] ?? [],
+                      ),
+                },
+                studyStreak: updatedStreak,
+                lastStudyDate: updatedLastStudyDate,
+              };
+              persistLocalProgress(nextProgress);
+              return nextProgress;
+            });
             (async () => {
               try {
                 await strapiFetch(`/api/users/${user.id}`, {
