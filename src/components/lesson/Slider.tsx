@@ -577,16 +577,6 @@ export default function Slider({
           </div>
           <span className="ml-2 text-sm">{percent}%</span>
         </div>
-        <button
-          ref={toggleRef}
-          type="button"
-          onClick={() => setTocOpen((o) => !o)}
-          className="block w-full text-lg font-large border-2 border-brand bg-white text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100 py-2 rounded focus:outline-none focus-visible:ring-2 ring-brand lg:hidden"
-          aria-controls="toc-drawer"
-          aria-expanded={tocOpen}
-        >
-          Course Content
-        </button>
         <div className="relative lg:flex-1 lg:min-h-0">
           <div
             ref={containerRef}
@@ -645,7 +635,7 @@ export default function Slider({
                 : "opacity-0 -translate-y-2 pointer-events-none"
             }`}
           >
-            <div className="sticky top-0 bg-white dark:bg-neutral-900 pb-3">
+            <div className="bg-white dark:bg-neutral-900 pb-3">
               <h2
                 id="course-title-mobile"
                 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100"
@@ -693,6 +683,9 @@ export default function Slider({
         isLoggedIn={Boolean(user)}
         showLoginPrompt={showLoginPrompt}
         onDismissPrompt={() => setShowLoginPrompt(false)}
+        onToggleCourseContent={() => setTocOpen((open) => !open)}
+        courseContentOpen={tocOpen}
+        courseContentButtonRef={toggleRef}
       />
     </>
   );

@@ -72,19 +72,32 @@
   min-width: 260px;
   border-radius: 1.5rem;
   overflow: hidden;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: linear-gradient(135deg, rgba(248, 250, 252, 0.98), rgba(241, 245, 249, 0.93));
+  box-shadow: 0 20px 35px rgba(15, 23, 42, 0.18);
+  backdrop-filter: blur(22px);
+  color: #0f172a;
+}
+
+.dark .points-hud {
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: linear-gradient(135deg, rgba(17, 24, 39, 0.85), rgba(10, 10, 15, 0.9));
   box-shadow: 0 25px 45px rgba(15, 23, 42, 0.4);
-  backdrop-filter: blur(22px);
+  color: #f9fafb;
 }
 
 .points-hud::before {
   content: "";
   position: absolute;
   inset: 0;
+  background: radial-gradient(circle at 20% 20%, rgba(56, 189, 248, 0.25), transparent 55%),
+    radial-gradient(circle at 80% 20%, rgba(251, 191, 36, 0.3), transparent 60%);
+  opacity: 0.9;
+}
+
+.dark .points-hud::before {
   background: radial-gradient(circle at 20% 20%, rgba(250, 204, 21, 0.35), transparent 55%),
     radial-gradient(circle at 80% 20%, rgba(59, 130, 246, 0.18), transparent 60%);
-  opacity: 0.9;
 }
 
 .points-hud--lightning::after {
@@ -138,8 +151,15 @@
   width: 36px;
   height: 36px;
   border-radius: 0.9rem;
+  background: rgba(15, 23, 42, 0.06);
+  box-shadow: inset 0 0 12px rgba(15, 23, 42, 0.06);
+  color: #0f172a;
+}
+
+.dark .points-hud__icon {
   background: rgba(255, 255, 255, 0.08);
   box-shadow: inset 0 0 15px rgba(255, 255, 255, 0.08);
+  color: inherit;
 }
 
 .points-hud__icon--points {
@@ -157,8 +177,14 @@
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.16em;
-  opacity: 0.7;
+  opacity: 0.85;
   font-weight: 600;
+  color: rgba(15, 23, 42, 0.6);
+}
+
+.dark .points-hud__label {
+  color: rgba(248, 250, 252, 0.7);
+  opacity: 0.7;
 }
 
 .points-hud__value {
@@ -168,6 +194,11 @@
   letter-spacing: 0.02em;
   transition: color 200ms ease;
   will-change: color, transform;
+  color: #0f172a;
+}
+
+.dark .points-hud__value {
+  color: #f9fafb;
 }
 
 .points-hud__value--lightning {
@@ -181,6 +212,10 @@
 .points-hud__divider {
   width: 1px;
   height: 42px;
+  background: linear-gradient(to bottom, transparent, rgba(15, 23, 42, 0.16), transparent);
+}
+
+.dark .points-hud__divider {
   background: linear-gradient(to bottom, transparent, rgba(255, 255, 255, 0.3), transparent);
 }
 
@@ -209,8 +244,8 @@
   gap: 0.45rem;
   padding: 0.55rem 0.95rem;
   border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.08);
-  color: white;
+  background: rgba(15, 23, 42, 0.08);
+  color: #0f172a;
   font-size: 0.85rem;
   font-weight: 600;
   letter-spacing: 0.01em;
@@ -220,8 +255,18 @@
 
 .points-hud__login:hover,
 .points-hud__login:focus-visible {
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(15, 23, 42, 0.14);
   transform: translateY(-1px);
+}
+
+.dark .points-hud__login {
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+}
+
+.dark .points-hud__login:hover,
+.dark .points-hud__login:focus-visible {
+  background: rgba(255, 255, 255, 0.16);
 }
 
 .points-hud__prompt {

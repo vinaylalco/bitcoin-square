@@ -53,7 +53,7 @@ export default function Card({
             </p>
           )}
         </div>
-        <div className="pointer-events-none absolute -bottom-12 right-6 z-20">
+        <div className="pointer-events-none absolute -bottom-12 right-6 z-10">
           <img
             src={headerImage}
             alt={`Cover art for ${card.title}`}
