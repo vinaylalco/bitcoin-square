@@ -17,6 +17,25 @@ export interface Card {
   style_note?: string;
 }
 
+export interface LessonSummaryItem {
+  cardId: string;
+  title: string;
+  topicName: string;
+}
+
+export interface LessonCard extends Card {
+  topicId: string;
+  topicName: string;
+  moduleId: string;
+  moduleName: string;
+  sourceCardId?: string;
+  isLastInTopic?: boolean;
+  isLastInModule?: boolean;
+  isReview?: boolean;
+  isSummary?: boolean;
+  summaryItems?: LessonSummaryItem[];
+}
+
 export interface Topic {
   id: string;
   name: string;

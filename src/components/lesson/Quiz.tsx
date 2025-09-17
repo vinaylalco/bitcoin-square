@@ -5,16 +5,23 @@ interface QuizProps {
   quiz: QuizType;
   onComplete?: (meta?: QuizCompletionMeta) => void;
   isCompleted?: boolean;
+  isReview?: boolean;
 }
 
 export interface QuizCompletionMeta {
   delayMs?: number;
+  result: "correct" | "incorrect" | "revealed";
 }
 
 const MULTIPLE_CHOICE_FLASH_DURATION = 650;
 const TEXT_REVEAL_HOLD_DURATION = 2400;
 
-export default function Quiz({ quiz, onComplete, isCompleted = false }: QuizProps) {
+export default function Quiz({
+  quiz,
+  onComplete,
+  isCompleted = false,
+  isReview = false,
+}: QuizProps) {
   const [selected, setSelected] = useState<string | null>(null);
   const [status, setStatus] = useState<"correct" | "incorrect" | null>(null);
   const [showAnswer, setShowAnswer] = useState(false);
@@ -28,7 +35,7 @@ export default function Quiz({ quiz, onComplete, isCompleted = false }: QuizProp
   const groupId = useId();
 
   useEffect(() => {
-    if (isCompleted && !completed) {
+    if (isCompleted) {
       setCompleted(true);
       if (quiz.type === "multiple_choice" && quiz.correct_answer) {
         setSelected(quiz.correct_answer);
@@ -38,7 +45,7 @@ export default function Quiz({ quiz, onComplete, isCompleted = false }: QuizProp
         setShowAnswer(true);
         setAnswerHighlight(false);
       }
-    } else if (!isCompleted && completed) {
+    } else {
       setCompleted(false);
       setSelected(null);
       setStatus(null);
@@ -48,7 +55,7 @@ export default function Quiz({ quiz, onComplete, isCompleted = false }: QuizProp
         setAnswerHighlight(false);
       }
     }
-  }, [completed, isCompleted, quiz]);
+  }, [isCompleted, quiz]);
 
   useEffect(() => {
     return () => {
@@ -85,7 +92,7 @@ export default function Quiz({ quiz, onComplete, isCompleted = false }: QuizProp
           } else {
             setAnswerHighlight(false);
           }
-          onComplete?.({ delayMs: TEXT_REVEAL_HOLD_DURATION });
+          onComplete?.({ delayMs: TEXT_REVEAL_HOLD_DURATION, result: "revealed" });
         }
         setShowAnswer(true);
       } else {
@@ -142,14 +149,14 @@ export default function Quiz({ quiz, onComplete, isCompleted = false }: QuizProp
     if (completed) {
       return;
     }
-    if (selected === opt && !completed) {
-      setSelected(null);
-      setStatus(null);
-      return;
-    }
     setSelected(opt);
     const isCorrectChoice = opt === quiz.correct_answer;
     setStatus(isCorrectChoice ? "correct" : "incorrect");
+    if (isCorrectChoice) {
+      setCompleted(true);
+    } else {
+      setCompleted(!isReview);
+    }
     if (isCorrectChoice) {
       if (typeof window !== "undefined") {
         if (flashTimeoutRef.current !== null) {
@@ -160,8 +167,7 @@ export default function Quiz({ quiz, onComplete, isCompleted = false }: QuizProp
     } else {
       setFlashCorrect(false);
     }
-    if (isCorrectChoice && !completed) {
-      setCompleted(true);
+    if (isCorrectChoice) {
       if (typeof window !== "undefined") {
         flashTimeoutRef.current = window.setTimeout(() => {
           setFlashCorrect(false);
@@ -170,8 +176,11 @@ export default function Quiz({ quiz, onComplete, isCompleted = false }: QuizProp
       } else {
         setFlashCorrect(false);
       }
-      onComplete?.({ delayMs: MULTIPLE_CHOICE_FLASH_DURATION });
     }
+    onComplete?.({
+      delayMs: isCorrectChoice ? MULTIPLE_CHOICE_FLASH_DURATION : 400,
+      result: isCorrectChoice ? "correct" : "incorrect",
+    });
   };
 
   const getStateClasses = (opt: string) => {
@@ -219,7 +228,7 @@ export default function Quiz({ quiz, onComplete, isCompleted = false }: QuizProp
                   {isCorrect
                     ? "Correct Answer"
                     : isIncorrect
-                    ? "Try Again"
+                    ? "try again"
                     : opt}
                 </span>
                 {isActive && (

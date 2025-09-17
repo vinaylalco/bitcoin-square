@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
 import Slider from "../components/lesson/Slider";
 import { useLessonPlan } from "../hooks/useLessonPlan";
+import type { LessonCard } from "../types/lesson-plan";
 
 export default function CourseDetail() {
   const { i18n } = useTranslation();
@@ -27,13 +28,21 @@ export default function CourseDetail() {
   }
 
   const modules = data?.modules ?? [];
-  const cards =
-    modules.flatMap((m) =>
-      m.topics.flatMap((t) =>
-        t.cards.map((c) => ({
+  const cards: LessonCard[] =
+    modules.flatMap((m, moduleIndex) =>
+      m.topics.flatMap((t, topicIndex) =>
+        t.cards.map((c, cardIndex) => ({
           ...c,
+          topicId: t.id,
           topicName: t.name,
+          moduleId: m.id,
           moduleName: m.name,
+          sourceCardId: c.id,
+          isLastInTopic: cardIndex === t.cards.length - 1,
+          isLastInModule:
+            moduleIndex === modules.length - 1 &&
+            topicIndex === m.topics.length - 1 &&
+            cardIndex === t.cards.length - 1,
         })),
       ),
     ) ?? [];
