@@ -261,7 +261,7 @@ export default function LessonPointsCounter({
       )}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 px-4 pb-5 pt-2 pointer-events-none">
         <nav
-          className="pointer-events-auto mx-auto w-full max-w-xl rounded-3xl border border-neutral-200 bg-white/95 p-3 shadow-lg backdrop-blur-md transition dark:border-neutral-700 dark:bg-neutral-900/90"
+          className="points-hud-panel pointer-events-auto relative mx-auto w-full max-w-xl rounded-3xl overflow-hidden p-3 transition"
           aria-label="Lesson heads-up display"
         >
           <div className="grid grid-cols-4 gap-2">

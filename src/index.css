@@ -67,7 +67,7 @@
 }
 
 /* Lesson points HUD */
-.points-hud {
+:root {
   --points-hud-border: rgba(15, 23, 42, 0.55);
   --points-hud-background: linear-gradient(
     135deg,
@@ -76,7 +76,21 @@
   );
   --points-hud-shadow: 0 22px 40px rgba(15, 23, 42, 0.6);
   --points-hud-text: #f8fafc;
+}
 
+html.dark,
+body.dark {
+  --points-hud-border: rgba(148, 163, 184, 0.4);
+  --points-hud-background: linear-gradient(
+    135deg,
+    rgba(248, 250, 252, 0.94),
+    rgba(226, 232, 240, 0.94)
+  );
+  --points-hud-shadow: 0 22px 40px rgba(15, 23, 42, 0.18);
+  --points-hud-text: #0f172a;
+}
+
+.points-hud {
   position: relative;
   min-width: 260px;
   border-radius: 1.5rem;
@@ -88,15 +102,13 @@
   color: var(--points-hud-text);
 }
 
-.dark .points-hud {
-  --points-hud-border: rgba(148, 163, 184, 0.4);
-  --points-hud-background: linear-gradient(
-    135deg,
-    rgba(248, 250, 252, 0.94),
-    rgba(226, 232, 240, 0.94)
-  );
-  --points-hud-shadow: 0 22px 40px rgba(15, 23, 42, 0.18);
-  --points-hud-text: #0f172a;
+.points-hud-panel {
+  position: relative;
+  border: 1px solid var(--points-hud-border);
+  background: var(--points-hud-background);
+  box-shadow: var(--points-hud-shadow);
+  backdrop-filter: blur(22px);
+  color: var(--points-hud-text);
 }
 
 .points-hud__surface {
