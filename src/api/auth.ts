@@ -8,6 +8,7 @@ export interface AuthResponse {
     username?: string;
     nostrPublicKey?: string;
     nostrEncryptedKey?: string;
+    nostrPrivateKey?: string | null;
     points?: number | null;
     lessonCompletions?: Record<string, unknown> | null;
     studyStreak?: number | null;

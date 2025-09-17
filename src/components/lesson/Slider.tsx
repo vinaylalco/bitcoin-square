@@ -112,6 +112,69 @@ export default function Slider({
   const summaryCounterRef = useRef(0);
   const [reviewCompletion, setReviewCompletion] = useState<Record<string, boolean>>({});
 
+  const topicCardIdsMap = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    modules.forEach((module) => {
+      module.topics.forEach((topic) => {
+        const ids = new Set<string>();
+        topic.cards.forEach((topicCard) => {
+          const normalized = toCardKey(topicCard.id);
+          if (normalized) {
+            ids.add(normalized);
+          }
+        });
+        map.set(topic.id, ids);
+      });
+    });
+    return map;
+  }, [modules, toCardKey]);
+
+  const moduleCardIdsMap = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    modules.forEach((module) => {
+      const ids = new Set<string>();
+      module.topics.forEach((topic) => {
+        topic.cards.forEach((topicCard) => {
+          const normalized = toCardKey(topicCard.id);
+          if (normalized) {
+            ids.add(normalized);
+          }
+        });
+      });
+      map.set(module.id, ids);
+    });
+    return map;
+  }, [modules, toCardKey]);
+
+  const calculateCompletionBonus = useCallback(
+    (card: LessonCard, previous: string[], next: string[]) => {
+      let bonus = 0;
+      const previousSet = new Set(previous);
+      const nextSet = new Set(next);
+
+      const topicCardIds = topicCardIdsMap.get(card.topicId);
+      if (topicCardIds && topicCardIds.size > 0) {
+        const wasTopicComplete = Array.from(topicCardIds).every((id) => previousSet.has(id));
+        const isTopicComplete = Array.from(topicCardIds).every((id) => nextSet.has(id));
+        if (!wasTopicComplete && isTopicComplete) {
+          bonus += 50;
+        }
+      }
+
+      const moduleCardIds = moduleCardIdsMap.get(card.moduleId);
+      if (moduleCardIds && moduleCardIds.size > 0) {
+        const wasModuleComplete = Array.from(moduleCardIds).every((id) => previousSet.has(id));
+        const isModuleComplete = Array.from(moduleCardIds).every((id) => nextSet.has(id));
+        if (!wasModuleComplete && isModuleComplete) {
+          bonus += 500;
+        }
+      }
+
+      return bonus;
+    },
+    [moduleCardIdsMap, topicCardIdsMap],
+  );
+
   useEffect(() => {
     displayCardsRef.current = displayCards;
   }, [displayCards]);
@@ -492,7 +555,8 @@ export default function Slider({
             }
             const nextLesson = [...existing, normalizedId];
             nextLessonCompletions = nextLesson;
-            updatedPoints = clampPoints((prev.points ?? 0) + 10);
+            const awardedPoints = 10 + calculateCompletionBonus(card, existing, nextLesson);
+            updatedPoints = clampPoints((prev.points ?? 0) + awardedPoints);
             updatedCompletions = {
               ...prev.lessonCompletions,
               [lessonSlug]: nextLesson,
@@ -561,7 +625,8 @@ export default function Slider({
               prevState.studyStreak,
               prevState.lastStudyDate,
             );
-            const nextPoints = clampPoints(prevState.points + 10);
+            const awardedPoints = 10 + calculateCompletionBonus(card, existing, nextLesson);
+            const nextPoints = clampPoints(prevState.points + awardedPoints);
             const nextProgress: LocalProgress = {
               points: nextPoints,
               lessonCompletions: {
