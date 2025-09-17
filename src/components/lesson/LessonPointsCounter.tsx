@@ -185,31 +185,26 @@ export default function LessonPointsCounter({
         <div className={`points-hud ${animateStrike ? "points-hud--lightning" : ""}`}>
           <div className="points-hud__glow" aria-hidden />
           <div className="points-hud__noise" aria-hidden />
-          <div className="points-hud__surface relative z-10 flex flex-col gap-6 px-6 py-6">
-            <div className="flex items-center gap-4">
+          <div className="points-hud__surface relative z-10 flex flex-col items-center gap-5 px-4 py-5 text-center">
+            <div className="flex flex-col items-center gap-2">
               <span className="points-hud__icon points-hud__icon--points" aria-hidden>
                 <Zap className="h-4 w-4" />
               </span>
-              <div>
-                <span className="points-hud__label">Points</span>
-                <span className={`points-hud__value ${animateStrike ? "points-hud__value--lightning" : ""}`}>
-                  {formattedPoints}
-                </span>
-              </div>
+              <span className={`points-hud__value ${animateStrike ? "points-hud__value--lightning" : ""}`}>
+                {formattedPoints}
+              </span>
             </div>
             <div className="points-hud__divider" aria-hidden />
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col items-center gap-2">
               <span className="points-hud__icon points-hud__icon--streak" aria-hidden>
                 <Flame className="h-4 w-4" />
               </span>
-              <div>
-                <span className="points-hud__label">Study streak</span>
-                <span className="points-hud__value text-lg">
-                  {normalizedStreak} {streakLabel}
-                </span>
-              </div>
+              <span className="points-hud__value text-lg">
+                {normalizedStreak}
+              </span>
             </div>
-            <div className="flex justify-end">
+            <div className="points-hud__divider" aria-hidden />
+            <div className="flex justify-center">
               {isLoggedIn ? (
                 <Link
                   to="/dashboard"
@@ -222,9 +217,9 @@ export default function LessonPointsCounter({
                 <Link
                   to="/login"
                   className="points-hud__login"
+                  aria-label="Log in"
                 >
                   <LogIn className="h-4 w-4" aria-hidden="true" />
-                  <span className="font-medium">Log in</span>
                 </Link>
               )}
             </div>
@@ -277,10 +272,10 @@ export default function LessonPointsCounter({
               ) : (
                 <Link
                   to="/login"
-                  className="flex h-14 w-full items-center justify-center gap-1.5 rounded-2xl border border-neutral-200 bg-white text-neutral-900 shadow-sm transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+                  className="flex h-14 w-full items-center justify-center rounded-2xl border border-neutral-200 bg-white text-neutral-900 shadow-sm transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+                  aria-label="Log in"
                 >
                   <LogIn className="h-5 w-5" aria-hidden="true" />
-                  <span className="text-sm font-semibold">Log in</span>
                 </Link>
               )}
             </div>
@@ -289,9 +284,6 @@ export default function LessonPointsCounter({
               aria-label={`You have ${formattedPoints} points`}
             >
               <Zap className="h-4 w-4 text-brand" aria-hidden="true" />
-              <span className="text-[10px] uppercase tracking-wide" aria-hidden>
-                Points
-              </span>
               <span className={`text-sm font-semibold text-neutral-900 dark:text-neutral-100 ${
                 animateStrike ? "points-hud__value--lightning" : ""
               }`}
@@ -305,9 +297,6 @@ export default function LessonPointsCounter({
               aria-label={`Study streak ${normalizedStreak} ${streakLabel}`}
             >
               <Flame className="h-4 w-4 text-brand" aria-hidden="true" />
-              <span className="text-[10px] uppercase tracking-wide" aria-hidden>
-                Streak
-              </span>
               <span className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
                 {normalizedStreak}
               </span>

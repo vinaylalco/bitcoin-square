@@ -92,7 +92,6 @@ body.dark {
 
 .points-hud {
   position: relative;
-  min-width: 260px;
   border-radius: 1.5rem;
   overflow: hidden;
   border: 1px solid var(--points-hud-border);
@@ -240,8 +239,9 @@ body.dark {
 }
 
 .points-hud__divider {
-  width: 100%;
+  width: 70%;
   height: 1px;
+  margin-inline: auto;
   background: linear-gradient(to right, transparent, rgba(148, 163, 184, 0.6), transparent);
 }
 
@@ -271,32 +271,33 @@ body.dark {
 .points-hud__login {
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
-  padding: 0.55rem 0.95rem;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
   border-radius: 9999px;
-  background: rgba(248, 250, 252, 0.12);
+  background: rgba(248, 250, 252, 0.18);
   color: #f8fafc;
-  font-size: 0.85rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
+  box-shadow: 0 10px 20px rgba(148, 163, 184, 0.3);
   text-decoration: none;
-  transition: background 200ms ease, transform 200ms ease;
+  transition: transform 200ms ease, box-shadow 200ms ease, background 200ms ease;
 }
 
 .points-hud__login:hover,
 .points-hud__login:focus-visible {
-  background: rgba(248, 250, 252, 0.2);
-  transform: translateY(-1px);
+  background: rgba(248, 250, 252, 0.26);
+  transform: translateY(-2px) scale(1.04);
+  box-shadow: 0 14px 24px rgba(148, 163, 184, 0.38);
 }
 
 .dark .points-hud__login {
-  background: rgba(15, 23, 42, 0.08);
+  background: rgba(15, 23, 42, 0.18);
   color: #0f172a;
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.35);
 }
 
 .dark .points-hud__login:hover,
 .dark .points-hud__login:focus-visible {
-  background: rgba(15, 23, 42, 0.14);
+  background: rgba(15, 23, 42, 0.24);
 }
 
 .points-hud__prompt {
