@@ -67,24 +67,66 @@
 }
 
 /* Lesson points HUD */
+:root {
+  --points-hud-border: rgba(15, 23, 42, 0.55);
+  --points-hud-background: linear-gradient(
+    135deg,
+    rgba(15, 23, 42, 0.95),
+    rgba(30, 41, 59, 0.95)
+  );
+  --points-hud-shadow: 0 22px 40px rgba(15, 23, 42, 0.6);
+  --points-hud-text: #f8fafc;
+}
+
+html.dark,
+body.dark {
+  --points-hud-border: rgba(148, 163, 184, 0.4);
+  --points-hud-background: linear-gradient(
+    135deg,
+    rgba(248, 250, 252, 0.94),
+    rgba(226, 232, 240, 0.94)
+  );
+  --points-hud-shadow: 0 22px 40px rgba(15, 23, 42, 0.18);
+  --points-hud-text: #0f172a;
+}
+
 .points-hud {
   position: relative;
-  min-width: 260px;
   border-radius: 1.5rem;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: linear-gradient(135deg, rgba(17, 24, 39, 0.85), rgba(10, 10, 15, 0.9));
-  box-shadow: 0 25px 45px rgba(15, 23, 42, 0.4);
+  border: 1px solid var(--points-hud-border);
+  background: var(--points-hud-background);
+  box-shadow: var(--points-hud-shadow);
   backdrop-filter: blur(22px);
+  color: var(--points-hud-text);
+}
+
+.points-hud-panel {
+  position: relative;
+  border: 1px solid var(--points-hud-border);
+  background: var(--points-hud-background);
+  box-shadow: var(--points-hud-shadow);
+  backdrop-filter: blur(22px);
+  color: var(--points-hud-text);
+}
+
+.points-hud__surface {
+  background: var(--points-hud-background);
+  color: var(--points-hud-text);
 }
 
 .points-hud::before {
   content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at 20% 20%, rgba(250, 204, 21, 0.35), transparent 55%),
-    radial-gradient(circle at 80% 20%, rgba(59, 130, 246, 0.18), transparent 60%);
-  opacity: 0.9;
+  background: radial-gradient(circle at 22% 28%, rgba(148, 163, 184, 0.25), transparent 55%),
+    radial-gradient(circle at 78% 24%, rgba(59, 130, 246, 0.3), transparent 60%);
+  opacity: 0.85;
+}
+
+.dark .points-hud::before {
+  background: radial-gradient(circle at 20% 22%, rgba(37, 99, 235, 0.18), transparent 55%),
+    radial-gradient(circle at 82% 18%, rgba(251, 191, 36, 0.22), transparent 60%);
 }
 
 .points-hud--lightning::after {
@@ -138,8 +180,15 @@
   width: 36px;
   height: 36px;
   border-radius: 0.9rem;
-  background: rgba(255, 255, 255, 0.08);
-  box-shadow: inset 0 0 15px rgba(255, 255, 255, 0.08);
+  background: rgba(248, 250, 252, 0.16);
+  box-shadow: inset 0 0 12px rgba(248, 250, 252, 0.22);
+  color: #f8fafc;
+}
+
+.dark .points-hud__icon {
+  background: rgba(15, 23, 42, 0.08);
+  box-shadow: inset 0 0 15px rgba(15, 23, 42, 0.12);
+  color: inherit;
 }
 
 .points-hud__icon--points {
@@ -157,27 +206,47 @@
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.16em;
-  opacity: 0.7;
+  opacity: 0.85;
   font-weight: 600;
+  color: rgba(248, 250, 252, 0.75);
+}
+
+.dark .points-hud__label {
+  color: rgba(51, 65, 85, 0.7);
+  opacity: 0.8;
 }
 
 .points-hud__value {
-  display: block;
+  display: inline-block;
   font-size: 1.6rem;
   font-weight: 700;
   letter-spacing: 0.02em;
   transition: color 200ms ease;
+  will-change: color, transform;
+  color: #f8fafc;
+}
+
+.dark .points-hud__value {
+  color: #0f172a;
 }
 
 .points-hud__value--lightning {
-  animation: points-number-glow 0.65s ease-out;
+  animation:
+    points-number-glow 0.65s ease-out,
+    points-number-shake 0.6s cubic-bezier(0.36, 0.07, 0.19, 0.97);
   color: #fde047;
+  transform-origin: center;
 }
 
 .points-hud__divider {
-  width: 1px;
-  height: 42px;
-  background: linear-gradient(to bottom, transparent, rgba(255, 255, 255, 0.3), transparent);
+  width: 70%;
+  height: 1px;
+  margin-inline: auto;
+  background: linear-gradient(to right, transparent, rgba(148, 163, 184, 0.6), transparent);
+}
+
+.dark .points-hud__divider {
+  background: linear-gradient(to right, transparent, rgba(30, 41, 59, 0.2), transparent);
 }
 
 .points-hud__account {
@@ -202,22 +271,33 @@
 .points-hud__login {
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
-  padding: 0.55rem 0.95rem;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
   border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.08);
-  color: white;
-  font-size: 0.85rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
+  background: rgba(248, 250, 252, 0.18);
+  color: #f8fafc;
+  box-shadow: 0 10px 20px rgba(148, 163, 184, 0.3);
   text-decoration: none;
-  transition: background 200ms ease, transform 200ms ease;
+  transition: transform 200ms ease, box-shadow 200ms ease, background 200ms ease;
 }
 
 .points-hud__login:hover,
 .points-hud__login:focus-visible {
-  background: rgba(255, 255, 255, 0.16);
-  transform: translateY(-1px);
+  background: rgba(248, 250, 252, 0.26);
+  transform: translateY(-2px) scale(1.04);
+  box-shadow: 0 14px 24px rgba(148, 163, 184, 0.38);
+}
+
+.dark .points-hud__login {
+  background: rgba(15, 23, 42, 0.18);
+  color: #0f172a;
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.35);
+}
+
+.dark .points-hud__login:hover,
+.dark .points-hud__login:focus-visible {
+  background: rgba(15, 23, 42, 0.24);
 }
 
 .points-hud__prompt {
@@ -379,14 +459,35 @@
 @keyframes points-number-glow {
   0% {
     text-shadow: 0 0 0 rgba(250, 204, 21, 0);
-    transform: scale(1);
   }
   40% {
     text-shadow: 0 0 22px rgba(250, 204, 21, 0.7);
-    transform: scale(1.09);
   }
   100% {
     text-shadow: 0 0 0 rgba(250, 204, 21, 0);
-    transform: scale(1);
+  }
+}
+
+@keyframes points-number-shake {
+  0% {
+    transform: scale(1) translate3d(0, 0, 0) rotate(0);
+  }
+  18% {
+    transform: scale(1.05) translate3d(-2px, -2px, 0) rotate(-1.5deg);
+  }
+  36% {
+    transform: scale(1.08) translate3d(2px, -1px, 0) rotate(1.2deg);
+  }
+  52% {
+    transform: scale(1.06) translate3d(-1px, 2px, 0) rotate(-0.9deg);
+  }
+  68% {
+    transform: scale(1.04) translate3d(2px, 1px, 0) rotate(0.6deg);
+  }
+  84% {
+    transform: scale(1.02) translate3d(-1px, 0, 0) rotate(-0.3deg);
+  }
+  100% {
+    transform: scale(1) translate3d(0, 0, 0) rotate(0);
   }
 }

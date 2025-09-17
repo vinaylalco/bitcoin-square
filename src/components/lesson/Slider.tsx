@@ -1,10 +1,4 @@
-import {
-  useState,
-  useRef,
-  useEffect,
-  useCallback,
-  useMemo,
-} from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Check, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Card as CardType, Module } from "../../types/lesson-plan";
 import Card from "./Card";
@@ -12,143 +6,18 @@ import { strapiFetch } from "../../api/strapi-client";
 import { useAuth } from "../../context/AuthContext";
 import LessonPointsCounter from "./LessonPointsCounter";
 import type { QuizCompletionMeta } from "./Quiz";
+import {
+  calculateNextStudyStreak,
+  normalizeCardId,
+  normalizeLessonCompletionList,
+  type LocalProgress,
+  persistLocalProgress,
+  readLocalProgress,
+} from "../../utils/localProgress";
 
 interface SliderCard extends CardType {
   topicName: string;
   moduleName: string;
-}
-
-const LOCAL_PROGRESS_STORAGE_KEY = "lesson-progress";
-
-interface LocalProgress {
-  points: number;
-  lessonCompletions: Record<string, string[]>;
-  studyStreak: number;
-  lastStudyDate: string | null;
-}
-
-function parseDateKey(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-    return null;
-  }
-  return trimmed;
-}
-
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
-
-function getTodayKey(): string {
-  const now = new Date();
-  const month = `${now.getMonth() + 1}`.padStart(2, "0");
-  const day = `${now.getDate()}`.padStart(2, "0");
-  return `${now.getFullYear()}-${month}-${day}`;
-}
-
-function toUtcTimestamp(key: string | null): number | null {
-  if (!key) return null;
-  const match = key.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!match) return null;
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  if ([year, month, day].some((part) => !Number.isFinite(part))) return null;
-  return Date.UTC(year, month - 1, day);
-}
-
-function differenceInDays(from: string | null, to: string): number | null {
-  const fromTs = toUtcTimestamp(from);
-  const toTs = toUtcTimestamp(to);
-  if (fromTs === null || toTs === null) return null;
-  return Math.round((toTs - fromTs) / MS_PER_DAY);
-}
-
-function calculateNextStudyStreak(
-  currentStreak: number | null | undefined,
-  lastStudyDate: string | null | undefined,
-): { streak: number; lastStudyDate: string; changed: boolean } {
-  const today = getTodayKey();
-  const normalizedStreak =
-    typeof currentStreak === "number" && Number.isFinite(currentStreak)
-      ? Math.max(0, Math.floor(currentStreak))
-      : 0;
-  const diff = differenceInDays(lastStudyDate ?? null, today);
-  if (diff === null) {
-    return { streak: 1, lastStudyDate: today, changed: true };
-  }
-  if (diff === 0) {
-    const streak = Math.max(normalizedStreak, 1);
-    return {
-      streak,
-      lastStudyDate: today,
-      changed: streak !== normalizedStreak || lastStudyDate !== today,
-    };
-  }
-  if (diff === 1) {
-    return { streak: Math.max(normalizedStreak, 0) + 1, lastStudyDate: today, changed: true };
-  }
-  if (diff > 1) {
-    return { streak: 1, lastStudyDate: today, changed: true };
-  }
-  // diff < 0 (future date stored) – reset and normalise
-  return { streak: 1, lastStudyDate: today, changed: true };
-}
-
-function readLocalProgress(): LocalProgress {
-  if (typeof window === "undefined") {
-    return { points: 0, lessonCompletions: {}, studyStreak: 0, lastStudyDate: null };
-  }
-  try {
-    const raw = window.localStorage.getItem(LOCAL_PROGRESS_STORAGE_KEY);
-    if (!raw) {
-      return { points: 0, lessonCompletions: {}, studyStreak: 0, lastStudyDate: null };
-    }
-    const parsed = JSON.parse(raw) as {
-      points?: unknown;
-      lessonCompletions?: Record<string, unknown>;
-      studyStreak?: unknown;
-      lastStudyDate?: unknown;
-    };
-    const pointsValue =
-      typeof parsed.points === "number" && Number.isFinite(parsed.points)
-        ? parsed.points
-        : Number(parsed.points ?? 0);
-    const lessonCompletions: Record<string, string[]> = {};
-    if (parsed.lessonCompletions && typeof parsed.lessonCompletions === "object") {
-      Object.entries(parsed.lessonCompletions).forEach(([key, value]) => {
-        if (Array.isArray(value)) {
-          lessonCompletions[key] = value.filter((item): item is string => typeof item === "string");
-        }
-      });
-    }
-    const studyStreakValue =
-      typeof parsed.studyStreak === "number" && Number.isFinite(parsed.studyStreak)
-        ? Math.max(0, Math.floor(parsed.studyStreak))
-        : Number.isFinite(Number(parsed.studyStreak))
-          ? Math.max(0, Math.floor(Number(parsed.studyStreak)))
-          : 0;
-    const lastStudyDate = parseDateKey(parsed.lastStudyDate) ?? null;
-    return {
-      points: Number.isFinite(pointsValue) ? pointsValue : 0,
-      lessonCompletions,
-      studyStreak: studyStreakValue,
-      lastStudyDate,
-    };
-  } catch {
-    return { points: 0, lessonCompletions: {}, studyStreak: 0, lastStudyDate: null };
-  }
-}
-
-function persistLocalProgress(progress: LocalProgress) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(LOCAL_PROGRESS_STORAGE_KEY, JSON.stringify(progress));
-  } catch {}
-}
-
-function hasLocalData(progress: LocalProgress): boolean {
-  if (progress.points > 0 || progress.studyStreak > 0) return true;
-  return Object.values(progress.lessonCompletions).some((list) => list.length > 0);
 }
 
 function createBezier(x1: number, y1: number, x2: number, y2: number) {
@@ -198,6 +67,7 @@ export default function Slider({
 }) {
   const [index, setIndex] = useState(0);
   const total = cards.length;
+  const toCardKey = useCallback((value: unknown) => normalizeCardId(value) ?? String(value), []);
   const containerRef = useRef<HTMLDivElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
   const [chrome, setChrome] = useState(0);
@@ -223,157 +93,52 @@ export default function Slider({
   const [completedCardIds, setCompletedCardIds] = useState<Set<string>>(() => {
     const initial = new Set<string>();
     if (lessonSlug) {
-      (user?.lessonCompletions?.[lessonSlug] ?? []).forEach((id) => {
-        if (typeof id === "string") {
-          initial.add(id);
-        }
+      normalizeLessonCompletionList(user?.lessonCompletions?.[lessonSlug] ?? []).forEach((id) => {
+        initial.add(id);
       });
-      (initialLocalProgress.lessonCompletions?.[lessonSlug] ?? []).forEach((id) => {
-        if (typeof id === "string") {
+      if (!user) {
+        normalizeLessonCompletionList(
+          initialLocalProgress.lessonCompletions?.[lessonSlug] ?? [],
+        ).forEach((id) => {
           initial.add(id);
-        }
-      });
+        });
+      }
     }
     return initial;
   });
-  const hasSyncedLocalRef = useRef(false);
 
   const idToIndex = useMemo(() => {
     const map = new Map<string, number>();
-    cards.forEach((c, i) => map.set(c.id, i));
+    cards.forEach((c, i) => map.set(toCardKey(c.id), i));
     return map;
-  }, [cards]);
+  }, [cards, toCardKey]);
 
   useEffect(() => {
     if (!lessonSlug) return;
     const next = new Set<string>();
-    (user?.lessonCompletions?.[lessonSlug] ?? []).forEach((id) => {
-      if (typeof id === "string") {
-        next.add(id);
-      }
+    normalizeLessonCompletionList(user?.lessonCompletions?.[lessonSlug] ?? []).forEach((id) => {
+      next.add(id);
     });
-    (localProgress.lessonCompletions?.[lessonSlug] ?? []).forEach((id) => {
-      if (typeof id === "string") {
-        next.add(id);
-      }
-    });
+    if (!user) {
+      normalizeLessonCompletionList(localProgress.lessonCompletions?.[lessonSlug] ?? []).forEach(
+        (id) => {
+          next.add(id);
+        },
+      );
+    }
     setCompletedCardIds(next);
   }, [user, lessonSlug, localProgress]);
 
-  const syncLocalProgress = useCallback(
-    async (progress: LocalProgress) => {
-      if (!user || !token) return;
-      const updatedCompletions: Record<string, string[]> = {
-        ...user.lessonCompletions,
-      };
-      let newCardCount = 0;
-
-      Object.entries(progress.lessonCompletions).forEach(([slugKey, ids]) => {
-        if (!Array.isArray(ids) || ids.length === 0) return;
-        const existing = new Set(updatedCompletions[slugKey] ?? []);
-        const additions = ids.filter((id) => typeof id === "string" && !existing.has(id));
-        if (additions.length > 0) {
-          updatedCompletions[slugKey] = [...existing, ...additions];
-          newCardCount += additions.length;
-        }
-      });
-
-      if (newCardCount === 0) {
-        if (hasLocalData(progress)) {
-          const cleared: LocalProgress = {
-            points: 0,
-            lessonCompletions: {},
-            studyStreak: 0,
-            lastStudyDate: null,
-          };
-          setLocalProgress(cleared);
-          persistLocalProgress(cleared);
-          setDisplayPoints(user.points ?? 0);
-          setDisplayStreak(user.studyStreak ?? 0);
-        }
-        return;
-      }
-
-      const updatedPoints = (user.points ?? 0) + newCardCount * 10;
-      const progressStreak = Math.max(0, Math.floor(progress.studyStreak));
-      const progressLastDate = progress.lastStudyDate ?? null;
-      const progressTimestamp = toUtcTimestamp(progressLastDate);
-      const userTimestamp = toUtcTimestamp(user.lastStudyDate ?? null);
-      let nextStreak = user.studyStreak ?? 0;
-      let nextLastStudyDate = user.lastStudyDate ?? null;
-
-      if (progressTimestamp !== null) {
-        const shouldAdoptStreak =
-          progressStreak > 0 &&
-          (userTimestamp === null ||
-            progressTimestamp > userTimestamp ||
-            progressStreak > (user.studyStreak ?? 0));
-
-        if (shouldAdoptStreak) {
-          nextStreak = progressStreak;
-          nextLastStudyDate = progressLastDate;
-        } else if (userTimestamp === null || progressTimestamp > userTimestamp) {
-          nextLastStudyDate = progressLastDate;
-        }
-      }
-
-      try {
-        await strapiFetch(`/api/users/${user.id}`, {
-          method: "PUT",
-          headers: { Authorization: `Bearer ${token}` },
-          body: JSON.stringify({
-            points: updatedPoints,
-            lessonCompletions: updatedCompletions,
-            studyStreak: nextStreak,
-            lastStudyDate: nextLastStudyDate,
-          }),
-        });
-        updateUser((prev) =>
-          prev
-            ? {
-                ...prev,
-                points: updatedPoints,
-                lessonCompletions: updatedCompletions,
-                studyStreak: nextStreak,
-                lastStudyDate: nextLastStudyDate,
-              }
-            : prev,
-        );
-        setDisplayPoints(updatedPoints);
-        setDisplayStreak(nextStreak);
-        const cleared: LocalProgress = {
-          points: 0,
-          lessonCompletions: {},
-          studyStreak: 0,
-          lastStudyDate: null,
-        };
-        setLocalProgress(cleared);
-        persistLocalProgress(cleared);
-      } catch (error) {
-        console.error("Failed to sync stored lesson progress", error);
-        hasSyncedLocalRef.current = false;
-      }
-    },
-    [token, updateUser, user],
-  );
-
   useEffect(() => {
-    if (user && token) {
-      const hasLocal = hasLocalData(localProgress);
-      if (hasLocal && !hasSyncedLocalRef.current) {
-        hasSyncedLocalRef.current = true;
-        syncLocalProgress(localProgress);
-      } else if (!hasLocal) {
-        setDisplayPoints(user.points ?? 0);
-        setDisplayStreak(user.studyStreak ?? 0);
-      }
+    if (user) {
+      setDisplayPoints(user.points ?? 0);
+      setDisplayStreak(user.studyStreak ?? 0);
       setShowLoginPrompt(false);
-    } else if (!user) {
-      hasSyncedLocalRef.current = false;
+    } else {
       setDisplayPoints(localProgress.points);
       setDisplayStreak(localProgress.studyStreak);
     }
-  }, [user, token, localProgress, syncLocalProgress]);
+  }, [user, localProgress]);
 
   useEffect(() => {
     setChrome(progressRef.current?.offsetHeight ?? 0);
@@ -468,6 +233,7 @@ export default function Slider({
 
   const handleCardCompletion = useCallback(
     (cardId: string, meta?: QuizCompletionMeta) => {
+      const normalizedId = toCardKey(cardId);
       if (!lessonSlug) return;
 
       const currentIndex = index;
@@ -496,14 +262,14 @@ export default function Slider({
         advance();
       };
 
-      if (completedCardIds.has(cardId)) {
+      if (completedCardIds.has(normalizedId)) {
         scheduleAdvance();
         return;
       }
 
       setCompletedCardIds((prevSet) => {
         const nextSet = new Set(prevSet);
-        nextSet.add(cardId);
+        nextSet.add(normalizedId);
         return nextSet;
       });
 
@@ -515,14 +281,16 @@ export default function Slider({
         let updatedLastStudyDate = user.lastStudyDate ?? null;
         updateUser((prev) => {
           if (!prev) return prev;
-          const existing = prev.lessonCompletions?.[lessonSlug] ?? [];
-          if (existing.includes(cardId)) {
+          const existing = normalizeLessonCompletionList(
+            prev.lessonCompletions?.[lessonSlug] ?? [],
+          );
+          if (existing.includes(normalizedId)) {
             updatedPoints = prev.points ?? 0;
             updatedStreak = prev.studyStreak ?? 0;
             updatedLastStudyDate = prev.lastStudyDate ?? null;
             return prev;
           }
-          const nextLesson = [...existing, cardId];
+          const nextLesson = [...existing, normalizedId];
           updatedPoints = (prev.points ?? 0) + 10;
           updatedCompletions = {
             ...prev.lessonCompletions,
@@ -562,12 +330,14 @@ export default function Slider({
       } else {
         let updatedProgress: LocalProgress | null = null;
         setLocalProgress((prevState) => {
-          const existing = prevState.lessonCompletions[lessonSlug] ?? [];
-          if (existing.includes(cardId)) {
+          const existing = normalizeLessonCompletionList(
+            prevState.lessonCompletions[lessonSlug] ?? [],
+          );
+          if (existing.includes(normalizedId)) {
             updatedProgress = null;
             return prevState;
           }
-          const nextLesson = [...existing, cardId];
+          const nextLesson = [...existing, normalizedId];
           const streakResult = calculateNextStudyStreak(prevState.studyStreak, prevState.lastStudyDate);
           updatedProgress = {
             points: prevState.points + 10,
@@ -598,6 +368,7 @@ export default function Slider({
       lessonSlug,
       scrollToColumnTop,
       token,
+      toCardKey,
       total,
       updateUser,
       user,
@@ -605,17 +376,18 @@ export default function Slider({
   );
 
   const handleSelect = (id: string) => {
-    goToCardById(id);
+    const key = toCardKey(id);
+    goToCardById(key);
     setTocOpen(false);
     const delay = reduceMotion ? 0 : 400;
     setTimeout(() => {
-      const el = document.getElementById(`card-title-${id}`);
+      const el = document.getElementById(`card-title-${key}`);
       el?.focus();
     }, delay);
   };
 
   const percent = total > 0 ? Math.round(((index + 1) / total) * 100) : 0;
-  const activeCardId = cards[index]?.id;
+  const activeCardId = cards[index] ? toCardKey(cards[index].id) : undefined;
 
   const registerCardWrapper = useCallback(
     (id: string) => (node: HTMLDivElement | null) => {
@@ -739,13 +511,14 @@ export default function Slider({
                 </div>
                 <ul className="space-y-1 pl-6">
                   {t.cards.map((c) => {
-                    const isActive = activeCardId === c.id;
-                    const cardIndex = idToIndex.get(c.id);
+                    const cardKey = toCardKey(c.id);
+                    const isActive = activeCardId === cardKey;
+                    const cardIndex = idToIndex.get(cardKey);
                     const isCompleted =
-                      completedCardIds.has(c.id) ||
+                      completedCardIds.has(cardKey) ||
                       (!c.quiz && cardIndex !== undefined && cardIndex < index);
                     return (
-                      <li key={c.id}>
+                      <li key={cardKey}>
                         <button
                           type="button"
                           aria-current={isActive ? "true" : undefined}
@@ -756,7 +529,7 @@ export default function Slider({
                               ? "bg-neutral-100 dark:bg-neutral-800"
                               : "hover:bg-neutral-100 dark:hover:bg-neutral-800/60",
                           ].join(" ")}
-                          onClick={() => handleSelect(c.id)}
+                          onClick={() => handleSelect(cardKey)}
                         >
                           <span className="flex items-center gap-2">
                             <span className="flex w-4 justify-center">
@@ -804,16 +577,6 @@ export default function Slider({
           </div>
           <span className="ml-2 text-sm">{percent}%</span>
         </div>
-        <button
-          ref={toggleRef}
-          type="button"
-          onClick={() => setTocOpen((o) => !o)}
-          className="block w-full text-lg font-large border-2 border-brand bg-white text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100 py-2 rounded focus:outline-none focus-visible:ring-2 ring-brand lg:hidden"
-          aria-controls="toc-drawer"
-          aria-expanded={tocOpen}
-        >
-          Course Content
-        </button>
         <div className="relative lg:flex-1 lg:min-h-0">
           <div
             ref={containerRef}
@@ -821,15 +584,15 @@ export default function Slider({
           >
             {cards.map((c) => (
               <div
-                key={c.id}
+                key={toCardKey(c.id)}
                 className="w-full flex-shrink-0 snap-start lg:flex lg:h-full lg:flex-col"
               >
-                <div ref={registerCardWrapper(c.id)}>
+                <div ref={registerCardWrapper(toCardKey(c.id))}>
                   <Card
                     card={c}
                     topicName={c.topicName}
                     onQuizComplete={(meta) => handleCardCompletion(c.id, meta)}
-                    quizCompleted={completedCardIds.has(c.id)}
+                    quizCompleted={completedCardIds.has(toCardKey(c.id))}
                   />
                 </div>
               </div>
@@ -872,7 +635,7 @@ export default function Slider({
                 : "opacity-0 -translate-y-2 pointer-events-none"
             }`}
           >
-            <div className="sticky top-0 bg-white dark:bg-neutral-900 pb-3">
+            <div className="bg-white dark:bg-neutral-900 pb-3">
               <h2
                 id="course-title-mobile"
                 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100"
@@ -920,6 +683,9 @@ export default function Slider({
         isLoggedIn={Boolean(user)}
         showLoginPrompt={showLoginPrompt}
         onDismissPrompt={() => setShowLoginPrompt(false)}
+        onToggleCourseContent={() => setTocOpen((open) => !open)}
+        courseContentOpen={tocOpen}
+        courseContentButtonRef={toggleRef}
       />
     </>
   );

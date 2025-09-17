@@ -1,7 +1,9 @@
+import { useMemo } from "react";
 import type { Card as CardType } from "../../types/lesson-plan";
 import Quiz, { type QuizCompletionMeta } from "./Quiz";
 import { getYouTubeId } from "../../lib/getYouTubeId";
 import placeholderImage from "/mugshots/cesar.jpeg";
+import { normalizeCardId } from "../../utils/localProgress";
 
 export default function Card({
   card,
@@ -21,6 +23,7 @@ export default function Card({
   const headerImage = videoId
     ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
     : placeholderImage;
+  const cardKey = useMemo(() => normalizeCardId(card.id) ?? String(card.id), [card.id]);
 
   return (
     <article
@@ -38,7 +41,7 @@ export default function Card({
             </p>
           )}
           <h3
-            id={`card-title-${card.id}`}
+            id={`card-title-${cardKey}`}
             tabIndex={-1}
             className="text-2xl font-semibold leading-tight"
           >
@@ -50,22 +53,22 @@ export default function Card({
             </p>
           )}
         </div>
-        <div className="pointer-events-none absolute -bottom-12 right-6 z-20">
+        <div className="pointer-events-none absolute -bottom-12 right-6 z-10">
           <img
             src={headerImage}
             alt={`Cover art for ${card.title}`}
-            className="h-28 w-28 rounded-2xl border-4 border-white object-cover shadow-xl dark:border-black"
+            className="h-27 w-28 rounded-2xl border-4 border-white object-cover shadow-xl dark:border-black"
           />
         </div>
       </header>
       <div className="flex flex-1 flex-col gap-8 px-6 pb-6 pt-16 text-neutral-700 dark:text-neutral-200">
         {card.objectives && card.objectives.length > 0 && (
           <section
-            aria-labelledby={`card-${card.id}-objectives`}
+            aria-labelledby={`card-${cardKey}-objectives`}
             className="space-y-3"
           >
             <h2
-              id={`card-${card.id}-objectives`}
+              id={`card-${cardKey}-objectives`}
               className="text-lg font-semibold text-neutral-900 dark:text-neutral-100"
             >
               Learning Objectives
@@ -82,11 +85,11 @@ export default function Card({
 
         {card.content && (
           <section
-            aria-labelledby={`card-${card.id}-content`}
+            aria-labelledby={`card-${cardKey}-content`}
             className="space-y-3"
           >
             <h2
-              id={`card-${card.id}-content`}
+              id={`card-${cardKey}-content`}
               className="text-lg font-semibold text-neutral-900 dark:text-neutral-100"
             >
               Lesson Content
@@ -99,11 +102,11 @@ export default function Card({
 
         {card.quiz && (
           <section
-            aria-labelledby={`card-${card.id}-quiz`}
+            aria-labelledby={`card-${cardKey}-quiz`}
             className="space-y-4"
           >
             <h2
-              id={`card-${card.id}-quiz`}
+              id={`card-${cardKey}-quiz`}
               className="text-lg font-semibold text-neutral-900 dark:text-neutral-100"
             >
               Quiz

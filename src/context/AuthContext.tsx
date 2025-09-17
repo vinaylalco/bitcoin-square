@@ -12,6 +12,7 @@ import {
   resetPassword as apiReset,
 } from '../api/auth';
 import { strapiFetch } from '../api/strapi-client';
+import { normalizeLessonCompletionList } from '../utils/localProgress';
 import {
   decryptPrivateKey,
   encryptPrivateKey,
@@ -20,6 +21,11 @@ import {
 
 interface LessonCompletionMap {
   [slug: string]: string[];
+}
+
+interface UserPreferences {
+  thunderSoundEnabled?: boolean;
+  [key: string]: unknown;
 }
 
 export interface User {
@@ -32,6 +38,7 @@ export interface User {
   lessonCompletions: LessonCompletionMap;
   studyStreak: number;
   lastStudyDate: string | null;
+  preferences?: UserPreferences;
 }
 
 function normalizePoints(value: unknown): number {
@@ -72,12 +79,30 @@ function normalizeLessonCompletions(raw: unknown): LessonCompletionMap {
   if (typeof value !== 'object' || value === null) return {};
   const result: LessonCompletionMap = {};
   Object.entries(value as Record<string, unknown>).forEach(([key, val]) => {
-    if (Array.isArray(val)) {
-      const entries = val.filter((item): item is string => typeof item === 'string');
+    const entries = normalizeLessonCompletionList(val);
+    if (entries.length > 0) {
       result[key] = entries;
     }
   });
   return result;
+}
+
+function normalizePreferences(raw: unknown): UserPreferences {
+  if (!raw || typeof raw !== 'object') {
+    return {};
+  }
+  const input = raw as Record<string, unknown>;
+  const prefs: UserPreferences = { ...input };
+  if (typeof input.thunderSoundEnabled === 'boolean') {
+    prefs.thunderSoundEnabled = input.thunderSoundEnabled;
+  } else if (typeof input.thunderSoundEnabled === 'string') {
+    if (input.thunderSoundEnabled.toLowerCase() === 'true') {
+      prefs.thunderSoundEnabled = true;
+    } else if (input.thunderSoundEnabled.toLowerCase() === 'false') {
+      prefs.thunderSoundEnabled = false;
+    }
+  }
+  return prefs;
 }
 
 function normalizeUser(raw: any | null | undefined): User | null {
@@ -88,12 +113,16 @@ function normalizeUser(raw: any | null | undefined): User | null {
     lessonCompletions: normalizeLessonCompletions(raw.lessonCompletions),
     studyStreak: normalizeStudyStreak(raw.studyStreak),
     lastStudyDate: normalizeLastStudyDate(raw.lastStudyDate),
+    preferences: normalizePreferences(raw.preferences),
   };
   if (!normalized.lessonCompletions) {
     normalized.lessonCompletions = {};
   }
   if (!normalized.lastStudyDate) {
     normalized.lastStudyDate = null;
+  }
+  if (!normalized.preferences) {
+    normalized.preferences = {};
   }
   return normalized;
 }
