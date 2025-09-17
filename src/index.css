@@ -67,24 +67,67 @@
 }
 
 /* Lesson points HUD */
+:root {
+  --points-hud-border: rgba(15, 23, 42, 0.55);
+  --points-hud-background: linear-gradient(
+    135deg,
+    rgba(15, 23, 42, 0.95),
+    rgba(30, 41, 59, 0.95)
+  );
+  --points-hud-shadow: 0 22px 40px rgba(15, 23, 42, 0.6);
+  --points-hud-text: #f8fafc;
+}
+
+html.dark,
+body.dark {
+  --points-hud-border: rgba(148, 163, 184, 0.4);
+  --points-hud-background: linear-gradient(
+    135deg,
+    rgba(248, 250, 252, 0.94),
+    rgba(226, 232, 240, 0.94)
+  );
+  --points-hud-shadow: 0 22px 40px rgba(15, 23, 42, 0.18);
+  --points-hud-text: #0f172a;
+}
+
 .points-hud {
   position: relative;
   min-width: 260px;
   border-radius: 1.5rem;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: linear-gradient(135deg, rgba(17, 24, 39, 0.85), rgba(10, 10, 15, 0.9));
-  box-shadow: 0 25px 45px rgba(15, 23, 42, 0.4);
+  border: 1px solid var(--points-hud-border);
+  background: var(--points-hud-background);
+  box-shadow: var(--points-hud-shadow);
   backdrop-filter: blur(22px);
+  color: var(--points-hud-text);
+}
+
+.points-hud-panel {
+  position: relative;
+  border: 1px solid var(--points-hud-border);
+  background: var(--points-hud-background);
+  box-shadow: var(--points-hud-shadow);
+  backdrop-filter: blur(22px);
+  color: var(--points-hud-text);
+}
+
+.points-hud__surface {
+  background: var(--points-hud-background);
+  color: var(--points-hud-text);
 }
 
 .points-hud::before {
   content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at 20% 20%, rgba(250, 204, 21, 0.35), transparent 55%),
-    radial-gradient(circle at 80% 20%, rgba(59, 130, 246, 0.18), transparent 60%);
-  opacity: 0.9;
+  background: radial-gradient(circle at 22% 28%, rgba(148, 163, 184, 0.25), transparent 55%),
+    radial-gradient(circle at 78% 24%, rgba(59, 130, 246, 0.3), transparent 60%);
+  opacity: 0.85;
+}
+
+.dark .points-hud::before {
+  background: radial-gradient(circle at 20% 22%, rgba(37, 99, 235, 0.18), transparent 55%),
+    radial-gradient(circle at 82% 18%, rgba(251, 191, 36, 0.22), transparent 60%);
 }
 
 .points-hud--lightning::after {
@@ -138,8 +181,15 @@
   width: 36px;
   height: 36px;
   border-radius: 0.9rem;
-  background: rgba(255, 255, 255, 0.08);
-  box-shadow: inset 0 0 15px rgba(255, 255, 255, 0.08);
+  background: rgba(248, 250, 252, 0.16);
+  box-shadow: inset 0 0 12px rgba(248, 250, 252, 0.22);
+  color: #f8fafc;
+}
+
+.dark .points-hud__icon {
+  background: rgba(15, 23, 42, 0.08);
+  box-shadow: inset 0 0 15px rgba(15, 23, 42, 0.12);
+  color: inherit;
 }
 
 .points-hud__icon--points {
@@ -157,8 +207,14 @@
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.16em;
-  opacity: 0.7;
+  opacity: 0.85;
   font-weight: 600;
+  color: rgba(248, 250, 252, 0.75);
+}
+
+.dark .points-hud__label {
+  color: rgba(51, 65, 85, 0.7);
+  opacity: 0.8;
 }
 
 .points-hud__value {
@@ -168,6 +224,11 @@
   letter-spacing: 0.02em;
   transition: color 200ms ease;
   will-change: color, transform;
+  color: #f8fafc;
+}
+
+.dark .points-hud__value {
+  color: #0f172a;
 }
 
 .points-hud__value--lightning {
@@ -181,7 +242,11 @@
 .points-hud__divider {
   width: 1px;
   height: 42px;
-  background: linear-gradient(to bottom, transparent, rgba(255, 255, 255, 0.3), transparent);
+  background: linear-gradient(to bottom, transparent, rgba(148, 163, 184, 0.6), transparent);
+}
+
+.dark .points-hud__divider {
+  background: linear-gradient(to bottom, transparent, rgba(30, 41, 59, 0.2), transparent);
 }
 
 .points-hud__account {
@@ -209,8 +274,8 @@
   gap: 0.45rem;
   padding: 0.55rem 0.95rem;
   border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.08);
-  color: white;
+  background: rgba(248, 250, 252, 0.12);
+  color: #f8fafc;
   font-size: 0.85rem;
   font-weight: 600;
   letter-spacing: 0.01em;
@@ -220,8 +285,18 @@
 
 .points-hud__login:hover,
 .points-hud__login:focus-visible {
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(248, 250, 252, 0.2);
   transform: translateY(-1px);
+}
+
+.dark .points-hud__login {
+  background: rgba(15, 23, 42, 0.08);
+  color: #0f172a;
+}
+
+.dark .points-hud__login:hover,
+.dark .points-hud__login:focus-visible {
+  background: rgba(15, 23, 42, 0.14);
 }
 
 .points-hud__prompt {

@@ -18,6 +18,7 @@ import LessonDetail from "./routes/LessonDetail";
 import Languages from "./routes/Languages";
 import RouteError from "./routes/RouteError";
 import { ThemeProvider } from "./context/ThemeContext";
+import { PreferencesProvider } from "./context/PreferencesContext";
 import Shop from "./routes/Shop";
 import ProductDetail from "./routes/ProductDetail";
 import Login from "./routes/Login";
@@ -62,7 +63,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <ThemeProvider>
-          <RouterProvider router={router} />
+          <PreferencesProvider>
+            <RouterProvider router={router} />
+          </PreferencesProvider>
         </ThemeProvider>
       </AuthProvider>
     </QueryClientProvider>

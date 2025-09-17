@@ -23,6 +23,11 @@ interface LessonCompletionMap {
   [slug: string]: string[];
 }
 
+interface UserPreferences {
+  thunderSoundEnabled?: boolean;
+  [key: string]: unknown;
+}
+
 export interface User {
   id: number;
   email: string;
@@ -33,6 +38,7 @@ export interface User {
   lessonCompletions: LessonCompletionMap;
   studyStreak: number;
   lastStudyDate: string | null;
+  preferences?: UserPreferences;
 }
 
 function normalizePoints(value: unknown): number {
@@ -81,6 +87,24 @@ function normalizeLessonCompletions(raw: unknown): LessonCompletionMap {
   return result;
 }
 
+function normalizePreferences(raw: unknown): UserPreferences {
+  if (!raw || typeof raw !== 'object') {
+    return {};
+  }
+  const input = raw as Record<string, unknown>;
+  const prefs: UserPreferences = { ...input };
+  if (typeof input.thunderSoundEnabled === 'boolean') {
+    prefs.thunderSoundEnabled = input.thunderSoundEnabled;
+  } else if (typeof input.thunderSoundEnabled === 'string') {
+    if (input.thunderSoundEnabled.toLowerCase() === 'true') {
+      prefs.thunderSoundEnabled = true;
+    } else if (input.thunderSoundEnabled.toLowerCase() === 'false') {
+      prefs.thunderSoundEnabled = false;
+    }
+  }
+  return prefs;
+}
+
 function normalizeUser(raw: any | null | undefined): User | null {
   if (!raw) return null;
   const normalized: User = {
@@ -89,12 +113,16 @@ function normalizeUser(raw: any | null | undefined): User | null {
     lessonCompletions: normalizeLessonCompletions(raw.lessonCompletions),
     studyStreak: normalizeStudyStreak(raw.studyStreak),
     lastStudyDate: normalizeLastStudyDate(raw.lastStudyDate),
+    preferences: normalizePreferences(raw.preferences),
   };
   if (!normalized.lessonCompletions) {
     normalized.lessonCompletions = {};
   }
   if (!normalized.lastStudyDate) {
     normalized.lastStudyDate = null;
+  }
+  if (!normalized.preferences) {
+    normalized.preferences = {};
   }
   return normalized;
 }
