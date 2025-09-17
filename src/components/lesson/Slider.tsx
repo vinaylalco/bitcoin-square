@@ -108,6 +108,7 @@ export default function Slider({
   const insertedSummariesRef = useRef<Set<string>>(new Set());
   const reviewCounterRef = useRef(0);
   const summaryCounterRef = useRef(0);
+  const [reviewCompletion, setReviewCompletion] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     displayCardsRef.current = displayCards;
@@ -122,6 +123,7 @@ export default function Slider({
     insertedSummariesRef.current = new Set();
     reviewCounterRef.current = 0;
     summaryCounterRef.current = 0;
+    setReviewCompletion({});
   }, [cards]);
 
   const total = displayCards.length;
@@ -345,20 +347,38 @@ export default function Slider({
     [reduceMotion, ease]
   );
 
+  const isReviewLocked = useCallback(
+    (card?: LessonCard) => {
+      if (!card?.isReview) return false;
+      const reviewKey = toCardKey(card.id);
+      return !reviewCompletion[reviewKey];
+    },
+    [reviewCompletion, toCardKey],
+  );
+
   const prev = () => {
     void animateScroll(index - 1);
   };
-  const next = () => {
+  const next = useCallback(() => {
+    const activeCard = displayCards[index];
+    if (isReviewLocked(activeCard)) {
+      return;
+    }
     void animateScroll(index + 1);
-  };
+  }, [animateScroll, displayCards, index, isReviewLocked]);
   const goToCardById = useCallback(
     (id: string) => {
       const idx = idToIndex.get(id);
-      if (idx !== undefined) {
-        void animateScroll(idx);
+      if (idx === undefined) {
+        return;
       }
+      const activeCard = displayCards[index];
+      if (idx > index && isReviewLocked(activeCard)) {
+        return;
+      }
+      void animateScroll(idx);
     },
-    [idToIndex, animateScroll]
+    [animateScroll, displayCards, idToIndex, index, isReviewLocked]
   );
 
   const scrollToColumnTop = useCallback(() => {
@@ -378,9 +398,28 @@ export default function Slider({
       if (!lessonSlug) return;
 
       const normalizedId = toCardKey(card.sourceCardId ?? card.id);
+      const reviewCardId = card.isReview ? toCardKey(card.id) : null;
       const result = meta?.result
         ?? (card.quiz?.type === "multiple_choice" ? "correct" : "revealed");
       const currentIndex = index;
+
+      if (reviewCardId) {
+        if (result === "correct") {
+          setReviewCompletion((prev) => {
+            if (prev[reviewCardId]) {
+              return prev;
+            }
+            return { ...prev, [reviewCardId]: true };
+          });
+        } else if (result === "incorrect" && card.quiz?.type === "multiple_choice") {
+          setReviewCompletion((prev) => {
+            if (prev[reviewCardId] === false) {
+              return prev;
+            }
+            return { ...prev, [reviewCardId]: false };
+          });
+        }
+      }
 
       const advance = () => {
         const totalCards = displayCardsRef.current.length;
@@ -409,6 +448,10 @@ export default function Slider({
       };
 
       if (result === "incorrect" && card.quiz?.type === "multiple_choice") {
+        if (card.isReview) {
+          setShowLoginPrompt(false);
+          return;
+        }
         queueReviewCard(card, normalizedId);
         recordModuleMistake(card, normalizedId);
         applyPointDelta(-10);
@@ -564,6 +607,7 @@ export default function Slider({
 
   const percent = total > 0 ? Math.round(((index + 1) / total) * 100) : 0;
   const activeCardId = displayCards[index] ? toCardKey(displayCards[index].id) : undefined;
+  const reviewLocked = isReviewLocked(displayCards[index]);
 
   const registerCardWrapper = useCallback(
     (id: string) => (node: HTMLDivElement | null) => {
@@ -792,9 +836,11 @@ export default function Slider({
             <button
               onClick={next}
               aria-label="Next"
+              disabled={reviewLocked}
               className={[
                 "hidden lg:flex items-center justify-center absolute right-0 top-1/2 -translate-y-1/2 translate-x-full",
                 "w-10 h-10 bg-white border rounded-full shadow",
+                "disabled:cursor-not-allowed disabled:opacity-50",
               ].join(" ")}
             >
               <ChevronRight />

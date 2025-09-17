@@ -130,7 +130,7 @@ export default function Card({
       <div className="flex flex-1 flex-col gap-8 px-6 pb-6 pt-16 text-neutral-700 dark:text-neutral-200">
         {isReviewCard && (
           <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 shadow-sm dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-100">
-            You saw this question earlier in the module—try it again with your new understanding.
+            You got this one wrong earlier but let&apos;s try again to cement your learning.
           </div>
         )}
         {card.objectives && card.objectives.length > 0 && (
@@ -186,6 +186,7 @@ export default function Card({
               quiz={card.quiz}
               onComplete={(meta) => onQuizComplete?.(card, meta)}
               isCompleted={quizCompleted}
+              isReview={isReviewCard}
             />
           </section>
         )}

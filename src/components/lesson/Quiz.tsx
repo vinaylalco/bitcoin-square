@@ -5,6 +5,7 @@ interface QuizProps {
   quiz: QuizType;
   onComplete?: (meta?: QuizCompletionMeta) => void;
   isCompleted?: boolean;
+  isReview?: boolean;
 }
 
 export interface QuizCompletionMeta {
@@ -15,7 +16,12 @@ export interface QuizCompletionMeta {
 const MULTIPLE_CHOICE_FLASH_DURATION = 650;
 const TEXT_REVEAL_HOLD_DURATION = 2400;
 
-export default function Quiz({ quiz, onComplete, isCompleted = false }: QuizProps) {
+export default function Quiz({
+  quiz,
+  onComplete,
+  isCompleted = false,
+  isReview = false,
+}: QuizProps) {
   const [selected, setSelected] = useState<string | null>(null);
   const [status, setStatus] = useState<"correct" | "incorrect" | null>(null);
   const [showAnswer, setShowAnswer] = useState(false);
@@ -146,7 +152,11 @@ export default function Quiz({ quiz, onComplete, isCompleted = false }: QuizProp
     setSelected(opt);
     const isCorrectChoice = opt === quiz.correct_answer;
     setStatus(isCorrectChoice ? "correct" : "incorrect");
-    setCompleted(true);
+    if (isCorrectChoice) {
+      setCompleted(true);
+    } else {
+      setCompleted(!isReview);
+    }
     if (isCorrectChoice) {
       if (typeof window !== "undefined") {
         if (flashTimeoutRef.current !== null) {
@@ -218,7 +228,7 @@ export default function Quiz({ quiz, onComplete, isCompleted = false }: QuizProp
                   {isCorrect
                     ? "Correct Answer"
                     : isIncorrect
-                    ? "Try Again"
+                    ? "try again"
                     : opt}
                 </span>
                 {isActive && (
