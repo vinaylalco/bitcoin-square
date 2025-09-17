@@ -149,9 +149,7 @@ export default function Dashboard() {
                     Copy
                   </button>
                 </div>
-                <p className="mt-3 break-all font-mono text-sm text-neutral-900 dark:text-neutral-100">
-                  Hidden for security — tap copy to use this key.
-                </p>
+                <p className="mt-3 break-all font-mono text-sm text-neutral-900 dark:text-neutral-100">{nostrPrivKey}</p>
               </div>
             )}
           </div>
