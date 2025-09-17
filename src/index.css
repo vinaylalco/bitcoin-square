@@ -240,13 +240,13 @@ body.dark {
 }
 
 .points-hud__divider {
-  width: 1px;
-  height: 42px;
-  background: linear-gradient(to bottom, transparent, rgba(148, 163, 184, 0.6), transparent);
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(148, 163, 184, 0.6), transparent);
 }
 
 .dark .points-hud__divider {
-  background: linear-gradient(to bottom, transparent, rgba(30, 41, 59, 0.2), transparent);
+  background: linear-gradient(to right, transparent, rgba(30, 41, 59, 0.2), transparent);
 }
 
 .points-hud__account {

@@ -185,7 +185,7 @@ export default function LessonPointsCounter({
         <div className={`points-hud ${animateStrike ? "points-hud--lightning" : ""}`}>
           <div className="points-hud__glow" aria-hidden />
           <div className="points-hud__noise" aria-hidden />
-          <div className="points-hud__surface relative z-10 flex flex-wrap items-center gap-5 px-6 py-4">
+          <div className="points-hud__surface relative z-10 flex flex-col gap-6 px-6 py-6">
             <div className="flex items-center gap-4">
               <span className="points-hud__icon points-hud__icon--points" aria-hidden>
                 <Zap className="h-4 w-4" />
@@ -209,7 +209,7 @@ export default function LessonPointsCounter({
                 </span>
               </div>
             </div>
-            <div className="ml-auto flex items-center">
+            <div className="flex justify-end">
               {isLoggedIn ? (
                 <Link
                   to="/dashboard"
