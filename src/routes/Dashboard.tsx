@@ -1,21 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import {
-  Copy,
-  Eye,
-  EyeOff,
-  Flame,
-  Layers,
-  LogOut,
-  Sparkles,
-  Trophy,
-} from 'lucide-react';
+import { Copy, Flame, Layers, LogOut, Sparkles, Trophy } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function Dashboard() {
   const { user, logout, nostrPrivKey } = useAuth();
   const nav = useNavigate();
-  const [showPriv, setShowPriv] = useState(false);
 
   if (!user) return <Navigate to="/login" replace />;
 
@@ -150,27 +140,17 @@ export default function Dashboard() {
               <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4 transition-colors dark:border-neutral-800 dark:bg-neutral-950/40">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <span className="text-xs uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">Private key</span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowPriv((s) => !s)}
-                      className="inline-flex items-center gap-2 rounded-full bg-brand px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-white transition hover:bg-brand/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-                    >
-                      {showPriv ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                      {showPriv ? 'Hide' : 'Show'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => navigator.clipboard.writeText(nostrPrivKey)}
-                      className="inline-flex items-center gap-2 rounded-full bg-brand px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-white transition hover:bg-brand/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-                    >
-                      <Copy className="h-3.5 w-3.5" />
-                      Copy
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => navigator.clipboard.writeText(nostrPrivKey)}
+                    className="inline-flex items-center gap-2 rounded-full bg-brand px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-white transition hover:bg-brand/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                    Copy
+                  </button>
                 </div>
                 <p className="mt-3 break-all font-mono text-sm text-neutral-900 dark:text-neutral-100">
-                  {showPriv ? nostrPrivKey : '•••• •••• •••• •••• •••• •••• •••• ••••'}
+                  Hidden for security — tap copy to use this key.
                 </p>
               </div>
             )}
