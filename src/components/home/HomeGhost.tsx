@@ -1,28 +1,53 @@
 export default function HomeGhost() {
   return (
-    <div className="p-6 space-y-8 animate-pulse">
-      <div className="space-y-4">
-        <div className="h-10 bg-neutral-200 rounded w-1/2" />
-        <div className="h-4 bg-neutral-200 rounded w-2/3" />
-        <div className="h-1 w-16 bg-brand rounded-full" />
-      </div>
-      <div className="space-y-10">
-        {[1, 2].map((n) => (
-          <div
-            key={n}
-            className="px-4 sm:px-6 space-y-10"
-          >
-            <article className="grid grid-cols-1 md:grid-cols-2 gap-5 items-center rounded-2xl border border-neutral-200 dark:border-neutral-800 p-4 sm:p-6 bg-white dark:bg-neutral-900 shadow-sm">
-              <div className="h-48 bg-neutral-200 dark:bg-neutral-700 rounded" />
-              <div className="space-y-4">
-                <div className="h-6 bg-neutral-200 rounded w-3/4" />
-                <div className="h-4 bg-neutral-200 rounded w-full" />
-                <div className="h-4 bg-neutral-200 rounded w-5/6" />
-                <div className="h-10 bg-neutral-200 rounded w-32" />
-              </div>
-            </article>
+    <div className="min-h-screen bg-neutral-950 text-neutral-100">
+      <div className="relative overflow-hidden">
+        <div className="pointer-events-none absolute inset-0 opacity-80">
+          <div className="absolute -top-44 right-1/3 h-72 w-72 rounded-full bg-brand/30 blur-3xl" />
+          <div className="absolute top-1/3 -left-20 h-64 w-64 rounded-full bg-brand/20 blur-3xl" />
+          <div className="absolute bottom-0 right-0 h-96 w-96 rounded-full bg-neutral-900/70 blur-3xl" />
+        </div>
+
+        <div className="relative mx-auto max-w-6xl px-4 pt-16 pb-20 sm:px-6 lg:px-8">
+          <div className="flex animate-pulse flex-col items-center gap-8 text-center md:items-start md:text-left">
+            <div className="space-y-6 md:max-w-3xl">
+              <div className="h-8 w-32 rounded-full border border-brand/40 bg-brand/10" />
+              <div className="h-12 w-full rounded-2xl bg-neutral-800 sm:h-16" />
+              <div className="h-4 w-11/12 rounded-full bg-neutral-800" />
+            </div>
+            <div className="h-1 w-24 rounded-full bg-brand/70" />
           </div>
-        ))}
+        </div>
+      </div>
+
+      <div className="relative z-10 -mt-10 pb-24">
+        <div className="mx-auto max-w-6xl space-y-16 px-4 sm:px-6 lg:px-8">
+          {[1, 2, 3].map((item) => (
+            <section key={item} className="relative">
+              <div className="group relative overflow-hidden rounded-3xl border border-neutral-800/70 bg-neutral-900/70 shadow-[0_35px_120px_rgba(0,0,0,0.45)] backdrop-blur-sm">
+                <div className="grid gap-10 p-6 sm:p-10 md:grid-cols-2">
+                  <div className="space-y-6 text-center md:space-y-7 md:text-left">
+                    <div className="h-10 w-3/4 rounded-full bg-neutral-800 md:w-2/3" />
+                    <div className="space-y-3">
+                      <div className="h-4 w-full rounded-full bg-neutral-800" />
+                      <div className="h-4 w-11/12 rounded-full bg-neutral-800" />
+                      <div className="h-4 w-10/12 rounded-full bg-neutral-800" />
+                    </div>
+                    <div className="flex justify-center md:justify-start">
+                      <div className="h-11 w-36 rounded-full bg-brand/60" />
+                    </div>
+                  </div>
+
+                  <div className="relative">
+                    <div className="aspect-[4/3] w-full overflow-hidden rounded-3xl border border-neutral-800/80 bg-neutral-950/60">
+                      <div className="h-full w-full bg-neutral-800" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          ))}
+        </div>
       </div>
     </div>
   );
