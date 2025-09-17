@@ -185,48 +185,49 @@ export default function LessonPointsCounter({
         <div className={`points-hud ${animateStrike ? "points-hud--lightning" : ""}`}>
           <div className="points-hud__glow" aria-hidden />
           <div className="points-hud__noise" aria-hidden />
-        <div className="relative z-10 flex flex-wrap items-center gap-5 px-6 py-4">
-          <div className="flex items-center gap-4">
-            <span className="points-hud__icon points-hud__icon--points" aria-hidden>
-              <Zap className="h-4 w-4" />
-            </span>
-            <div>
-              <span className="points-hud__label">Points</span>
-              <span className={`points-hud__value ${animateStrike ? "points-hud__value--lightning" : ""}`}>
-                {formattedPoints}
+          <div className="points-hud__surface relative z-10 flex flex-wrap items-center gap-5 px-6 py-4">
+            <div className="flex items-center gap-4">
+              <span className="points-hud__icon points-hud__icon--points" aria-hidden>
+                <Zap className="h-4 w-4" />
               </span>
+              <div>
+                <span className="points-hud__label">Points</span>
+                <span className={`points-hud__value ${animateStrike ? "points-hud__value--lightning" : ""}`}>
+                  {formattedPoints}
+                </span>
+              </div>
             </div>
-          </div>
-          <div className="points-hud__divider" aria-hidden />
-          <div className="flex items-center gap-4">
-            <span className="points-hud__icon points-hud__icon--streak" aria-hidden>
-              <Flame className="h-4 w-4" />
-            </span>
-            <div>
-              <span className="points-hud__label">Study streak</span>
-              <span className="points-hud__value text-lg">
-                {normalizedStreak} {streakLabel}
+            <div className="points-hud__divider" aria-hidden />
+            <div className="flex items-center gap-4">
+              <span className="points-hud__icon points-hud__icon--streak" aria-hidden>
+                <Flame className="h-4 w-4" />
               </span>
+              <div>
+                <span className="points-hud__label">Study streak</span>
+                <span className="points-hud__value text-lg">
+                  {normalizedStreak} {streakLabel}
+                </span>
+              </div>
             </div>
-          </div>
-          <div className="ml-auto flex items-center">
-            {isLoggedIn ? (
-              <Link
-                to="/dashboard"
-                className="points-hud__account"
-                aria-label="Account"
-              >
-                <UserRound className="h-5 w-5" aria-hidden="true" />
-              </Link>
-            ) : (
-              <Link
-                to="/login"
-                className="points-hud__login"
-              >
-                <LogIn className="h-4 w-4" aria-hidden="true" />
-                <span className="font-medium">Log in</span>
-              </Link>
-            )}
+            <div className="ml-auto flex items-center">
+              {isLoggedIn ? (
+                <Link
+                  to="/dashboard"
+                  className="points-hud__account"
+                  aria-label="Account"
+                >
+                  <UserRound className="h-5 w-5" aria-hidden="true" />
+                </Link>
+              ) : (
+                <Link
+                  to="/login"
+                  className="points-hud__login"
+                >
+                  <LogIn className="h-4 w-4" aria-hidden="true" />
+                  <span className="font-medium">Log in</span>
+                </Link>
+              )}
+            </div>
           </div>
         </div>
       </div>
