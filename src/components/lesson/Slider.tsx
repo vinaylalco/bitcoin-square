@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import type { CSSProperties } from "react";
 import { Check, ChevronLeft, ChevronRight } from "lucide-react";
-import type { Card as CardType, Module } from "../../types/lesson-plan";
+import type { LessonCard, LessonSummaryItem, Module } from "../../types/lesson-plan";
 import Card from "./Card";
 import { strapiFetch } from "../../api/strapi-client";
 import { useAuth } from "../../context/AuthContext";
@@ -14,11 +15,6 @@ import {
   persistLocalProgress,
   readLocalProgress,
 } from "../../utils/localProgress";
-
-interface SliderCard extends CardType {
-  topicName: string;
-  moduleName: string;
-}
 
 function createBezier(x1: number, y1: number, x2: number, y2: number) {
   const cx = 3 * x1;
@@ -60,13 +56,14 @@ export default function Slider({
   courseTitle,
   lessonSlug,
 }: {
-  cards: SliderCard[];
+  cards: LessonCard[];
   modules: Module[];
   courseTitle?: string;
   lessonSlug?: string;
 }) {
   const [index, setIndex] = useState(0);
-  const total = cards.length;
+  const [displayCards, setDisplayCards] = useState<LessonCard[]>(cards);
+  const displayCardsRef = useRef(displayCards);
   const toCardKey = useCallback((value: unknown) => normalizeCardId(value) ?? String(value), []);
   const containerRef = useRef<HTMLDivElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
@@ -106,12 +103,156 @@ export default function Slider({
     }
     return initial;
   });
+  const pendingReviewsRef = useRef<Map<string, LessonCard[]>>(new Map());
+  const moduleMistakesRef = useRef<Map<string, Map<string, LessonSummaryItem>>>(new Map());
+  const insertedSummariesRef = useRef<Set<string>>(new Set());
+  const reviewCounterRef = useRef(0);
+  const summaryCounterRef = useRef(0);
+
+  useEffect(() => {
+    displayCardsRef.current = displayCards;
+  }, [displayCards]);
+
+  useEffect(() => {
+    setDisplayCards(cards);
+    displayCardsRef.current = cards;
+    setIndex(0);
+    pendingReviewsRef.current = new Map();
+    moduleMistakesRef.current = new Map();
+    insertedSummariesRef.current = new Set();
+    reviewCounterRef.current = 0;
+    summaryCounterRef.current = 0;
+  }, [cards]);
+
+  const total = displayCards.length;
 
   const idToIndex = useMemo(() => {
     const map = new Map<string, number>();
-    cards.forEach((c, i) => map.set(toCardKey(c.id), i));
+    displayCards.forEach((c, i) => map.set(toCardKey(c.id), i));
     return map;
-  }, [cards, toCardKey]);
+  }, [displayCards, toCardKey]);
+
+  const applyPointDelta = useCallback(
+    (delta: number) => {
+      if (delta === 0) return;
+      if (user && token) {
+        let updatedPoints: number | null = null;
+        updateUser((prev) => {
+          if (!prev) return prev;
+          const nextPoints = (prev.points ?? 0) + delta;
+          updatedPoints = nextPoints;
+          return { ...prev, points: nextPoints };
+        });
+        if (updatedPoints !== null) {
+          setDisplayPoints(updatedPoints);
+          (async () => {
+            try {
+              await strapiFetch(`/api/users/${user.id}`, {
+                method: "PUT",
+                headers: { Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ points: updatedPoints }),
+              });
+            } catch (error) {
+              console.error("Failed to update points", error);
+            }
+          })();
+        }
+      } else {
+        let updatedProgress: LocalProgress | null = null;
+        setLocalProgress((prevState) => {
+          const nextPoints = prevState.points + delta;
+          updatedProgress = { ...prevState, points: nextPoints };
+          return updatedProgress;
+        });
+        if (updatedProgress) {
+          persistLocalProgress(updatedProgress);
+          setDisplayPoints(updatedProgress.points);
+        }
+      }
+    },
+    [token, updateUser, user],
+  );
+
+  const queueReviewCard = useCallback(
+    (card: LessonCard, normalizedId: string | null) => {
+      if (!normalizedId) return;
+      if (card.quiz?.type !== "multiple_choice") return;
+      if (card.isReview) return;
+      const current = new Map(pendingReviewsRef.current);
+      const existing = current.get(card.topicId) ?? [];
+      const alreadyQueued = existing.some(
+        (entry) => toCardKey(entry.sourceCardId ?? entry.id) === normalizedId,
+      );
+      if (alreadyQueued) {
+        pendingReviewsRef.current = current;
+        return;
+      }
+      reviewCounterRef.current += 1;
+      const reviewCard: LessonCard = {
+        ...card,
+        id: `${normalizedId}__review-${reviewCounterRef.current}`,
+        sourceCardId: card.sourceCardId ?? card.id,
+        isReview: true,
+        isLastInTopic: false,
+        isLastInModule: false,
+      };
+      current.set(card.topicId, [...existing, reviewCard]);
+      pendingReviewsRef.current = current;
+    },
+    [toCardKey],
+  );
+
+  const recordModuleMistake = useCallback((card: LessonCard, normalizedId: string | null) => {
+    if (!normalizedId) return;
+    const summaryItem: LessonSummaryItem = {
+      cardId: normalizedId,
+      title: card.quiz?.question ?? card.title,
+      topicName: card.topicName,
+    };
+    const next = new Map(moduleMistakesRef.current);
+    const moduleEntries = new Map(next.get(card.moduleId) ?? new Map());
+    if (!moduleEntries.has(normalizedId)) {
+      moduleEntries.set(normalizedId, summaryItem);
+    }
+    next.set(card.moduleId, moduleEntries);
+    moduleMistakesRef.current = next;
+  }, []);
+
+  const drainPendingReviewCards = useCallback((topicId: string): LessonCard[] => {
+    const current = new Map(pendingReviewsRef.current);
+    const reviews = current.get(topicId) ?? [];
+    current.delete(topicId);
+    pendingReviewsRef.current = current;
+    return reviews;
+  }, []);
+
+  const createModuleSummaryCard = useCallback(
+    (card: LessonCard): LessonCard | null => {
+      if (insertedSummariesRef.current.has(card.moduleId)) {
+        return null;
+      }
+      const nextSet = new Set(insertedSummariesRef.current);
+      nextSet.add(card.moduleId);
+      insertedSummariesRef.current = nextSet;
+      summaryCounterRef.current += 1;
+      const summaryItemsMap = moduleMistakesRef.current.get(card.moduleId);
+      const summaryItems = summaryItemsMap
+        ? Array.from(summaryItemsMap.values())
+        : [];
+      return {
+        id: `${card.moduleId}__summary-${summaryCounterRef.current}`,
+        title: "Here’s what you got wrong",
+        topicId: card.topicId,
+        topicName: card.topicName,
+        moduleId: card.moduleId,
+        moduleName: card.moduleName,
+        sourceCardId: `${card.moduleId}__summary`,
+        isSummary: true,
+        summaryItems,
+      };
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!lessonSlug) return;
@@ -174,7 +315,8 @@ export default function Slider({
     (targetIndex: number) => {
       const el = containerRef.current;
       if (!el) return Promise.resolve();
-      const clamped = Math.max(0, Math.min(total - 1, targetIndex));
+      const totalCards = displayCardsRef.current.length;
+      const clamped = Math.max(0, Math.min(totalCards - 1, targetIndex));
       const start = el.scrollLeft;
       const width = el.clientWidth;
       const target = clamped * width;
@@ -200,7 +342,7 @@ export default function Slider({
         requestAnimationFrame(step);
       });
     },
-    [total, reduceMotion, ease]
+    [reduceMotion, ease]
   );
 
   const prev = () => {
@@ -231,14 +373,18 @@ export default function Slider({
     });
   }, [reduceMotion]);
 
-  const handleCardCompletion = useCallback(
-    (cardId: string, meta?: QuizCompletionMeta) => {
-      const normalizedId = toCardKey(cardId);
+  const handleCardResult = useCallback(
+    (card: LessonCard, meta?: QuizCompletionMeta) => {
       if (!lessonSlug) return;
 
+      const normalizedId = toCardKey(card.sourceCardId ?? card.id);
+      const result = meta?.result
+        ?? (card.quiz?.type === "multiple_choice" ? "correct" : "revealed");
       const currentIndex = index;
+
       const advance = () => {
-        if (currentIndex < total - 1) {
+        const totalCards = displayCardsRef.current.length;
+        if (currentIndex < totalCards - 1) {
           void animateScroll(currentIndex + 1).then(() => {
             scrollToColumnTop();
           });
@@ -262,117 +408,147 @@ export default function Slider({
         advance();
       };
 
-      if (completedCardIds.has(normalizedId)) {
-        scheduleAdvance();
-        return;
+      if (result === "incorrect" && card.quiz?.type === "multiple_choice") {
+        queueReviewCard(card, normalizedId);
+        recordModuleMistake(card, normalizedId);
+        applyPointDelta(-10);
+        setShowLoginPrompt(false);
+      } else if (normalizedId && !completedCardIds.has(normalizedId)) {
+        setCompletedCardIds((prevSet) => {
+          const nextSet = new Set(prevSet);
+          nextSet.add(normalizedId);
+          return nextSet;
+        });
+
+        if (user && token) {
+          setShowLoginPrompt(false);
+          let updatedPoints = user.points ?? 0;
+          let updatedCompletions: Record<string, string[]> | null = null;
+          let updatedStreak = user.studyStreak ?? 0;
+          let updatedLastStudyDate = user.lastStudyDate ?? null;
+          updateUser((prev) => {
+            if (!prev) return prev;
+            const existing = normalizeLessonCompletionList(
+              prev.lessonCompletions?.[lessonSlug] ?? [],
+            );
+            if (existing.includes(normalizedId)) {
+              updatedPoints = prev.points ?? 0;
+              updatedStreak = prev.studyStreak ?? 0;
+              updatedLastStudyDate = prev.lastStudyDate ?? null;
+              return prev;
+            }
+            const nextLesson = [...existing, normalizedId];
+            updatedPoints = (prev.points ?? 0) + 10;
+            updatedCompletions = {
+              ...prev.lessonCompletions,
+              [lessonSlug]: nextLesson,
+            };
+            const streakResult = calculateNextStudyStreak(prev.studyStreak, prev.lastStudyDate);
+            updatedStreak = streakResult.streak;
+            updatedLastStudyDate = streakResult.lastStudyDate;
+            return {
+              ...prev,
+              points: updatedPoints,
+              lessonCompletions: updatedCompletions,
+              studyStreak: updatedStreak,
+              lastStudyDate: updatedLastStudyDate,
+            };
+          });
+          if (updatedCompletions) {
+            setDisplayPoints(updatedPoints);
+            setDisplayStreak(updatedStreak);
+            (async () => {
+              try {
+                await strapiFetch(`/api/users/${user.id}`, {
+                  method: "PUT",
+                  headers: { Authorization: `Bearer ${token}` },
+                  body: JSON.stringify({
+                    points: updatedPoints,
+                    lessonCompletions: updatedCompletions,
+                    studyStreak: updatedStreak,
+                    lastStudyDate: updatedLastStudyDate,
+                  }),
+                });
+              } catch (error) {
+                console.error("Failed to save lesson progress", error);
+              }
+            })();
+          }
+        } else {
+          let updatedProgress: LocalProgress | null = null;
+          setLocalProgress((prevState) => {
+            const existing = normalizeLessonCompletionList(
+              prevState.lessonCompletions[lessonSlug] ?? [],
+            );
+            if (existing.includes(normalizedId)) {
+              updatedProgress = null;
+              return prevState;
+            }
+            const nextLesson = [...existing, normalizedId];
+            const streakResult = calculateNextStudyStreak(
+              prevState.studyStreak,
+              prevState.lastStudyDate,
+            );
+            updatedProgress = {
+              points: prevState.points + 10,
+              lessonCompletions: {
+                ...prevState.lessonCompletions,
+                [lessonSlug]: nextLesson,
+              },
+              studyStreak: streakResult.streak,
+              lastStudyDate: streakResult.lastStudyDate,
+            };
+            return updatedProgress;
+          });
+          if (updatedProgress) {
+            persistLocalProgress(updatedProgress);
+            setDisplayPoints(updatedProgress.points);
+            setDisplayStreak(updatedProgress.studyStreak);
+            setShowLoginPrompt(true);
+          }
+        }
       }
 
-      setCompletedCardIds((prevSet) => {
-        const nextSet = new Set(prevSet);
-        nextSet.add(normalizedId);
-        return nextSet;
-      });
-
-      if (user && token) {
-        setShowLoginPrompt(false);
-        let updatedPoints = user.points ?? 0;
-        let updatedCompletions: Record<string, string[]> | null = null;
-        let updatedStreak = user.studyStreak ?? 0;
-        let updatedLastStudyDate = user.lastStudyDate ?? null;
-        updateUser((prev) => {
-          if (!prev) return prev;
-          const existing = normalizeLessonCompletionList(
-            prev.lessonCompletions?.[lessonSlug] ?? [],
-          );
-          if (existing.includes(normalizedId)) {
-            updatedPoints = prev.points ?? 0;
-            updatedStreak = prev.studyStreak ?? 0;
-            updatedLastStudyDate = prev.lastStudyDate ?? null;
-            return prev;
-          }
-          const nextLesson = [...existing, normalizedId];
-          updatedPoints = (prev.points ?? 0) + 10;
-          updatedCompletions = {
-            ...prev.lessonCompletions,
-            [lessonSlug]: nextLesson,
-          };
-          const streakResult = calculateNextStudyStreak(prev.studyStreak, prev.lastStudyDate);
-          updatedStreak = streakResult.streak;
-          updatedLastStudyDate = streakResult.lastStudyDate;
-          return {
-            ...prev,
-            points: updatedPoints,
-            lessonCompletions: updatedCompletions,
-            studyStreak: updatedStreak,
-            lastStudyDate: updatedLastStudyDate,
-          };
-        });
-        if (updatedCompletions) {
-          setDisplayPoints(updatedPoints);
-          setDisplayStreak(updatedStreak);
-          (async () => {
-            try {
-              await strapiFetch(`/api/users/${user.id}`, {
-                method: "PUT",
-                headers: { Authorization: `Bearer ${token}` },
-                body: JSON.stringify({
-                  points: updatedPoints,
-                  lessonCompletions: updatedCompletions,
-                  studyStreak: updatedStreak,
-                  lastStudyDate: updatedLastStudyDate,
-                }),
-              });
-            } catch (error) {
-              console.error("Failed to save lesson progress", error);
-            }
-          })();
+      const additions: LessonCard[] = [];
+      if (!card.isReview && card.isLastInTopic) {
+        const reviews = drainPendingReviewCards(card.topicId);
+        if (reviews.length > 0) {
+          additions.push(...reviews);
         }
-      } else {
-        let updatedProgress: LocalProgress | null = null;
-        setLocalProgress((prevState) => {
-          const existing = normalizeLessonCompletionList(
-            prevState.lessonCompletions[lessonSlug] ?? [],
-          );
-          if (existing.includes(normalizedId)) {
-            updatedProgress = null;
-            return prevState;
-          }
-          const nextLesson = [...existing, normalizedId];
-          const streakResult = calculateNextStudyStreak(prevState.studyStreak, prevState.lastStudyDate);
-          updatedProgress = {
-            points: prevState.points + 10,
-            lessonCompletions: {
-              ...prevState.lessonCompletions,
-              [lessonSlug]: nextLesson,
-            },
-            studyStreak: streakResult.streak,
-            lastStudyDate: streakResult.lastStudyDate,
-          };
-          return updatedProgress;
-        });
-        if (updatedProgress) {
-          persistLocalProgress(updatedProgress);
-          setDisplayPoints(updatedProgress.points);
-          setDisplayStreak(updatedProgress.studyStreak);
-          setShowLoginPrompt(true);
+      }
+      if (!card.isReview && card.isLastInModule) {
+        const summaryCard = createModuleSummaryCard(card);
+        if (summaryCard) {
+          additions.push(summaryCard);
         }
+      }
+      if (additions.length > 0) {
+        setDisplayCards((prevCards) => {
+          const nextCards = [...prevCards];
+          nextCards.splice(currentIndex + 1, 0, ...additions);
+          displayCardsRef.current = nextCards;
+          return nextCards;
+        });
       }
 
       scheduleAdvance();
     },
     [
       animateScroll,
+      applyPointDelta,
       completedCardIds,
-      completionTimeoutRef,
+      createModuleSummaryCard,
+      drainPendingReviewCards,
       index,
       lessonSlug,
+      queueReviewCard,
+      recordModuleMistake,
       scrollToColumnTop,
       token,
       toCardKey,
-      total,
       updateUser,
       user,
-    ]
+    ],
   );
 
   const handleSelect = (id: string) => {
@@ -387,7 +563,7 @@ export default function Slider({
   };
 
   const percent = total > 0 ? Math.round(((index + 1) / total) * 100) : 0;
-  const activeCardId = cards[index] ? toCardKey(cards[index].id) : undefined;
+  const activeCardId = displayCards[index] ? toCardKey(displayCards[index].id) : undefined;
 
   const registerCardWrapper = useCallback(
     (id: string) => (node: HTMLDivElement | null) => {
@@ -447,7 +623,7 @@ export default function Slider({
     return () => {
       window.removeEventListener("resize", updateHeight);
     };
-  }, [activeCardId, cards]);
+  }, [activeCardId, displayCards]);
 
   useEffect(() => {
     if (!tocOpen) return;
@@ -557,7 +733,7 @@ export default function Slider({
     <>
       <div
         className="lg:flex lg:items-start"
-        style={{ "--chrome": `${chrome}px` } as React.CSSProperties}
+        style={{ "--chrome": `${chrome}px` } as CSSProperties}
       >
       <div
         ref={columnRef}
@@ -582,7 +758,7 @@ export default function Slider({
             ref={containerRef}
             className="flex overflow-x-auto snap-x snap-mandatory lg:h-full"
           >
-            {cards.map((c) => (
+            {displayCards.map((c) => (
               <div
                 key={toCardKey(c.id)}
                 className="w-full flex-shrink-0 snap-start lg:flex lg:h-full lg:flex-col"
@@ -591,8 +767,10 @@ export default function Slider({
                   <Card
                     card={c}
                     topicName={c.topicName}
-                    onQuizComplete={(meta) => handleCardCompletion(c.id, meta)}
-                    quizCompleted={completedCardIds.has(toCardKey(c.id))}
+                    onQuizComplete={(cardMeta, meta) => handleCardResult(cardMeta, meta)}
+                    quizCompleted={completedCardIds.has(
+                      toCardKey(c.sourceCardId ?? c.id),
+                    )}
                   />
                 </div>
               </div>
