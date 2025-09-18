@@ -1,4 +1,3 @@
-import React from "react";
 import { useTheme } from "../context/ThemeContext";
 import { usePreferences } from "../context/PreferencesContext";
 
@@ -7,42 +6,57 @@ export default function Settings() {
   const { thunderSoundEnabled, setThunderSoundEnabled } = usePreferences();
 
   return (
-    <div className="p-4 sm:p-6 space-y-6">
-      <h2 className="text-xl font-semibold mb-2">Settings</h2>
+    <div className="mx-auto max-w-4xl space-y-8 px-4 pb-20 pt-12 sm:px-6">
+      <header className="space-y-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.42em] text-brand">Settings</p>
+        <h2 className="text-3xl font-black uppercase tracking-[0.16em] text-[var(--fg-default)] sm:text-4xl">
+          Tailor your experience
+        </h2>
+        <p className="max-w-2xl text-sm font-medium leading-relaxed text-[var(--fg-muted)]">
+          Switch themes instantly and keep sound preferences locked in. Minimal interfaces, lightning-fast feedback.
+        </p>
+      </header>
 
-      <div className="rounded-2xl border border-neutral-200 dark:border-neutral-700 p-4">
-        <h3 className="font-medium mb-3">Theme</h3>
-        <div className="inline-flex items-center gap-2">
-          <div className="inline-flex rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
+      <section className="rounded-3xl border border-brand/20 bg-[var(--bg-card)] p-6 shadow-[var(--shadow-soft)]">
+        <h3 className="text-sm font-semibold uppercase tracking-[0.32em] text-brand">Theme</h3>
+        <p className="mt-2 text-sm text-[var(--fg-muted)]">
+          Choose a light or dark palette crafted around red, black, and white.
+        </p>
+        <div className="mt-5 flex flex-wrap items-center gap-4">
+          <div className="inline-flex overflow-hidden rounded-full border border-brand/30">
             <button
               onClick={() => setTheme("light")}
-              className={`px-3 py-1.5 text-sm ${theme === "light" ? "bg-brand text-white" : ""}`}
+              className={`px-5 py-2 text-xs font-semibold uppercase tracking-[0.32em] transition ${
+                theme === "light" ? "bg-brand text-white" : "text-[var(--fg-muted)] hover:text-brand"
+              }`}
             >
               Light
             </button>
             <button
               onClick={() => setTheme("dark")}
-              className={`px-3 py-1.5 text-sm ${theme === "dark" ? "bg-brand text-white" : ""}`}
+              className={`px-5 py-2 text-xs font-semibold uppercase tracking-[0.32em] transition ${
+                theme === "dark" ? "bg-brand text-white" : "text-[var(--fg-muted)] hover:text-brand"
+              }`}
             >
               Dark
             </button>
           </div>
           <button
             onClick={toggle}
-            className="px-3 py-1.5 rounded-lg border border-neutral-300 dark:border-neutral-700"
+            className="inline-flex items-center justify-center rounded-full border border-brand/30 px-5 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-brand transition hover:bg-brand hover:text-white"
           >
             Toggle
           </button>
         </div>
-      </div>
+      </section>
 
-      <div className="rounded-2xl border border-neutral-200 dark:border-neutral-700 p-4">
-        <h3 className="font-medium mb-3">Sound</h3>
-        <div className="flex items-center justify-between gap-4">
+      <section className="rounded-3xl border border-brand/20 bg-[var(--bg-card)] p-6 shadow-[var(--shadow-soft)]">
+        <h3 className="text-sm font-semibold uppercase tracking-[0.32em] text-brand">Sound</h3>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-6">
           <div>
-            <p className="font-medium">Thunder sound</p>
-            <p className="text-sm text-neutral-500 dark:text-neutral-400">
-              Play a thunder strike when you earn new points.
+            <p className="text-sm font-semibold uppercase tracking-[0.32em] text-[var(--fg-default)]">Thunder sound</p>
+            <p className="mt-2 text-sm text-[var(--fg-muted)]">
+              Play a thunder strike whenever you earn new points.
             </p>
           </div>
           <button
@@ -50,24 +64,22 @@ export default function Settings() {
             role="switch"
             aria-checked={thunderSoundEnabled}
             onClick={() => setThunderSoundEnabled(!thunderSoundEnabled)}
-            className={`relative inline-flex h-6 w-12 items-center rounded-full transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
-              thunderSoundEnabled
-                ? "bg-brand"
-                : "bg-neutral-300 dark:bg-neutral-700"
+            className={`relative inline-flex h-8 w-16 items-center rounded-full transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
+              thunderSoundEnabled ? "bg-brand" : "bg-[var(--bg-muted)]"
             }`}
           >
             <span className="sr-only">Toggle thunder sound</span>
             <span
-              className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${
-                thunderSoundEnabled ? "translate-x-6" : "translate-x-1"
+              className={`inline-block h-7 w-7 transform rounded-full bg-white shadow transition ${
+                thunderSoundEnabled ? "translate-x-8" : "translate-x-1"
               }`}
             />
           </button>
         </div>
-        <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-500">
+        <p className="mt-4 text-xs text-[var(--fg-muted)]">
           This sound effect is off by default and saved to your preferences.
         </p>
-      </div>
+      </section>
     </div>
   );
 }

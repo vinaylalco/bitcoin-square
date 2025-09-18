@@ -1,16 +1,16 @@
-import { useState } from 'react';
+import { useState } from "react";
 import {
   useNewsletter,
   useSubscribe,
   useUnsubscribe,
-} from '../hooks/useNewsletter';
+} from "../hooks/useNewsletter";
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function NewsletterSubscribe() {
-  const [email, setEmail] = useState('');
-  const [error, setError] = useState('');
-  const [status, setStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(
+  const [email, setEmail] = useState("");
+  const [error, setError] = useState("");
+  const [status, setStatus] = useState<{ type: "success" | "error"; message: string } | null>(
     null,
   );
   useNewsletter();
@@ -20,75 +20,79 @@ export default function NewsletterSubscribe() {
   const handleSubscribe = (e: React.FormEvent) => {
     e.preventDefault();
     if (!emailRegex.test(email)) {
-      setError('Please enter a valid email.');
+      setError("Please enter a valid email.");
       return;
     }
-    setError('');
+    setError("");
     subscribe.mutate(email, {
-      onSuccess: () => setStatus({ type: 'success', message: 'Subscribed successfully!' }),
-      onError: () => setStatus({ type: 'error', message: 'Subscription failed.' }),
+      onSuccess: () => setStatus({ type: "success", message: "Subscribed successfully!" }),
+      onError: () => setStatus({ type: "error", message: "Subscription failed." }),
     });
   };
 
   const handleUnsubscribe = () => {
     if (!emailRegex.test(email)) {
-      setError('Please enter a valid email.');
+      setError("Please enter a valid email.");
       return;
     }
-    setError('');
+    setError("");
     unsubscribe.mutate(email, {
-      onSuccess: () => setStatus({ type: 'success', message: 'Unsubscribed successfully.' }),
-      onError: () => setStatus({ type: 'error', message: 'Unsubscribe failed.' }),
+      onSuccess: () => setStatus({ type: "success", message: "Unsubscribed successfully." }),
+      onError: () => setStatus({ type: "error", message: "Unsubscribe failed." }),
     });
   };
 
   return (
-    <div className="p-6 space-y-4 text-center">
-      <section className="px-4 sm:px-6 pt-8 pb-6">
-        <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight">Newsletter</h1>
-        <h2 className="mt-3 text-neutral-700 dark:text-neutral-300 text-lg sm:text-xl max-w-3xl mx-auto">
-          No spam, just value. Stay up to date with our upcoming features and offerings.
-        </h2>
-        <div className="mt-4 h-1 w-16 bg-brand rounded-full mx-auto"></div>
-      </section>
+    <div className="mx-auto max-w-3xl px-4 pb-20 pt-12 text-center sm:px-6">
+      <header className="space-y-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.42em] text-brand">Newsletter</p>
+        <h1 className="text-3xl font-black uppercase tracking-[0.16em] text-[var(--fg-default)] sm:text-4xl">
+          Stay ahead without the noise
+        </h1>
+        <p className="text-sm font-medium leading-relaxed text-[var(--fg-muted)]">
+          No spam, just essential Bitcoin updates, new lessons, and product drops. Delivered fast.
+        </p>
+      </header>
 
-      <section className="px-4 sm:px-6">
-        <div className="w-full max-w-md mx-auto bg-white p-6 rounded-lg shadow text-center">
-          <form onSubmit={handleSubscribe} className="space-y-4">
-            <div>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                className="w-full border border-neutral-300 rounded px-3 py-2 text-center"
-              />
-              {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
-            </div>
-            <button
-              type="submit"
-              className="w-full bg-brand text-white py-2 rounded hover:opacity-90"
-            >
-              Subscribe
-            </button>
-          </form>
+      <div className="mx-auto mt-10 max-w-xl rounded-3xl border border-brand/20 bg-[var(--bg-card)] p-8 shadow-[var(--shadow-soft)]">
+        <form onSubmit={handleSubscribe} className="space-y-4">
+          <div className="space-y-2">
+            <label htmlFor="email" className="text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              className="w-full rounded-2xl border border-brand/20 bg-transparent px-4 py-3 text-sm text-[var(--fg-default)] shadow-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/60"
+            />
+            {error && <p className="text-xs text-brand">{error}</p>}
+          </div>
           <button
-            onClick={handleUnsubscribe}
-            className="mt-4 w-full border border-neutral-300 py-2 rounded hover:bg-neutral-50"
+            type="submit"
+            className="w-full rounded-full bg-gradient-to-r from-brand via-brand/90 to-black px-6 py-3 text-sm font-semibold uppercase tracking-[0.32em] text-white shadow-[0_20px_45px_rgba(239,68,68,0.35)] transition hover:-translate-y-1 hover:shadow-[0_30px_60px_rgba(239,68,68,0.45)]"
           >
-            Unsubscribe
+            Subscribe
           </button>
-          {status && (
-            <p
-              className={`mt-4 text-sm ${
-                status.type === 'success' ? 'text-green-600' : 'text-red-600'
-              }`}
-            >
-              {status.message}
-            </p>
-          )}
-        </div>
-      </section>
+        </form>
+        <button
+          onClick={handleUnsubscribe}
+          className="mt-4 w-full rounded-full border border-brand/30 px-6 py-3 text-sm font-semibold uppercase tracking-[0.32em] text-brand transition hover:border-brand hover:bg-brand hover:text-white"
+        >
+          Unsubscribe
+        </button>
+        {status && (
+          <p
+            className={`mt-4 text-xs font-semibold uppercase tracking-[0.32em] ${
+              status.type === "success" ? "text-brand" : "text-red-500"
+            }`}
+          >
+            {status.message}
+          </p>
+        )}
+      </div>
     </div>
   );
 }

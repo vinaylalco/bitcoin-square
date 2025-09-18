@@ -1,5 +1,5 @@
-import React from "react";
 import { useQuery } from "@tanstack/react-query";
+import ShopSkeleton from "../components/shop/ShopSkeleton";
 import ProductCard from "../components/shop/ProductCard";
 import { fetchProducts } from "../lib/strapi";
 
@@ -10,33 +10,29 @@ export default function Shop() {
   });
 
   if (isLoading) {
-    return (
-      <div className="max-w-screen-lg mx-auto p-4">
-        <h2 className="text-2xl font-semibold mb-4">Shop</h2>
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div
-              key={i}
-              className="border rounded-lg h-60 motion-safe:animate-pulse bg-neutral-200 dark:bg-neutral-800"
-            />
-          ))}
-        </div>
-      </div>
-    );
+    return <ShopSkeleton />;
   }
 
   if (error) {
     return (
-      <div className="p-4 text-center">
-        <p>Failed to load products.</p>
+      <div className="mx-auto max-w-4xl px-4 py-16 text-center text-brand">
+        Failed to load products.
       </div>
     );
   }
 
   return (
-    <div className="max-w-screen-lg mx-auto p-4">
-      <h2 className="text-2xl font-semibold mb-4">Shop</h2>
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="mx-auto max-w-6xl px-4 pb-20 pt-12 sm:px-6">
+      <header className="space-y-4 text-center sm:text-left">
+        <p className="text-xs font-semibold uppercase tracking-[0.42em] text-brand">Shop</p>
+        <h2 className="text-3xl font-black uppercase tracking-[0.16em] text-[var(--fg-default)] sm:text-4xl">
+          Tools built for Bitcoiners
+        </h2>
+        <p className="max-w-2xl text-sm font-medium leading-relaxed text-[var(--fg-muted)]">
+          Explore a showcase grid with hover-to-zoom previews. Red-accented call-to-action buttons keep momentum high while maintaining lightning-fast performance.
+        </p>
+      </header>
+      <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {data && data.map((p) => <ProductCard key={p.documentId} product={p} />)}
       </div>
     </div>

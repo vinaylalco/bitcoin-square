@@ -1,3 +1,4 @@
+import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { LessonPlan } from "../../types/lesson-plan";
 
@@ -6,26 +7,46 @@ interface Props {
 }
 
 export default function CourseCard({ course }: Props) {
+  const moduleCount = course.modules?.length ?? 0;
+  const slug = course.slug || course.id;
   return (
     <Link
-      to={`/education/${course.slug}`}
-      className="border rounded-lg overflow-hidden flex flex-col hover:shadow"    
+      to={`/education/${slug}`}
+      className="group relative flex h-full flex-col overflow-hidden rounded-3xl border border-brand/30 bg-[var(--bg-card)] shadow-[var(--shadow-soft)] transition-all duration-300 hover:-translate-y-1 hover:border-brand hover:shadow-[0_45px_90px_rgba(239,68,68,0.35)]"
     >
-      {course.coverImage && (
-        <img
-          src={course.coverImage}
-          alt={course.title || "Course cover"}
-          className="aspect-video object-cover"
-          loading="lazy"
-        />
+      {course.coverImage ? (
+        <div className="relative overflow-hidden">
+          <img
+            src={course.coverImage}
+            alt={course.title || "Course cover"}
+            className="h-48 w-full object-cover transition duration-700 group-hover:scale-110"
+            loading="lazy"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent opacity-60 transition duration-300 group-hover:opacity-80" />
+          <span className="absolute left-4 top-4 inline-flex items-center gap-2 rounded-full border border-brand/50 bg-black/60 px-3 py-1 text-[0.6rem] font-semibold uppercase tracking-[0.38em] text-white">
+            {moduleCount} {moduleCount === 1 ? "Module" : "Modules"}
+          </span>
+        </div>
+      ) : (
+        <div className="flex h-48 items-center justify-center border-b border-brand/20 bg-gradient-to-br from-brand/5 via-transparent to-transparent text-xs uppercase tracking-[0.38em] text-brand/70">
+          Visual coming soon
+        </div>
       )}
-      <div className="p-4 flex flex-col flex-1">
-        <h3 className="font-semibold text-lg mb-2">{course.title}</h3>
-        {course.description && (
-          <p className="text-sm text-neutral-600 dark:text-neutral-400 flex-1">
-            {course.description}
-          </p>
-        )}
+      <div className="relative flex flex-1 flex-col gap-4 p-6">
+        <div className="space-y-3">
+          <h3 className="text-lg font-bold uppercase tracking-[0.18em] text-[var(--fg-default)]">
+            {course.title}
+          </h3>
+          {course.description && (
+            <p className="text-sm leading-relaxed text-[var(--fg-muted)]">
+              {course.description}
+            </p>
+          )}
+        </div>
+        <div className="mt-auto inline-flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.32em] text-brand transition group-hover:translate-x-1">
+          View Course
+          <ArrowRight className="h-4 w-4" />
+        </div>
       </div>
     </Link>
   );

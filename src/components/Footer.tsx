@@ -4,65 +4,38 @@ import { Instagram } from "lucide-react";
 
 export default function Footer() {
   return (
-    <footer className="border-t border-neutral-200 dark:border-neutral-800 mt-8 px-4 py-6 text-center text-sm">
-      <div className="max-w-screen-sm mx-auto space-y-4">
-        <nav className="flex justify-center gap-4">
-          <NavLink
-            to="/"
-            className={({ isActive }) =>
-              `${isActive ? "text-brand" : "hover:text-brand"}`
-            }
-          >
+    <footer className="mt-16 border-t border-[var(--border-subtle)] bg-[var(--bg-card)]/70 backdrop-blur">
+      <div className="mx-auto flex max-w-6xl flex-col items-center gap-6 px-4 py-10 text-center text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)] sm:px-6">
+        <nav className="flex flex-wrap justify-center gap-4 sm:gap-6">
+          <NavLink to="/" className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }>
             Home
           </NavLink>
-          <NavLink
-            to="/education"
-            className={({ isActive }) =>
-              `${isActive ? "text-brand" : "hover:text-brand"}`
-            }
-          >
+          <NavLink to="/education" className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }>
             Education
           </NavLink>
-          <NavLink
-            to="/newsletter"
-            className={({ isActive }) =>
-              `${isActive ? "text-brand" : "hover:text-brand"}`
-            }
-          >
+          <NavLink to="/newsletter" className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }>
             Newsletter
           </NavLink>
-          <NavLink
-            to="/shop"
-            className={({ isActive }) =>
-              `${isActive ? "text-brand" : "hover:text-brand"}`
-            }
-          >
+          <NavLink to="/shop" className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }>
             Shop
           </NavLink>
+          <NavLink to="/settings" className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }>
+            Settings
+          </NavLink>
         </nav>
-        <p className="opacity-70">&copy; {new Date().getFullYear()} Bitcoin Square</p>
-        <div className="flex justify-center gap-4">
+        <p className="text-[var(--fg-muted)]">
+          &copy; {new Date().getFullYear()} Bitcoin Square. Crafted with conviction.
+        </p>
+        <div className="flex items-center gap-4">
           <a
             href="https://www.tiktok.com/@elbitcoiner"
             target="_blank"
             rel="noopener noreferrer"
             aria-label="TikTok"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border-subtle)] transition hover:border-brand hover:bg-brand/10"
           >
-            <svg
-              className="h-6 w-6 dark:hidden"
-              fill="#000000"
-              viewBox="0 0 32 32"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path d="M16.656 1.029c1.637-0.025 3.262-0.012 4.886-0.025 0.054 2.031 0.878 3.859 2.189 5.213l-0.002-0.002c1.411 1.271 3.247 2.095 5.271 2.235l0.028 0.002v5.036c-1.912-0.048-3.71-0.489-5.331-1.247l0.082 0.034c-0.784-0.377-1.447-0.764-2.077-1.196l0.052 0.034c-0.012 3.649 0.012 7.298-0.025 10.934-0.103 1.853-0.719 3.543-1.707 4.954l0.020-0.031c-1.652 2.366-4.328 3.919-7.371 4.011l-0.014 0c-0.123 0.006-0.268 0.009-0.414 0.009-1.73 0-3.347-0.482-4.725-1.319l0.040 0.023c-2.508-1.509-4.238-4.091-4.558-7.094l-0.004-0.041c-0.025-0.625-0.037-1.25-0.012-1.862 0.49-4.779 4.494-8.476 9.361-8.476 0.547 0 1.083 0.047 1.604 0.136l-0.056-0.008c0.025 1.849-0.050 3.699-0.050 5.548-0.423-0.153-0.911-0.242-1.42-0.242-1.868 0-3.457 1.194-4.045 2.861l-0.009 0.030c-0.133 0.427-0.21 0.918-0.21 1.426 0 0.206 0.013 0.41 0.037 0.61l-0.002-0.024c0.332 2.046 2.086 3.59 4.201 3.59 0.061 0 0.121-0.001 0.181-0.004l-0.009 0c1.463-0.044 2.733-0.831 3.451-1.994l0.010-0.018c0.267-0.372 0.45-0.822 0.511-1.311l0.001-0.014c0.125-2.237 0.075-4.461 0.087-6.698 0.012-5.036-0.012-10.060 0.025-15.083z" />
-            </svg>
-            <svg
-              className="hidden h-6 w-6 dark:block"
-              fill="#ffffff"
-              viewBox="0 0 32 32"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path d="M16.656 1.029c1.637-0.025 3.262-0.012 4.886-0.025 0.054 2.031 0.878 3.859 2.189 5.213l-0.002-0.002c1.411 1.271 3.247 2.095 5.271 2.235l0.028 0.002v5.036c-1.912-0.048-3.71-0.489-5.331-1.247l0.082 0.034c-0.784-0.377-1.447-0.764-2.077-1.196l0.052 0.034c-0.012 3.649 0.012 7.298-0.025 10.934-0.103 1.853-0.719 3.543-1.707 4.954l0.020-0.031c-1.652 2.366-4.328 3.919-7.371 4.011l-0.014 0c-0.123 0.006-0.268 0.009-0.414 0.009-1.73 0-3.347-0.482-4.725-1.319l0.040 0.023c-2.508-1.509-4.238-4.091-4.558-7.094l-0.004-0.041c-0.025-0.625-0.037-1.25-0.012-1.862 0.49-4.779 4.494-8.476 9.361-8.476 0.547 0 1.083 0.047 1.604 0.136l-0.056-0.008c0.025 1.849-0.050 3.699-0.050 5.548-0.423-0.153-0.911-0.242-1.42-0.242-1.868 0-3.457 1.194-4.045 2.861l-0.009 0.030c-0.133 0.427-0.21 0.918-0.21 1.426 0 0.206 0.013 0.41 0.037 0.61l-0.002-0.024c0.332 2.046 2.086 3.59 4.201 3.59 0.061 0 0.121-0.001 0.181-0.004l-0.009 0c1.463-0.044 2.733-0.831 3.451-1.994l0.010-0.018c0.267-0.372 0.45-0.822 0.511-1.311l0.001-0.014c0.125-2.237 0.075-4.461 0.087-6.698 0.012-5.036-0.012-10.060 0.025-15.083z" />
+            <svg className="h-5 w-5 text-[var(--fg-default)] dark:text-white" fill="currentColor" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+              <path d="M16.656 1.029c1.637-.025 3.262-.012 4.886-.025.054 2.031.878 3.859 2.189 5.213 1.411 1.271 3.247 2.095 5.271 2.235v5.036c-1.912-.048-3.71-.489-5.331-1.247-.784-.377-1.447-.764-2.077-1.196v10.934c-.103 1.853-.719 3.543-1.707 4.954-1.652 2.366-4.328 3.919-7.371 4.011-.123.006-.268.009-.414.009-1.73 0-3.347-.482-4.725-1.319-2.508-1.509-4.238-4.091-4.558-7.094-.025-.625-.037-1.25-.012-1.862.49-4.779 4.494-8.476 9.361-8.476.547 0 1.083.047 1.604.136.025 1.849-.05 3.699-.05 5.548-.423-.153-.911-.242-1.42-.242-1.868 0-3.457 1.194-4.045 2.861-.133.427-.21.918-.21 1.426 0 .206.013.41.037.61.332 2.046 2.086 3.59 4.201 3.59.061 0 .121-.001.181-.004 1.463-.044 2.733-.831 3.451-1.994.267-.372.45-.822.511-1.311.125-2.237.075-4.461.087-6.698.012-5.036-.012-10.06.025-15.083z" />
             </svg>
           </a>
           <a
@@ -70,12 +43,9 @@ export default function Footer() {
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Instagram"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border-subtle)] transition hover:border-brand hover:bg-brand/10"
           >
-            <Instagram
-              className="h-6 w-6 text-black dark:text-white"
-              stroke="currentColor"
-              fill="none"
-            />
+            <Instagram className="h-5 w-5" strokeWidth={1.5} />
           </a>
         </div>
       </div>

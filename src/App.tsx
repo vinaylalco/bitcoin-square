@@ -1,14 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Outlet, NavLink, useLocation } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import {
-  Menu,
-  X,
-  Home as HomeIcon,
   BookOpen,
-  Settings,
+  Home as HomeIcon,
   LayoutDashboard,
   Mail,
+  Menu,
+  Settings,
   ShoppingBag,
+  X,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import FocusTrap from "./components/FocusTrap";
@@ -16,24 +16,36 @@ import { useSwipe } from "./hooks/useSwipe";
 import { useTheme } from "./context/ThemeContext";
 import { useAuth } from "./context/AuthContext";
 import Footer from "./components/Footer";
+import { cn } from "./utils/cn";
+
+const educationChildren = [
+  { label: "Full BTC Course Page", to: "/education" },
+];
+
+const desktopNav = [
+  { label: "Home", to: "/" },
+  { label: "Education", to: "/education", dropdown: educationChildren },
+  { label: "Shop", to: "/shop" },
+  { label: "Newsletter", to: "/newsletter" },
+  { label: "Settings", to: "/settings" },
+];
 
 export default function App() {
   const [open, setOpen] = useState(false);
+  const [mobileEducationOpen, setMobileEducationOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const drawerRef = useRef<HTMLDivElement | null>(null);
 
   const { t, i18n } = useTranslation();
   const loc = useLocation();
-  const { theme } = useTheme(); // ensures theme context is mounted
+  useTheme(); // ensures theme context is mounted
   const { user, logout } = useAuth();
+
   const lang = (i18n.language || "en").toLowerCase().startsWith("es") ? "es" : "en";
   const changeLang = (lng: "en" | "es") => i18n.changeLanguage(lng);
 
-  // Close drawer on route change
   useEffect(() => setOpen(false), [loc.pathname]);
 
-
-  // Body scroll lock while drawer open
   useEffect(() => {
     const el = document.documentElement;
     if (open) {
@@ -44,7 +56,6 @@ export default function App() {
     return () => el.classList.remove("overflow-hidden");
   }, [open]);
 
-  // ESC to close
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -54,12 +65,10 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
-  // Swipe-to-close (mobile)
   useSwipe(drawerRef, {
     enabled: open,
     axis: "x",
     onMove: (dx) => {
-      // drag only to the right (close gesture)
       if (dx > 0 && drawerRef.current) {
         drawerRef.current.style.transform = `translateX(${Math.min(dx, 72)}px)`;
       }
@@ -67,135 +76,297 @@ export default function App() {
     onEnd: (dx) => {
       if (!drawerRef.current) return;
       drawerRef.current.style.transform = "";
-      if (dx > 60) setOpen(false); // threshold
+      if (dx > 60) setOpen(false);
     },
   });
 
   return (
-    <div className="min-h-screen bg-white text-black dark:bg-neutral-900 dark:text-neutral-100 flex flex-col">
-      {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 dark:border-neutral-800">
-        <button
-          ref={triggerRef}
-          onClick={() => setOpen((v) => !v)}
-          aria-label={open ? (t("common.close") || "Close menu") : (t("common.menu") || "Open menu")}
-        >
-          {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-        </button>
-        <h1 className="font-semibold text-lg">Bitcoin Square</h1>
-        <div className="w-6" />
-      </header>
+    <div className="min-h-screen bg-[var(--bg-app)] text-[var(--fg-default)] transition-colors duration-300">
+      <header className="sticky top-0 z-50 border-b border-[var(--border-subtle)] bg-[var(--bg-card)]/90 backdrop-blur">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
+          <div className="flex items-center gap-3 lg:gap-6">
+            <button
+              ref={triggerRef}
+              onClick={() => setOpen((v) => !v)}
+              aria-label={
+                open ? t("common.close") || "Close menu" : t("common.menu") || "Open menu"
+              }
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--fg-default)] shadow-sm transition-colors hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand lg:hidden"
+            >
+              {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
 
-      {/* Overlay (click-outside to close) */}
-      {open && (
-        <div
-          className="fixed inset-0 bg-black/30 backdrop-blur-[1px] z-40"
-          onClick={() => setOpen(false)}
-          aria-hidden
-        />
-      )}
+            <Link to="/" className="flex items-center gap-2">
+              <span className="relative text-lg font-black uppercase tracking-[0.28em]">
+                Bitcoin
+                <span className="ml-2 rounded-full bg-brand px-2 py-0.5 text-[0.65rem] font-semibold text-white">Square</span>
+              </span>
+            </Link>
+          </div>
 
-      {/* Drawer */}
-      <aside
-        ref={drawerRef}
-        className={`fixed top-0 left-0 h-full w-72 bg-neutral-100 dark:bg-neutral-900 shadow-lg transform transition-transform duration-300 z-50 ${
-          open ? "translate-x-0" : "-translate-x-full"
-        }`}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Main menu"
-      >
-        <FocusTrap active={open} onDeactivate={() => setOpen(false)} returnFocusRef={triggerRef}>
-          <div className="p-4 space-y-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-semibold opacity-70">Menu</span>
+          <nav className="hidden lg:flex items-center gap-8 text-sm font-semibold uppercase tracking-[0.22em]">
+            {desktopNav.map((item) => (
+              <div key={item.label} className="relative group">
+                <NavLink
+                  to={item.to}
+                  className={({ isActive }) =>
+                    cn(
+                      "inline-flex items-center gap-2 py-2 transition",
+                      "text-[var(--fg-muted)] hover:text-brand",
+                      isActive && "text-brand",
+                    )
+                  }
+                >
+                  {item.label}
+                </NavLink>
+                {item.dropdown && (
+                  <div className="pointer-events-none absolute top-full left-1/2 z-40 mt-3 w-56 -translate-x-1/2 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3 opacity-0 shadow-[var(--shadow-soft)] transition-all duration-200 group-hover:pointer-events-auto group-hover:translate-y-1 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:translate-y-1 group-focus-within:opacity-100">
+                    {item.dropdown.map((child) => (
+                      <NavLink
+                        key={child.label}
+                        to={child.to}
+                        className={({ isActive }) =>
+                          cn(
+                            "block rounded-xl px-4 py-3 text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)] transition-colors hover:bg-brand/10 hover:text-brand",
+                            isActive && "bg-brand/10 text-brand",
+                          )
+                        }
+                      >
+                        {child.label}
+                      </NavLink>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </nav>
+
+          <div className="hidden items-center gap-3 lg:flex">
+            <div className="inline-flex overflow-hidden rounded-full border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[0.65rem] font-semibold uppercase tracking-[0.32em]">
               <button
-                onClick={() => setOpen(false)}
-                className="rounded-lg border border-neutral-300 dark:border-neutral-700 px-2 py-1 text-sm"
-                aria-label="Close menu"
+                onClick={() => changeLang("en")}
+                className={cn(
+                  "px-3 py-1.5 transition",
+                  lang === "en" ? "bg-brand text-white" : "text-[var(--fg-muted)] hover:text-brand",
+                )}
               >
-                Close
+                EN
+              </button>
+              <button
+                onClick={() => changeLang("es")}
+                className={cn(
+                  "px-3 py-1.5 transition",
+                  lang === "es" ? "bg-brand text-white" : "text-[var(--fg-muted)] hover:text-brand",
+                )}
+              >
+                ES
               </button>
             </div>
-
-            <NavLink to="/" onClick={() => setOpen(false)} className="flex items-center gap-2 hover:text-brand">
-              <HomeIcon className="h-5 w-5" />
-              <span>Home</span>
-            </NavLink>
-
-            <NavLink
-              to="/education"
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-2 hover:text-brand"
-            >
-              <BookOpen className="h-5 w-5" />
-              <span>{t("nav.education") || "Education"}</span>
-            </NavLink>
-            <NavLink
-              to="/shop"
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-2 hover:text-brand"
-            >
-              <ShoppingBag className="h-5 w-5" />
-              <span>Shop</span>
-            </NavLink>
-            <NavLink
-              to="/newsletter"
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-2 hover:text-brand"
-            >
-              <Mail className="h-5 w-5" />
-              <span>Newsletter</span>
-            </NavLink>
-            <NavLink to="/settings" onClick={() => setOpen(false)} className="flex items-center gap-2 hover:text-brand">
-              <Settings className="h-5 w-5" />
-              <span>Settings</span>
-            </NavLink>
             {user ? (
               <>
                 <NavLink
                   to="/dashboard"
-                  onClick={() => setOpen(false)}
-                  className="flex items-center gap-2 hover:text-brand"
+                  className={({ isActive }) =>
+                    cn(
+                      "rounded-full border border-brand/30 px-4 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-brand transition hover:-translate-y-0.5 hover:border-brand hover:shadow-[0_12px_30px_rgba(239,68,68,0.35)]",
+                      isActive && "bg-brand text-white",
+                    )
+                  }
                 >
-                  <LayoutDashboard className="h-5 w-5" />
-                  <span>Dashboard</span>
+                  Dashboard
                 </NavLink>
                 <button
-                  onClick={() => {
-                    logout();
-                    setOpen(false);
-                  }}
-                  className="flex items-center gap-2 hover:text-brand"
+                  onClick={logout}
+                  className="rounded-full border border-[var(--border-subtle)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)] transition hover:text-brand hover:shadow-sm"
                 >
-                  <span>Logout</span>
+                  Logout
                 </button>
               </>
             ) : (
               <NavLink
                 to="/login"
-                onClick={() => setOpen(false)}
-                className="flex items-center gap-2 hover:text-brand"
+                className={({ isActive }) =>
+                  cn(
+                    "rounded-full border border-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-white transition hover:-translate-y-0.5 hover:shadow-[0_12px_30px_rgba(239,68,68,0.35)]",
+                    isActive ? "bg-brand" : "bg-gradient-to-r from-brand via-brand/90 to-black",
+                  )
+                }
               >
-                <span>Login</span>
+                Login
               </NavLink>
             )}
+          </div>
+        </div>
+      </header>
 
-            {/* Manual Language Selector */}
-            <div className="pt-4 border-t border-neutral-200 dark:border-neutral-800">
-              <p className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400 mb-2">Language</p>
-              <div className="inline-flex rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
+      {open && (
+        <div
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden"
+          onClick={() => setOpen(false)}
+          aria-hidden
+        />
+      )}
+
+      <aside
+        ref={drawerRef}
+        className={cn(
+          "fixed top-0 left-0 z-50 h-full w-80 transform border-r border-[var(--border-subtle)] bg-[var(--bg-card)]/95 shadow-[var(--shadow-soft)] transition-transform duration-300 lg:hidden",
+          open ? "translate-x-0" : "-translate-x-full",
+        )}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Main menu"
+      >
+        <FocusTrap active={open} onDeactivate={() => setOpen(false)} returnFocusRef={triggerRef}>
+          <div className="flex h-full flex-col overflow-y-auto">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border-subtle)]">
+              <span className="text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">Menu</span>
+              <button
+                onClick={() => setOpen(false)}
+                className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] px-3 py-1 text-xs uppercase tracking-[0.32em] text-[var(--fg-muted)] transition hover:text-brand"
+              >
+                Close
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <nav className="flex flex-1 flex-col gap-2 px-5 py-6 text-sm font-semibold uppercase tracking-[0.32em]">
+              <NavLink
+                to="/"
+                onClick={() => setOpen(false)}
+                className={({ isActive }) =>
+                  cn(
+                    "inline-flex items-center gap-3 rounded-2xl border border-transparent px-4 py-3 transition hover:border-brand/40 hover:bg-brand/5",
+                    isActive && "border-brand bg-brand/10 text-brand",
+                  )
+                }
+              >
+                <HomeIcon className="h-5 w-5" /> Home
+              </NavLink>
+              <div>
+                <button
+                  onClick={() => setMobileEducationOpen((prev) => !prev)}
+                  className={cn(
+                    "flex w-full items-center justify-between gap-3 rounded-2xl border border-transparent px-4 py-3 transition hover:border-brand/40 hover:bg-brand/5",
+                    mobileEducationOpen && "border-brand bg-brand/10 text-brand",
+                  )}
+                >
+                  <span className="inline-flex items-center gap-3">
+                    <BookOpen className="h-5 w-5" /> {t("nav.education") || "Education"}
+                  </span>
+                  <span className="text-[0.65rem]">{mobileEducationOpen ? "−" : "+"}</span>
+                </button>
+                <div className={cn("mt-2 space-y-2 pl-10 text-[0.65rem] font-semibold", mobileEducationOpen ? "block" : "hidden")}
+                >
+                  {educationChildren.map((item) => (
+                    <NavLink
+                      key={item.label}
+                      to={item.to}
+                      onClick={() => setOpen(false)}
+                      className={({ isActive }) =>
+                        cn(
+                          "block rounded-2xl border border-transparent px-3 py-2 tracking-[0.4em] text-[var(--fg-muted)] transition hover:border-brand/40 hover:bg-brand/5 hover:text-brand",
+                          isActive && "border-brand bg-brand/10 text-brand",
+                        )
+                      }
+                    >
+                      {item.label}
+                    </NavLink>
+                  ))}
+                </div>
+              </div>
+              <NavLink
+                to="/shop"
+                onClick={() => setOpen(false)}
+                className={({ isActive }) =>
+                  cn(
+                    "inline-flex items-center gap-3 rounded-2xl border border-transparent px-4 py-3 transition hover:border-brand/40 hover:bg-brand/5",
+                    isActive && "border-brand bg-brand/10 text-brand",
+                  )
+                }
+              >
+                <ShoppingBag className="h-5 w-5" /> Shop
+              </NavLink>
+              <NavLink
+                to="/newsletter"
+                onClick={() => setOpen(false)}
+                className={({ isActive }) =>
+                  cn(
+                    "inline-flex items-center gap-3 rounded-2xl border border-transparent px-4 py-3 transition hover:border-brand/40 hover:bg-brand/5",
+                    isActive && "border-brand bg-brand/10 text-brand",
+                  )
+                }
+              >
+                <Mail className="h-5 w-5" /> Newsletter
+              </NavLink>
+              <NavLink
+                to="/settings"
+                onClick={() => setOpen(false)}
+                className={({ isActive }) =>
+                  cn(
+                    "inline-flex items-center gap-3 rounded-2xl border border-transparent px-4 py-3 transition hover:border-brand/40 hover:bg-brand/5",
+                    isActive && "border-brand bg-brand/10 text-brand",
+                  )
+                }
+              >
+                <Settings className="h-5 w-5" /> Settings
+              </NavLink>
+              {user ? (
+                <>
+                  <NavLink
+                    to="/dashboard"
+                    onClick={() => setOpen(false)}
+                    className={({ isActive }) =>
+                      cn(
+                        "inline-flex items-center gap-3 rounded-2xl border border-transparent px-4 py-3 transition hover:border-brand/40 hover:bg-brand/5",
+                        isActive && "border-brand bg-brand/10 text-brand",
+                      )
+                    }
+                  >
+                    <LayoutDashboard className="h-5 w-5" /> Dashboard
+                  </NavLink>
+                  <button
+                    onClick={() => {
+                      logout();
+                      setOpen(false);
+                    }}
+                    className="inline-flex items-center gap-3 rounded-2xl border border-transparent px-4 py-3 text-left text-[var(--fg-muted)] transition hover:border-brand/40 hover:bg-brand/5 hover:text-brand"
+                  >
+                    Logout
+                  </button>
+                </>
+              ) : (
+                <NavLink
+                  to="/login"
+                  onClick={() => setOpen(false)}
+                  className={({ isActive }) =>
+                    cn(
+                      "inline-flex items-center justify-center gap-3 rounded-2xl border border-brand px-4 py-3 text-white transition hover:-translate-y-0.5 hover:shadow-[0_12px_30px_rgba(239,68,68,0.35)]",
+                      isActive ? "bg-brand" : "bg-gradient-to-r from-brand via-brand/90 to-black",
+                    )
+                  }
+                >
+                  Login
+                </NavLink>
+              )}
+            </nav>
+            <div className="px-5 pb-6">
+              <p className="text-[0.65rem] font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">Language</p>
+              <div className="mt-3 inline-flex overflow-hidden rounded-full border border-[var(--border-subtle)]">
                 <button
                   onClick={() => changeLang("en")}
-                  className={`px-3 py-1.5 text-sm ${lang === "en" ? "bg-brand text-white" : ""}`}
-                  aria-pressed={lang === "en"}
+                  className={cn(
+                    "px-4 py-2 text-[0.65rem] font-semibold uppercase tracking-[0.32em] transition",
+                    lang === "en" ? "bg-brand text-white" : "text-[var(--fg-muted)] hover:text-brand",
+                  )}
                 >
                   EN
                 </button>
                 <button
                   onClick={() => changeLang("es")}
-                  className={`px-3 py-1.5 text-sm ${lang === "es" ? "bg-brand text-white" : ""}`}
-                  aria-pressed={lang === "es"}
+                  className={cn(
+                    "px-4 py-2 text-[0.65rem] font-semibold uppercase tracking-[0.32em] transition",
+                    lang === "es" ? "bg-brand text-white" : "text-[var(--fg-muted)] hover:text-brand",
+                  )}
                 >
                   ES
                 </button>
@@ -205,8 +376,7 @@ export default function App() {
         </FocusTrap>
       </aside>
 
-      {/* Main content */}
-      <main className="flex-1">
+      <main className="flex-1 pt-8">
         <Outlet />
         <Footer />
       </main>
