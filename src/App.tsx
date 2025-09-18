@@ -356,7 +356,7 @@ export default function App() {
         </FocusTrap>
       </aside>
 
-      <main className="flex-1 pt-8">
+      <main className="flex-1">
         <Outlet />
         <Footer />
       </main>
