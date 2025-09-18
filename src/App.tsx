@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import {
   BookOpen,
@@ -17,6 +17,7 @@ import { useTheme } from "./context/ThemeContext";
 import { useAuth } from "./context/AuthContext";
 import Footer from "./components/Footer";
 import { cn } from "./utils/cn";
+import { useLessonPlans } from "./hooks/useLessonPlans";
 
 export default function App() {
   const [open, setOpen] = useState(false);
@@ -30,12 +31,27 @@ export default function App() {
   const { user, logout } = useAuth();
 
   const lang = (i18n.language || "en").toLowerCase().startsWith("es") ? "es" : "en";
+  const { data: lessonPlans } = useLessonPlans(lang);
+  const defaultCourseSlug = lang === "es" ? "btc-course-es" : "btc-course-en";
+  const btcCourseSlug = useMemo(() => {
+    if (!lessonPlans?.length) return defaultCourseSlug;
+    const match = lessonPlans.find((plan) => {
+      const slugOrId = `${plan.slug ?? plan.id ?? ""}`.toLowerCase();
+      return slugOrId.includes("btc-course");
+    });
+    if (!match) return defaultCourseSlug;
+    const resolvedSlug =
+      (typeof match.slug === "string" && match.slug) ||
+      (typeof match.id === "string" && match.id) ||
+      defaultCourseSlug;
+    return resolvedSlug;
+  }, [lessonPlans, defaultCourseSlug]);
   const changeLang = (lng: "en" | "es") => i18n.changeLanguage(lng);
 
   const educationChildren = [
     {
       label: "BTC Full Course",
-      to: `/education/${lang === "es" ? "btc-course-es" : "btc-course-en"}`,
+      to: `/education/${btcCourseSlug}`,
     },
   ];
 
