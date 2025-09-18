@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
-import { useLessonPlans } from "../hooks/useLessonPlans";
 import CourseCard from "../components/course/CourseCard";
+import CourseDirectorySkeleton from "../components/course/CourseDirectorySkeleton";
+import { useLessonPlans } from "../hooks/useLessonPlans";
 
 export default function CourseDirectory() {
   const { i18n } = useTranslation();
@@ -8,25 +9,31 @@ export default function CourseDirectory() {
   const { data, isLoading, error } = useLessonPlans(locale);
 
   if (isLoading && !data) {
-    return (
-      <div className="p-4 space-y-2 animate-pulse">
-        <div className="h-6 bg-neutral-200 rounded w-1/3" />
-        <div className="h-4 bg-neutral-200 rounded w-full" />
-        <div className="h-4 bg-neutral-200 rounded w-5/6" />
-      </div>
-    );
+    return <CourseDirectorySkeleton />;
   }
 
   if (error) {
-    return <div className="p-4 text-brand">Failed to load courses.</div>;
+    return (
+      <div className="mx-auto max-w-4xl px-4 py-16 text-center text-brand">
+        Failed to load courses.
+      </div>
+    );
   }
 
   const courses = data || [];
 
   return (
-    <div className="px-4 sm:px-6 pb-24">
-      <h1 className="text-2xl font-bold mb-6">Education</h1>
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="mx-auto max-w-6xl px-4 pb-20 pt-12 sm:px-6">
+      <header className="space-y-4 text-center sm:text-left">
+        <p className="text-xs font-semibold uppercase tracking-[0.42em] text-brand">Education Hub</p>
+        <h1 className="text-3xl font-black uppercase tracking-[0.16em] text-[var(--fg-default)] sm:text-4xl">
+          Courses engineered for clarity
+        </h1>
+        <p className="max-w-2xl text-sm font-medium leading-relaxed text-[var(--fg-muted)]">
+          Browse modular lessons that stay above the fold on any device. Red-accented guidance, sharp typography, and smooth transitions keep your focus on mastering Bitcoin fundamentals.
+        </p>
+      </header>
+      <div className="mt-10 grid gap-8 md:grid-cols-2 lg:grid-cols-3">
         {courses.map((course) => (
           <CourseCard key={String(course.id || course.slug)} course={course} />
         ))}
