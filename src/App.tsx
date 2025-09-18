@@ -19,7 +19,7 @@ import Footer from "./components/Footer";
 import { cn } from "./utils/cn";
 
 const educationChildren = [
-  { label: "Full BTC Course Page", to: "/education" },
+  { label: "BTC Full Course", to: "/education/btc-full-course" },
 ];
 
 const desktopNav = [
@@ -142,26 +142,6 @@ export default function App() {
           </nav>
 
           <div className="hidden items-center gap-3 lg:flex">
-            <div className="inline-flex overflow-hidden rounded-full border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[0.65rem] font-semibold uppercase tracking-[0.32em]">
-              <button
-                onClick={() => changeLang("en")}
-                className={cn(
-                  "px-3 py-1.5 transition",
-                  lang === "en" ? "bg-brand text-white" : "text-[var(--fg-muted)] hover:text-brand",
-                )}
-              >
-                EN
-              </button>
-              <button
-                onClick={() => changeLang("es")}
-                className={cn(
-                  "px-3 py-1.5 transition",
-                  lang === "es" ? "bg-brand text-white" : "text-[var(--fg-muted)] hover:text-brand",
-                )}
-              >
-                ES
-              </button>
-            </div>
             {user ? (
               <>
                 <NavLink
@@ -210,7 +190,7 @@ export default function App() {
       <aside
         ref={drawerRef}
         className={cn(
-          "fixed top-0 left-0 z-50 h-full w-80 transform border-r border-[var(--border-subtle)] bg-[var(--bg-card)]/95 shadow-[var(--shadow-soft)] transition-transform duration-300 lg:hidden",
+          "fixed top-0 left-0 z-50 h-full w-80 transform border-r border-[var(--border-subtle)] bg-[var(--bg-card)]/80 shadow-[var(--shadow-soft)] transition-transform duration-300 lg:hidden",
           open ? "translate-x-0" : "-translate-x-full",
         )}
         role="dialog"
