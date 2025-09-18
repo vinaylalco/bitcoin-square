@@ -190,7 +190,7 @@ export default function App() {
       <aside
         ref={drawerRef}
         className={cn(
-          "fixed top-0 left-0 z-50 h-full w-80 transform border-r border-[var(--border-subtle)] bg-[var(--bg-card)]/80 shadow-[var(--shadow-soft)] transition-transform duration-300 lg:hidden",
+          "fixed top-0 left-0 z-50 h-full w-80 transform border-r border-[var(--border-subtle)] bg-white text-neutral-900 shadow-[var(--shadow-soft)] transition-transform duration-300 dark:bg-black dark:text-white lg:hidden",
           open ? "translate-x-0" : "-translate-x-full",
         )}
         role="dialog"
@@ -199,11 +199,11 @@ export default function App() {
       >
         <FocusTrap active={open} onDeactivate={() => setOpen(false)} returnFocusRef={triggerRef}>
           <div className="flex h-full flex-col overflow-y-auto">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border-subtle)]">
-              <span className="text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">Menu</span>
+            <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-5 py-4">
+              <span className="text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)] dark:text-white">Menu</span>
               <button
                 onClick={() => setOpen(false)}
-                className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] px-3 py-1 text-xs uppercase tracking-[0.32em] text-[var(--fg-muted)] transition hover:text-brand"
+                className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] px-3 py-1 text-xs uppercase tracking-[0.32em] text-[var(--fg-muted)] transition hover:text-brand dark:text-white"
               >
                 Close
                 <X className="h-4 w-4" />
@@ -244,7 +244,7 @@ export default function App() {
                       onClick={() => setOpen(false)}
                       className={({ isActive }) =>
                         cn(
-                          "block rounded-2xl border border-transparent px-3 py-2 tracking-[0.4em] text-[var(--fg-muted)] transition hover:border-brand/40 hover:bg-brand/5 hover:text-brand",
+                          "block rounded-2xl border border-transparent px-3 py-2 tracking-[0.4em] text-[var(--fg-muted)] transition hover:border-brand/40 hover:bg-brand/5 hover:text-brand dark:text-white dark:hover:text-brand",
                           isActive && "border-brand bg-brand/10 text-brand",
                         )
                       }
