@@ -43,28 +43,33 @@ export default function CourseDetail() {
     ) ?? [];
 
   return (
-    <div className="mx-auto max-w-6xl px-4 pb-24 pt-12 sm:px-6">
-      <div className="overflow-hidden rounded-3xl border border-brand/30 bg-[var(--bg-card)] shadow-[var(--shadow-soft)]">
-        <div className="relative overflow-hidden bg-gradient-to-br from-black via-neutral-900 to-neutral-800 px-6 py-12 text-white sm:px-10">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(239,68,68,0.55),_transparent_60%)] opacity-80" />
-          <div className="relative z-10 space-y-6">
-            <p className="text-xs font-semibold uppercase tracking-[0.42em] text-brand/80">Immersive Course</p>
-            <h1 className="text-3xl font-black uppercase tracking-[0.14em] sm:text-4xl">
-              {data?.title || "Education"}
-            </h1>
-            {data && data.locale !== locale && (
-              <p className="max-w-xl text-sm font-medium text-white/70">
-                Translation unavailable for this language, showing English.
-              </p>
-            )}
-            <div className="flex flex-wrap gap-3 text-[0.65rem] font-semibold uppercase tracking-[0.32em] text-white/70">
-              <span className="rounded-full border border-white/30 px-4 py-1">{modules.length} Modules</span>
-              <span className="rounded-full border border-white/30 px-4 py-1">Guided Learning</span>
+    <div className="w-full pb-24 pt-12">
+      <div className="w-full overflow-hidden rounded-3xl border border-brand/25 bg-[var(--bg-card)] shadow-[var(--shadow-soft)]">
+        <div className="space-y-6 bg-[var(--bg-card)] px-4 py-10 sm:px-10">
+          <div className="relative overflow-hidden rounded-3xl border border-brand/25 bg-gradient-to-br from-white via-red-100/40 to-red-200/40 p-8 text-neutral-900 shadow-[0_35px_120px_rgba(239,68,68,0.18)] transition-colors duration-500 dark:border-brand/40 dark:from-neutral-950 dark:via-neutral-900 dark:to-neutral-900 dark:text-neutral-50">
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(239,68,68,0.35),_transparent_60%)] opacity-70 transition-opacity duration-500" />
+            <div className="relative z-10 flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+              <div className="space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.42em] text-brand">Immersive Course</p>
+                <h1 className="text-3xl font-black uppercase tracking-[0.14em] sm:text-4xl">
+                  {data?.title || "Education"}
+                </h1>
+                {data && data.locale !== locale && (
+                  <p className="max-w-xl text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                    Translation unavailable for this language, showing English.
+                  </p>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-3 text-[0.65rem] font-semibold uppercase tracking-[0.32em] text-neutral-700 dark:text-neutral-200">
+                <span className="rounded-full border border-neutral-900/20 px-4 py-1 shadow-sm transition duration-300 dark:border-white/20">
+                  {modules.length} Modules
+                </span>
+                <span className="rounded-full border border-neutral-900/20 px-4 py-1 shadow-sm transition duration-300 dark:border-white/20">
+                  Guided Learning
+                </span>
+              </div>
             </div>
           </div>
-        </div>
-
-        <div className="space-y-6 bg-[var(--bg-card)] px-4 py-10 sm:px-10">
           {cards.length > 0 ? (
             <div className="overflow-hidden rounded-3xl border border-brand/20 bg-[var(--bg-card)] shadow-[var(--shadow-soft)]">
               <Slider

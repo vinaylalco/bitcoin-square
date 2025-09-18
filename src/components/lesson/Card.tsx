@@ -27,24 +27,27 @@ export default function Card({
   const isSummaryCard = Boolean(card.isSummary);
   const isReviewCard = Boolean(card.isReview);
   const summaryItems: LessonSummaryItem[] = isSummaryCard ? card.summaryItems ?? [] : [];
+  const cardShellClass =
+    "group relative flex h-full flex-col overflow-hidden rounded-3xl border border-brand/25 bg-[var(--bg-card)] shadow-[var(--shadow-soft)] transition-all duration-300 hover:-translate-y-1 hover:border-brand hover:shadow-[0_45px_110px_rgba(239,68,68,0.32)]";
 
   if (isSummaryCard) {
     return (
-      <article
-        className="flex h-full flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm transition dark:border-neutral-700 dark:bg-neutral-900"
-      >
-        <header className="relative px-6 pb-16 pt-6 text-white dark:text-neutral-900">
-          <div className="absolute inset-0 z-0 bg-black dark:bg-white" aria-hidden="true" />
+      <article className={cardShellClass}>
+        <header className="relative overflow-hidden px-6 pb-16 pt-6 text-white">
+          <div
+            className="absolute inset-0 z-0 bg-gradient-to-br from-neutral-950 via-black to-brand/80 opacity-95 transition-opacity duration-500 group-hover:opacity-100 dark:from-neutral-900 dark:via-black dark:to-brand/70"
+            aria-hidden="true"
+          />
           <div className="relative z-10 flex flex-col gap-3 pr-0 sm:pr-24 lg:pr-32">
             {card.moduleName && (
-              <p className="text-sm font-semibold uppercase tracking-wide text-neutral-300 dark:text-neutral-600">
+              <p className="text-xs font-semibold uppercase tracking-[0.32em] text-white/70">
                 {card.moduleName}
               </p>
             )}
             <h3
               id={`card-title-${cardKey}`}
               tabIndex={-1}
-              className="text-2xl font-semibold leading-tight"
+              className="text-2xl font-semibold leading-tight text-white"
             >
               {card.title}
             </h3>
@@ -53,7 +56,7 @@ export default function Card({
             <img
               src={headerImage}
               alt={`Cover art for ${card.title}`}
-              className="h-28 w-28 rounded-2xl border-4 border-white object-cover shadow-xl dark:border-black"
+              className="h-28 w-28 rounded-2xl border-4 border-white/80 object-cover shadow-xl transition duration-500 group-hover:translate-y-[-2px] group-hover:rotate-1 dark:border-brand/50"
             />
           </div>
         </header>
@@ -70,7 +73,7 @@ export default function Card({
                 {summaryItems.map((item) => (
                   <li
                     key={item.cardId}
-                    className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 shadow-sm dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-100"
+                    className="rounded-2xl border border-brand/30 bg-brand/10 px-4 py-3 text-sm font-medium text-brand shadow-sm dark:border-brand/40 dark:bg-brand/20 dark:text-white"
                   >
                     <p className="font-semibold">{item.topicName}</p>
                     <p>{item.title}</p>
@@ -78,7 +81,7 @@ export default function Card({
                 ))}
               </ul>
             ) : (
-              <p className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900 shadow-sm dark:border-green-400/30 dark:bg-green-900/30 dark:text-green-100">
+              <p className="rounded-2xl border border-emerald-200 bg-emerald-100/70 px-4 py-3 text-sm font-medium text-emerald-900 shadow-sm dark:border-emerald-400/50 dark:bg-emerald-500/20 dark:text-emerald-50">
                 Excellent work—no missed questions in this module on your first pass!
               </p>
             )}
@@ -92,29 +95,27 @@ export default function Card({
   }
 
   return (
-    <article
-      className="flex h-full flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm transition dark:border-neutral-700 dark:bg-neutral-900"
-    >
-      <header className="relative px-6 pb-16 pt-6 text-white dark:text-neutral-900">
+    <article className={cardShellClass}>
+      <header className="relative overflow-hidden px-6 pb-16 pt-6 text-white">
         <div
-          className="absolute inset-0 z-0 bg-black dark:bg-white"
+          className="absolute inset-0 z-0 bg-gradient-to-br from-neutral-950 via-black to-brand/80 opacity-95 transition-opacity duration-500 group-hover:opacity-100 dark:from-neutral-900 dark:via-black dark:to-brand/70"
           aria-hidden="true"
         />
         <div className="relative z-10 flex flex-col gap-3 pr-0 sm:pr-24 lg:pr-32">
           {topicName && (
-            <p className="text-sm font-semibold uppercase tracking-wide text-neutral-300 dark:text-neutral-600">
+            <p className="text-xs font-semibold uppercase tracking-[0.32em] text-white/70">
               {topicName}
             </p>
           )}
           <h3
             id={`card-title-${cardKey}`}
             tabIndex={-1}
-            className="text-2xl font-semibold leading-tight"
+            className="text-2xl font-semibold leading-tight text-white"
           >
             {card.title}
           </h3>
           {card.duration_min !== undefined && (
-            <p className="text-sm text-neutral-300 dark:text-neutral-500">
+            <p className="text-xs font-semibold uppercase tracking-[0.32em] text-white/60">
               {card.duration_min} min
             </p>
           )}
@@ -123,13 +124,13 @@ export default function Card({
           <img
             src={headerImage}
             alt={`Cover art for ${card.title}`}
-            className="h-27 w-28 rounded-2xl border-4 border-white object-cover shadow-xl dark:border-black"
+            className="h-28 w-28 rounded-2xl border-4 border-white/80 object-cover shadow-xl transition duration-500 group-hover:translate-y-[-2px] group-hover:rotate-1 dark:border-brand/50"
           />
         </div>
       </header>
       <div className="flex flex-1 flex-col gap-8 px-6 pb-6 pt-16 text-neutral-700 dark:text-neutral-200">
         {isReviewCard && (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 shadow-sm dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-100">
+          <div className="rounded-2xl border border-brand/30 bg-brand/10 px-4 py-3 text-sm font-medium text-brand shadow-sm dark:border-brand/40 dark:bg-brand/20 dark:text-white">
             You got this one wrong earlier but let&apos;s try again to cement your learning.
           </div>
         )}
