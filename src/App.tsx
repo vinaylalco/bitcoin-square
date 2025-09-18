@@ -32,20 +32,37 @@ export default function App() {
 
   const lang = (i18n.language || "en").toLowerCase().startsWith("es") ? "es" : "en";
   const { data: lessonPlans } = useLessonPlans(lang);
-  const defaultCourseSlug = lang === "es" ? "btc-course-es" : "btc-course-en";
+  const slugify = (value: unknown) =>
+    `${value ?? ""}`
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "");
+  const fallbackCourseSlug = "btc-full-course";
   const btcCourseSlug = useMemo(() => {
-    if (!lessonPlans?.length) return defaultCourseSlug;
-    const match = lessonPlans.find((plan) => {
-      const slugOrId = `${plan.slug ?? plan.id ?? ""}`.toLowerCase();
-      return slugOrId.includes("btc-course");
+    if (!lessonPlans?.length) return fallbackCourseSlug;
+    const primaryMatch = lessonPlans.find((plan) => {
+      const titleSlug = slugify(plan.title);
+      const slugSlug = slugify(plan.slug);
+      return (
+        titleSlug === fallbackCourseSlug ||
+        slugSlug === fallbackCourseSlug ||
+        titleSlug.includes("btc-full-course") ||
+        slugSlug.includes("btc-full-course")
+      );
     });
-    if (!match) return defaultCourseSlug;
-    const resolvedSlug =
-      (typeof match.slug === "string" && match.slug) ||
-      (typeof match.id === "string" && match.id) ||
-      defaultCourseSlug;
-    return resolvedSlug;
-  }, [lessonPlans, defaultCourseSlug]);
+    const btcPlan =
+      primaryMatch ||
+      lessonPlans.find((plan) => {
+        const titleSlug = slugify(plan.title);
+        const slugSlug = slugify(plan.slug);
+        return titleSlug.includes("btc") || slugSlug.includes("btc");
+      });
+    if (!btcPlan) return fallbackCourseSlug;
+    const slugFromTitle = slugify(btcPlan.title);
+    const slugFromPlan = slugify(btcPlan.slug);
+    return slugFromTitle || slugFromPlan || fallbackCourseSlug;
+  }, [lessonPlans]);
   const changeLang = (lng: "en" | "es") => i18n.changeLanguage(lng);
 
   const educationChildren = [
