@@ -741,6 +741,7 @@ export default function Slider({
   const percent = total > 0 ? Math.round(((index + 1) / total) * 100) : 0;
   const activeCardId = displayCards[index] ? toCardKey(displayCards[index].id) : undefined;
   const reviewLocked = isReviewLocked(displayCards[index]);
+  const reviewModeActive = Boolean(displayCards[index]?.isReview);
 
   const registerCardWrapper = useCallback(
     (id: string) => (node: HTMLDivElement | null) => {
@@ -1048,6 +1049,7 @@ export default function Slider({
         onToggleCourseContent={() => setTocOpen((open) => !open)}
         courseContentOpen={tocOpen}
         courseContentButtonRef={toggleRef}
+        reviewModeActive={reviewModeActive}
       />
     </>
   );
