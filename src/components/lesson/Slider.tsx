@@ -78,6 +78,7 @@ export default function Slider({
   const columnRef = useRef<HTMLDivElement>(null);
   const cardWrappers = useRef(new Map<string, HTMLDivElement>());
   const completionTimeoutRef = useRef<number | null>(null);
+  const cardLoadingTimeoutRef = useRef<number | null>(null);
   const [navHeight, setNavHeight] = useState<number | null>(null);
   const { user, token, updateUser } = useAuth();
   const initialLocalProgress = useMemo(() => readLocalProgress(), []);
@@ -111,6 +112,7 @@ export default function Slider({
   const reviewCounterRef = useRef(0);
   const summaryCounterRef = useRef(0);
   const [reviewCompletion, setReviewCompletion] = useState<Record<string, boolean>>({});
+  const [cardLoading, setCardLoading] = useState(false);
 
   const topicCardIdsMap = useMemo(() => {
     const map = new Map<string, Set<string>>();
@@ -190,6 +192,41 @@ export default function Slider({
     summaryCounterRef.current = 0;
     setReviewCompletion({});
   }, [cards]);
+
+  useEffect(() => {
+    const active = displayCards[index];
+    const shouldSkeleton = Boolean(active?.isReview || active?.isSummary || active?.quiz);
+
+    if (typeof window !== "undefined" && cardLoadingTimeoutRef.current !== null) {
+      window.clearTimeout(cardLoadingTimeoutRef.current);
+      cardLoadingTimeoutRef.current = null;
+    }
+
+    if (!shouldSkeleton) {
+      setCardLoading(false);
+      return;
+    }
+
+    setCardLoading(true);
+
+    if (typeof window !== "undefined") {
+      const delay = reduceMotion ? 120 : 240;
+      cardLoadingTimeoutRef.current = window.setTimeout(() => {
+        setCardLoading(false);
+        cardLoadingTimeoutRef.current = null;
+      }, delay);
+    } else {
+      setCardLoading(false);
+    }
+  }, [displayCards, index, reduceMotion]);
+
+  useEffect(() => {
+    return () => {
+      if (typeof window !== "undefined" && cardLoadingTimeoutRef.current !== null) {
+        window.clearTimeout(cardLoadingTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const total = displayCards.length;
 
@@ -898,23 +935,28 @@ export default function Slider({
             ref={containerRef}
             className="flex overflow-x-auto snap-x snap-mandatory lg:h-full"
           >
-            {displayCards.map((c) => (
-              <div
-                key={toCardKey(c.id)}
-                className="w-full flex-shrink-0 snap-start lg:flex lg:h-full lg:flex-col"
-              >
-                <div ref={registerCardWrapper(toCardKey(c.id))}>
-                  <Card
-                    card={c}
-                    topicName={c.topicName}
-                    onQuizComplete={(cardMeta, meta) => handleCardResult(cardMeta, meta)}
-                    quizCompleted={completedCardIds.has(
-                      toCardKey(c.sourceCardId ?? c.id),
-                    )}
-                  />
+            {displayCards.map((c) => {
+              const key = toCardKey(c.id);
+              const isActive = key === activeCardId;
+              return (
+                <div
+                  key={key}
+                  className="w-full flex-shrink-0 snap-start lg:flex lg:h-full lg:flex-col"
+                >
+                  <div ref={registerCardWrapper(key)}>
+                    <Card
+                      card={c}
+                      topicName={c.topicName}
+                      onQuizComplete={(cardMeta, meta) => handleCardResult(cardMeta, meta)}
+                      quizCompleted={completedCardIds.has(
+                        toCardKey(c.sourceCardId ?? c.id),
+                      )}
+                      isLoading={isActive && cardLoading}
+                    />
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           {index > 0 && (
             <button
