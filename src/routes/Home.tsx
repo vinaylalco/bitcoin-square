@@ -24,7 +24,7 @@ export default function HomePage() {
         <p className="mt-4 text-lg leading-relaxed text-neutral-600 transition-colors duration-300 dark:text-neutral-300 sm:text-xl">
           {home.MainSubHeading}
         </p>
-        <div className="mt-6 h-1 w-24 rounded-full bg-gradient-to-r from-brand via-brand/80 to-black shadow-[0_12px_30px_rgba(239,68,68,0.35)] transition-colors duration-300 dark:from-brand/80 dark:via-brand dark:to-brand/60 md:ml-0 md:w-28" />
+        <div className="mt-6 h-1 w-24 rounded-full bg-gradient-to-r from-brand via-brand/80 to-black shadow-[0_12px_30px_rgba(169,21,255,0.35)] transition-colors duration-300 dark:from-brand/80 dark:via-brand dark:to-brand/60 md:ml-0 md:w-28" />
       </section>
 
       {sections.length
@@ -44,7 +44,7 @@ export default function HomePage() {
 
             return (
               <div key={section.id ?? index} className="mx-auto max-w-6xl space-y-10 px-2 sm:px-4">
-                <article className="group grid grid-cols-1 items-center gap-8 rounded-3xl border border-neutral-200/70 bg-white/80 p-6 shadow-[0_20px_80px_rgba(15,23,42,0.12)] transition duration-500 hover:-translate-y-1 hover:shadow-[0_25px_110px_rgba(239,68,68,0.28)] dark:border-neutral-800/70 dark:bg-neutral-900/70 dark:shadow-[0_35px_120px_rgba(0,0,0,0.55)] md:grid-cols-2 md:p-10">
+                <article className="group grid grid-cols-1 items-center gap-8 rounded-3xl border border-neutral-200/70 bg-white/80 p-6 shadow-[0_20px_80px_rgba(15,23,42,0.12)] transition duration-500 hover:-translate-y-1 hover:shadow-[0_25px_110px_rgba(169,21,255,0.28)] dark:border-neutral-800/70 dark:bg-neutral-900/70 dark:shadow-[0_35px_120px_rgba(0,0,0,0.55)] md:grid-cols-2 md:p-10">
                   <div
                     className={cn(
                       "relative overflow-hidden rounded-2xl border border-neutral-200/80 bg-neutral-100/70 shadow-inner transition duration-500 dark:border-neutral-800/70 dark:bg-neutral-950/60",
@@ -81,7 +81,7 @@ export default function HomePage() {
                     <div className="flex justify-center md:justify-start">
                       <a
                         href={section.ButtonUrl}
-                        className="inline-flex items-center gap-3 rounded-full bg-gradient-to-r from-brand via-brand/85 to-black px-6 py-3 text-sm font-semibold uppercase tracking-[0.32em] text-white shadow-[0_20px_50px_rgba(239,68,68,0.35)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_30px_70px_rgba(239,68,68,0.45)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                        className="inline-flex items-center gap-3 rounded-full bg-gradient-to-r from-brand via-brand/85 to-black px-6 py-3 text-sm font-semibold uppercase tracking-[0.32em] text-white shadow-[0_20px_50px_rgba(169,21,255,0.35)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_30px_70px_rgba(169,21,255,0.45)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                         data-discover="true"
                       >
                         {section.ButtonLabel}

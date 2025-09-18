@@ -12,7 +12,7 @@ export default function CourseCard({ course }: Props) {
   return (
     <Link
       to={`/education/${slug}`}
-      className="group relative flex h-full flex-col overflow-hidden rounded-3xl border border-brand/30 bg-[var(--bg-card)] shadow-[var(--shadow-soft)] transition-all duration-300 hover:-translate-y-1 hover:border-brand hover:shadow-[0_45px_90px_rgba(239,68,68,0.35)]"
+      className="group relative flex h-full flex-col overflow-hidden rounded-3xl border border-brand/30 bg-[var(--bg-card)] shadow-[var(--shadow-soft)] transition-all duration-300 hover:-translate-y-1 hover:border-brand hover:shadow-[0_45px_90px_rgba(169,21,255,0.35)]"
     >
       {course.coverImage ? (
         <div className="relative overflow-hidden">

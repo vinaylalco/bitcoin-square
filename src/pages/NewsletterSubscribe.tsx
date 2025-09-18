@@ -72,7 +72,7 @@ export default function NewsletterSubscribe() {
           </div>
           <button
             type="submit"
-            className="w-full rounded-full bg-gradient-to-r from-brand via-brand/90 to-black px-6 py-3 text-sm font-semibold uppercase tracking-[0.32em] text-white shadow-[0_20px_45px_rgba(239,68,68,0.35)] transition hover:-translate-y-1 hover:shadow-[0_30px_60px_rgba(239,68,68,0.45)]"
+            className="w-full rounded-full bg-gradient-to-r from-brand via-brand/90 to-black px-6 py-3 text-sm font-semibold uppercase tracking-[0.32em] text-white shadow-[0_20px_45px_rgba(169,21,255,0.35)] transition hover:-translate-y-1 hover:shadow-[0_30px_60px_rgba(169,21,255,0.45)]"
           >
             Subscribe
           </button>
