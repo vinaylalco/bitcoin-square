@@ -18,18 +18,6 @@ import { useAuth } from "./context/AuthContext";
 import Footer from "./components/Footer";
 import { cn } from "./utils/cn";
 
-const educationChildren = [
-  { label: "BTC Full Course", to: "/education/btc-full-course" },
-];
-
-const desktopNav = [
-  { label: "Home", to: "/" },
-  { label: "Education", to: "/education", dropdown: educationChildren },
-  { label: "Shop", to: "/shop" },
-  { label: "Newsletter", to: "/newsletter" },
-  { label: "Settings", to: "/settings" },
-];
-
 export default function App() {
   const [open, setOpen] = useState(false);
   const [mobileEducationOpen, setMobileEducationOpen] = useState(false);
@@ -43,6 +31,21 @@ export default function App() {
 
   const lang = (i18n.language || "en").toLowerCase().startsWith("es") ? "es" : "en";
   const changeLang = (lng: "en" | "es") => i18n.changeLanguage(lng);
+
+  const educationChildren = [
+    {
+      label: "BTC Full Course",
+      to: `/education/${lang === "es" ? "btc-course-es" : "btc-course-en"}`,
+    },
+  ];
+
+  const desktopNav = [
+    { label: "Home", to: "/" },
+    { label: "Education", to: "/education", dropdown: educationChildren },
+    { label: "Shop", to: "/shop" },
+    { label: "Newsletter", to: "/newsletter" },
+    { label: "Settings", to: "/settings" },
+  ];
 
   useEffect(() => setOpen(false), [loc.pathname]);
 
