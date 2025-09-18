@@ -28,14 +28,14 @@ export default function Card({
   const isReviewCard = Boolean(card.isReview);
   const summaryItems: LessonSummaryItem[] = isSummaryCard ? card.summaryItems ?? [] : [];
   const cardShellClass =
-    "group relative flex h-full flex-col overflow-hidden rounded-3xl border border-brand/25 bg-[var(--bg-card)] shadow-[var(--shadow-soft)] transition-all duration-300 hover:-translate-y-1 hover:border-brand hover:shadow-[0_45px_110px_rgba(169,21,255,0.32)]";
+    "group relative flex h-full flex-col overflow-visible rounded-3xl border border-brand/25 bg-[var(--bg-card)] shadow-[var(--shadow-soft)] transition-all duration-300 hover:-translate-y-1 hover:border-brand hover:shadow-[0_45px_110px_rgba(169,21,255,0.32)]";
 
   if (isSummaryCard) {
     return (
       <article className={cardShellClass}>
-        <header className="relative overflow-hidden px-6 pb-16 pt-6 text-white">
+        <header className="relative rounded-t-3xl px-6 pb-16 pt-6 text-white">
           <div
-            className="absolute inset-0 z-0 bg-gradient-to-br from-neutral-950 via-black to-brand/80 opacity-95 transition-opacity duration-500 group-hover:opacity-100 dark:from-neutral-900 dark:via-black dark:to-brand/70"
+            className="absolute inset-0 z-0 rounded-t-3xl bg-gradient-to-br from-neutral-950 via-black to-brand/80 opacity-95 transition-opacity duration-500 group-hover:opacity-100 dark:from-neutral-900 dark:via-black dark:to-brand/70"
             aria-hidden="true"
           />
           <div className="relative z-10 flex flex-col gap-3 pr-0 sm:pr-24 lg:pr-32">
@@ -96,9 +96,9 @@ export default function Card({
 
   return (
     <article className={cardShellClass}>
-      <header className="relative overflow-hidden px-6 pb-16 pt-6 text-white">
+      <header className="relative rounded-t-3xl px-6 pb-16 pt-6 text-white">
         <div
-          className="absolute inset-0 z-0 bg-gradient-to-br from-neutral-950 via-black to-brand/80 opacity-95 transition-opacity duration-500 group-hover:opacity-100 dark:from-neutral-900 dark:via-black dark:to-brand/70"
+          className="absolute inset-0 z-0 rounded-t-3xl bg-gradient-to-br from-neutral-950 via-black to-brand/80 opacity-95 transition-opacity duration-500 group-hover:opacity-100 dark:from-neutral-900 dark:via-black dark:to-brand/70"
           aria-hidden="true"
         />
         <div className="relative z-10 flex flex-col gap-3 pr-0 sm:pr-24 lg:pr-32">
