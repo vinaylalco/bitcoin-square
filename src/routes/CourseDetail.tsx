@@ -46,13 +46,8 @@ export default function CourseDetail() {
     <div className="w-full pb-24">
       <div className="w-full overflow-hidden bg-[var(--bg-card)] shadow-[var(--shadow-soft)]">
         <div className="space-y-6 bg-[var(--bg-card)] px-4 py-10 sm:px-10">
-<<<<<<< Updated upstream
-          <div className="relative overflow-hidden rounded-3xl border border-brand/25 bg-gradient-to-br from-white via-brand/20 to-brand/10 p-8 text-neutral-900 shadow-[0_35px_120px_rgba(169,21,255,0.18)] transition-colors duration-500 dark:border-brand/40 dark:from-neutral-950 dark:via-neutral-900 dark:to-neutral-900 dark:text-neutral-50">
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(169,21,255,0.35),_transparent_60%)] opacity-70 transition-opacity duration-500" />
-=======
           {/*<div className="relative overflow-hidden rounded-3xl border border-brand/25 bg-gradient-to-br from-white via-red-100/40 to-red-200/40 p-8 text-neutral-900 shadow-[0_35px_120px_rgba(239,68,68,0.18)] transition-colors duration-500 dark:border-brand/40 dark:from-neutral-950 dark:via-neutral-900 dark:to-neutral-900 dark:text-neutral-50">
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(239,68,68,0.35),_transparent_60%)] opacity-70 transition-opacity duration-500" />
->>>>>>> Stashed changes
             <div className="relative z-10 flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
               <div className="space-y-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.42em] text-brand">Immersive Course</p>
