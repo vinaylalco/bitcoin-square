@@ -35,7 +35,7 @@ export default function Card({
       <article className={cardShellClass}>
         <header className="relative rounded-t-3xl px-6 pb-16 pt-6 text-white">
           <div
-            className="absolute inset-0 z-0 rounded-t-3xl bg-gradient-to-br from-neutral-950 via-black to-brand/80 opacity-95 transition-opacity duration-500 group-hover:opacity-100 dark:from-neutral-900 dark:via-black dark:to-brand/70"
+            className="absolute inset-0 z-0 rounded-t-3xl bg-gradient-to-br from-[#FFF582] via-brand/80 to-brand/90 opacity-95 transition-opacity duration-500 group-hover:opacity-100 dark:from-[#FFF582]/80 dark:via-brand/70 dark:to-brand/80"
             aria-hidden="true"
           />
           <div className="relative z-10 flex flex-col gap-3 pr-0 sm:pr-24 lg:pr-32">
@@ -98,7 +98,7 @@ export default function Card({
     <article className={cardShellClass}>
       <header className="relative rounded-t-3xl px-6 pb-16 pt-6 text-white">
         <div
-          className="absolute inset-0 z-0 rounded-t-3xl bg-gradient-to-br from-neutral-950 via-black to-brand/80 opacity-95 transition-opacity duration-500 group-hover:opacity-100 dark:from-neutral-900 dark:via-black dark:to-brand/70"
+          className="absolute inset-0 z-0 rounded-t-3xl bg-gradient-to-br from-[#FFF582] via-brand/80 to-brand/90 opacity-95 transition-opacity duration-500 group-hover:opacity-100 dark:from-[#FFF582]/80 dark:via-brand/70 dark:to-brand/80"
           aria-hidden="true"
         />
         <div className="relative z-10 flex flex-col gap-3 pr-0 sm:pr-24 lg:pr-32">
