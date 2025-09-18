@@ -28,7 +28,7 @@ export default function Card({
   const isReviewCard = Boolean(card.isReview);
   const summaryItems: LessonSummaryItem[] = isSummaryCard ? card.summaryItems ?? [] : [];
   const cardShellClass =
-    "group relative flex h-full flex-col overflow-hidden rounded-3xl border border-brand/25 bg-[var(--bg-card)] shadow-[var(--shadow-soft)] transition-all duration-300 hover:-translate-y-1 hover:border-brand hover:shadow-[0_45px_110px_rgba(239,68,68,0.32)]";
+    "group relative flex h-full flex-col overflow-hidden rounded-3xl border border-brand/25 bg-[var(--bg-card)] shadow-[var(--shadow-soft)] transition-all duration-300 hover:-translate-y-1 hover:border-brand hover:shadow-[0_45px_110px_rgba(169,21,255,0.32)]";
 
   if (isSummaryCard) {
     return (

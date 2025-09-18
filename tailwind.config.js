@@ -4,7 +4,7 @@ module.exports = {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
-      colors: { brand: "#ef4444" },
+      colors: { brand: "#a915ff" },
       fontFamily: {
         sans: ["Inter", "-apple-system", "BlinkMacSystemFont", '"Segoe UI"', "sans-serif"],
       },

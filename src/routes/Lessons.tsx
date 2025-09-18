@@ -47,7 +47,7 @@ export default function LessonsPage() {
               <Link
                 key={lesson.id}
                 to={`/lessons/${attrs.slug}`}
-                className="group relative flex h-full flex-col overflow-hidden rounded-3xl border border-brand/30 bg-[var(--bg-card)] p-6 shadow-[var(--shadow-soft)] transition-all duration-300 hover:-translate-y-1 hover:border-brand hover:shadow-[0_35px_90px_rgba(239,68,68,0.35)]"
+                className="group relative flex h-full flex-col overflow-hidden rounded-3xl border border-brand/30 bg-[var(--bg-card)] p-6 shadow-[var(--shadow-soft)] transition-all duration-300 hover:-translate-y-1 hover:border-brand hover:shadow-[0_35px_90px_rgba(169,21,255,0.35)]"
               >
                 <div className="absolute inset-0 bg-gradient-to-br from-brand/10 via-transparent to-transparent opacity-0 transition duration-300 group-hover:opacity-100" />
                 <div className="relative flex flex-1 flex-col gap-4">

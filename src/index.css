@@ -51,7 +51,7 @@
 
   body::selection,
   ::selection {
-    background: rgba(239, 68, 68, 0.25);
+    background: rgba(169, 21, 255, 0.25);
   }
 
   a {
@@ -66,7 +66,7 @@
 }
 
 :root {
-  --ring: #ef4444;
+  --ring: #a915ff;
 }
 
 @keyframes shimmer {
@@ -86,7 +86,7 @@
 }
 
 :root {
-  --ring: #ef4444;
+  --ring: #a915ff;
 }
 .focus-ring:focus-visible {
   outline: 2px solid var(--ring);
