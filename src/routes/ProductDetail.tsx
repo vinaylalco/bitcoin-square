@@ -131,7 +131,7 @@ export default function ProductDetail() {
               href={resolveExternal(product.ButtonLink)}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-brand via-brand/90 to-black px-6 py-3 text-sm font-semibold uppercase tracking-[0.32em] text-white shadow-[0_25px_55px_rgba(169,21,255,0.4)] transition hover:-translate-y-1 hover:shadow-[0_35px_70px_rgba(169,21,255,0.45)]"
+              className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-brand via-brand/90 to-[#FFF582] px-6 py-3 text-sm font-semibold uppercase tracking-[0.32em] text-white shadow-[0_25px_55px_rgba(169,21,255,0.4)] transition hover:-translate-y-1 hover:shadow-[0_35px_70px_rgba(169,21,255,0.45)]"
             >
               {product.ButtonLabel || "Buy now"}
             </a>
