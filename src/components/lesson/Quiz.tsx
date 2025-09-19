@@ -6,7 +6,6 @@ interface QuizProps {
   quiz: QuizType;
   onComplete?: (meta?: QuizCompletionMeta) => void;
   isCompleted?: boolean;
-  isReview?: boolean;
 }
 
 export interface QuizCompletionMeta {
@@ -21,7 +20,6 @@ export default function Quiz({
   quiz,
   onComplete,
   isCompleted = false,
-  isReview = false,
 }: QuizProps) {
   const [selected, setSelected] = useState<string | null>(null);
   const [status, setStatus] = useState<"correct" | "incorrect" | null>(null);
@@ -293,11 +291,7 @@ export default function Quiz({
     setSelected(opt);
     const isCorrectChoice = opt === quiz.correct_answer;
     setStatus(isCorrectChoice ? "correct" : "incorrect");
-    if (isCorrectChoice) {
-      setCompleted(true);
-    } else {
-      setCompleted(!isReview);
-    }
+    setCompleted(true);
     if (isCorrectChoice) {
       if (typeof window !== "undefined") {
         if (flashTimeoutRef.current !== null) {

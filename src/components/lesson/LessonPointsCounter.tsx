@@ -27,7 +27,6 @@ interface LessonPointsCounterProps {
   onToggleCourseContent?: () => void;
   courseContentOpen?: boolean;
   courseContentButtonRef?: RefObject<HTMLButtonElement>;
-  reviewModeActive?: boolean;
 }
 
 export default function LessonPointsCounter({
@@ -39,7 +38,6 @@ export default function LessonPointsCounter({
   onToggleCourseContent,
   courseContentOpen,
   courseContentButtonRef,
-  reviewModeActive = false,
 }: LessonPointsCounterProps) {
   const [animateStrike, setAnimateStrike] = useState(false);
   const lastPoints = useRef(points);
@@ -258,13 +256,8 @@ export default function LessonPointsCounter({
       )}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 px-4 pb-5 pt-2 pointer-events-none">
         <nav
-          className={`points-hud-panel mx-auto rounded-3xl overflow-hidden p-3 transition ${
-            reviewModeActive
-              ? "relative z-10 w-full max-w-xl transform transition-all duration-200 ease-out scale-100 opacity-100 pointer-events-auto"
-              : "relative z-10 w-full max-w-xl transform transition-all duration-200 ease-out scale-95 opacity-0 pointer-events-none"
-          }`}
+          className="points-hud-panel relative z-10 mx-auto w-full max-w-xl transform transition-all duration-200 ease-out scale-100 opacity-100 pointer-events-auto rounded-3xl overflow-hidden p-3"
           aria-label="Lesson heads-up display"
-          aria-hidden={!reviewModeActive}
         >
           <div className="grid grid-cols-4 gap-2">
             <div className="flex items-center justify-center">
