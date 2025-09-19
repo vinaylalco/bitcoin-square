@@ -35,18 +35,12 @@ export default function Quiz({
   const [showTextFeedbackModal, setShowTextFeedbackModal] = useState(false);
   const [pendingMeta, setPendingMeta] = useState<QuizCompletionMeta | null>(null);
   const [pendingChoice, setPendingChoice] = useState<string | null>(null);
-  const [showReflectionModal, setShowReflectionModal] = useState(
-    quiz.type === "reflection" && !isCompleted,
-  );
   const flashTimeoutRef = useRef<number | null>(null);
   const highlightTimeoutRef = useRef<number | null>(null);
   const groupId = useId();
-  const reflectionHeadingId = useId();
   const confirmHeadingId = useId();
-  const confirmDescriptionId = useId();
   const textFeedbackHeadingId = useId();
   const textFeedbackDescriptionId = useId();
-  const reflectionTriggerRef = useRef<HTMLButtonElement | null>(null);
   const continueButtonRef = useRef<HTMLButtonElement | null>(null);
   const showAnswerButtonRef = useRef<HTMLButtonElement | null>(null);
   const textContinueButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -58,8 +52,6 @@ export default function Quiz({
         setSelected(quiz.correct_answer);
         setStatus("correct");
         setFlashCorrect(false);
-      } else if (quiz.type === "reflection") {
-        setShowReflectionModal(false);
       } else if (quiz.type !== "multiple_choice") {
         setShowAnswer(true);
         setAnswerHighlight(false);
@@ -70,8 +62,6 @@ export default function Quiz({
         setSelected(null);
         setStatus(null);
         setFlashCorrect(false);
-      } else if (quiz.type === "reflection") {
-        setShowReflectionModal(true);
       } else {
         setShowAnswer(false);
         setAnswerHighlight(false);
@@ -118,64 +108,38 @@ export default function Quiz({
       if (!completed) {
         setCompleted(true);
       }
-      setShowReflectionModal(false);
       onComplete?.({ delayMs: 0, result: "revealed" });
     };
 
     return (
-      <>
-        <div className="space-y-3">
-          <p className="text-base font-medium text-neutral-900 dark:text-neutral-100">
-            Give yourself a moment to process before moving on.
-          </p>
+      <div className="space-y-5 rounded-3xl border border-amber-400/60 bg-amber-500/10 p-6 text-neutral-900 shadow-[var(--shadow-soft)] dark:border-amber-400/50 dark:bg-amber-500/15 dark:text-neutral-100">
+        <p className="text-xs font-semibold uppercase tracking-[0.36em] text-amber-500 dark:text-amber-300">
+          Reflection pause
+        </p>
+        <p className="text-2xl font-semibold leading-snug">{quiz.question}</p>
+        <p className="text-base text-neutral-700 dark:text-neutral-200">
+          Notice what this lesson stirred up. Capture a thought, a feeling, or a next step you want to remember.
+        </p>
+        <textarea
+          className="min-h-[160px] w-full rounded-2xl border border-amber-400/60 bg-white/80 px-4 py-3 text-base text-neutral-900 shadow-sm transition focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/40 dark:border-amber-400/50 dark:bg-amber-500/10 dark:text-amber-50"
+          rows={5}
+          value={textAnswer}
+          onChange={(event) => setTextAnswer(event.target.value)}
+          placeholder="Write down what resonated, what surprised you, or how you’ll apply it…"
+        />
+        <p className="text-sm text-neutral-600 dark:text-neutral-300">
+          These reflections stay with you—they aren’t graded.
+        </p>
+        <div className="flex justify-end">
           <button
-            ref={reflectionTriggerRef}
             type="button"
-            onClick={() => setShowReflectionModal(true)}
-            className="inline-flex items-center gap-2 rounded-full border border-amber-400/70 bg-amber-500/10 px-4 py-2 text-sm font-semibold text-amber-700 transition hover:bg-amber-500/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500 dark:border-amber-400/60 dark:bg-amber-500/15 dark:text-amber-100 dark:hover:bg-amber-500/25"
+            onClick={handleReflectionComplete}
+            className="inline-flex items-center justify-center rounded-full bg-amber-500 px-5 py-2.5 text-sm font-semibold text-neutral-900 transition hover:bg-amber-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500 dark:bg-amber-400 dark:text-neutral-900 dark:hover:bg-amber-300"
           >
-            Revisit reflection prompt
+            {completed ? "Next" : "Contemplate & Next"}
           </button>
         </div>
-        <Modal
-          open={showReflectionModal}
-          dismissible={false}
-          labelledBy={reflectionHeadingId}
-          returnFocusRef={reflectionTriggerRef}
-        >
-          <div className="rounded-3xl border border-amber-400/70 bg-[var(--bg-card)] p-8 text-neutral-900 shadow-[var(--shadow-soft)] dark:border-amber-400/60 dark:text-neutral-100">
-            <p className="text-xs font-semibold uppercase tracking-[0.36em] text-amber-500 dark:text-amber-300">
-              Reflection pause
-            </p>
-            <h2 id={reflectionHeadingId} className="mt-3 text-2xl font-semibold leading-snug">
-              {quiz.question}
-            </h2>
-            <p className="mt-4 text-base text-neutral-600 dark:text-neutral-300">
-              Notice what this lesson stirred up. Capture a thought, a feeling, or a next step you
-              want to remember.
-            </p>
-            <textarea
-              className="mt-5 min-h-[160px] w-full rounded-2xl border border-amber-400/60 bg-amber-500/10 px-4 py-3 text-base text-neutral-900 shadow-sm transition focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/40 dark:border-amber-400/50 dark:bg-amber-500/10 dark:text-amber-50"
-              rows={5}
-              value={textAnswer}
-              onChange={(event) => setTextAnswer(event.target.value)}
-              placeholder="Write down what resonated, what surprised you, or how you’ll apply it…"
-            />
-            <p className="mt-3 text-sm text-neutral-500 dark:text-neutral-400">
-              These reflections stay with you—they aren’t graded.
-            </p>
-            <div className="mt-6 flex justify-end">
-              <button
-                type="button"
-                onClick={handleReflectionComplete}
-                className="inline-flex items-center justify-center rounded-full bg-amber-500 px-5 py-2.5 text-sm font-semibold text-neutral-900 transition hover:bg-amber-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500 dark:bg-amber-400 dark:text-neutral-900 dark:hover:bg-amber-300"
-              >
-                Contemplate & Next
-              </button>
-            </div>
-          </div>
-        </Modal>
-      </>
+      </div>
     );
   }
 
@@ -386,6 +350,9 @@ export default function Quiz({
 
   const choicePreview = pendingChoice ?? selected ?? "";
   const isCorrectSelection = status === "correct";
+  const confirmHeadingText = isCorrectSelection
+    ? "Nice work, you gained 10 points!"
+    : "Incorrect but don't worry we will come back to this question and youll have another chance to get it right!";
 
   return (
     <>
@@ -438,23 +405,14 @@ export default function Quiz({
         open={showConfirmModal}
         dismissible={false}
         labelledBy={confirmHeadingId}
-        describedBy={confirmDescriptionId}
       >
         <div className="rounded-3xl border border-neutral-200 bg-[var(--bg-card)] p-7 text-neutral-900 shadow-[var(--shadow-soft)] dark:border-neutral-700 dark:text-neutral-100">
           <p className="text-xs font-semibold uppercase tracking-[0.36em] text-neutral-500 dark:text-neutral-400">
             Choice locked in
           </p>
           <h2 id={confirmHeadingId} className="mt-3 text-2xl font-semibold leading-snug">
-            {isCorrectSelection ? "Nicely done." : "Let's tune this insight."}
+            {confirmHeadingText}
           </h2>
-          <p
-            id={confirmDescriptionId}
-            className="mt-3 text-base text-neutral-600 dark:text-neutral-300"
-          >
-            {isCorrectSelection
-              ? "Your reasoning stays aligned with the lesson."
-              : "Revisit the lesson anchor and take another shot."}
-          </p>
           <div
             className={`mt-5 rounded-2xl border px-4 py-3 text-sm font-semibold ${isCorrectSelection
               ? "border-emerald-300 bg-emerald-100/80 text-emerald-900 dark:border-emerald-400/60 dark:bg-emerald-500/20 dark:text-emerald-100"
