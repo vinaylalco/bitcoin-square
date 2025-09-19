@@ -14,8 +14,6 @@ export interface QuizCompletionMeta {
 }
 
 const MULTIPLE_CHOICE_FLASH_DURATION = 650;
-const TEXT_REVEAL_HOLD_DURATION = 2400;
-
 export default function Quiz({
   quiz,
   onComplete,
@@ -28,13 +26,11 @@ export default function Quiz({
   const [textAnswer, setTextAnswer] = useState("");
   const [textError, setTextError] = useState<string | null>(null);
   const [flashCorrect, setFlashCorrect] = useState(false);
-  const [answerHighlight, setAnswerHighlight] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showTextFeedbackModal, setShowTextFeedbackModal] = useState(false);
   const [pendingMeta, setPendingMeta] = useState<QuizCompletionMeta | null>(null);
   const [pendingChoice, setPendingChoice] = useState<string | null>(null);
   const flashTimeoutRef = useRef<number | null>(null);
-  const highlightTimeoutRef = useRef<number | null>(null);
   const groupId = useId();
   const confirmHeadingId = useId();
   const textFeedbackHeadingId = useId();
@@ -52,7 +48,6 @@ export default function Quiz({
         setFlashCorrect(false);
       } else if (quiz.type !== "multiple_choice") {
         setShowAnswer(true);
-        setAnswerHighlight(false);
       }
     } else {
       setCompleted(false);
@@ -62,7 +57,6 @@ export default function Quiz({
         setFlashCorrect(false);
       } else {
         setShowAnswer(false);
-        setAnswerHighlight(false);
       }
     }
 
@@ -70,10 +64,6 @@ export default function Quiz({
       if (flashTimeoutRef.current !== null) {
         window.clearTimeout(flashTimeoutRef.current);
         flashTimeoutRef.current = null;
-      }
-      if (highlightTimeoutRef.current !== null) {
-        window.clearTimeout(highlightTimeoutRef.current);
-        highlightTimeoutRef.current = null;
       }
     }
 
@@ -88,9 +78,6 @@ export default function Quiz({
       if (typeof window !== "undefined") {
         if (flashTimeoutRef.current !== null) {
           window.clearTimeout(flashTimeoutRef.current);
-        }
-        if (highlightTimeoutRef.current !== null) {
-          window.clearTimeout(highlightTimeoutRef.current);
         }
       }
     };
@@ -145,7 +132,6 @@ export default function Quiz({
     const handleToggleAnswer = () => {
       if (showAnswer) {
         setShowAnswer(false);
-        setAnswerHighlight(false);
         return;
       }
 
@@ -158,19 +144,7 @@ export default function Quiz({
 
       if (!completed) {
         setCompleted(true);
-        setAnswerHighlight(true);
-        if (typeof window !== "undefined") {
-          if (highlightTimeoutRef.current !== null) {
-            window.clearTimeout(highlightTimeoutRef.current);
-          }
-          highlightTimeoutRef.current = window.setTimeout(() => {
-            setAnswerHighlight(false);
-            highlightTimeoutRef.current = null;
-          }, TEXT_REVEAL_HOLD_DURATION);
-        } else {
-          setAnswerHighlight(false);
-        }
-        setPendingMeta({ delayMs: TEXT_REVEAL_HOLD_DURATION, result: "revealed" });
+        setPendingMeta({ delayMs: 0, result: "revealed" });
         setShowTextFeedbackModal(true);
       }
 
@@ -216,14 +190,6 @@ export default function Quiz({
               >
                 {showAnswer ? "Hide answer" : "Show answer"}
               </button>
-              {showAnswer && (
-                <p
-                  className={`quiz-answer text-sm text-neutral-700 dark:text-neutral-200 ${answerHighlight ? "quiz-answer--highlight" : ""}`}
-                  aria-live="polite"
-                >
-                  {quiz.correct_answer}
-                </p>
-              )}
             </div>
           )}
         </div>
