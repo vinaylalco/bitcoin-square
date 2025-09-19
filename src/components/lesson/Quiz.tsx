@@ -291,28 +291,31 @@ export default function Quiz({
     setSelected(opt);
     const isCorrectChoice = opt === quiz.correct_answer;
     setStatus(isCorrectChoice ? "correct" : "incorrect");
+
+    if (!isCorrectChoice) {
+      setFlashCorrect(false);
+      setShowConfirmModal(false);
+      setPendingMeta(null);
+      setPendingChoice(null);
+      return;
+    }
+
     setCompleted(true);
-    if (isCorrectChoice) {
-      if (typeof window !== "undefined") {
-        if (flashTimeoutRef.current !== null) {
-          window.clearTimeout(flashTimeoutRef.current);
-        }
+    if (typeof window !== "undefined") {
+      if (flashTimeoutRef.current !== null) {
+        window.clearTimeout(flashTimeoutRef.current);
       }
-      setFlashCorrect(true);
+    }
+    setFlashCorrect(true);
+    if (typeof window !== "undefined") {
+      flashTimeoutRef.current = window.setTimeout(() => {
+        setFlashCorrect(false);
+        flashTimeoutRef.current = null;
+      }, MULTIPLE_CHOICE_FLASH_DURATION);
     } else {
       setFlashCorrect(false);
     }
-    if (isCorrectChoice) {
-      if (typeof window !== "undefined") {
-        flashTimeoutRef.current = window.setTimeout(() => {
-          setFlashCorrect(false);
-          flashTimeoutRef.current = null;
-        }, MULTIPLE_CHOICE_FLASH_DURATION);
-      } else {
-        setFlashCorrect(false);
-      }
-    }
-    setPendingMeta({ delayMs: 0, result: isCorrectChoice ? "correct" : "incorrect" });
+    setPendingMeta({ delayMs: 0, result: "correct" });
     setPendingChoice(opt);
     setShowConfirmModal(true);
   };
