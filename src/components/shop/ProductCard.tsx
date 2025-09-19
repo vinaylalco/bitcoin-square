@@ -60,7 +60,7 @@ export default function ProductCard({ product }: Props) {
             href={resolveExternal(product.ButtonLink)}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-brand via-brand/90 to-black px-4 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-white shadow-[0_20px_45px_rgba(169,21,255,0.35)] transition hover:-translate-y-0.5 hover:shadow-[0_28px_60px_rgba(169,21,255,0.45)]"
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-brand via-brand/90 to-[#FFF582] px-4 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-white shadow-[0_20px_45px_rgba(169,21,255,0.35)] transition hover:-translate-y-0.5 hover:shadow-[0_28px_60px_rgba(169,21,255,0.45)]"
           >
             {product.ButtonLabel || "Buy now"}
           </a>
