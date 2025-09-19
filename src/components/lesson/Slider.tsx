@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import type { CSSProperties } from "react";
 import { Check, ChevronLeft, ChevronRight } from "lucide-react";
-import type { LessonCard, LessonSummaryItem, Module } from "../../types/lesson-plan";
+import type { LessonCard, Module } from "../../types/lesson-plan";
 import Card from "./Card";
 import { strapiFetch } from "../../api/strapi-client";
 import { useAuth } from "../../context/AuthContext";
@@ -78,6 +78,7 @@ export default function Slider({
   const columnRef = useRef<HTMLDivElement>(null);
   const cardWrappers = useRef(new Map<string, HTMLDivElement>());
   const completionTimeoutRef = useRef<number | null>(null);
+  const cardLoadingTimeoutRef = useRef<number | null>(null);
   const [navHeight, setNavHeight] = useState<number | null>(null);
   const { user, token, updateUser } = useAuth();
   const initialLocalProgress = useMemo(() => readLocalProgress(), []);
@@ -105,12 +106,7 @@ export default function Slider({
     }
     return initial;
   });
-  const pendingReviewsRef = useRef<Map<string, LessonCard[]>>(new Map());
-  const moduleMistakesRef = useRef<Map<string, Map<string, LessonSummaryItem>>>(new Map());
-  const insertedSummariesRef = useRef<Set<string>>(new Set());
-  const reviewCounterRef = useRef(0);
-  const summaryCounterRef = useRef(0);
-  const [reviewCompletion, setReviewCompletion] = useState<Record<string, boolean>>({});
+  const [cardLoading, setCardLoading] = useState(false);
 
   const topicCardIdsMap = useMemo(() => {
     const map = new Map<string, Set<string>>();
@@ -183,13 +179,42 @@ export default function Slider({
     setDisplayCards(cards);
     displayCardsRef.current = cards;
     setIndex(0);
-    pendingReviewsRef.current = new Map();
-    moduleMistakesRef.current = new Map();
-    insertedSummariesRef.current = new Set();
-    reviewCounterRef.current = 0;
-    summaryCounterRef.current = 0;
-    setReviewCompletion({});
   }, [cards]);
+
+  useEffect(() => {
+    const active = displayCards[index];
+    const shouldSkeleton = Boolean(active?.quiz);
+
+    if (typeof window !== "undefined" && cardLoadingTimeoutRef.current !== null) {
+      window.clearTimeout(cardLoadingTimeoutRef.current);
+      cardLoadingTimeoutRef.current = null;
+    }
+
+    if (!shouldSkeleton) {
+      setCardLoading(false);
+      return;
+    }
+
+    setCardLoading(true);
+
+    if (typeof window !== "undefined") {
+      const delay = reduceMotion ? 120 : 240;
+      cardLoadingTimeoutRef.current = window.setTimeout(() => {
+        setCardLoading(false);
+        cardLoadingTimeoutRef.current = null;
+      }, delay);
+    } else {
+      setCardLoading(false);
+    }
+  }, [displayCards, index, reduceMotion]);
+
+  useEffect(() => {
+    return () => {
+      if (typeof window !== "undefined" && cardLoadingTimeoutRef.current !== null) {
+        window.clearTimeout(cardLoadingTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const total = displayCards.length;
 
@@ -245,87 +270,6 @@ export default function Slider({
       }
     },
     [token, updateUser, user],
-  );
-
-  const queueReviewCard = useCallback(
-    (card: LessonCard, normalizedId: string | null) => {
-      if (!normalizedId) return;
-      if (card.quiz?.type !== "multiple_choice") return;
-      if (card.isReview) return;
-      const current = new Map(pendingReviewsRef.current);
-      const existing = current.get(card.topicId) ?? [];
-      const alreadyQueued = existing.some(
-        (entry) => toCardKey(entry.sourceCardId ?? entry.id) === normalizedId,
-      );
-      if (alreadyQueued) {
-        pendingReviewsRef.current = current;
-        return;
-      }
-      reviewCounterRef.current += 1;
-      const reviewCard: LessonCard = {
-        ...card,
-        id: `${normalizedId}__review-${reviewCounterRef.current}`,
-        sourceCardId: card.sourceCardId ?? card.id,
-        isReview: true,
-        isLastInTopic: false,
-        isLastInModule: false,
-      };
-      current.set(card.topicId, [...existing, reviewCard]);
-      pendingReviewsRef.current = current;
-    },
-    [toCardKey],
-  );
-
-  const recordModuleMistake = useCallback((card: LessonCard, normalizedId: string | null) => {
-    if (!normalizedId) return;
-    const summaryItem: LessonSummaryItem = {
-      cardId: normalizedId,
-      title: card.quiz?.question ?? card.title,
-      topicName: card.topicName,
-    };
-    const next = new Map(moduleMistakesRef.current);
-    const moduleEntries = new Map(next.get(card.moduleId) ?? new Map());
-    if (!moduleEntries.has(normalizedId)) {
-      moduleEntries.set(normalizedId, summaryItem);
-    }
-    next.set(card.moduleId, moduleEntries);
-    moduleMistakesRef.current = next;
-  }, []);
-
-  const drainPendingReviewCards = useCallback((topicId: string): LessonCard[] => {
-    const current = new Map(pendingReviewsRef.current);
-    const reviews = current.get(topicId) ?? [];
-    current.delete(topicId);
-    pendingReviewsRef.current = current;
-    return reviews;
-  }, []);
-
-  const createModuleSummaryCard = useCallback(
-    (card: LessonCard): LessonCard | null => {
-      if (insertedSummariesRef.current.has(card.moduleId)) {
-        return null;
-      }
-      const nextSet = new Set(insertedSummariesRef.current);
-      nextSet.add(card.moduleId);
-      insertedSummariesRef.current = nextSet;
-      summaryCounterRef.current += 1;
-      const summaryItemsMap = moduleMistakesRef.current.get(card.moduleId);
-      const summaryItems = summaryItemsMap
-        ? Array.from(summaryItemsMap.values())
-        : [];
-      return {
-        id: `${card.moduleId}__summary-${summaryCounterRef.current}`,
-        title: "Here’s what you got wrong",
-        topicId: card.topicId,
-        topicName: card.topicName,
-        moduleId: card.moduleId,
-        moduleName: card.moduleName,
-        sourceCardId: `${card.moduleId}__summary`,
-        isSummary: true,
-        summaryItems,
-      };
-    },
-    [],
   );
 
   useEffect(() => {
@@ -419,38 +363,21 @@ export default function Slider({
     [reduceMotion, ease]
   );
 
-  const isReviewLocked = useCallback(
-    (card?: LessonCard) => {
-      if (!card?.isReview) return false;
-      const reviewKey = toCardKey(card.id);
-      return !reviewCompletion[reviewKey];
-    },
-    [reviewCompletion, toCardKey],
-  );
-
   const prev = () => {
     void animateScroll(index - 1);
   };
   const next = useCallback(() => {
-    const activeCard = displayCards[index];
-    if (isReviewLocked(activeCard)) {
-      return;
-    }
     void animateScroll(index + 1);
-  }, [animateScroll, displayCards, index, isReviewLocked]);
+  }, [animateScroll, index]);
   const goToCardById = useCallback(
     (id: string) => {
       const idx = idToIndex.get(id);
       if (idx === undefined) {
         return;
       }
-      const activeCard = displayCards[index];
-      if (idx > index && isReviewLocked(activeCard)) {
-        return;
-      }
       void animateScroll(idx);
     },
-    [animateScroll, displayCards, idToIndex, index, isReviewLocked]
+    [animateScroll, idToIndex]
   );
 
   const scrollToColumnTop = useCallback(() => {
@@ -470,28 +397,9 @@ export default function Slider({
       if (!lessonSlug) return;
 
       const normalizedId = toCardKey(card.sourceCardId ?? card.id);
-      const reviewCardId = card.isReview ? toCardKey(card.id) : null;
       const result = meta?.result
         ?? (card.quiz?.type === "multiple_choice" ? "correct" : "revealed");
       const currentIndex = index;
-
-      if (reviewCardId) {
-        if (result === "correct") {
-          setReviewCompletion((prev) => {
-            if (prev[reviewCardId]) {
-              return prev;
-            }
-            return { ...prev, [reviewCardId]: true };
-          });
-        } else if (result === "incorrect" && card.quiz?.type === "multiple_choice") {
-          setReviewCompletion((prev) => {
-            if (prev[reviewCardId] === false) {
-              return prev;
-            }
-            return { ...prev, [reviewCardId]: false };
-          });
-        }
-      }
 
       const advance = () => {
         const totalCards = displayCardsRef.current.length;
@@ -520,12 +428,6 @@ export default function Slider({
       };
 
       if (result === "incorrect" && card.quiz?.type === "multiple_choice") {
-        if (card.isReview) {
-          setShowLoginPrompt(false);
-          return;
-        }
-        queueReviewCard(card, normalizedId);
-        recordModuleMistake(card, normalizedId);
         applyPointDelta(-10);
         setShowLoginPrompt(false);
       } else if (normalizedId && !completedCardIds.has(normalizedId)) {
@@ -648,40 +550,14 @@ export default function Slider({
         }
       }
 
-      const additions: LessonCard[] = [];
-      if (!card.isReview && card.isLastInTopic) {
-        const reviews = drainPendingReviewCards(card.topicId);
-        if (reviews.length > 0) {
-          additions.push(...reviews);
-        }
-      }
-      if (!card.isReview && card.isLastInModule) {
-        const summaryCard = createModuleSummaryCard(card);
-        if (summaryCard) {
-          additions.push(summaryCard);
-        }
-      }
-      if (additions.length > 0) {
-        setDisplayCards((prevCards) => {
-          const nextCards = [...prevCards];
-          nextCards.splice(currentIndex + 1, 0, ...additions);
-          displayCardsRef.current = nextCards;
-          return nextCards;
-        });
-      }
-
       scheduleAdvance();
     },
     [
       animateScroll,
       applyPointDelta,
       completedCardIds,
-      createModuleSummaryCard,
-      drainPendingReviewCards,
       index,
       lessonSlug,
-      queueReviewCard,
-      recordModuleMistake,
       scrollToColumnTop,
       token,
       toCardKey,
@@ -703,8 +579,6 @@ export default function Slider({
 
   const percent = total > 0 ? Math.round(((index + 1) / total) * 100) : 0;
   const activeCardId = displayCards[index] ? toCardKey(displayCards[index].id) : undefined;
-  const reviewLocked = isReviewLocked(displayCards[index]);
-
   const registerCardWrapper = useCallback(
     (id: string) => (node: HTMLDivElement | null) => {
       if (node) {
@@ -898,23 +772,28 @@ export default function Slider({
             ref={containerRef}
             className="flex overflow-x-auto snap-x snap-mandatory lg:h-full"
           >
-            {displayCards.map((c) => (
-              <div
-                key={toCardKey(c.id)}
-                className="w-full flex-shrink-0 snap-start lg:flex lg:h-full lg:flex-col"
-              >
-                <div ref={registerCardWrapper(toCardKey(c.id))}>
-                  <Card
-                    card={c}
-                    topicName={c.topicName}
-                    onQuizComplete={(cardMeta, meta) => handleCardResult(cardMeta, meta)}
-                    quizCompleted={completedCardIds.has(
-                      toCardKey(c.sourceCardId ?? c.id),
-                    )}
-                  />
+            {displayCards.map((c) => {
+              const key = toCardKey(c.id);
+              const isActive = key === activeCardId;
+              return (
+                <div
+                  key={key}
+                  className="w-full flex-shrink-0 snap-start lg:flex lg:h-full lg:flex-col"
+                >
+                  <div ref={registerCardWrapper(key)}>
+                    <Card
+                      card={c}
+                      topicName={c.topicName}
+                      onQuizComplete={(cardMeta, meta) => handleCardResult(cardMeta, meta)}
+                      quizCompleted={completedCardIds.has(
+                        toCardKey(c.sourceCardId ?? c.id),
+                      )}
+                      isLoading={isActive && cardLoading}
+                    />
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           {index > 0 && (
             <button
@@ -932,11 +811,9 @@ export default function Slider({
             <button
               onClick={next}
               aria-label="Next"
-              disabled={reviewLocked}
               className={[
                 "hidden lg:flex items-center justify-center absolute right-0 top-1/2 -translate-y-1/2 translate-x-full",
                 "w-10 h-10 bg-white border rounded-full shadow",
-                "disabled:cursor-not-allowed disabled:opacity-50",
               ].join(" ")}
             >
               <ChevronRight />
