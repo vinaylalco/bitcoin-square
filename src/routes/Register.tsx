@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 
 export default function Register() {
@@ -7,30 +8,32 @@ export default function Register() {
   const nav = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [errorKey, setErrorKey] = useState('');
   const [storeRecovery, setStoreRecovery] = useState(false);
+  const { t } = useTranslation();
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    setErrorKey('');
     try {
       await register(email, password, storeRecovery);
       nav('/dashboard');
     } catch (err: any) {
-      setError(err.message || 'Registration failed');
+      setErrorKey('auth.register.errors.generic');
     }
   }
 
   return (
     <div className="max-w-sm mx-auto p-4">
-      <h2 className="text-xl mb-4">Register</h2>
-      {error && <p className="text-red-600 mb-2">{error}</p>}
+      <h2 className="text-xl mb-4">{t('auth.register.title')}</h2>
+      {errorKey && <p className="text-red-600 mb-2">{t(errorKey)}</p>}
       <form onSubmit={submit} className="space-y-2">
         <input
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          placeholder="Email"
+          placeholder={t('common.emailPlaceholder')}
           className="w-full border p-2"
         />
         <input
@@ -38,7 +41,7 @@ export default function Register() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
-          placeholder="Password"
+          placeholder={t('common.passwordPlaceholder')}
           className="w-full border p-2"
         />
         <label className="flex items-center space-x-2 text-sm">
@@ -47,15 +50,15 @@ export default function Register() {
             checked={storeRecovery}
             onChange={(e) => setStoreRecovery(e.target.checked)}
           />
-          <span>Store encrypted private key for recovery</span>
+          <span>{t('auth.register.storeRecovery')}</span>
         </label>
         <p className="text-xs text-red-600">
-          If you lose your password and recovery key, you lose access to your Nostr identity.
+          {t('auth.register.warning')}
         </p>
-        <button type="submit" className="w-full bg-brand text-white p-2">Create Account</button>
+        <button type="submit" className="w-full bg-brand text-white p-2">{t('auth.register.submit')}</button>
       </form>
       <div className="mt-4 text-sm">
-        <Link to="/login" className="text-brand">Already have an account? Login</Link>
+        <Link to="/login" className="text-brand">{t('auth.register.linkLogin')}</Link>
       </div>
     </div>
   );

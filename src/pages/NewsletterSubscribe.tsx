@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   useNewsletter,
   useSubscribe,
@@ -8,9 +9,10 @@ import {
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function NewsletterSubscribe() {
+  const { t } = useTranslation();
   const [email, setEmail] = useState("");
-  const [error, setError] = useState("");
-  const [status, setStatus] = useState<{ type: "success" | "error"; message: string } | null>(
+  const [errorKey, setErrorKey] = useState("");
+  const [status, setStatus] = useState<{ type: "success" | "error"; messageKey: string } | null>(
     null,
   );
   useNewsletter();
@@ -20,37 +22,43 @@ export default function NewsletterSubscribe() {
   const handleSubscribe = (e: React.FormEvent) => {
     e.preventDefault();
     if (!emailRegex.test(email)) {
-      setError("Please enter a valid email.");
+      setErrorKey("newsletter.form.invalidEmail");
+      setStatus(null);
       return;
     }
-    setError("");
+    setErrorKey("");
     subscribe.mutate(email, {
-      onSuccess: () => setStatus({ type: "success", message: "Subscribed successfully!" }),
-      onError: () => setStatus({ type: "error", message: "Subscription failed." }),
+      onSuccess: () =>
+        setStatus({ type: "success", messageKey: "newsletter.status.subscribeSuccess" }),
+      onError: () =>
+        setStatus({ type: "error", messageKey: "newsletter.status.subscribeError" }),
     });
   };
 
   const handleUnsubscribe = () => {
     if (!emailRegex.test(email)) {
-      setError("Please enter a valid email.");
+      setErrorKey("newsletter.form.invalidEmail");
+      setStatus(null);
       return;
     }
-    setError("");
+    setErrorKey("");
     unsubscribe.mutate(email, {
-      onSuccess: () => setStatus({ type: "success", message: "Unsubscribed successfully." }),
-      onError: () => setStatus({ type: "error", message: "Unsubscribe failed." }),
+      onSuccess: () =>
+        setStatus({ type: "success", messageKey: "newsletter.status.unsubscribeSuccess" }),
+      onError: () =>
+        setStatus({ type: "error", messageKey: "newsletter.status.unsubscribeError" }),
     });
   };
 
   return (
     <div className="mx-auto max-w-3xl px-4 pb-20 pt-12 text-center sm:px-6">
       <header className="space-y-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.42em] text-brand">Newsletter</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.42em] text-brand">{t("newsletter.label")}</p>
         <h1 className="text-3xl font-black uppercase tracking-[0.16em] text-[var(--fg-default)] sm:text-4xl">
-          Stay ahead without the noise
+          {t("newsletter.title")}
         </h1>
         <p className="text-sm font-medium leading-relaxed text-[var(--fg-muted)]">
-          No spam, just essential Bitcoin updates, new lessons, and product drops. Delivered fast.
+          {t("newsletter.description")}
         </p>
       </header>
 
@@ -58,30 +66,30 @@ export default function NewsletterSubscribe() {
         <form onSubmit={handleSubscribe} className="space-y-4">
           <div className="space-y-2">
             <label htmlFor="email" className="text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">
-              Email
+              {t("newsletter.form.emailLabel")}
             </label>
             <input
               id="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
+              placeholder={t("newsletter.form.emailPlaceholder")}
               className="w-full rounded-2xl border border-brand/20 bg-transparent px-4 py-3 text-sm text-[var(--fg-default)] shadow-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/60"
             />
-            {error && <p className="text-xs text-brand">{error}</p>}
+            {errorKey && <p className="text-xs text-brand">{t(errorKey)}</p>}
           </div>
           <button
             type="submit"
             className="w-full rounded-full bg-gradient-to-r from-brand via-brand/90 to-[#FFF582] px-6 py-3 text-sm font-semibold uppercase tracking-[0.32em] text-white shadow-[0_20px_45px_rgba(169,21,255,0.35)] transition hover:-translate-y-1 hover:shadow-[0_30px_60px_rgba(169,21,255,0.45)]"
           >
-            Subscribe
+            {t("newsletter.form.subscribe")}
           </button>
         </form>
         <button
           onClick={handleUnsubscribe}
           className="mt-4 w-full rounded-full border border-brand/30 px-6 py-3 text-sm font-semibold uppercase tracking-[0.32em] text-brand transition hover:border-brand hover:bg-brand hover:text-white"
         >
-          Unsubscribe
+          {t("newsletter.form.unsubscribe")}
         </button>
         {status && (
           <p
@@ -89,7 +97,7 @@ export default function NewsletterSubscribe() {
               status.type === "success" ? "text-brand" : "text-red-500"
             }`}
           >
-            {status.message}
+            {t(status.messageKey)}
           </p>
         )}
       </div>

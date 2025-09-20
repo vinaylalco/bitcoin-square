@@ -5,7 +5,7 @@ import { usePreferences } from "../context/PreferencesContext";
 export default function Settings() {
   const { theme, setTheme, toggle } = useTheme();
   const { thunderSoundEnabled, setThunderSoundEnabled } = usePreferences();
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const lang = (i18n.language || "en").toLowerCase().startsWith("es") ? "es" : "en";
   const changeLanguage = (lng: "en" | "es") => {
     void i18n.changeLanguage(lng);
@@ -14,19 +14,19 @@ export default function Settings() {
   return (
     <div className="mx-auto max-w-4xl space-y-8 px-4 pb-20 pt-12 sm:px-6">
       <header className="space-y-3">
-        <p className="text-xs font-semibold uppercase tracking-[0.42em] text-brand">Settings</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.42em] text-brand">{t("settings.label")}</p>
         <h2 className="text-3xl font-black uppercase tracking-[0.16em] text-[var(--fg-default)] sm:text-4xl">
-          Tailor your experience
+          {t("settings.title")}
         </h2>
         <p className="max-w-2xl text-sm font-medium leading-relaxed text-[var(--fg-muted)]">
-          Switch themes instantly and keep sound preferences locked in. Minimal interfaces, lightning-fast feedback.
+          {t("settings.description")}
         </p>
       </header>
 
       <section className="rounded-3xl border border-brand/20 bg-[var(--bg-card)] p-6 shadow-[var(--shadow-soft)]">
-        <h3 className="text-sm font-semibold uppercase tracking-[0.32em] text-brand">Theme</h3>
+        <h3 className="text-sm font-semibold uppercase tracking-[0.32em] text-brand">{t("settings.theme.title")}</h3>
         <p className="mt-2 text-sm text-[var(--fg-muted)]">
-          Choose a light or dark palette crafted around red, black, and white.
+          {t("settings.theme.description")}
         </p>
         <div className="mt-5 flex flex-wrap items-center gap-4">
           <div className="inline-flex overflow-hidden rounded-full border border-brand/30">
@@ -36,7 +36,7 @@ export default function Settings() {
                 theme === "light" ? "bg-brand text-white" : "text-[var(--fg-muted)] hover:text-brand"
               }`}
             >
-              Light
+              {t("settings.theme.light")}
             </button>
             <button
               onClick={() => setTheme("dark")}
@@ -44,22 +44,22 @@ export default function Settings() {
                 theme === "dark" ? "bg-brand text-white" : "text-[var(--fg-muted)] hover:text-brand"
               }`}
             >
-              Dark
+              {t("settings.theme.dark")}
             </button>
           </div>
           <button
             onClick={toggle}
             className="inline-flex items-center justify-center rounded-full border border-brand/30 px-5 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-brand transition hover:bg-brand hover:text-white"
           >
-            Toggle
+            {t("settings.theme.toggle")}
           </button>
         </div>
       </section>
 
       <section className="rounded-3xl border border-brand/20 bg-[var(--bg-card)] p-6 shadow-[var(--shadow-soft)]">
-        <h3 className="text-sm font-semibold uppercase tracking-[0.32em] text-brand">Language</h3>
+        <h3 className="text-sm font-semibold uppercase tracking-[0.32em] text-brand">{t("settings.language.title")}</h3>
         <p className="mt-2 text-sm text-[var(--fg-muted)]">
-          Switch between English and Spanish translations for every screen.
+          {t("settings.language.description")}
         </p>
         <div className="mt-5 inline-flex overflow-hidden rounded-full border border-brand/30 text-xs font-semibold uppercase tracking-[0.32em]">
           <button
@@ -68,7 +68,7 @@ export default function Settings() {
               lang === "en" ? "bg-brand text-white" : "text-[var(--fg-muted)] hover:text-brand"
             }`}
           >
-            English
+            {t("settings.language.english")}
           </button>
           <button
             onClick={() => changeLanguage("es")}
@@ -76,18 +76,18 @@ export default function Settings() {
               lang === "es" ? "bg-brand text-white" : "text-[var(--fg-muted)] hover:text-brand"
             }`}
           >
-            Español
+            {t("settings.language.spanish")}
           </button>
         </div>
       </section>
 
       <section className="rounded-3xl border border-brand/20 bg-[var(--bg-card)] p-6 shadow-[var(--shadow-soft)]">
-        <h3 className="text-sm font-semibold uppercase tracking-[0.32em] text-brand">Sound</h3>
+        <h3 className="text-sm font-semibold uppercase tracking-[0.32em] text-brand">{t("settings.sound.title")}</h3>
         <div className="mt-4 flex flex-wrap items-center justify-between gap-6">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.32em] text-[var(--fg-default)]">Thunder sound</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.32em] text-[var(--fg-default)]">{t("settings.sound.label")}</p>
             <p className="mt-2 text-sm text-[var(--fg-muted)]">
-              Play a thunder strike whenever you earn new points.
+              {t("settings.sound.description")}
             </p>
           </div>
           <button
@@ -99,7 +99,7 @@ export default function Settings() {
               thunderSoundEnabled ? "bg-brand" : "bg-[var(--bg-muted)]"
             }`}
           >
-            <span className="sr-only">Toggle thunder sound</span>
+            <span className="sr-only">{t("settings.sound.toggleAria")}</span>
             <span
               className={`inline-block h-7 w-7 transform rounded-full bg-white shadow transition ${
                 thunderSoundEnabled ? "translate-x-8" : "translate-x-1"
@@ -108,7 +108,7 @@ export default function Settings() {
           </button>
         </div>
         <p className="mt-4 text-xs text-[var(--fg-muted)]">
-          This sound effect is off by default and saved to your preferences.
+          {t("settings.sound.helper")}
         </p>
       </section>
     </div>

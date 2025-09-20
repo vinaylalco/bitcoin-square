@@ -1,39 +1,42 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { forgotPassword } from '../api/auth';
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
-  const [error, setError] = useState('');
+  const [errorKey, setErrorKey] = useState('');
+  const { t } = useTranslation();
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    setErrorKey('');
     try {
       await forgotPassword(email);
       setSent(true);
     } catch (err: any) {
-      setError(err.message || 'Request failed');
+      setErrorKey('auth.forgotPassword.errors.generic');
     }
   }
 
   return (
     <div className="max-w-sm mx-auto p-4">
-      <h2 className="text-xl mb-4">Reset Password</h2>
+      <h2 className="text-xl mb-4">{t('auth.forgotPassword.title')}</h2>
       {sent ? (
-        <p>Check your email for a reset link.</p>
+        <p>{t('auth.forgotPassword.success')}</p>
       ) : (
         <form onSubmit={submit} className="space-y-2">
-          {error && <p className="text-red-600 mb-2">{error}</p>}
+          {errorKey && <p className="text-red-600 mb-2">{t(errorKey)}</p>}
           <input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            placeholder="Email"
+            placeholder={t('common.emailPlaceholder')}
             className="w-full border p-2"
           />
           <button type="submit" className="w-full bg-brand text-white p-2">
-            Send reset link
+            {t('common.sendResetLink')}
           </button>
         </form>
       )}
