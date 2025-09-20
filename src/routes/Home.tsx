@@ -1,9 +1,14 @@
+import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { useStrapiQuery } from "../hooks/useStrapiQuery";
 import type { Home } from "../types/strapi";
 import HomeGhost from "../components/home/HomeGhost";
 import { cn } from "../utils/cn";
+import { selectLocalizedEntry } from "../lib/strapi";
 
 export default function HomePage() {
+  const { i18n } = useTranslation();
+  const locale = i18n.language?.toLowerCase().startsWith("es") ? "es" : "en";
   const { data, isLoading, error } = useStrapiQuery<{ data: Home }>(
     "home",
     "/api/home-page?populate[HomePageSection][populate]=SectionImage&populate[localizations][populate][HomePageSection][populate]=SectionImage",
@@ -12,17 +17,18 @@ export default function HomePage() {
   if (isLoading) return <HomeGhost />;
   if (error || !data) return <p className="px-4 py-10 text-brand">Failed to load home.</p>;
 
-  const home = data.data as unknown as Record<string, any>;
+  const rawHome = (data.data as unknown as Record<string, any>) ?? null;
+  const home = useMemo(() => (rawHome ? selectLocalizedEntry(rawHome, locale) : null), [rawHome, locale]);
   const sections: Array<Record<string, any>> = home?.HomePageSection ?? [];
 
   return (
     <div className="relative min-h-screen space-y-16 overflow-hidden bg-gradient-to-b from-white via-neutral-50 to-neutral-100 px-4 pb-16 pt-10 text-neutral-900 transition-colors duration-500 dark:from-neutral-950 dark:via-neutral-950 dark:to-black dark:text-neutral-100 sm:px-6 lg:px-8">
       <section className="mx-auto max-w-5xl rounded-3xl border border-neutral-200/70 bg-white/75 px-6 py-12 text-center shadow-[0_20px_80px_rgba(15,23,42,0.12)] backdrop-blur-sm transition-colors duration-500 dark:border-neutral-800/60 dark:bg-neutral-900/70 dark:shadow-[0_35px_120px_rgba(0,0,0,0.55)] md:text-left">
         <h1 className="text-4xl font-black tracking-tight text-neutral-900 transition-colors duration-300 dark:text-white sm:text-5xl">
-          {home.H1}
+          {home?.H1}
         </h1>
         <p className="mt-4 text-lg leading-relaxed text-neutral-600 transition-colors duration-300 dark:text-neutral-300 sm:text-xl">
-          {home.MainSubHeading}
+          {home?.MainSubHeading}
         </p>
         <div className="mt-6 h-1 w-24 rounded-full bg-gradient-to-r from-brand via-brand/80 to-[#FFF582] shadow-[0_12px_30px_rgba(169,21,255,0.35)] transition-colors duration-300 dark:from-brand/80 dark:via-brand dark:to-brand/60 md:ml-0 md:w-28" />
       </section>
