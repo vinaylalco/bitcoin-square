@@ -1,12 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import ShopSkeleton from "../components/shop/ShopSkeleton";
 import ProductCard from "../components/shop/ProductCard";
 import { fetchProducts } from "../lib/strapi";
 
 export default function Shop() {
+  const { i18n } = useTranslation();
+  const locale = (i18n.resolvedLanguage || i18n.language || "en").split("-")[0];
+
   const { data, isLoading, error } = useQuery({
-    queryKey: ["products"],
-    queryFn: () => fetchProducts(),
+    queryKey: ["products", locale],
+    queryFn: () => fetchProducts(locale),
   });
 
   if (isLoading) {

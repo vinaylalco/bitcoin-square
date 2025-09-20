@@ -1,4 +1,5 @@
 import { Link, useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import LessonGridSkeleton from "../components/education/LessonGridSkeleton";
 import { useStrapiQuery } from "../hooks/useStrapiQuery";
 import type { Lesson } from "../types/strapi";
@@ -7,10 +8,14 @@ export default function LessonsPage() {
   const [params] = useSearchParams();
   const lang = params.get("language");
   const level = params.get("level");
-  const filters = [] as string[];
-  if (lang) filters.push(`filters[language][code][$eq]=${lang}`);
-  if (level) filters.push(`filters[level][$eq]=${level}`);
-  const query = filters.length ? `?${filters.join("&")}` : "";
+  const { i18n } = useTranslation();
+  const locale = (i18n.resolvedLanguage || i18n.language || "en").split("-")[0];
+
+  const queryParams = new URLSearchParams();
+  if (lang) queryParams.set("filters[language][code][$eq]", lang);
+  if (level) queryParams.set("filters[level][$eq]", level);
+  queryParams.set("locale", locale);
+  const query = `?${queryParams.toString()}`;
 
   const { data, isLoading, error } = useStrapiQuery<{ data: Lesson[] }>("lessons", `/api/lessons${query}`);
   if (isLoading) return <LessonGridSkeleton />;

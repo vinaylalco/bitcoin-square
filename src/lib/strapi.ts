@@ -123,6 +123,7 @@ export function resolveExternal(url?: string): string {
 }
 
 export async function fetchProducts(
+  locale: string,
   page = 1,
   pageSize = 12,
 ): Promise<Product[]> {
@@ -130,15 +131,17 @@ export async function fetchProducts(
   params.set("populate", "ProductImages");
   params.set("pagination[page]", String(page));
   params.set("pagination[pageSize]", String(pageSize));
+  params.set("locale", locale);
   const json = await strapiFetch(`/api/products?${params.toString()}`);
   return json?.data || [];
 }
 
-export async function fetchProduct(documentId: string): Promise<Product | null> {
+export async function fetchProduct(documentId: string, locale: string): Promise<Product | null> {
   try {
     const params = new URLSearchParams();
     params.set("filters[documentId][$eq]", documentId);
     params.set("populate", "ProductImages");
+    params.set("locale", locale);
     const json = await strapiFetch(`/api/products?${params.toString()}`);
     return json?.data?.[0] || null;
   } catch (err: any) {
