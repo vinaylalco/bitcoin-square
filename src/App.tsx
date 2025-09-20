@@ -67,17 +67,17 @@ export default function App() {
 
   const educationChildren = [
     {
-      label: "BTC Full Course",
+      label: t("app.btcFullCourse"),
       to: `/education/${btcCourseSlug}`,
     },
   ];
 
   const desktopNav = [
-    { label: "Home", to: "/" },
-    { label: "Education", to: "/education", dropdown: educationChildren },
-    { label: "Shop", to: "/shop" },
-    { label: "Newsletter", to: "/newsletter" },
-    { label: "Settings", to: "/settings" },
+    { label: t("nav.home"), to: "/" },
+    { label: t("nav.education"), to: "/education", dropdown: educationChildren },
+    { label: t("nav.shop"), to: "/shop" },
+    { label: t("nav.newsletter"), to: "/newsletter" },
+    { label: t("nav.settings"), to: "/settings" },
   ];
 
   useEffect(() => setOpen(false), [loc.pathname]);
@@ -124,9 +124,7 @@ export default function App() {
             <button
               ref={triggerRef}
               onClick={() => setOpen((v) => !v)}
-              aria-label={
-                open ? t("common.close") || "Close menu" : t("common.menu") || "Open menu"
-              }
+              aria-label={open ? t("app.mobileMenu.closeAria") : t("app.mobileMenu.openAria")}
               className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--fg-default)] shadow-sm transition-colors hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand lg:hidden"
             >
               {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -142,7 +140,7 @@ export default function App() {
 
           <nav className="hidden lg:flex items-center gap-8 text-sm font-semibold uppercase tracking-[0.22em]">
             {desktopNav.map((item) => (
-              <div key={item.label} className="relative group">
+              <div key={item.to} className="relative group">
                 <NavLink
                   to={item.to}
                   className={({ isActive }) =>
@@ -159,7 +157,7 @@ export default function App() {
                   <div className="pointer-events-none absolute top-full left-1/2 z-40 mt-3 w-56 -translate-x-1/2 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3 opacity-0 shadow-[var(--shadow-soft)] transition-all duration-200 group-hover:pointer-events-auto group-hover:translate-y-1 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:translate-y-1 group-focus-within:opacity-100">
                     {item.dropdown.map((child) => (
                       <NavLink
-                        key={child.label}
+                        key={child.to}
                         to={child.to}
                         className={({ isActive }) =>
                           cn(
@@ -189,13 +187,13 @@ export default function App() {
                     )
                   }
                 >
-                  Dashboard
+                  {t("nav.dashboard")}
                 </NavLink>
                 <button
                   onClick={logout}
                   className="rounded-full border border-[var(--border-subtle)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)] transition hover:text-brand hover:shadow-sm"
                 >
-                  Logout
+                  {t("nav.logout")}
                 </button>
               </>
             ) : (
@@ -208,7 +206,7 @@ export default function App() {
                   )
                 }
               >
-                Login
+                {t("nav.login")}
               </NavLink>
             )}
           </div>
@@ -231,17 +229,19 @@ export default function App() {
         )}
         role="dialog"
         aria-modal="true"
-        aria-label="Main menu"
+        aria-label={t("app.mobileMenu.ariaLabel")}
       >
         <FocusTrap active={open} onDeactivate={() => setOpen(false)} returnFocusRef={triggerRef}>
           <div className="flex h-full flex-col overflow-y-auto">
             <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-5 py-4">
-              <span className="text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)] dark:text-white">Menu</span>
+              <span className="text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)] dark:text-white">
+                {t("app.mobileMenu.title")}
+              </span>
               <button
                 onClick={() => setOpen(false)}
                 className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] px-3 py-1 text-xs uppercase tracking-[0.32em] text-[var(--fg-muted)] transition hover:text-brand dark:text-white"
               >
-                Close
+                {t("app.mobileMenu.close")}
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -256,7 +256,7 @@ export default function App() {
                   )
                 }
               >
-                <HomeIcon className="h-5 w-5" /> Home
+                <HomeIcon className="h-5 w-5" /> {t("nav.home")}
               </NavLink>
               <div>
                 <button
@@ -267,7 +267,7 @@ export default function App() {
                   )}
                 >
                   <span className="inline-flex items-center gap-3">
-                    <BookOpen className="h-5 w-5" /> {t("nav.education") || "Education"}
+                    <BookOpen className="h-5 w-5" /> {t("nav.education")}
                   </span>
                   <span className="text-[0.65rem]">{mobileEducationOpen ? "−" : "+"}</span>
                 </button>
@@ -275,7 +275,7 @@ export default function App() {
                 >
                   {educationChildren.map((item) => (
                     <NavLink
-                      key={item.label}
+                      key={item.to}
                       to={item.to}
                       onClick={() => setOpen(false)}
                       className={({ isActive }) =>
@@ -300,7 +300,7 @@ export default function App() {
                   )
                 }
               >
-                <ShoppingBag className="h-5 w-5" /> Shop
+                <ShoppingBag className="h-5 w-5" /> {t("nav.shop")}
               </NavLink>
               <NavLink
                 to="/newsletter"
@@ -312,7 +312,7 @@ export default function App() {
                   )
                 }
               >
-                <Mail className="h-5 w-5" /> Newsletter
+                <Mail className="h-5 w-5" /> {t("nav.newsletter")}
               </NavLink>
               <NavLink
                 to="/settings"
@@ -324,7 +324,7 @@ export default function App() {
                   )
                 }
               >
-                <Settings className="h-5 w-5" /> Settings
+                <Settings className="h-5 w-5" /> {t("nav.settings")}
               </NavLink>
               {user ? (
                 <>
@@ -338,7 +338,7 @@ export default function App() {
                       )
                     }
                   >
-                    <LayoutDashboard className="h-5 w-5" /> Dashboard
+                    <LayoutDashboard className="h-5 w-5" /> {t("nav.dashboard")}
                   </NavLink>
                   <button
                     onClick={() => {
@@ -347,7 +347,7 @@ export default function App() {
                     }}
                     className="inline-flex items-center gap-3 rounded-2xl border border-transparent px-4 py-3 text-left text-[var(--fg-muted)] transition hover:border-brand/40 hover:bg-brand/5 hover:text-brand"
                   >
-                    Logout
+                    {t("nav.logout")}
                   </button>
                 </>
               ) : (
@@ -361,12 +361,12 @@ export default function App() {
                   )
                   }
                 >
-                  Login
+                  {t("nav.login")}
                 </NavLink>
               )}
             </nav>
             <div className="px-5 pb-6">
-              <p className="text-[0.65rem] font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">Language</p>
+              <p className="text-[0.65rem] font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">{t("common.language")}</p>
               <div className="mt-3 inline-flex overflow-hidden rounded-full border border-[var(--border-subtle)]">
                 <button
                   onClick={() => changeLang("en")}

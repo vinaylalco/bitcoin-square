@@ -1,4 +1,122 @@
 {
-  "nav": { "education": "Education" },
-  "common": { "menu": "Menu" }
+  "common": {
+    "language": "Language",
+    "emailPlaceholder": "Email",
+    "passwordPlaceholder": "Password",
+    "newPasswordPlaceholder": "New password",
+    "confirmPasswordPlaceholder": "Confirm password",
+    "sendResetLink": "Send reset link",
+    "updatePassword": "Update Password"
+  },
+  "nav": {
+    "home": "Home",
+    "education": "Education",
+    "shop": "Shop",
+    "newsletter": "Newsletter",
+    "settings": "Settings",
+    "dashboard": "Dashboard",
+    "login": "Login",
+    "logout": "Logout"
+  },
+  "app": {
+    "btcFullCourse": "BTC Full Course",
+    "brandTagline": "Crafted with conviction.",
+    "mobileMenu": {
+      "title": "Menu",
+      "close": "Close",
+      "openAria": "Open menu",
+      "closeAria": "Close menu",
+      "ariaLabel": "Main menu"
+    }
+  },
+  "settings": {
+    "label": "Settings",
+    "title": "Tailor your experience",
+    "description": "Switch themes instantly and keep sound preferences locked in. Minimal interfaces, lightning-fast feedback.",
+    "theme": {
+      "title": "Theme",
+      "description": "Choose a light or dark palette crafted around red, black, and white.",
+      "light": "Light",
+      "dark": "Dark",
+      "toggle": "Toggle"
+    },
+    "language": {
+      "title": "Language",
+      "description": "Switch between English and Spanish translations for every screen.",
+      "english": "English",
+      "spanish": "Español"
+    },
+    "sound": {
+      "title": "Sound",
+      "label": "Thunder sound",
+      "description": "Play a thunder strike whenever you earn new points.",
+      "toggleAria": "Toggle thunder sound",
+      "helper": "This sound effect is off by default and saved to your preferences."
+    }
+  },
+  "shop": {
+    "label": "Shop",
+    "title": "Tools built for Bitcoiners",
+    "description": "Explore a showcase grid with hover-to-zoom previews. Red-accented call-to-action buttons keep momentum high while maintaining lightning-fast performance.",
+    "error": "Failed to load products."
+  },
+  "courses": {
+    "label": "Education Hub",
+    "title": "Courses engineered for clarity",
+    "description": "Browse modular lessons that stay above the fold on any device. Red-accented guidance, sharp typography, and smooth transitions keep your focus on mastering Bitcoin fundamentals.",
+    "error": "Failed to load courses."
+  },
+  "newsletter": {
+    "label": "Newsletter",
+    "title": "Stay ahead without the noise",
+    "description": "No spam, just essential Bitcoin updates, new lessons, and product drops. Delivered fast.",
+    "form": {
+      "emailLabel": "Email",
+      "emailPlaceholder": "you@example.com",
+      "invalidEmail": "Please enter a valid email.",
+      "subscribe": "Subscribe",
+      "unsubscribe": "Unsubscribe"
+    },
+    "status": {
+      "subscribeSuccess": "Subscribed successfully!",
+      "subscribeError": "Subscription failed.",
+      "unsubscribeSuccess": "Unsubscribed successfully.",
+      "unsubscribeError": "Unsubscribe failed."
+    }
+  },
+  "auth": {
+    "login": {
+      "title": "Login",
+      "submit": "Log In",
+      "linkRegister": "Create account",
+      "errors": {
+        "invalid": "Incorrect user or password, try again",
+        "generic": "Login failed"
+      }
+    },
+    "register": {
+      "title": "Register",
+      "submit": "Create Account",
+      "linkLogin": "Already have an account? Login",
+      "storeRecovery": "Store encrypted private key for recovery",
+      "warning": "If you lose your password and recovery key, you lose access to your Nostr identity.",
+      "errors": {
+        "generic": "Registration failed"
+      }
+    },
+    "forgotPassword": {
+      "title": "Reset Password",
+      "success": "Check your email for a reset link.",
+      "errors": {
+        "generic": "Request failed"
+      }
+    },
+    "resetPassword": {
+      "title": "Set New Password",
+      "errors": {
+        "mismatch": "Passwords do not match",
+        "generic": "Reset failed"
+      }
+    }
+  }
 }

@@ -1,4 +1,122 @@
 {
-  "nav": { "education": "Educación" },
-  "common": { "menu": "Menú" }
+  "common": {
+    "language": "Idioma",
+    "emailPlaceholder": "Correo electrónico",
+    "passwordPlaceholder": "Contraseña",
+    "newPasswordPlaceholder": "Nueva contraseña",
+    "confirmPasswordPlaceholder": "Confirmar contraseña",
+    "sendResetLink": "Enviar enlace de restablecimiento",
+    "updatePassword": "Actualizar contraseña"
+  },
+  "nav": {
+    "home": "Inicio",
+    "education": "Educación",
+    "shop": "Tienda",
+    "newsletter": "Boletín",
+    "settings": "Configuración",
+    "dashboard": "Panel",
+    "login": "Iniciar sesión",
+    "logout": "Cerrar sesión"
+  },
+  "app": {
+    "btcFullCourse": "Curso completo de BTC",
+    "brandTagline": "Creado con convicción.",
+    "mobileMenu": {
+      "title": "Menú",
+      "close": "Cerrar",
+      "openAria": "Abrir menú",
+      "closeAria": "Cerrar menú",
+      "ariaLabel": "Menú principal"
+    }
+  },
+  "settings": {
+    "label": "Configuración",
+    "title": "Personaliza tu experiencia",
+    "description": "Cambia de tema al instante y mantén las preferencias de sonido guardadas. Interfaces minimalistas y respuesta inmediata.",
+    "theme": {
+      "title": "Tema",
+      "description": "Elige una paleta clara u oscura diseñada alrededor del rojo, negro y blanco.",
+      "light": "Claro",
+      "dark": "Oscuro",
+      "toggle": "Alternar"
+    },
+    "language": {
+      "title": "Idioma",
+      "description": "Cambia entre las traducciones en inglés y español para cada pantalla.",
+      "english": "Inglés",
+      "spanish": "Español"
+    },
+    "sound": {
+      "title": "Sonido",
+      "label": "Sonido de trueno",
+      "description": "Reproduce un trueno cada vez que ganes nuevos puntos.",
+      "toggleAria": "Alternar sonido de trueno",
+      "helper": "Este efecto de sonido está desactivado por defecto y se guarda en tus preferencias."
+    }
+  },
+  "shop": {
+    "label": "Tienda",
+    "title": "Herramientas creadas para Bitcoiners",
+    "description": "Explora una cuadrícula de productos con vistas previas al pasar el cursor. Los botones de llamada a la acción con acentos rojos mantienen el impulso y un rendimiento ultrarrápido.",
+    "error": "No se pudieron cargar los productos."
+  },
+  "courses": {
+    "label": "Centro educativo",
+    "title": "Cursos diseñados para la claridad",
+    "description": "Explora lecciones modulares que permanecen visibles en cualquier dispositivo. Guías con acentos rojos, tipografía precisa y transiciones fluidas para dominar los fundamentos de Bitcoin.",
+    "error": "No se pudieron cargar los cursos."
+  },
+  "newsletter": {
+    "label": "Boletín",
+    "title": "Mantente al día sin ruido",
+    "description": "Sin spam, solo noticias esenciales de Bitcoin, nuevas lecciones y lanzamientos de productos. Entregas rápidas.",
+    "form": {
+      "emailLabel": "Correo electrónico",
+      "emailPlaceholder": "tu@ejemplo.com",
+      "invalidEmail": "Introduce un correo electrónico válido.",
+      "subscribe": "Suscribirse",
+      "unsubscribe": "Cancelar suscripción"
+    },
+    "status": {
+      "subscribeSuccess": "¡Suscripción realizada con éxito!",
+      "subscribeError": "Error al suscribirse.",
+      "unsubscribeSuccess": "Suscripción cancelada con éxito.",
+      "unsubscribeError": "Error al cancelar la suscripción."
+    }
+  },
+  "auth": {
+    "login": {
+      "title": "Iniciar sesión",
+      "submit": "Iniciar sesión",
+      "linkRegister": "Crear cuenta",
+      "errors": {
+        "invalid": "Usuario o contraseña incorrectos, inténtalo de nuevo",
+        "generic": "Error al iniciar sesión"
+      }
+    },
+    "register": {
+      "title": "Registrarse",
+      "submit": "Crear cuenta",
+      "linkLogin": "¿Ya tienes una cuenta? Inicia sesión",
+      "storeRecovery": "Guardar la clave privada cifrada para recuperación",
+      "warning": "Si pierdes tu contraseña y la clave de recuperación, perderás el acceso a tu identidad Nostr.",
+      "errors": {
+        "generic": "Error al registrarse"
+      }
+    },
+    "forgotPassword": {
+      "title": "Restablecer contraseña",
+      "success": "Revisa tu correo para encontrar un enlace de restablecimiento.",
+      "errors": {
+        "generic": "Error en la solicitud"
+      }
+    },
+    "resetPassword": {
+      "title": "Establecer nueva contraseña",
+      "errors": {
+        "mismatch": "Las contraseñas no coinciden",
+        "generic": "Error al restablecer"
+      }
+    }
+  }
 }
