@@ -34,6 +34,7 @@ export interface User {
   username?: string;
   nostrPublicKey?: string;
   nostrEncryptedKey?: string;
+  nostrPrivateKey?: string;
   points: number;
   lessonCompletions: LessonCompletionMap;
   studyStreak: number;
@@ -105,6 +106,16 @@ function normalizePreferences(raw: unknown): UserPreferences {
   return prefs;
 }
 
+function normalizePrivateKey(value: unknown): string | undefined {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed.length > 0) {
+      return trimmed;
+    }
+  }
+  return undefined;
+}
+
 function normalizeUser(raw: any | null | undefined): User | null {
   if (!raw) return null;
   const normalized: User = {
@@ -115,6 +126,12 @@ function normalizeUser(raw: any | null | undefined): User | null {
     lastStudyDate: normalizeLastStudyDate(raw.lastStudyDate),
     preferences: normalizePreferences(raw.preferences),
   };
+  const privateKey = normalizePrivateKey(raw.nostrPrivateKey);
+  if (privateKey) {
+    normalized.nostrPrivateKey = privateKey;
+  } else {
+    normalized.nostrPrivateKey = undefined;
+  }
   if (!normalized.lessonCompletions) {
     normalized.lessonCompletions = {};
   }
@@ -164,6 +181,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   });
 
+  const persistNostrPrivKey = useCallback(
+    (value: string | null) => {
+      setNostrPrivKey(value);
+      try {
+        if (value) {
+          localStorage.setItem('nostrPrivKey', value);
+        } else {
+          localStorage.removeItem('nostrPrivKey');
+        }
+      } catch {}
+    },
+    [setNostrPrivKey],
+  );
+
   useEffect(() => {
     if (!token) return;
     // In a full implementation we could verify the token here.
@@ -195,19 +226,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.removeItem('user');
       }
     } catch {}
+    if (normalized?.nostrPrivateKey) {
+      persistNostrPrivKey(normalized.nostrPrivateKey);
+    }
   }
 
   async function login(email: string, password: string) {
     const res = await apiLogin(email, password);
     applyAuth(res);
+    const plainKey = normalizePrivateKey(res.user.nostrPrivateKey);
+    if (plainKey) {
+      persistNostrPrivKey(plainKey);
+      return;
+    }
     if (res.user.nostrEncryptedKey) {
       try {
         const priv = await decryptPrivateKey(res.user.nostrEncryptedKey, password);
-        setNostrPrivKey(priv);
-        try {
-          localStorage.setItem('nostrPrivKey', priv);
-        } catch {}
+        persistNostrPrivKey(priv);
+        return;
       } catch {}
+    }
+    if (!res.user.nostrEncryptedKey && !plainKey) {
+      persistNostrPrivKey(null);
     }
   }
 
@@ -215,10 +255,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const res = await apiRegister(email, password);
     applyAuth(res);
     const { pub, priv } = generateNostrKeyPair();
-    setNostrPrivKey(priv);
-    try {
-      localStorage.setItem('nostrPrivKey', priv);
-    } catch {}
+    persistNostrPrivKey(priv);
     const body: Record<string, unknown> = { nostrPublicKey: pub };
     if (storeRecovery) {
       body.nostrEncryptedKey = await encryptPrivateKey(priv, password);
@@ -234,18 +271,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   async function reset(code: string, password: string, confirm: string) {
     const res = await apiReset(code, password, confirm);
     applyAuth(res);
+    const plainKey = normalizePrivateKey(res.user.nostrPrivateKey);
+    if (plainKey) {
+      persistNostrPrivKey(plainKey);
+      return;
+    }
+    if (res.user.nostrEncryptedKey) {
+      try {
+        const priv = await decryptPrivateKey(res.user.nostrEncryptedKey, password);
+        persistNostrPrivKey(priv);
+        return;
+      } catch {}
+    }
+    if (!res.user.nostrEncryptedKey && !plainKey) {
+      persistNostrPrivKey(null);
+    }
   }
 
   function logout() {
     setUser(null);
     setToken(null);
-    setNostrPrivKey(null);
+    persistNostrPrivKey(null);
     try {
       localStorage.removeItem('jwt');
       localStorage.removeItem('user');
-      localStorage.removeItem('nostrPrivKey');
     } catch {}
   }
+
+  useEffect(() => {
+    if (!user) return;
+    const normalizedPriv = normalizePrivateKey(user.nostrPrivateKey);
+    if (normalizedPriv && normalizedPriv !== nostrPrivKey) {
+      persistNostrPrivKey(normalizedPriv);
+    }
+  }, [user, nostrPrivKey, persistNostrPrivKey]);
 
   return (
     <AuthCtx.Provider
