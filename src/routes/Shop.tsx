@@ -1,9 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import ShopSkeleton from "../components/shop/ShopSkeleton";
 import ProductCard from "../components/shop/ProductCard";
 import { fetchProducts } from "../lib/strapi";
 
 export default function Shop() {
+  const { t } = useTranslation();
   const { data, isLoading, error } = useQuery({
     queryKey: ["products"],
     queryFn: () => fetchProducts(),
@@ -16,7 +18,7 @@ export default function Shop() {
   if (error) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-16 text-center text-brand">
-        Failed to load products.
+        {t("shop.error")}
       </div>
     );
   }
@@ -24,12 +26,12 @@ export default function Shop() {
   return (
     <div className="mx-auto max-w-6xl px-4 pb-20 pt-12 sm:px-6">
       <header className="space-y-4 text-center sm:text-left">
-        <p className="text-xs font-semibold uppercase tracking-[0.42em] text-brand">Shop</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.42em] text-brand">{t("shop.label")}</p>
         <h2 className="text-3xl font-black uppercase tracking-[0.16em] text-[var(--fg-default)] sm:text-4xl">
-          Tools built for Bitcoiners
+          {t("shop.title")}
         </h2>
         <p className="max-w-2xl text-sm font-medium leading-relaxed text-[var(--fg-muted)]">
-          Explore a showcase grid with hover-to-zoom previews. Red-accented call-to-action buttons keep momentum high while maintaining lightning-fast performance.
+          {t("shop.description")}
         </p>
       </header>
       <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">

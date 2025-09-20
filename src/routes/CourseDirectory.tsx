@@ -4,7 +4,7 @@ import CourseDirectorySkeleton from "../components/course/CourseDirectorySkeleto
 import { useLessonPlans } from "../hooks/useLessonPlans";
 
 export default function CourseDirectory() {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const locale = i18n.language?.toLowerCase().startsWith("es") ? "es" : "en";
   const { data, isLoading, error } = useLessonPlans(locale);
 
@@ -15,7 +15,7 @@ export default function CourseDirectory() {
   if (error) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-16 text-center text-brand">
-        Failed to load courses.
+        {t("courses.error")}
       </div>
     );
   }
@@ -25,12 +25,12 @@ export default function CourseDirectory() {
   return (
     <div className="mx-auto max-w-6xl px-4 pb-20 pt-12 sm:px-6">
       <header className="space-y-4 text-center sm:text-left">
-        <p className="text-xs font-semibold uppercase tracking-[0.42em] text-brand">Education Hub</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.42em] text-brand">{t("courses.label")}</p>
         <h1 className="text-3xl font-black uppercase tracking-[0.16em] text-[var(--fg-default)] sm:text-4xl">
-          Courses engineered for clarity
+          {t("courses.title")}
         </h1>
         <p className="max-w-2xl text-sm font-medium leading-relaxed text-[var(--fg-muted)]">
-          Browse modular lessons that stay above the fold on any device. Red-accented guidance, sharp typography, and smooth transitions keep your focus on mastering Bitcoin fundamentals.
+          {t("courses.description")}
         </p>
       </header>
       <div className="mt-10 grid gap-8 md:grid-cols-2 lg:grid-cols-3">
