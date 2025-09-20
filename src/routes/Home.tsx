@@ -6,7 +6,7 @@ import { cn } from "../utils/cn";
 export default function HomePage() {
   const { data, isLoading, error } = useStrapiQuery<{ data: Home }>(
     "home",
-    "/api/home-page?populate[HomePageSection][populate]=SectionImage",
+    "/api/home-page?populate[HomePageSection][populate]=SectionImage&populate[localizations][populate][HomePageSection][populate]=SectionImage",
   );
 
   if (isLoading) return <HomeGhost />;

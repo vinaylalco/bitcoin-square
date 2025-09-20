@@ -127,7 +127,9 @@ export async function fetchProducts(
   pageSize = 12,
 ): Promise<Product[]> {
   const params = new URLSearchParams();
-  params.set("populate", "ProductImages");
+  params.append("populate[0]", "ProductImages");
+  params.append("populate[1]", "localizations");
+  params.append("populate[localizations][populate][0]", "ProductImages");
   params.set("pagination[page]", String(page));
   params.set("pagination[pageSize]", String(pageSize));
   const json = await strapiFetch(`/api/products?${params.toString()}`);
@@ -138,7 +140,9 @@ export async function fetchProduct(documentId: string): Promise<Product | null> 
   try {
     const params = new URLSearchParams();
     params.set("filters[documentId][$eq]", documentId);
-    params.set("populate", "ProductImages");
+    params.append("populate[0]", "ProductImages");
+    params.append("populate[1]", "localizations");
+    params.append("populate[localizations][populate][0]", "ProductImages");
     const json = await strapiFetch(`/api/products?${params.toString()}`);
     return json?.data?.[0] || null;
   } catch (err: any) {
