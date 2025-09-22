@@ -63,7 +63,7 @@
   "courses": {
     "label": "Education Hub",
     "title": "Courses engineered for clarity and more effective learning",
-    "description": "Our courses incorporate neurological principles to learn more effectively. Courses are delivered in multi media and different exercises so concepts are engrained more deeply. You can customize the lessons based on your 'learning style' so concepts are communicated in a way most effective for you personally. The topics you are more interested in a given to you first so you are engaged more from the very start.",
+    "description": "Our courses incorporate neurological principles to learn more effectively. You can customize the lessons based on your 'learning style' so concepts are communicated in a way most effective for you personally. In addition topics you are more interested in a given to you first so you are engaged more from the very start.",
     "error": "Failed to load courses."
   },
   "newsletter": {

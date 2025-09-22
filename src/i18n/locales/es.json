@@ -63,7 +63,7 @@
   "courses": {
     "label": "Centro educativo",
     "title": "Cursos diseñados para la claridad y un aprendizaje más efectivo",
-    "description": "Nuestros cursos incorporan principios neurológicos para aprender de forma más efectiva. Los cursos se imparten en formatos multimedia y con diferentes ejercicios para que los conceptos se graben más profundamente. Puedes personalizar las lecciones según tu 'estilo de aprendizaje' para que los conceptos se comuniquen de la manera más efectiva para ti. Los temas que más te interesan se te presentan primero para que te mantengas comprometido desde el inicio.",
+    "description": "Nuestros cursos incorporan principios neurológicos para aprender de forma más efectiva. Puedes personalizar las lecciones según tu 'estilo de aprendizaje' para que los conceptos se comuniquen de la manera más efectiva para ti. Además, los temas que más te interesan se te presentan primero para que te mantengas comprometido desde el inicio.",
     "error": "No se pudieron cargar los cursos."
   },
   "newsletter": {
