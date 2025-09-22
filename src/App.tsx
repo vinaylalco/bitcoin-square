@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import {
   BookOpen,
@@ -17,7 +17,6 @@ import { useTheme } from "./context/ThemeContext";
 import { useAuth } from "./context/AuthContext";
 import Footer from "./components/Footer";
 import { cn } from "./utils/cn";
-import { useLessonPlans } from "./hooks/useLessonPlans";
 
 export default function App() {
   const [open, setOpen] = useState(false);
@@ -31,44 +30,12 @@ export default function App() {
   const { user, logout } = useAuth();
 
   const lang = (i18n.language || "en").toLowerCase().startsWith("es") ? "es" : "en";
-  const { data: lessonPlans } = useLessonPlans(lang);
-  const slugify = (value: unknown) =>
-    `${value ?? ""}`
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)/g, "");
-  const fallbackCourseSlug = "btc-full-course";
-  const btcCourseSlug = useMemo(() => {
-    if (!lessonPlans?.length) return fallbackCourseSlug;
-    const primaryMatch = lessonPlans.find((plan) => {
-      const titleSlug = slugify(plan.title);
-      const slugSlug = slugify(plan.slug);
-      return (
-        titleSlug === fallbackCourseSlug ||
-        slugSlug === fallbackCourseSlug ||
-        titleSlug.includes("btc-full-course") ||
-        slugSlug.includes("btc-full-course")
-      );
-    });
-    const btcPlan =
-      primaryMatch ||
-      lessonPlans.find((plan) => {
-        const titleSlug = slugify(plan.title);
-        const slugSlug = slugify(plan.slug);
-        return titleSlug.includes("btc") || slugSlug.includes("btc");
-      });
-    if (!btcPlan) return fallbackCourseSlug;
-    const slugFromTitle = slugify(btcPlan.title);
-    const slugFromPlan = slugify(btcPlan.slug);
-    return slugFromTitle || slugFromPlan || fallbackCourseSlug;
-  }, [lessonPlans]);
   const changeLang = (lng: "en" | "es") => i18n.changeLanguage(lng);
 
   const educationChildren = [
     {
       label: t("app.btcFullCourse"),
-      to: `/education/${btcCourseSlug}`,
+      to: "/education/full-btc-course",
     },
   ];
 

@@ -57,19 +57,19 @@
   "shop": {
     "label": "Tienda",
     "title": "Herramientas creadas para Bitcoiners",
-    "description": "Explora una cuadrícula de productos con vistas previas al pasar el cursor. Los botones de llamada a la acción con acentos rojos mantienen el impulso y un rendimiento ultrarrápido.",
+    "description": "",
     "error": "No se pudieron cargar los productos."
   },
   "courses": {
     "label": "Centro educativo",
-    "title": "Cursos diseñados para la claridad",
-    "description": "Explora lecciones modulares que permanecen visibles en cualquier dispositivo. Guías con acentos rojos, tipografía precisa y transiciones fluidas para dominar los fundamentos de Bitcoin.",
+    "title": "Cursos diseñados para la claridad y un aprendizaje más efectivo",
+    "description": "",
     "error": "No se pudieron cargar los cursos."
   },
   "newsletter": {
     "label": "Boletín",
     "title": "Mantente al día sin ruido",
-    "description": "Sin spam, solo noticias esenciales de Bitcoin, nuevas lecciones y lanzamientos de productos. Entregas rápidas.",
+    "description": "Sin spam, solo actualizaciones esenciales, nuevas lecciones y lanzamientos de productos.",
     "form": {
       "emailLabel": "Correo electrónico",
       "emailPlaceholder": "tu@ejemplo.com",

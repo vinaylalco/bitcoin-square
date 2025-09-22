@@ -178,8 +178,26 @@ export default function Slider({
   useEffect(() => {
     setDisplayCards(cards);
     displayCardsRef.current = cards;
-    setIndex(0);
   }, [cards]);
+
+  useEffect(() => {
+    if (displayCards.length === 0) return;
+
+    const firstIncompleteIndex = displayCards.findIndex((card) => {
+      const cardKey = toCardKey(card.id);
+      return !completedCardIds.has(cardKey);
+    });
+
+    const targetIndex = firstIncompleteIndex === -1 ? 0 : firstIncompleteIndex;
+
+    setIndex((prev) => (prev === targetIndex ? prev : targetIndex));
+
+    const container = containerRef.current;
+    if (container) {
+      const width = container.clientWidth || container.offsetWidth || 0;
+      container.scrollLeft = targetIndex * width;
+    }
+  }, [displayCards, completedCardIds, toCardKey]);
 
   useEffect(() => {
     const active = displayCards[index];

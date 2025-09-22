@@ -149,7 +149,15 @@ export default function Dashboard() {
                     Copy
                   </button>
                 </div>
-                <p className="mt-3 break-all font-mono text-sm text-neutral-900 dark:text-neutral-100">{nostrPrivKey}</p>
+                <p
+                  aria-hidden="true"
+                  className="mt-3 break-all font-mono text-sm text-neutral-900 blur-sm select-none dark:text-neutral-100"
+                >
+                  {nostrPrivKey}
+                </p>
+                <span className="sr-only">
+                  Private key hidden for security. Use the copy button to copy it when needed.
+                </span>
               </div>
             )}
           </div>

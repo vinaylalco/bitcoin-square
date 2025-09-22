@@ -7,6 +7,7 @@ export default function CourseDirectory() {
   const { t, i18n } = useTranslation();
   const locale = i18n.language?.toLowerCase().startsWith("es") ? "es" : "en";
   const { data, isLoading, error } = useLessonPlans(locale);
+  const description = t("courses.description");
 
   if (isLoading && !data) {
     return <CourseDirectorySkeleton />;
@@ -29,9 +30,11 @@ export default function CourseDirectory() {
         <h1 className="text-3xl font-black uppercase tracking-[0.16em] text-[var(--fg-default)] sm:text-4xl">
           {t("courses.title")}
         </h1>
-        <p className="max-w-2xl text-sm font-medium leading-relaxed text-[var(--fg-muted)]">
-          {t("courses.description")}
-        </p>
+        {description && (
+          <p className="max-w-2xl text-sm font-medium leading-relaxed text-[var(--fg-muted)]">
+            {description}
+          </p>
+        )}
       </header>
       <div className="mt-10 grid gap-8 md:grid-cols-2 lg:grid-cols-3">
         {courses.map((course) => (

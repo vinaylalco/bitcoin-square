@@ -10,6 +10,7 @@ export default function Shop() {
     queryKey: ["products"],
     queryFn: () => fetchProducts(),
   });
+  const description = t("shop.description");
 
   if (isLoading) {
     return <ShopSkeleton />;
@@ -30,9 +31,11 @@ export default function Shop() {
         <h2 className="text-3xl font-black uppercase tracking-[0.16em] text-[var(--fg-default)] sm:text-4xl">
           {t("shop.title")}
         </h2>
-        <p className="max-w-2xl text-sm font-medium leading-relaxed text-[var(--fg-muted)]">
-          {t("shop.description")}
-        </p>
+        {description && (
+          <p className="max-w-2xl text-sm font-medium leading-relaxed text-[var(--fg-muted)]">
+            {description}
+          </p>
+        )}
       </header>
       <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {data && data.map((p) => <ProductCard key={p.documentId} product={p} />)}
