@@ -31,7 +31,7 @@ export default function CourseDirectory() {
           {t("courses.title")}
         </h1>
         {description && (
-          <p className="max-w-2xl text-sm font-medium leading-relaxed text-[var(--fg-muted)]">
+          <p className="text-sm font-medium leading-relaxed text-[var(--fg-muted)]">
             {description}
           </p>
         )}
