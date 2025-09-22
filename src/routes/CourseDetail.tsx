@@ -26,19 +26,30 @@ export default function CourseDetail() {
   const cards: LessonCard[] =
     modules.flatMap((m, moduleIndex) =>
       m.topics.flatMap((t, topicIndex) =>
-        t.cards.map((c, cardIndex) => ({
-          ...c,
-          topicId: t.id,
-          topicName: t.name,
-          moduleId: m.id,
-          moduleName: m.name,
-          sourceCardId: c.id,
-          isLastInTopic: cardIndex === t.cards.length - 1,
-          isLastInModule:
-            moduleIndex === modules.length - 1 &&
-            topicIndex === m.topics.length - 1 &&
-            cardIndex === t.cards.length - 1,
-        })),
+        t.cards.map((c, cardIndex) => {
+          const youtubeFromCard = typeof c.youtube === "string" ? c.youtube.trim() : "";
+          const youtubeFromLink =
+            typeof c.youtube_video_link === "string" ? c.youtube_video_link.trim() : "";
+          const videoUrl = youtubeFromCard || youtubeFromLink || undefined;
+          const isVideoLesson = cardIndex === 0 && Boolean(videoUrl);
+
+          return {
+            ...c,
+            youtube: videoUrl ?? c.youtube,
+            videoUrl,
+            isVideoLesson,
+            topicId: t.id,
+            topicName: t.name,
+            moduleId: m.id,
+            moduleName: m.name,
+            sourceCardId: c.id,
+            isLastInTopic: cardIndex === t.cards.length - 1,
+            isLastInModule:
+              moduleIndex === modules.length - 1 &&
+              topicIndex === m.topics.length - 1 &&
+              cardIndex === t.cards.length - 1,
+          };
+        }),
       ),
     ) ?? [];
 

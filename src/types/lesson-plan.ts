@@ -14,6 +14,7 @@ export interface Card {
   objectives?: string[];
   quiz?: Quiz;
   youtube?: string;
+  youtube_video_link?: string;
   style_note?: string;
 }
 
@@ -34,6 +35,8 @@ export interface LessonCard extends Card {
   isReview?: boolean;
   isSummary?: boolean;
   summaryItems?: LessonSummaryItem[];
+  isVideoLesson?: boolean;
+  videoUrl?: string;
 }
 
 export interface Topic {
