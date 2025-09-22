@@ -429,6 +429,9 @@ export default function Slider({
       };
 
       const scheduleAdvance = () => {
+        if (meta?.suppressAutoAdvance) {
+          return;
+        }
         const delay = Math.max(0, meta?.delayMs ?? 0);
         if (typeof window !== "undefined") {
           if (completionTimeoutRef.current !== null) {
@@ -801,8 +804,11 @@ export default function Slider({
                   <div ref={registerCardWrapper(key)}>
                     <Card
                       card={c}
+                      headerLabel={c.moduleName ?? undefined}
                       topicName={c.topicName}
                       onQuizComplete={(cardMeta, meta) => handleCardResult(cardMeta, meta)}
+                      onVideoComplete={(cardMeta, meta) => handleCardResult(cardMeta, meta)}
+                      onRequestNext={next}
                       quizCompleted={completedCardIds.has(
                         toCardKey(c.sourceCardId ?? c.id),
                       )}
