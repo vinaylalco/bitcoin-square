@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import Slider from "../components/lesson/Slider";
 import CourseDetailSkeleton from "../components/course/CourseDetailSkeleton";
 import { useLessonPlan } from "../hooks/useLessonPlan";
-import type { Card, LessonCard, Topic } from "../types/lesson-plan";
+import type { Card, LessonCard, Module, Topic } from "../types/lesson-plan";
 
 type UnknownRecord = Record<string, unknown>;
 type RichCard = Card & UnknownRecord;
@@ -163,6 +163,71 @@ function ensureVideoCard(topic: Topic): {
   return { videoCard, lessonCards, videoSourceId };
 }
 
+interface LessonCardContext {
+  cardData: RichCard;
+  cardIndex: number;
+  topic: Topic;
+  topicIndex: number;
+  totalTopicCards: number;
+  module: Module;
+  moduleIndex: number;
+  topicCount: number;
+  modulesLength: number;
+  videoSourceId?: string;
+}
+
+function buildLessonCard({
+  cardData,
+  cardIndex,
+  topic,
+  topicIndex,
+  totalTopicCards,
+  module,
+  moduleIndex,
+  topicCount,
+  modulesLength,
+  videoSourceId,
+}: LessonCardContext): LessonCard {
+  const topicId = String(topic.id);
+  const moduleId = String(module.id);
+  const isVideoLesson = cardIndex === 0;
+  const rawSourceId = cardData.id != null ? String(cardData.id) : undefined;
+  const cardId = rawSourceId ?? `${topicId}-card-${cardIndex + 1}`;
+  const title = isNonEmptyString(cardData.title)
+    ? cardData.title
+    : isVideoLesson
+      ? topic.name
+        ? `Video overview: ${topic.name}`
+        : "Video overview"
+      : `Lesson ${cardIndex + 1}`;
+  const videoUrl = isVideoLesson ? extractVideoUrl(cardData) : undefined;
+  const youtubeValue =
+    isVideoLesson && videoUrl
+      ? videoUrl
+      : isNonEmptyString(cardData.youtube) && looksLikeVideoCandidate(cardData.youtube)
+        ? cardData.youtube.trim()
+        : undefined;
+
+  return {
+    ...cardData,
+    id: cardId,
+    title,
+    youtube: youtubeValue,
+    videoUrl: isVideoLesson ? videoUrl : undefined,
+    isVideoLesson,
+    topicId,
+    topicName: topic.name,
+    moduleId,
+    moduleName: module.name,
+    sourceCardId: isVideoLesson ? videoSourceId ?? rawSourceId : rawSourceId,
+    isLastInTopic: cardIndex === totalTopicCards - 1,
+    isLastInModule:
+      moduleIndex === modulesLength - 1 &&
+      topicIndex === topicCount - 1 &&
+      cardIndex === totalTopicCards - 1,
+  } as LessonCard;
+}
+
 export default function CourseDetail() {
   const { i18n } = useTranslation();
   const { slug = "" } = useParams();
@@ -180,58 +245,46 @@ export default function CourseDetail() {
     return <div className="mx-auto max-w-3xl px-4 py-16 text-center text-brand">Failed to load lesson plan.</div>;
   }
 
-  const modules = data?.modules ?? [];
-  const cards: LessonCard[] = modules.flatMap((module, moduleIndex) => {
-    const topics = module.topics ?? [];
-    return topics.flatMap((topic, topicIndex) => {
+  const rawModules = data?.modules ?? [];
+  const modules = rawModules.map((module, moduleIndex) => {
+    const moduleTopics = module.topics ?? [];
+    const topicCount = moduleTopics.length;
+
+    const normalizedTopics = moduleTopics.map((topic, topicIndex) => {
       const { videoCard, lessonCards, videoSourceId } = ensureVideoCard(topic);
-      const topicCards = [videoCard, ...lessonCards];
-      const topicId = String(topic.id);
-      const moduleId = String(module.id);
+      const topicCardsSource = [videoCard, ...lessonCards];
+      const totalTopicCards = topicCardsSource.length;
 
-      return topicCards.map((cardData, cardIndex) => {
-        const isVideoLesson = cardIndex === 0;
-        const rawSourceId = cardData.id != null ? String(cardData.id) : undefined;
-        const cardId = rawSourceId ?? `${topicId}-card-${cardIndex + 1}`;
-        const title = isNonEmptyString(cardData.title)
-          ? cardData.title
-          : isVideoLesson
-            ? topic.name
-              ? `Video overview: ${topic.name}`
-              : "Video overview"
-            : `Lesson ${cardIndex + 1}`;
-        const videoUrl = isVideoLesson ? extractVideoUrl(cardData) : undefined;
-        const youtubeValue =
-          isVideoLesson && videoUrl
-            ? videoUrl
-            : isNonEmptyString(cardData.youtube) && looksLikeVideoCandidate(cardData.youtube)
-              ? cardData.youtube.trim()
-              : undefined;
+      const topicCards = topicCardsSource.map((cardData, cardIndex) =>
+        buildLessonCard({
+          cardData,
+          cardIndex,
+          topic,
+          topicIndex,
+          totalTopicCards,
+          module,
+          moduleIndex,
+          topicCount,
+          modulesLength: rawModules.length,
+          videoSourceId,
+        }),
+      );
 
-        const totalTopicCards = topicCards.length;
-        const topicCount = topics.length;
-
-        return {
-          ...cardData,
-          id: cardId,
-          title,
-          youtube: youtubeValue,
-          videoUrl: isVideoLesson ? videoUrl : undefined,
-          isVideoLesson,
-          topicId,
-          topicName: topic.name,
-          moduleId,
-          moduleName: module.name,
-          sourceCardId: isVideoLesson ? videoSourceId ?? rawSourceId : rawSourceId,
-          isLastInTopic: cardIndex === totalTopicCards - 1,
-          isLastInModule:
-            moduleIndex === modules.length - 1 &&
-            topicIndex === topicCount - 1 &&
-            cardIndex === totalTopicCards - 1,
-        } as LessonCard;
-      });
+      return {
+        ...topic,
+        cards: topicCards,
+      };
     });
+
+    return {
+      ...module,
+      topics: normalizedTopics,
+    };
   });
+
+  const cards: LessonCard[] = modules.flatMap((module) =>
+    (module.topics ?? []).flatMap((topic) => topic.cards as LessonCard[]),
+  );
 
   return (
     <div className="w-full pb-24">
