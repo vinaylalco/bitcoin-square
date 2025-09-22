@@ -65,33 +65,45 @@ export async function getLessonPlan(
 }
 
 function mapLessonPlanEntry(entry: any, locale: string, requestedSlug?: string): LessonPlan {
-  const { localeData, localeKey } = selectLessonPlanLocale(entry, locale);
-  const course = localeData?.course || {};
+  const data = getLessonPlanData(entry);
+  const { localeData, localeKey } = selectLessonPlanLocale(data, locale);
+  const course = resolveCourse(data, localeData);
   const modules = Array.isArray(course.modules) ? course.modules : [];
-  const title = course.name || entry?.title;
+  const title = pickFirstNonEmpty(course.name, data.title, entry?.title);
   const slug = pickFirstNonEmpty(
-    course.id,
-    requestedSlug,
-    toSlug(title),
-    entry?.documentId,
+    data.slug,
     entry?.slug,
+    requestedSlug,
+    course.id,
+    toSlug(title),
+    data.documentId,
+    entry?.documentId,
+    data.id,
     entry?.id,
   );
-  const description =
-    localeData?.description ??
-    course.description ??
-    entry?.description ??
-    (typeof entry?.summary === "string" ? entry.summary : undefined);
-  const coverImage = extractCoverImage(localeData?.coverImage, course.coverImage, entry?.coverImage);
+  const description = pickFirstNonEmpty(
+    localeData?.description,
+    course.description,
+    data.description,
+    entry?.description,
+    typeof data.summary === "string" ? data.summary : undefined,
+    typeof entry?.summary === "string" ? entry.summary : undefined,
+  );
+  const coverImage = extractCoverImage(
+    localeData?.coverImage,
+    course.coverImage,
+    data.coverImage,
+    entry?.coverImage,
+  );
 
   return {
-    id: entry?.documentId || entry?.id,
+    id: data.documentId || entry?.documentId || data.id || entry?.id,
     title,
     slug,
     description,
     coverImage,
     modules,
-    locale: localeKey || locale,
+    locale: localeKey || data.locale || entry?.locale || locale,
   } as LessonPlan;
 }
 
@@ -103,6 +115,7 @@ function matchLessonPlanSlug(entry: any, slug: string): boolean {
 }
 
 function collectLessonPlanSlugCandidates(entry: any): string[] {
+  const data = getLessonPlanData(entry);
   const result: string[] = [];
   const push = (value: unknown) => {
     if (!value) return;
@@ -110,48 +123,68 @@ function collectLessonPlanSlugCandidates(entry: any): string[] {
     if (str) result.push(str);
   };
 
+  push(data.slug);
   push(entry?.slug);
+  push(data.documentId);
   push(entry?.documentId);
-  if (entry?.id != null) push(entry.id);
+  push(data.id);
+  push(entry?.id);
 
-  const locales = entry?.locales;
+  const locales = data.locales;
   if (locales && typeof locales === "object") {
     Object.values(locales).forEach((loc: any) => {
       if (!loc || typeof loc !== "object") return;
-      const course = loc.course || {};
+      const course = resolveCourse(data, loc);
       push(loc.slug);
-      push(course.id);
-      push(toSlug(course.name));
+      push(course?.id);
+      push(toSlug(course?.name));
     });
+  }
+
+  const legacyCourse = data.lessonPlan?.course || data.LessonPlanJSON?.course;
+  if (legacyCourse && typeof legacyCourse === "object") {
+    push(legacyCourse.id);
+    push(toSlug(legacyCourse.name));
   }
 
   return result.filter(Boolean);
 }
 
 function selectLessonPlanLocale(
-  entry: any,
+  data: any,
   locale: string,
 ): { localeData?: any; localeKey?: string } {
-  const locales = entry?.locales;
-  if (!locales || typeof locales !== "object") return {};
+  const locales = data?.locales;
+  if (locales && typeof locales === "object") {
+    const requested = (locale || "").toLowerCase();
+    const base = requested.split("-")[0];
+    const keys = Object.keys(locales);
 
-  const requested = (locale || "").toLowerCase();
-  const base = requested.split("-")[0];
-  const keys = Object.keys(locales);
+    const directKey = keys.find((key) => key.toLowerCase() === requested) ??
+      keys.find((key) => key.toLowerCase() === base);
+    if (directKey) {
+      return { localeData: locales[directKey], localeKey: directKey };
+    }
 
-  const directKey = keys.find((key) => key.toLowerCase() === requested) ??
-    keys.find((key) => key.toLowerCase() === base);
-  if (directKey) {
-    return { localeData: locales[directKey], localeKey: directKey };
+    if (locales.en) {
+      return { localeData: locales.en, localeKey: "en" };
+    }
+
+    if (keys.length > 0) {
+      const fallbackKey = keys[0];
+      return { localeData: locales[fallbackKey], localeKey: fallbackKey };
+    }
+
+    return {};
   }
 
-  if (locales.en) {
-    return { localeData: locales.en, localeKey: "en" };
+  const legacyLocale = data?.locale;
+  if (legacyLocale && data?.LessonPlanJSON) {
+    return { localeData: data.LessonPlanJSON, localeKey: legacyLocale };
   }
 
-  if (keys.length > 0) {
-    const fallbackKey = keys[0];
-    return { localeData: locales[fallbackKey], localeKey: fallbackKey };
+  if (data?.LessonPlanJSON) {
+    return { localeData: data.LessonPlanJSON };
   }
 
   return {};
@@ -185,6 +218,45 @@ function pickFirstNonEmpty(...values: unknown[]): string {
     if (str) return str;
   }
   return "";
+}
+
+function getLessonPlanData(entry: any): any {
+  if (!entry || typeof entry !== "object") return {};
+  const attrs = entry.attributes;
+  if (attrs && typeof attrs === "object") {
+    return {
+      ...attrs,
+      id: attrs.id ?? entry.id,
+      documentId: attrs.documentId ?? entry.documentId,
+      slug: attrs.slug ?? entry.slug,
+    };
+  }
+  return entry;
+}
+
+function resolveCourse(data: any, localeData?: any): any {
+  if (localeData && typeof localeData === "object") {
+    if (Array.isArray(localeData.modules)) {
+      return localeData;
+    }
+    if (localeData.course && typeof localeData.course === "object") {
+      return localeData.course;
+    }
+  }
+
+  if (data?.course && typeof data.course === "object") {
+    return data.course;
+  }
+
+  if (data?.lessonPlan?.course && typeof data.lessonPlan.course === "object") {
+    return data.lessonPlan.course;
+  }
+
+  if (data?.LessonPlanJSON?.course && typeof data.LessonPlanJSON.course === "object") {
+    return data.LessonPlanJSON.course;
+  }
+
+  return {};
 }
 
 // --- Products API ---
