@@ -132,7 +132,7 @@ interface AuthContextType {
   token: string | null;
   nostrPrivKey: string | null;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, storeRecovery: boolean) => Promise<void>;
+  register: (email: string, password: string) => Promise<void>;
   logout: () => void;
   reset: (code: string, password: string, confirm: string) => Promise<void>;
   updateUser: (updater: (prev: User | null) => User | null) => void;
@@ -211,7 +211,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  async function register(email: string, password: string, storeRecovery: boolean) {
+  async function register(email: string, password: string) {
     const res = await apiRegister(email, password);
     applyAuth(res);
     const { pub, priv } = generateNostrKeyPair();
@@ -219,10 +219,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       localStorage.setItem('nostrPrivKey', priv);
     } catch {}
-    const body: Record<string, unknown> = { nostrPublicKey: pub };
-    if (storeRecovery) {
-      body.nostrEncryptedKey = await encryptPrivateKey(priv, password);
-    }
+    const body: Record<string, unknown> = {
+      nostrPublicKey: pub,
+      nostrEncryptedKey: await encryptPrivateKey(priv, password),
+    };
     await strapiFetch(`/api/users/${res.user.id}`, {
       method: 'PUT',
       headers: { Authorization: `Bearer ${res.jwt}` },

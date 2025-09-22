@@ -9,14 +9,13 @@ export default function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorKey, setErrorKey] = useState('');
-  const [storeRecovery, setStoreRecovery] = useState(false);
   const { t } = useTranslation();
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setErrorKey('');
     try {
-      await register(email, password, storeRecovery);
+      await register(email, password);
       nav('/dashboard');
     } catch (err: any) {
       setErrorKey('auth.register.errors.generic');
@@ -44,17 +43,6 @@ export default function Register() {
           placeholder={t('common.passwordPlaceholder')}
           className="w-full border p-2"
         />
-        <label className="flex items-center space-x-2 text-sm">
-          <input
-            type="checkbox"
-            checked={storeRecovery}
-            onChange={(e) => setStoreRecovery(e.target.checked)}
-          />
-          <span>{t('auth.register.storeRecovery')}</span>
-        </label>
-        <p className="text-xs text-red-600">
-          {t('auth.register.warning')}
-        </p>
         <button type="submit" className="w-full bg-brand text-white p-2">{t('auth.register.submit')}</button>
       </form>
       <div className="mt-4 text-sm">

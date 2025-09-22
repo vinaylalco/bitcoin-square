@@ -57,19 +57,19 @@
   "shop": {
     "label": "Shop",
     "title": "Tools built for Bitcoiners",
-    "description": "Explore a showcase grid with hover-to-zoom previews. Red-accented call-to-action buttons keep momentum high while maintaining lightning-fast performance.",
+    "description": "",
     "error": "Failed to load products."
   },
   "courses": {
     "label": "Education Hub",
-    "title": "Courses engineered for clarity",
-    "description": "Browse modular lessons that stay above the fold on any device. Red-accented guidance, sharp typography, and smooth transitions keep your focus on mastering Bitcoin fundamentals.",
+    "title": "Courses engineered for clarity and more effective learning",
+    "description": "Our courses incorporate neurological principles to help you learn more effectively. Customize lessons based on your 'learning style,' and prioritize the topics that interest you most so you stay engaged from the very start.",
     "error": "Failed to load courses."
   },
   "newsletter": {
     "label": "Newsletter",
     "title": "Stay ahead without the noise",
-    "description": "No spam, just essential Bitcoin updates, new lessons, and product drops. Delivered fast.",
+    "description": "No spam, just essential updates, new lessons, and product drops.",
     "form": {
       "emailLabel": "Email",
       "emailPlaceholder": "you@example.com",
