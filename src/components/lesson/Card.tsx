@@ -8,6 +8,7 @@ import { normalizeCardId } from "../../utils/localProgress";
 import { cn } from "../../utils/cn";
 import Skeleton from "../ui/Skeleton";
 import YouTubeVideo from "./YouTubeVideo";
+import VideoGhost from "./VideoGhost";
 
 export default function Card({
   card,
@@ -124,14 +125,17 @@ export default function Card({
               id={`card-${cardKey}-video`}
               className="text-lg font-semibold text-neutral-900 dark:text-neutral-100"
             >
-              Watch the Lesson
+              Video Overview
             </h2>
             {videoId ? (
               <YouTubeVideo videoId={videoId} title={card.title} />
             ) : (
-              <p className="text-sm leading-relaxed text-neutral-600 dark:text-neutral-300">
-                Video preview unavailable. Use the link below to watch the lesson.
-              </p>
+              <div className="space-y-3">
+                <VideoGhost />
+                <p className="text-sm leading-relaxed text-neutral-600 dark:text-neutral-300">
+                  {videoUrl ? "Video preview unavailable. Open the lesson below." : "Video coming soon."}
+                </p>
+              </div>
             )}
             {videoUrl && (
               <a
