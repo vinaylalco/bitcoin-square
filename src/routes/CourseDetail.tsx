@@ -3,7 +3,230 @@ import { useParams } from "react-router-dom";
 import Slider from "../components/lesson/Slider";
 import CourseDetailSkeleton from "../components/course/CourseDetailSkeleton";
 import { useLessonPlan } from "../hooks/useLessonPlan";
-import type { LessonCard } from "../types/lesson-plan";
+import type { Card, LessonCard, Module, Topic } from "../types/lesson-plan";
+
+type UnknownRecord = Record<string, unknown>;
+type RichCard = Card & UnknownRecord;
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function looksLikeVideoCandidate(value: string): boolean {
+  if (!value) return false;
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  if (/^https?:\/\//i.test(trimmed)) return true;
+  if (trimmed.includes("youtu")) return true;
+  if (/^[\w-]{11}$/.test(trimmed)) return true;
+  return false;
+}
+
+function collectVideoStrings(source: unknown, results: string[], seen: Set<unknown>): void {
+  if (!source || typeof source !== "object" || seen.has(source)) {
+    return;
+  }
+
+  seen.add(source);
+
+  if (Array.isArray(source)) {
+    source.forEach((value) => collectVideoStrings(value, results, seen));
+    return;
+  }
+
+  Object.entries(source as UnknownRecord).forEach(([key, value]) => {
+    if (typeof value === "string") {
+      const lowerKey = key.toLowerCase();
+      if (
+        (lowerKey.includes("video") ||
+          lowerKey.includes("youtube") ||
+          lowerKey.includes("link") ||
+          lowerKey.includes("url")) &&
+        looksLikeVideoCandidate(value)
+      ) {
+        results.push(value.trim());
+      }
+    } else if (value && typeof value === "object") {
+      collectVideoStrings(value, results, seen);
+    }
+  });
+}
+
+function extractVideoUrl(record: UnknownRecord | undefined): string | undefined {
+  if (!record) return undefined;
+
+  const directKeys = [
+    "videoUrl",
+    "youtube",
+    "youtube_video_link",
+    "youtubeLink",
+    "youtube_url",
+    "video_link",
+    "videoLink",
+  ];
+
+  for (const key of directKeys) {
+    const candidate = record[key];
+    if (typeof candidate === "string" && looksLikeVideoCandidate(candidate)) {
+      return candidate.trim();
+    }
+  }
+
+  const results: string[] = [];
+  collectVideoStrings(record, results, new Set());
+  return results[0];
+}
+
+function cloneCard(raw: unknown): RichCard {
+  if (!raw || typeof raw !== "object") {
+    return { id: "", title: "" } as RichCard;
+  }
+  return { ...(raw as UnknownRecord) } as RichCard;
+}
+
+function ensureVideoCard(topic: Topic): {
+  videoCard: RichCard;
+  lessonCards: RichCard[];
+  videoSourceId?: string;
+} {
+  const rawCards = Array.isArray(topic.cards) ? topic.cards : [];
+  const clonedCards = rawCards.map((card) => cloneCard(card));
+
+  let lessonCards = clonedCards;
+  let videoCard: RichCard | undefined;
+  let videoSourceId: string | undefined;
+
+  if (clonedCards.length > 0) {
+    const [first, ...rest] = clonedCards;
+    const hasContent = isNonEmptyString(first.content);
+    const hasQuiz = Boolean(first.quiz);
+    const title = typeof first.title === "string" ? first.title : "";
+    const videoHint = extractVideoUrl(first) || title.toLowerCase().includes("video");
+
+    if (!hasContent && !hasQuiz && videoHint) {
+      videoCard = { ...first };
+      lessonCards = rest;
+      if (first.id != null) {
+        videoSourceId = String(first.id);
+      }
+    }
+  }
+
+  if (!videoCard) {
+    const topicRecord = topic as UnknownRecord;
+    const extraSources = [
+      topicRecord.videoCard,
+      topicRecord.video_card,
+      topicRecord.videoLesson,
+      topicRecord.video_lesson,
+      topicRecord.video,
+    ];
+
+    for (const candidate of extraSources) {
+      if (candidate && typeof candidate === "object") {
+        const candidateRecord = cloneCard(candidate);
+        const inner =
+          candidateRecord.card && typeof candidateRecord.card === "object"
+            ? cloneCard(candidateRecord.card)
+            : candidateRecord;
+
+        videoCard = inner;
+        const rawId =
+          (candidateRecord.card && (candidateRecord.card as UnknownRecord).id) ??
+          candidateRecord.id ??
+          inner.id;
+        if (rawId != null) {
+          videoSourceId = String(rawId);
+        }
+        break;
+      }
+    }
+  }
+
+  if (!videoCard) {
+    videoCard = {
+      id: `${topic.id}-video`,
+      title: topic.name ? `Video overview: ${topic.name}` : "Video overview",
+    } as RichCard;
+  }
+
+  if (videoCard.id == null || videoCard.id === "") {
+    videoCard.id = `${topic.id}-video`;
+  } else {
+    videoCard.id = String(videoCard.id);
+  }
+
+  if (!isNonEmptyString(videoCard.title)) {
+    videoCard.title = topic.name ? `Video overview: ${topic.name}` : "Video overview";
+  }
+
+  return { videoCard, lessonCards, videoSourceId };
+}
+
+interface LessonCardContext {
+  cardData: RichCard;
+  cardIndex: number;
+  topic: Topic;
+  topicIndex: number;
+  totalTopicCards: number;
+  module: Module;
+  moduleIndex: number;
+  topicCount: number;
+  modulesLength: number;
+  videoSourceId?: string;
+}
+
+function buildLessonCard({
+  cardData,
+  cardIndex,
+  topic,
+  topicIndex,
+  totalTopicCards,
+  module,
+  moduleIndex,
+  topicCount,
+  modulesLength,
+  videoSourceId,
+}: LessonCardContext): LessonCard {
+  const topicId = String(topic.id);
+  const moduleId = String(module.id);
+  const isVideoLesson = cardIndex === 0;
+  const rawSourceId = cardData.id != null ? String(cardData.id) : undefined;
+  const cardId = rawSourceId ?? `${topicId}-card-${cardIndex + 1}`;
+  const title = isNonEmptyString(cardData.title)
+    ? cardData.title
+    : isVideoLesson
+      ? topic.name
+        ? `Video overview: ${topic.name}`
+        : "Video overview"
+      : `Lesson ${cardIndex + 1}`;
+  const videoUrl = isVideoLesson ? extractVideoUrl(cardData) : undefined;
+  const youtubeValue =
+    isVideoLesson && videoUrl
+      ? videoUrl
+      : isNonEmptyString(cardData.youtube) && looksLikeVideoCandidate(cardData.youtube)
+        ? cardData.youtube.trim()
+        : undefined;
+
+  return {
+    ...cardData,
+    id: cardId,
+    title,
+    youtube: youtubeValue,
+    videoUrl: isVideoLesson ? videoUrl : undefined,
+    isVideoLesson,
+    topicId,
+    topicName: topic.name,
+    moduleId,
+    moduleName: module.name,
+    sourceCardId: isVideoLesson ? videoSourceId ?? rawSourceId : rawSourceId,
+    isLastInTopic: cardIndex === totalTopicCards - 1,
+    isLastInModule:
+      moduleIndex === modulesLength - 1 &&
+      topicIndex === topicCount - 1 &&
+      cardIndex === totalTopicCards - 1,
+  } as LessonCard;
+}
 
 export default function CourseDetail() {
   const { i18n } = useTranslation();
@@ -22,25 +245,46 @@ export default function CourseDetail() {
     return <div className="mx-auto max-w-3xl px-4 py-16 text-center text-brand">Failed to load lesson plan.</div>;
   }
 
-  const modules = data?.modules ?? [];
-  const cards: LessonCard[] =
-    modules.flatMap((m, moduleIndex) =>
-      m.topics.flatMap((t, topicIndex) =>
-        t.cards.map((c, cardIndex) => ({
-          ...c,
-          topicId: t.id,
-          topicName: t.name,
-          moduleId: m.id,
-          moduleName: m.name,
-          sourceCardId: c.id,
-          isLastInTopic: cardIndex === t.cards.length - 1,
-          isLastInModule:
-            moduleIndex === modules.length - 1 &&
-            topicIndex === m.topics.length - 1 &&
-            cardIndex === t.cards.length - 1,
-        })),
-      ),
-    ) ?? [];
+  const rawModules = data?.modules ?? [];
+  const modules = rawModules.map((module, moduleIndex) => {
+    const moduleTopics = module.topics ?? [];
+    const topicCount = moduleTopics.length;
+
+    const normalizedTopics = moduleTopics.map((topic, topicIndex) => {
+      const { videoCard, lessonCards, videoSourceId } = ensureVideoCard(topic);
+      const topicCardsSource = [videoCard, ...lessonCards];
+      const totalTopicCards = topicCardsSource.length;
+
+      const topicCards = topicCardsSource.map((cardData, cardIndex) =>
+        buildLessonCard({
+          cardData,
+          cardIndex,
+          topic,
+          topicIndex,
+          totalTopicCards,
+          module,
+          moduleIndex,
+          topicCount,
+          modulesLength: rawModules.length,
+          videoSourceId,
+        }),
+      );
+
+      return {
+        ...topic,
+        cards: topicCards,
+      };
+    });
+
+    return {
+      ...module,
+      topics: normalizedTopics,
+    };
+  });
+
+  const cards: LessonCard[] = modules.flatMap((module) =>
+    (module.topics ?? []).flatMap((topic) => topic.cards as LessonCard[]),
+  );
 
   return (
     <div className="w-full pb-24">

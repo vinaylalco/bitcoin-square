@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { ExternalLink, PlayCircle } from "lucide-react";
 import type { LessonCard } from "../../types/lesson-plan";
 import Quiz, { type QuizCompletionMeta } from "./Quiz";
 import { getYouTubeId } from "../../lib/getYouTubeId";
@@ -6,28 +7,94 @@ import placeholderImage from "/mugshots/cesar.jpeg";
 import { normalizeCardId } from "../../utils/localProgress";
 import { cn } from "../../utils/cn";
 import Skeleton from "../ui/Skeleton";
+import YouTubeVideo from "./YouTubeVideo";
+import VideoGhost from "./VideoGhost";
+import Modal from "../ui/Modal";
 
 export default function Card({
   card,
+  headerLabel,
   topicName,
   onQuizComplete,
+  onVideoComplete,
+  onRequestNext,
   quizCompleted,
   isLoading = false,
 }: {
   card: LessonCard;
+  headerLabel?: string;
   topicName?: string;
   onQuizComplete?: (card: LessonCard, meta?: QuizCompletionMeta) => void;
+  onVideoComplete?: (card: LessonCard, meta?: QuizCompletionMeta) => void;
+  onRequestNext?: () => void;
   quizCompleted?: boolean;
   isLoading?: boolean;
 }) {
-  const videoId = card.youtube ? getYouTubeId(card.youtube) : null;
-  if (card.youtube && !videoId && import.meta.env.DEV) {
-    console.warn(`Invalid YouTube ID or URL: ${card.youtube}`);
+  const videoUrl = card.videoUrl || card.youtube;
+  const videoId = videoUrl ? getYouTubeId(videoUrl) : null;
+  if (videoUrl && !videoId && import.meta.env.DEV) {
+    console.warn(`Invalid YouTube ID or URL: ${videoUrl}`);
   }
   const headerImage = videoId
     ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
     : placeholderImage;
   const cardKey = useMemo(() => normalizeCardId(card.id) ?? String(card.id), [card.id]);
+  const isVideoLesson = Boolean(card.isVideoLesson || (videoUrl && !card.content && !card.quiz));
+  const [videoCompleted, setVideoCompleted] = useState(false);
+  const [showVideoPrompt, setShowVideoPrompt] = useState(false);
+  const continueButtonRef = useRef<HTMLButtonElement | null>(null);
+  const videoPromptHeadingId = useId();
+  const videoPromptDescriptionId = useId();
+  const quizAlreadyComplete = Boolean(quizCompleted);
+  const contextualLabel = headerLabel ?? topicName;
+
+  useEffect(() => {
+    if (!isVideoLesson) {
+      setVideoCompleted(false);
+      setShowVideoPrompt(false);
+      return;
+    }
+    setVideoCompleted(Boolean(quizCompleted));
+    setShowVideoPrompt(false);
+  }, [card.id, isVideoLesson]);
+
+  useEffect(() => {
+    if (isVideoLesson && quizAlreadyComplete) {
+      setVideoCompleted(true);
+    }
+  }, [isVideoLesson, quizAlreadyComplete]);
+
+  useEffect(() => {
+    if (showVideoPrompt && continueButtonRef.current) {
+      continueButtonRef.current.focus();
+    }
+  }, [showVideoPrompt]);
+
+  useEffect(() => {
+    if (isLoading) {
+      setShowVideoPrompt(false);
+    }
+  }, [isLoading]);
+
+  const handleVideoEnded = useCallback(() => {
+    if (!isVideoLesson) {
+      return;
+    }
+    const alreadyComplete = videoCompleted || quizAlreadyComplete;
+    if (!alreadyComplete) {
+      setVideoCompleted(true);
+      onVideoComplete?.(card, {
+        result: "video_complete",
+        suppressAutoAdvance: true,
+      });
+    }
+    setShowVideoPrompt(true);
+  }, [card, isVideoLesson, onVideoComplete, quizAlreadyComplete, videoCompleted]);
+
+  const handleContinue = useCallback(() => {
+    setShowVideoPrompt(false);
+    onRequestNext?.();
+  }, [onRequestNext]);
   const cardShellClass = cn(
     "group relative flex h-full flex-col overflow-visible rounded-3xl border bg-[var(--bg-card)]",
     "border-brand/25 shadow-[var(--shadow-soft)] transition-all duration-300 hover:-translate-y-1 hover:border-brand hover:shadow-[0_45px_110px_rgba(169,21,255,0.32)]",
@@ -65,7 +132,8 @@ export default function Card({
   };
 
   return (
-    <article className={cardShellClass} aria-busy={isLoading}>
+    <>
+      <article className={cardShellClass} aria-busy={isLoading}>
       {renderSkeleton()}
       <header className={cn("relative rounded-t-3xl px-6 pb-16 pt-6 text-white", contentVisibilityClass)}>
         <div
@@ -76,9 +144,9 @@ export default function Card({
           aria-hidden="true"
         />
         <div className="relative z-10 flex flex-col gap-3 pr-0 sm:pr-24 lg:pr-32">
-          {topicName && (
+          {contextualLabel && (
             <p className="text-xs font-semibold uppercase tracking-[0.32em] text-white/70">
-              {topicName}
+              {contextualLabel}
             </p>
           )}
           <h3
@@ -111,6 +179,42 @@ export default function Card({
           contentVisibilityClass,
         )}
       >
+        {isVideoLesson && (
+          <section
+            aria-labelledby={`card-${cardKey}-video`}
+            className="space-y-4"
+          >
+            <h2
+              id={`card-${cardKey}-video`}
+              className="text-lg font-semibold text-neutral-900 dark:text-neutral-100"
+            >
+              Video Overview
+            </h2>
+            {videoId ? (
+              <YouTubeVideo videoId={videoId} title={card.title} onEnded={handleVideoEnded} />
+            ) : (
+              <div className="space-y-3">
+                <VideoGhost />
+                <p className="text-sm leading-relaxed text-neutral-600 dark:text-neutral-300">
+                  {videoUrl ? "Video preview unavailable. Open the lesson below." : "Video coming soon."}
+                </p>
+              </div>
+            )}
+            {videoUrl && (
+              <a
+                href={videoUrl}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="inline-flex items-center gap-2 self-start rounded-full border border-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-brand transition hover:-translate-y-0.5 hover:bg-brand/10"
+              >
+                <PlayCircle className="h-4 w-4" aria-hidden="true" />
+                <span>Open video</span>
+                <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+              </a>
+            )}
+          </section>
+        )}
+
         {card.objectives && card.objectives.length > 0 && (
           <section
             aria-labelledby={`card-${cardKey}-objectives`}
@@ -168,6 +272,40 @@ export default function Card({
           </section>
         )}
       </div>
-    </article>
+      </article>
+      <Modal
+        open={Boolean(isVideoLesson && showVideoPrompt)}
+        dismissible={false}
+        labelledBy={videoPromptHeadingId}
+        describedBy={videoPromptDescriptionId}
+      >
+        <div className="rounded-3xl bg-white p-6 text-neutral-900 shadow-2xl dark:bg-neutral-900 dark:text-neutral-100">
+          <div className="space-y-3">
+            <h2
+              id={videoPromptHeadingId}
+              className="text-2xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50"
+            >
+              Video complete!
+            </h2>
+            <p
+              id={videoPromptDescriptionId}
+              className="text-sm leading-relaxed text-neutral-600 dark:text-neutral-300"
+            >
+              Progress to answer quizz questions and earn points.
+            </p>
+          </div>
+          <div className="mt-6 flex justify-end">
+            <button
+              ref={continueButtonRef}
+              type="button"
+              onClick={handleContinue}
+              className="inline-flex items-center justify-center rounded-full bg-brand px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+            >
+              Continue
+            </button>
+          </div>
+        </div>
+      </Modal>
+    </>
   );
 }
