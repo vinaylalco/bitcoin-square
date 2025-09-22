@@ -1,0 +1,1949 @@
+{
+    "data": [
+        {
+            "id": 12,
+            "documentId": "vbqquc8yjcon4fxt97pk3the",
+            "LessonPlanJSON": {
+                "course": {
+                    "id": "btc-full-course",
+                    "name": "BTC Full Course",
+                    "modules": [
+                        {
+                            "id": "M1",
+                            "name": "Module 1",
+                            "topics": [
+                                {
+                                    "id": "M1-T01",
+                                    "name": "1. What is money?",
+                                    "cards": [
+                                        {
+                                            "id": "M1-T01-C1",
+                                            "title": "Video Lesson: What is Money?",
+                                            "duration_min": 5,
+                                            "youtube_video_link": ""
+                                        },
+                                        {
+                                            "id": "M1-T01-C2",
+                                            "quiz": {
+                                                "type": "multiple_choice",
+                                                "options": [
+                                                    "Medium of exchange",
+                                                    "Unit of account",
+                                                    "Store of value",
+                                                    "Legal status"
+                                                ],
+                                                "question": "Which function lets a family compare brands at the store?",
+                                                "style_note": "Clear recall supports ISTJ/ISFJ; the grocery scene and community angle engage ESFJ/ESFP.",
+                                                "correct_answer": "Unit of account"
+                                            },
+                                            "title": "Money’s Three Jobs—A Family’s View",
+                                            "content": "Money solves the everyday problem of trade. It does three jobs: (1) medium of exchange—so you don’t need a perfect barter match; (2) unit of account—so prices are comparable and a budget makes sense; (3) store of value—so today’s effort can be used later. Picture a parent at a neighborhood market: clear price tags (unit of account) guide choices, paying is quick (medium of exchange), and part of the paycheck is set aside for next month (store of value). Communities function because we trust others will accept the same unit. When any job weakens—confusing prices, fraying acceptance, or savings that lose power—stress appears first at the kitchen table and then across local shops.",
+                                            "objectives": [
+                                                "Define the three core functions of money.",
+                                                "Connect those functions to family budgeting and community trade."
+                                            ],
+                                            "duration_min": 3,
+                                            "youtube_video_link": "TBD"
+                                        },
+                                        {
+                                            "id": "M1-T01-C3",
+                                            "quiz": {
+                                                "type": "multiple_choice",
+                                                "options": [
+                                                    "Seasonal shortages",
+                                                    "Coincidence of wants",
+                                                    "Exact change every time",
+                                                    "High transport costs"
+                                                ],
+                                                "question": "What problem does money primarily solve compared to barter?",
+                                                "style_note": "A simple cause→effect suits ISTJ; the neighborhood swap story resonates with ESFJ/ESFP and ISFJ.",
+                                                "correct_answer": "Coincidence of wants"
+                                            },
+                                            "title": "From Barter to a Shared Language of Value",
+                                            "content": "Barter stalls when wants don’t match: your eggs for my shoes only works if timing and value align. Money replaces this friction with a shared language of value. Historically, people gravitated from direct swap to widely accepted items, then to standardized money. Imagine a family swap day that fizzles—until everyone agrees to price in one unit, and trade flows. Socially, money is a coordination tool: it helps neighbors plan, merchants stock shelves, and caregivers schedule services. The better the shared unit works, the fewer awkward negotiations and the more energy a community can spend on real needs.",
+                                            "objectives": [
+                                                "Explain why money improves on barter.",
+                                                "Describe how a common unit coordinates community activity."
+                                            ],
+                                            "duration_min": 3,
+                                            "youtube_video_link": "TBD"
+                                        },
+                                        {
+                                            "id": "M1-T01-C4",
+                                            "quiz": {
+                                                "type": "scenario",
+                                                "options": [],
+                                                "question": "In the club-token story, what caused stalls to hesitate?",
+                                                "style_note": "Scenario invites ESFJ/ESFP to picture real life while giving ISTJ/ISFJ a clear principle.",
+                                                "correct_answer": "Changing rules mid-event undermined trust that tokens could be used as planned."
+                                            },
+                                            "title": "Trust: The Invisible Backbone of Money",
+                                            "content": "Money works because we believe others will accept it tomorrow. At home, trust shows up as a parent promising pocket money, a teen saving for a course, and a shopkeeper expecting today’s cash to pay next week’s supplier. In the town square, trust is seeing one price list everyone respects. This trust has layers: the symbols on notes or balances, the rules behind them, and the community’s habit of acceptance. Small cracks—confusing fees, inconsistent rules—grow into bigger doubts. A short story: a club issues “event tokens” for refreshments; if the organizers change rules mid-party, stalls hesitate. Money is similar: stable rules keep scenes moving.",
+                                            "objectives": [
+                                                "Recognize social trust as a requirement for money.",
+                                                "Link rule stability to reliable daily planning."
+                                            ],
+                                            "duration_min": 3,
+                                            "youtube_video_link": "TBD"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": "M1-T02",
+                                    "name": "2. Properties of Money",
+                                    "cards": [
+                                        {
+                                            "id": "M1-T02-C1",
+                                            "title": "Video Lesson: Properties of Good Money",
+                                            "duration_min": 5,
+                                            "youtube_video_link": ""
+                                        },
+                                        {
+                                            "id": "M1-T02-C2",
+                                            "quiz": {
+                                                "type": "multiple_choice",
+                                                "options": [
+                                                    "Scarcity",
+                                                    "Divisibility",
+                                                    "Durability",
+                                                    "Portability"
+                                                ],
+                                                "question": "Which property most directly helps with exact allowance payments at home?",
+                                                "style_note": "Terminology plus a home vignette supports ISTJ/ISFJ, while ESFJ/ESFP relate to family context.",
+                                                "correct_answer": "Divisibility"
+                                            },
+                                            "title": "Six Traits of Good Money",
+                                            "content": "Across eras, good money tends to have six traits: scarcity (limited supply), divisibility (exact change), durability (doesn’t rot), portability (easy to move), verifiability (easy to check), and acceptability (others actually use it). Try a family test: would you store months of effort in something that spoils (fails durability) or that few people accept (fails acceptability)? At the market, divisibility matters when breaking a large note; verifiability matters when a vendor checks authenticity. Communities flourish when the shared unit scores high on these traits, because less energy is wasted on doubt and more on serving real needs.",
+                                            "objectives": [
+                                                "List the six money properties.",
+                                                "Connect each property to a household or market example."
+                                            ],
+                                            "duration_min": 3,
+                                            "youtube_video_link": "TBD"
+                                        },
+                                        {
+                                            "id": "M1-T02-C3",
+                                            "quiz": {
+                                                "type": "multiple_choice",
+                                                "options": [
+                                                    "Divisibility & Verifiability",
+                                                    "Scarcity & Durability",
+                                                    "Portability & Acceptability",
+                                                    "Durability & Acceptability"
+                                                ],
+                                                "question": "At the fair, which two properties stand out when making change and checking notes?",
+                                                "style_note": "A concrete event engages ESFJ/ESFP; paired terms reinforce ISTJ/ISFJ structure.",
+                                                "correct_answer": "Divisibility & Verifiability"
+                                            },
+                                            "title": "Household Stress Test for Money",
+                                            "content": "Run a quick stress test. If you moved tomorrow, could your savings come with you easily (portability)? If you saved six months, would your purchasing power remain (scarcity + durability)? When you receive cash, can you tell it’s real (verifiability)? Do neighbors and shops accept it (acceptability)? Story: a weekend fair where parents need change for tickets (divisibility), volunteers check notes at the light (verifiability), and every stall takes the same unit (acceptability). These small scenes reveal big design truths: the more a money fits these tests, the smoother family planning and community trade become.",
+                                            "objectives": [
+                                                "Apply the six traits to simple, real scenarios.",
+                                                "Explain how shared acceptance reduces friction."
+                                            ],
+                                            "duration_min": 3,
+                                            "youtube_video_link": "TBD"
+                                        },
+                                        {
+                                            "id": "M1-T02-C4",
+                                            "quiz": {
+                                                "type": "multiple_choice",
+                                                "options": [
+                                                    "Durability",
+                                                    "Verifiability",
+                                                    "Portability",
+                                                    "Scarcity"
+                                                ],
+                                                "question": "In the canteen story, which weak property slowed the queue?",
+                                                "style_note": "Short recall aids ISTJ/ISFJ; the school scene invites ESFJ/ESFP connection.",
+                                                "correct_answer": "Verifiability"
+                                            },
+                                            "title": "Tradeoffs: When Properties Clash",
+                                            "content": "No form of money is perfect. Some are durable but hard to transport; others are portable but less scarce. Families feel these tradeoffs in small ways: a shop card may be convenient (portability) but not widely accepted across town; a collectible may be scarce but tricky to verify at a glance. Community view: the best systems reduce the biggest frictions—doubt at checkout, frequent re-pricing, or fragile acceptance networks. Simple story: a school canteen tries a new token that looks like a sticker—cute but easy to copy, so queues slow. Good design balances traits to keep life moving.",
+                                            "objectives": [
+                                                "Identify common tradeoffs among money properties.",
+                                                "Describe how design balance improves daily transactions."
+                                            ],
+                                            "duration_min": 3,
+                                            "youtube_video_link": "TBD"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": "M1-T03",
+                                    "name": "3. Gold as money and its downfall",
+                                    "cards": [
+                                        {
+                                            "id": "M1-T03-C1",
+                                            "title": "Video Lesson: Gold as Money",
+                                            "duration_min": 5,
+                                            "youtube_video_link": ""
+                                        },
+                                        {
+                                            "id": "M1-T03-C2",
+                                            "quiz": {
+                                                "type": "multiple_choice",
+                                                "options": [
+                                                    "Scarcity",
+                                                    "Durability",
+                                                    "Portability for large values",
+                                                    "Divisibility"
+                                                ],
+                                                "question": "Which everyday limitation did paper claims help overcome first?",
+                                                "style_note": "Trait-to-benefit mapping helps ISTJ/ISFJ; the artisan story appeals to ESFJ/ESFP.",
+                                                "correct_answer": "Portability for large values"
+                                            },
+                                            "title": "Why Gold Worked for So Long",
+                                            "content": "Gold fit many good-money traits: scarce, durable, divisible, and broadly recognized. Families trusted it as a way to carry purchasing power across seasons; merchants used it to settle trade between towns. Small story: a traveling artisan kept a tiny stash that represented weeks of work because others accepted the metal on sight. Yet gold wasn’t perfect for daily life—especially small payments and long-distance transfers. These limits set the stage for paper claims redeemable for gold, a convenience layer on top of a trusted base.",
+                                            "objectives": [
+                                                "Describe gold’s strengths as money.",
+                                                "Explain why daily use pushed toward paper claims."
+                                            ],
+                                            "duration_min": 3,
+                                            "youtube_video_link": "TBD"
+                                        },
+                                        {
+                                            "id": "M1-T03-C3",
+                                            "quiz": {
+                                                "type": "multiple_choice",
+                                                "options": [
+                                                    "Stronger redemption guarantees",
+                                                    "Weaker confidence in redemption",
+                                                    "Gold becomes indivisible",
+                                                    "Paper wears out less quickly"
+                                                ],
+                                                "question": "What risk grows if claims expand faster than backing?",
+                                                "style_note": "Cause→effect fits ISTJ/ISFJ; the family-business angle engages ESFJ/ESFP.",
+                                                "correct_answer": "Weaker confidence in redemption"
+                                            },
+                                            "title": "Paper Promises: Convenience with a Catch",
+                                            "content": "Paper claims on gold made commerce smoother: light to carry, easy to count, simple to store. For a family business, paying suppliers with notes was safer than hauling coins. But there was a catch—confidence depended on the promise that notes could be redeemed for metal. People couldn’t easily see the reserves. If issuers expanded claims faster than backing, the promise thinned. A saver might find redemption slower, partial, or paused in stressful times. The lesson: convenience raises new trust questions that design and governance must answer.",
+                                            "objectives": [
+                                                "Explain the convenience of paper claims.",
+                                                "Recognize the trust risk introduced by hidden reserves."
+                                            ],
+                                            "duration_min": 3,
+                                            "youtube_video_link": "TBD"
+                                        },
+                                        {
+                                            "id": "M1-T03-C4",
+                                            "quiz": {
+                                                "type": "reflection",
+                                                "options": [],
+                                                "question": "At the household level, what changed most when convertibility ended?",
+                                                "style_note": "Reflection invites personal mapping for ESFJ/ESFP and supports ISTJ/ISFJ consolidation.",
+                                                "correct_answer": "People could no longer rely on redeeming notes for metal, increasing uncertainty about savings."
+                                            },
+                                            "title": "From Backed Notes to Breaks with Gold",
+                                            "content": "Over time, strain appeared between the amount of paper circulating and the metal held in reserve. In stress, issuers limited redemption; trust eroded; and, eventually, convertibility ended in many places. Household view: a grandparent who once believed notes equaled vault metal suddenly lived under new rules. Community view: planning got harder when the anchor changed. This shift from backed notes to unbacked money explains later debates about restoring discipline without giving up usability.",
+                                            "objectives": [
+                                                "Summarize why the gold link weakened.",
+                                                "Connect breaks with gold to planning uncertainty."
+                                            ],
+                                            "duration_min": 3,
+                                            "youtube_video_link": "TBD"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": "M1-T04",
+                                    "name": "4. Bretton Woods and the End of the Gold Standard",
+                                    "cards": [
+                                        {
+                                            "id": "M1-T04-C1",
+                                            "title": "Video Lesson: Bretton Woods & the End of Gold",
+                                            "duration_min": 5,
+                                            "youtube_video_link": ""
+                                        },
+                                        {
+                                            "id": "M1-T04-C2",
+                                            "quiz": {
+                                                "type": "multiple_choice",
+                                                "options": [
+                                                    "Automatic price controls",
+                                                    "Guaranteed top-level convertibility to gold",
+                                                    "Bans on international trade",
+                                                    "Unlimited issuance"
+                                                ],
+                                                "question": "What was the core confidence mechanism in this framework?",
+                                                "style_note": "A single key idea anchors ISTJ/ISFJ; the stability framing supports ESFJ/ESFP.",
+                                                "correct_answer": "Guaranteed top-level convertibility to gold"
+                                            },
+                                            "title": "A Post-War Anchor: Convertibility Restored (Partly)",
+                                            "content": "After global turmoil, countries coordinated around a framework where national monies related to a key currency, and that currency promised convertibility to gold. Families experienced this as calmer prices and more predictable trade; communities relied on a trusted reference unit. The design aimed to keep confidence by tying paper back to metal at least at the top level. It worked—so long as the promise could be honored.",
+                                            "objectives": [
+                                                "Describe the goal of the post-war monetary framework.",
+                                                "Link convertibility promises to everyday stability."
+                                            ],
+                                            "duration_min": 3,
+                                            "youtube_video_link": "TBD"
+                                        },
+                                        {
+                                            "id": "M1-T04-C3",
+                                            "quiz": {
+                                                "type": "scenario",
+                                                "options": [],
+                                                "question": "From the exporter’s view, what made planning harder?",
+                                                "style_note": "Scenario engages ESFJ/ESFP; distilled cause→effect supports ISTJ/ISFJ.",
+                                                "correct_answer": "Doubts about redemption shook the price anchor used for contracts."
+                                            },
+                                            "title": "Strain Returns: More Paper than Metal",
+                                            "content": "As decades passed, spending and issuance outpaced metal reserves. Foreign holders asked for redemption more often, revealing the strain. The public didn’t see vault balances day to day, but families felt rising uncertainty. Story: a small exporter prices goods assuming a steady anchor; then redemptions are questioned, contracts wobble, and the shop rethinks hiring. Systems that rely on a promise must either defend it or change the rules.",
+                                            "objectives": [
+                                                "Explain why convertibility became difficult to sustain.",
+                                                "Illustrate impacts on households and small businesses."
+                                            ],
+                                            "duration_min": 3,
+                                            "youtube_video_link": "TBD"
+                                        },
+                                        {
+                                            "id": "M1-T04-C4",
+                                            "quiz": {
+                                                "type": "multiple_choice",
+                                                "options": [
+                                                    "Gold redemption",
+                                                    "Policy rules and institutional credibility",
+                                                    "Automatic scarcity",
+                                                    "Barter enforcement"
+                                                ],
+                                                "question": "In a fiat system, where does monetary discipline mainly come from?",
+                                                "style_note": "Direct recall helps ISTJ/ISFJ; community planning examples serve ESFJ/ESFP.",
+                                                "correct_answer": "Policy rules and institutional credibility"
+                                            },
+                                            "title": "Fiat Era: Discipline by Policy, Not Redemption",
+                                            "content": "When convertibility ended, money’s value rested on policy and social acceptance rather than metal backing. Flexibility increased, but natural limits weakened. Families noticed the shift slowly—prices moved in ways savings couldn’t always match. Community budgets became more sensitive to policy surprises. The core change: discipline must come from transparent, credible rules and institutions, or the store-of-value role weakens and planning becomes guesswork.",
+                                            "objectives": [
+                                                "Identify the design change in a fiat system.",
+                                                "Relate rule credibility to household planning."
+                                            ],
+                                            "duration_min": 3,
+                                            "youtube_video_link": "TBD"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": "M1-T05",
+                                    "name": "5. Inflation: Causes and Consequences",
+                                    "cards": [
+                                        {
+                                            "id": "M1-T05-C1",
+                                            "title": "Video Lesson: Inflation Basics",
+                                            "duration_min": 5,
+                                            "youtube_video_link": ""
+                                        },
+                                        {
+                                            "id": "M1-T05-C2",
+                                            "quiz": {
+                                                "type": "multiple_choice",
+                                                "options": [
+                                                    "Money supply grows faster than output",
+                                                    "Output grows faster than money supply",
+                                                    "Energy costs fall broadly",
+                                                    "A single shop raises prices once"
+                                                ],
+                                                "question": "Which situation tends to push prices up economy-wide?",
+                                                "style_note": "Simple mapping suits ISTJ/ISFJ; household and shop angles engage ESFJ/ESFP.",
+                                                "correct_answer": "Money supply grows faster than output"
+                                            },
+                                            "title": "Why Prices Rise: The Basics",
+                                            "content": "Inflation is a general rise in prices, so each unit of money buys less. A key driver is issuing new money faster than goods and services grow—more units chasing the same output. Supply shocks matter too: when production drops or energy costs jump, many prices move together. Families first notice at the supermarket or bus stop, then in rent and school fees. Neighborhood shops feel thinner margins as costs outpace income. Across a community, uncertainty grows when the unit of account does not hold steady.",
+                                            "objectives": [
+                                                "Define inflation in everyday terms.",
+                                                "Name core monetary and non-monetary drivers."
+                                            ],
+                                            "duration_min": 3,
+                                            "youtube_video_link": "TBD"
+                                        },
+                                        {
+                                            "id": "M1-T05-C3",
+                                            "quiz": {
+                                                "type": "multiple_choice",
+                                                "options": [
+                                                    "Households far from the source",
+                                                    "Those closest to the source",
+                                                    "Only retirees",
+                                                    "Only small shops"
+                                                ],
+                                                "question": "Who typically benefits first when new money enters the economy?",
+                                                "style_note": "Crisp recall aids ISTJ/ISFJ; the town sequence makes sense to ESFJ/ESFP.",
+                                                "correct_answer": "Those closest to the source"
+                                            },
+                                            "title": "The Uneven Path of New Money",
+                                            "content": "New money reaches people at different times. Those closest to the source can spend at yesterday’s prices; late receivers face today’s higher prices. Town story: a few firms get fresh funding, upgrade equipment, and sign contracts at old rates; months later, families see higher quotes for groceries and services. This uneven path creates winners and losers inside one neighborhood, which explains why inflation often feels unfair even when averages look neat on paper.",
+                                            "objectives": [
+                                                "Describe how new money enters unevenly.",
+                                                "Relate distribution timing to perceived fairness."
+                                            ],
+                                            "duration_min": 3,
+                                            "youtube_video_link": "TBD"
+                                        },
+                                        {
+                                            "id": "M1-T05-C4",
+                                            "quiz": {
+                                                "type": "multiple_choice",
+                                                "options": [
+                                                    "Chasing every hot tip",
+                                                    "Skipping budgets entirely",
+                                                    "Regularly reviewing a simple budget with clear categories",
+                                                    "Ignoring price changes"
+                                                ],
+                                                "question": "Which habit best helps a family stay steady as prices change?",
+                                                "style_note": "Actionable step engages ESFJ/ESFP; structured option supports ISTJ/ISFJ.",
+                                                "correct_answer": "Regularly reviewing a simple budget with clear categories"
+                                            },
+                                            "title": "Families Under Pressure—and Practical Responses",
+                                            "content": "Inflation turns steady plans into moving targets. A family might notice school supplies or transport costs rise before salaries adjust; a small café sees ingredients jump mid-contract. Communities respond with practical habits: reviewing budgets more often, matching savings to clear goals, and avoiding decisions driven by panic or hype. Story: parents switch to a simple envelope system—food, bills, savings—to keep essentials funded even as prices drift. Clarity reduces stress when the money unit wobbles.",
+                                            "objectives": [
+                                                "Explain household-level impacts of inflation.",
+                                                "Identify simple planning habits that reduce stress."
+                                            ],
+                                            "duration_min": 3,
+                                            "youtube_video_link": "TBD"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": "M1-T06",
+                                    "name": "6. How the Current Banking System Works",
+                                    "cards": [
+                                        {
+                                            "id": "M1-T06-C1",
+                                            "title": "Video Lesson: How Banking Works Today",
+                                            "duration_min": 5,
+                                            "youtube_video_link": ""
+                                        },
+                                        {
+                                            "id": "M1-T06-C2",
+                                            "quiz": {
+                                                "type": "multiple_choice",
+                                                "options": [
+                                                    "Banks hold 100% of deposits in cash",
+                                                    "Banks hold only a fraction and lend the rest",
+                                                    "Withdrawals are illegal",
+                                                    "Loans reduce money in circulation"
+                                                ],
+                                                "question": "Why can a bank run happen in this system?",
+                                                "style_note": "Cause→effect clarity aids ISTJ/ISFJ; town vignette engages ESFJ/ESFP.",
+                                                "correct_answer": "Banks hold only a fraction and lend the rest"
+                                            },
+                                            "title": "Fractional Banking in Plain Language",
+                                            "content": "When you deposit, you lend to the bank. Banks keep only a fraction and lend the rest; the borrower spends; the receiver deposits; the cycle expands the money we use. Upside: credit for homes and shops. Downside: fragility—if too many withdraw at once, a bank can’t pay everyone (a run). Story: a rumor spreads, ATM lines form, orders pause, and families delay bills. The system works—until confidence cracks.",
+                                            "objectives": [
+                                                "Explain how fractional banking expands money.",
+                                                "Recognize why bank runs can occur."
+                                            ],
+                                            "duration_min": 3,
+                                            "youtube_video_link": "TBD"
+                                        },
+                                        {
+                                            "id": "M1-T06-C3",
+                                            "quiz": {
+                                                "type": "multiple_choice",
+                                                "options": [
+                                                    "A locked box of your exact cash",
+                                                    "A loan you make to the bank",
+                                                    "A government bond",
+                                                    "A prepaid card balance"
+                                                ],
+                                                "question": "Operationally, a deposit is best described as:",
+                                                "style_note": "Definition check suits ISTJ/ISFJ; real-life effects keep ESFJ/ESFP engaged.",
+                                                "correct_answer": "A loan you make to the bank"
+                                            },
+                                            "title": "Central Banks, Credit, and Your Balance",
+                                            "content": "Central banks influence interest rates and the overall supply of money; commercial banks create much of the spendable balance through lending. Practically, the number you see is a claim on your bank, not a separate pile reserved for you. Families meet this reality when transfers delay or withdrawal limits appear during stress. Community view: confidence keeps the wheels turning—until rules take over. Understanding who controls what helps households plan backups.",
+                                            "objectives": [
+                                                "Describe central bank influence and commercial bank credit.",
+                                                "Clarify why deposits aren’t fully reserved for each person."
+                                            ],
+                                            "duration_min": 3,
+                                            "youtube_video_link": "TBD"
+                                        },
+                                        {
+                                            "id": "M1-T06-C4",
+                                            "quiz": {
+                                                "type": "scenario",
+                                                "options": [],
+                                                "question": "In the grocer’s story, what broke first?",
+                                                "style_note": "Scenario helps ESFJ/ESFP visualize; distilled lesson supports ISTJ/ISFJ.",
+                                                "correct_answer": "Payment timing failed even though balances existed, revealing custody risk."
+                                            },
+                                            "title": "Custody and Contingency: Planning for Access",
+                                            "content": "Because deposits depend on institutions, access can tighten in stress. Families feel this as withdrawal caps or delays; shops face supplier deadlines with funds in limbo. Story: a small grocer can’t pay a delivery because transfers lag; neighbors offer short-term swaps to keep shelves stocked. Community lesson: diversify payment options and time-sensitive obligations so a single bottleneck doesn’t halt everyday life.",
+                                            "objectives": [
+                                                "Recognize access risk as part of custodial money.",
+                                                "Identify simple ways to reduce timing bottlenecks."
+                                            ],
+                                            "duration_min": 3,
+                                            "youtube_video_link": "TBD"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": "M1-T07",
+                                    "name": "7. Why We Need Honest Money",
+                                    "cards": [
+                                        {
+                                            "id": "M1-T07-C1",
+                                            "title": "Video Lesson: Why Honest Money Matters",
+                                            "duration_min": 5,
+                                            "youtube_video_link": ""
+                                        },
+                                        {
+                                            "id": "M1-T07-C2",
+                                            "quiz": {
+                                                "type": "multiple_choice",
+                                                "options": [
+                                                    "Arbitrary expansion by a few",
+                                                    "Equal rules and resistant scarcity",
+                                                    "Hidden privileges in issuance",
+                                                    "Surprise redefinitions of value"
+                                                ],
+                                                "question": "Which feature belongs to honest money as defined here?",
+                                                "style_note": "Definition mapping suits ISTJ/ISFJ; fairness framing engages ESFJ/ESFP.",
+                                                "correct_answer": "Equal rules and resistant scarcity"
+                                            },
+                                            "title": "Fair Rules for Everyone",
+                                            "content": "Honest money is scarce (hard to devalue at will), fair (no special privilege to create it from nothing), and reliable (rules apply equally). Families need these qualities to plan rent, school, and retirement; communities need them for long-term projects. When rules are opaque or changeable, purchasing power drifts and trust erodes—costs that fall first on workers and savers. Clear, consistent rules reconnect today’s effort with tomorrow’s security.",
+                                            "objectives": [
+                                                "Define core traits of honest money.",
+                                                "Connect rule clarity to household planning."
+                                            ],
+                                            "duration_min": 3,
+                                            "youtube_video_link": "TBD"
+                                        },
+                                        {
+                                            "id": "M1-T07-C3",
+                                            "quiz": {
+                                                "type": "multiple_choice",
+                                                "options": [
+                                                    "Unpredictable rules",
+                                                    "Stable, trusted measuring unit",
+                                                    "Hidden subsidies",
+                                                    "Unlimited credit"
+                                                ],
+                                                "question": "In the story, what enabled the family to commit to monthly contributions?",
+                                                "style_note": "Everyday planning engages ESFJ/ESFP; crisp cause→effect supports ISTJ/ISFJ.",
+                                                "correct_answer": "Stable, trusted measuring unit"
+                                            },
+                                            "title": "From Uncertainty to Confidence",
+                                            "content": "Weak money makes everyone guess: parents juggle bills, shops postpone hiring, neighborhoods delay repairs. With honest money, the map from effort to outcome is clearer. Story: saving for a certificate program over twelve months—when the unit holds value, a family can pace contributions without fear of sudden erosion. Communities coordinate better when goals can be priced and funded with confidence.",
+                                            "objectives": [
+                                                "Describe social costs of weak money.",
+                                                "Explain how stability supports long-term goals."
+                                            ],
+                                            "duration_min": 3,
+                                            "youtube_video_link": "TBD"
+                                        },
+                                        {
+                                            "id": "M1-T07-C4",
+                                            "quiz": {
+                                                "type": "reflection",
+                                                "options": [],
+                                                "question": "What ‘dividend’ does honest money create for communities?",
+                                                "style_note": "Reflection lets ESFJ/ESFP personalize; concise phrasing supports ISTJ/ISFJ.",
+                                                "correct_answer": "Compounding trust that makes planning and cooperation easier over time."
+                                            },
+                                            "title": "Community Trust Compounds",
+                                            "content": "When money is honest, trust compounds like interest. Families keep emergency funds without fear of quiet erosion; small businesses price fairly; local groups plan multi-year projects. Story: a neighborhood cooperative schedules quarterly improvements because budgets hold their meaning across seasons. The social dividend is smoother cooperation—less time arguing about moving targets, more time building value.",
+                                            "objectives": [
+                                                "Link money quality to community cooperation.",
+                                                "Identify the compounding effect of trust over time."
+                                            ],
+                                            "duration_min": 3,
+                                            "youtube_video_link": "TBD"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": "M1-T08",
+                                    "name": "8. The Psychology of Money: Fear, Greed, and Saving",
+                                    "cards": [
+                                        {
+                                            "id": "M1-T08-C1",
+                                            "title": "Video Lesson: Psychology of Money",
+                                            "duration_min": 5,
+                                            "youtube_video_link": ""
+                                        },
+                                        {
+                                            "id": "M1-T08-C2",
+                                            "quiz": {
+                                                "type": "reflection",
+                                                "options": [],
+                                                "question": "When a friend boasts about fast profits, what’s a wise first step?",
+                                                "style_note": "Reflection engages ESFJ/ESFP; a crisp rule supports ISTJ/ISFJ.",
+                                                "correct_answer": "Pause to review value, risks, and affordability before acting."
+                                            },
+                                            "title": "Mania, Panic, and the Pause Button",
+                                            "content": "Money decisions are emotional. In booms, stories at dinner claim “everyone’s getting rich”; in busts, fear drives rushed sales. Pattern: excitement → overreach → correction. A protective habit is the pause button: ask what gives an asset value, how it could fail, and what you can afford to lose. Story: a cousin urges a quick buy; the family pauses one day, lists risks, and avoids a costly mistake. Communities benefit when many households swap impulse for reflection.",
+                                            "objectives": [
+                                                "Identify emotional cycles that affect decisions.",
+                                                "Practice a simple pause-and-check routine."
+                                            ],
+                                            "duration_min": 3,
+                                            "youtube_video_link": "TBD"
+                                        },
+                                        {
+                                            "id": "M1-T08-C3",
+                                            "quiz": {
+                                                "type": "multiple_choice",
+                                                "options": [
+                                                    "Waiting for perfect conditions",
+                                                    "Regularly setting aside a portion of income",
+                                                    "Chasing tips from neighbors",
+                                                    "Ignoring goals"
+                                                ],
+                                                "question": "Which habit best supports resilient saving?",
+                                                "style_note": "Actionable step engages ESFJ/ESFP; structure appeals to ISTJ/ISFJ.",
+                                                "correct_answer": "Regularly setting aside a portion of income"
+                                            },
+                                            "title": "Saving as a Stabilizer",
+                                            "content": "Saving converts today’s effort into tomorrow’s options. Even when prices drift, steady habits help: set aside a portion of income, tie savings to specific goals, and avoid reacting to rumors. Story: a family envelope system—food, transport, savings—keeps essentials funded during a rough quarter. Community effect: when many households save steadily, local shops see smoother demand and fewer layoffs.",
+                                            "objectives": [
+                                                "Describe how steady saving builds resilience.",
+                                                "Connect household habits to community stability."
+                                            ],
+                                            "duration_min": 3,
+                                            "youtube_video_link": "TBD"
+                                        },
+                                        {
+                                            "id": "M1-T08-C4",
+                                            "quiz": {
+                                                "type": "multiple_choice",
+                                                "options": [
+                                                    "Monthly goal check-ins and steady habits",
+                                                    "Competing over risky bets",
+                                                    "Ignoring budgets",
+                                                    "Celebrating only big wins"
+                                                ],
+                                                "question": "Which group habit most reduces financial whiplash?",
+                                                "style_note": "Community framing motivates ESFJ/ESFP; clear options suit ISTJ/ISFJ.",
+                                                "correct_answer": "Monthly goal check-ins and steady habits"
+                                            },
+                                            "title": "Community Norms that Reduce Whiplash",
+                                            "content": "Our choices shape local norms. If neighbors celebrate sudden windfalls, others feel FOMO; if we celebrate consistent saving and fair pricing, others imitate stability. Story: a neighborhood group swaps “hot tip” chats for monthly goal check-ins; stress falls, and small wins add up. Families gain a support network that rewards patience over thrills, reducing the boom-bust whiplash that harms everyone.",
+                                            "objectives": [
+                                                "Explain how norms amplify fear or patience.",
+                                                "Identify one norm that supports steady decisions."
+                                            ],
+                                            "duration_min": 3,
+                                            "youtube_video_link": "TBD"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": "M1-T09",
+                                    "name": "9. The “Corralito” in Argentina (2001)",
+                                    "cards": [
+                                        {
+                                            "id": "M1-T09-C1",
+                                            "title": "Video Lesson: Argentina’s 2001 ‘Corralito’",
+                                            "duration_min": 5,
+                                            "youtube_video_link": ""
+                                        },
+                                        {
+                                            "id": "M1-T09-C2",
+                                            "quiz": {
+                                                "type": "multiple_choice",
+                                                "options": [
+                                                    "Unlimited credit",
+                                                    "Locked savings due to strict withdrawal limits",
+                                                    "Price caps on all goods",
+                                                    "Fast wage increases"
+                                                ],
+                                                "question": "What immediate problem did families face?",
+                                                "style_note": "Factual recall suits ISTJ/ISFJ; the café story engages ESFJ/ESFP.",
+                                                "correct_answer": "Locked savings due to strict withdrawal limits"
+                                            },
+                                            "title": "When Access Was Cut",
+                                            "content": "During the 2001 crisis in Argentina, strict withdrawal limits froze much of the public’s access to banked funds. Families had balances they couldn’t freely use; shops couldn’t pay suppliers; protests spread. Story: a café owner with payroll due finds withdrawals capped and must negotiate IOUs with staff and vendors. The lesson is practical: if your money depends on custodians, rules can change at the worst moment.",
+                                            "objectives": [
+                                                "Recall the core feature: withdrawal limits and frozen access.",
+                                                "Describe ripple effects on households and businesses."
+                                            ],
+                                            "duration_min": 3,
+                                            "youtube_video_link": "TBD"
+                                        },
+                                        {
+                                            "id": "M1-T09-C3",
+                                            "quiz": {
+                                                "type": "scenario",
+                                                "options": [],
+                                                "question": "In the tuition story, what failed first?",
+                                                "style_note": "Scenario aids ESFJ/ESFP visualization; pinpoint lesson supports ISTJ/ISFJ.",
+                                                "correct_answer": "Payment timing failed even though an account balance existed."
+                                            },
+                                            "title": "Household Timing Risk",
+                                            "content": "Access risk is a timing risk: bills arrive on schedule, but funds may not. Story: a parent needs tuition by Friday; the bank queue and limit stretch into next week. Neighbors step in with short-term swaps, revealing how communities buffer shocks when systems fail. Design takeaway: plan for payment backups so a single bottleneck doesn’t derail essentials.",
+                                            "objectives": [
+                                                "Define access risk as a timing mismatch.",
+                                                "Identify a simple household contingency."
+                                            ],
+                                            "duration_min": 3,
+                                            "youtube_video_link": "TBD"
+                                        },
+                                        {
+                                            "id": "M1-T09-C4",
+                                            "quiz": {
+                                                "type": "multiple_choice",
+                                                "options": [
+                                                    "Multiple independent payment paths",
+                                                    "A single gatekeeper for many payments",
+                                                    "Excess neighborhood savings",
+                                                    "Strict price transparency"
+                                                ],
+                                                "question": "What structural issue magnified the crisis’ local impact?",
+                                                "style_note": "Structure-focused recall helps ISTJ/ISFJ; community framing serves ESFJ/ESFP.",
+                                                "correct_answer": "A single gatekeeper for many payments"
+                                            },
+                                            "title": "Community Design Lessons",
+                                            "content": "The crisis showed how a single gatekeeper can freeze an entire neighborhood’s cash flow. When wages, rent, and supplier payments stop, trust frays quickly. Communities can reduce fragility by avoiding single points of failure in payment channels and by communicating clear fallback plans. Story: a local association publishes a simple checklist—who can extend short credit, who can accept alternate payment methods—so essentials continue even under pressure.",
+                                            "objectives": [
+                                                "Explain why single points of control increase fragility.",
+                                                "Describe one community-level mitigation."
+                                            ],
+                                            "duration_min": 3,
+                                            "youtube_video_link": "TBD"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": "M1-T10",
+                                    "name": "10. Gold confiscation in the U.S. (1933)",
+                                    "cards": [
+                                        {
+                                            "id": "M1-T10-C1",
+                                            "title": "Video Lesson: U.S. Gold Confiscation (1933)",
+                                            "duration_min": 5,
+                                            "youtube_video_link": ""
+                                        },
+                                        {
+                                            "id": "M1-T10-C2",
+                                            "quiz": {
+                                                "type": "multiple_choice",
+                                                "options": [
+                                                    "Keep all gold at home",
+                                                    "Surrender monetary gold for paper",
+                                                    "Receive new gold certificates",
+                                                    "Ignore bank rules"
+                                                ],
+                                                "question": "What did citizens have to do under the policy?",
+                                                "style_note": "Straightforward recall supports ISTJ/ISFJ; the family lens engages ESFJ/ESFP.",
+                                                "correct_answer": "Surrender monetary gold for paper"
+                                            },
+                                            "title": "A Rule That Changed Savings Overnight",
+                                            "content": "In the 1930s, U.S. authorities required citizens to surrender monetary gold in exchange for paper, with penalties for refusal. Until then, people viewed gold as money itself; overnight, legal rules redefined what counted as money. Family story: grandparents with heirloom coins suddenly had to hand them in. The event illustrates how centrally controlled rules can override personal plans and reshape trust in a single step.",
+                                            "objectives": [
+                                                "Describe the essence of the 1933 action.",
+                                                "Relate rule changes to savings risk."
+                                            ],
+                                            "duration_min": 3,
+                                            "youtube_video_link": "TBD"
+                                        },
+                                        {
+                                            "id": "M1-T10-C3",
+                                            "quiz": {
+                                                "type": "reflection",
+                                                "options": [],
+                                                "question": "What is a key risk highlighted by the event?",
+                                                "style_note": "Reflection personalizes for ESFJ/ESFP while consolidating concepts for ISTJ/ISFJ.",
+                                                "correct_answer": "Savings dependent on quickly changing rules can be compromised without personal fault."
+                                            },
+                                            "title": "Trust, Law, and Autonomy",
+                                            "content": "When laws can quickly redefine value and access, saver autonomy shrinks. A household that thought in terms of metal had to accept new terms overnight. Community view: shops that priced with one benchmark now faced another. The lesson is not about fear but design: savings exposed to rule shifts carry extra risk. Planning that recognizes legal layers helps families avoid being blindsided.",
+                                            "objectives": [
+                                                "Explain how legal changes affect household autonomy.",
+                                                "Identify design risk in rule-dependent savings."
+                                            ],
+                                            "duration_min": 3,
+                                            "youtube_video_link": "TBD"
+                                        },
+                                        {
+                                            "id": "M1-T10-C4",
+                                            "quiz": {
+                                                "type": "multiple_choice",
+                                                "options": [
+                                                    "Mix all expenses together",
+                                                    "Separate near-term essentials from longer-term goals",
+                                                    "Ignore deadlines",
+                                                    "Rely only on one payment method"
+                                                ],
+                                                "question": "Which first step best reduces shock from sudden rule changes?",
+                                                "style_note": "Actionable structure for ISTJ/ISFJ; family/community framing for ESFJ/ESFP.",
+                                                "correct_answer": "Separate near-term essentials from longer-term goals"
+                                            },
+                                            "title": "Planning Under Rule Uncertainty",
+                                            "content": "A practical approach to rule uncertainty is to separate needs by time: near-term payments (rent, food), medium-term goals, and long-term plans. Story: a family maps bills due this month versus later, then checks what could be delayed if payment rails jam. Communities can mirror this with transparent timelines for projects. The goal is resilience—reducing the chance that a sudden decree stops life essentials.",
+                                            "objectives": [
+                                                "Outline a time-based planning approach.",
+                                                "Show how communities mirror household resilience."
+                                            ],
+                                            "duration_min": 3,
+                                            "youtube_video_link": "TBD"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": "M1-T11",
+                                    "name": "11. The Tulip Bubble (1637)",
+                                    "cards": [
+                                        {
+                                            "id": "M1-T11-C1",
+                                            "title": "Video Lesson: The Tulip Bubble",
+                                            "duration_min": 5,
+                                            "youtube_video_link": ""
+                                        },
+                                        {
+                                            "id": "M1-T11-C2",
+                                            "quiz": {
+                                                "type": "multiple_choice",
+                                                "options": [
+                                                    "Assured food value",
+                                                    "Speculation and status demand",
+                                                    "Government price caps",
+                                                    "Fixed harvest yields"
+                                                ],
+                                                "question": "What mainly drove tulip prices high?",
+                                                "style_note": "Vivid story engages ESFJ/ESFP; clear cause supports ISTJ/ISFJ.",
+                                                "correct_answer": "Speculation and status demand"
+                                            },
+                                            "title": "A Flower Worth a House—Then Not",
+                                            "content": "In 17th-century Netherlands, tulips became a status symbol. Stories spread, prices ran, and speculation took over. At the peak, people traded properties for bulbs not yet bloomed. Then buyers vanished and prices collapsed. Family story: a household promises future income for bulbs that later fetch far less, leaving debts and hard choices. Communities learned how fear and greed can inflate prices far beyond fundamentals.",
+                                            "objectives": [
+                                                "Recount the rise-and-crash pattern.",
+                                                "Identify emotions that amplify bubbles."
+                                            ],
+                                            "duration_min": 3,
+                                            "youtube_video_link": "TBD"
+                                        },
+                                        {
+                                            "id": "M1-T11-C3",
+                                            "quiz": {
+                                                "type": "multiple_choice",
+                                                "options": [
+                                                    "Betting only on stories",
+                                                    "Funding essentials first, then capping risk",
+                                                    "Borrowing more when prices rise",
+                                                    "Skipping budgets to move faster"
+                                                ],
+                                                "question": "Which habit best limits bubble damage?",
+                                                "style_note": "Decision rule appeals to ISTJ/ISFJ; family focus engages ESFJ/ESFP.",
+                                                "correct_answer": "Funding essentials first, then capping risk"
+                                            },
+                                            "title": "Lessons for Households",
+                                            "content": "Bubbles seduce with simple narratives: “it only goes up.” A protective rule is to separate wants from needs. Story: parents cap speculative bets at an amount they can truly afford to lose, and keep essentials funded first. When the cycle turns, the family absorbs volatility without sacrificing food, rent, or education. The point isn’t avoiding all risk—it’s preventing a story from swallowing the household.",
+                                            "objectives": [
+                                                "State a household rule to limit bubble damage.",
+                                                "Prioritize essentials over speculation."
+                                            ],
+                                            "duration_min": 3,
+                                            "youtube_video_link": "TBD"
+                                        },
+                                        {
+                                            "id": "M1-T11-C4",
+                                            "quiz": {
+                                                "type": "multiple_choice",
+                                                "options": [
+                                                    "Celebrating quick riches",
+                                                    "Publicly sharing lessons and favoring steady habits",
+                                                    "Hiding past mistakes",
+                                                    "Encouraging maximum leverage"
+                                                ],
+                                                "question": "Which community habit acts like a ‘social seatbelt’?",
+                                                "style_note": "Community framing suits ESFJ/ESFP; structured choices suit ISTJ/ISFJ.",
+                                                "correct_answer": "Publicly sharing lessons and favoring steady habits"
+                                            },
+                                            "title": "Community Memory and Safer Norms",
+                                            "content": "Communities that remember past manias set healthier norms. Story: a town workshop invites elders to share mistakes and small wins; the takeaway is steady saving, fair pricing, and skepticism toward guaranteed riches. As norms shift, fewer neighbors chase dangerous leverage, and local shops see fewer boom-bust disruptions. Memory composes a social seatbelt: it doesn’t end risk, but it reduces severe injury.",
+                                            "objectives": [
+                                                "Explain how shared memory changes behavior.",
+                                                "Name one norm that reduces boom-bust harm."
+                                            ],
+                                            "duration_min": 3,
+                                            "youtube_video_link": "TBD"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": "M1-T12",
+                                    "name": "12. The Loss of Purchasing Power of $100 in 20 Years",
+                                    "cards": [
+                                        {
+                                            "id": "M1-T12-C1",
+                                            "title": "Video Lesson: $100 Then vs. Now",
+                                            "duration_min": 5,
+                                            "youtube_video_link": ""
+                                        },
+                                        {
+                                            "id": "M1-T12-C2",
+                                            "quiz": {
+                                                "type": "multiple_choice",
+                                                "options": [
+                                                    "The color of the bill",
+                                                    "Purchasing power of the same $100",
+                                                    "Household needs disappeared",
+                                                    "Shops stopped selling essentials"
+                                                ],
+                                                "question": "What changed most over 20 years in the exercise?",
+                                                "style_note": "Basket comparison fits ISTJ/ISFJ; family story engages ESFJ/ESFP.",
+                                                "correct_answer": "Purchasing power of the same $100"
+                                            },
+                                            "title": "$100 Then vs. Now: Make It Tangible",
+                                            "content": "A simple exercise: list what $100 bought two decades ago—groceries, transport passes, school supplies—then list the same items today. Families see the gap: the number is unchanged, but the basket shrinks. Story: grandparents set aside a bill for a future celebration; when the day comes, it covers less than expected. Communities feel this as tighter budgets for events and repairs. The insight: purchasing power, not just balances, drives real life.",
+                                            "objectives": [
+                                                "Translate inflation into a household basket view.",
+                                                "Distinguish nominal amounts from real purchasing power."
+                                            ],
+                                            "duration_min": 3,
+                                            "youtube_video_link": "TBD"
+                                        },
+                                        {
+                                            "id": "M1-T12-C3",
+                                            "quiz": {
+                                                "type": "multiple_choice",
+                                                "options": [
+                                                    "Track totals only",
+                                                    "Tie budgets to actual baskets of essentials",
+                                                    "Ignore prices and hope",
+                                                    "Delay all purchases indefinitely"
+                                                ],
+                                                "question": "Which approach best guards plans against unit drift?",
+                                                "style_note": "Clear method suits ISTJ/ISFJ; practical examples engage ESFJ/ESFP.",
+                                                "correct_answer": "Tie budgets to actual baskets of essentials"
+                                            },
+                                            "title": "Plan with Real, Not Just Nominal, Thinking",
+                                            "content": "Nominal thinking watches the number; real thinking watches what the number buys. Story: a parent reviews last year’s school budget and notices the same amount now covers fewer books and meals. The family updates categories and timelines so essentials remain funded. Community groups can do the same—tie plans to baskets, not just totals. Seeing through the number protects goals when units drift.",
+                                            "objectives": [
+                                                "Explain the difference between nominal and real thinking.",
+                                                "Apply basket-based planning to family or community budgets."
+                                            ],
+                                            "duration_min": 3,
+                                            "youtube_video_link": "TBD"
+                                        },
+                                        {
+                                            "id": "M1-T12-C4",
+                                            "quiz": {
+                                                "type": "multiple_choice",
+                                                "options": [
+                                                    "Annual review only",
+                                                    "Monthly check-ins with small adjustments",
+                                                    "Ignoring bills until due",
+                                                    "Relying on windfalls"
+                                                ],
+                                                "question": "Which routine most directly reduces budget surprises?",
+                                                "style_note": "Actionable cadence engages ESFJ/ESFP; structured routine supports ISTJ/ISFJ.",
+                                                "correct_answer": "Monthly check-ins with small adjustments"
+                                            },
+                                            "title": "Habits that Defend Purchasing Power",
+                                            "content": "When units weaken, habits matter more. Families can (a) schedule regular budget reviews, (b) prioritize essentials before wants, and (c) match savings to time-bound goals so delays don’t quietly erode plans. Story: a household sets a monthly “money check-in.” Stress drops because surprises become adjustments, not emergencies. Community groups mirror this with quarterly reviews that keep projects realistic even as costs shift.",
+                                            "objectives": [
+                                                "Identify habits that reduce erosion risk.",
+                                                "Relate steady reviews to lower financial stress."
+                                            ],
+                                            "duration_min": 3,
+                                            "youtube_video_link": "TBD"
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "id": "M2",
+                            "name": "Module 2",
+                            "topics": []
+                        },
+                        {
+                            "id": "M3",
+                            "name": "Module 3",
+                            "topics": []
+                        }
+                    ]
+                }
+            },
+            "createdAt": "2025-09-07T15:08:45.329Z",
+            "updatedAt": "2025-09-22T07:23:45.852Z",
+            "publishedAt": "2025-09-22T07:23:45.947Z",
+            "locale": "en",
+            "title": null,
+            "slug": null,
+            "description": null,
+            "coverImage": null,
+            "localizations": [
+                {
+                    "id": 13,
+                    "documentId": "vbqquc8yjcon4fxt97pk3the",
+                    "LessonPlanJSON": {
+                        "course": {
+                            "id": "btc-full-course",
+                            "name": "Curso Completo de BTC",
+                            "modules": [
+                                {
+                                    "id": "M1",
+                                    "name": "Módulo 1",
+                                    "topics": [
+                                        {
+                                            "id": "M1-T01",
+                                            "name": "1. ¿Qué es el dinero?",
+                                            "cards": [
+                                                {
+                                                    "id": "M1-T01-C1",
+                                                    "title": "Lección en video: ¿Qué es el dinero?",
+                                                    "duration_min": 5,
+                                                    "youtube_video_link": ""
+                                                },
+                                                {
+                                                    "id": "M1-T01-C2",
+                                                    "quiz": {
+                                                        "type": "multiple_choice",
+                                                        "options": [
+                                                            "Medio de intercambio",
+                                                            "Unidad de cuenta",
+                                                            "Reserva de valor",
+                                                            "Estatus legal"
+                                                        ],
+                                                        "question": "¿Qué función te ayuda a comparar marcas en el súper?",
+                                                        "style_note": "Recuerdo claro para ISTJ/ISFJ; la escena del súper y el toque de comunidad conecta con ESFJ/ESFP.",
+                                                        "correct_answer": "Unidad de cuenta"
+                                                    },
+                                                    "title": "Los tres trabajos del dinero—Vista de una familia",
+                                                    "content": "El dinero resuelve el día a día de intercambiar. Hace tres cosas: (1) medio de intercambio—no necesitas un trueque perfecto; (2) unidad de cuenta—los precios se comparan y el presupuesto tiene sentido; (3) reserva de valor—el esfuerzo de hoy sirve más adelante. Imagina a un papá o mamá en el mercado del barrio: las etiquetas claras (unidad de cuenta) guían las compras, pagar es rápido (medio de intercambio) y parte del sueldo se guarda para el mes que viene (reserva de valor). Los barrios funcionan porque confiamos en que todos aceptan la misma unidad. Cuando cualquiera de estas funciones flojea—precios confusos, menos aceptación o ahorros que pierden poder—el estrés se siente primero en la mesa de la casa y luego en los negocios del vecindario.",
+                                                    "objectives": [
+                                                        "Definir las tres funciones del dinero.",
+                                                        "Conectarlas con el presupuesto familiar y el comercio del barrio."
+                                                    ],
+                                                    "duration_min": 3,
+                                                    "youtube_video_link": "TBD"
+                                                },
+                                                {
+                                                    "id": "M1-T01-C3",
+                                                    "quiz": {
+                                                        "type": "multiple_choice",
+                                                        "options": [
+                                                            "Faltantes por temporada",
+                                                            "Coincidencia de deseos",
+                                                            "Cambio exacto siempre",
+                                                            "Costos altos de transporte"
+                                                        ],
+                                                        "question": "¿Qué problema resuelve el dinero comparado con el trueque?",
+                                                        "style_note": "Causa→efecto simple para ISTJ; la historia del intercambio del barrio conecta con ESFJ/ESFP e ISFJ.",
+                                                        "correct_answer": "Coincidencia de deseos"
+                                                    },
+                                                    "title": "Del trueque a un lenguaje compartido de valor",
+                                                    "content": "El trueque se traba cuando los deseos no coinciden: tus huevos por mis zapatos solo funciona si tiempo y valor cuadran. El dinero reemplaza esa fricción con un lenguaje compartido de valor. Con el tiempo la gente pasó de intercambios directos a cosas muy aceptadas, y luego a dinero estandarizado. Imagina un día de canjes que no despega… hasta que todos acuerdan poner precios en una sola unidad y el intercambio fluye. Socialmente, el dinero es una herramienta de coordinación: ayuda a planear a vecinos, a que los comercios hagan stock y a organizar servicios. Cuanto mejor funciona la unidad compartida, menos negociaciones incómodas y más energía para necesidades reales.",
+                                                    "objectives": [
+                                                        "Explicar por qué el dinero mejora al trueque.",
+                                                        "Describir cómo una unidad común coordina a la comunidad."
+                                                    ],
+                                                    "duration_min": 3,
+                                                    "youtube_video_link": "TBD"
+                                                },
+                                                {
+                                                    "id": "M1-T01-C4",
+                                                    "quiz": {
+                                                        "type": "scenario",
+                                                        "options": [],
+                                                        "question": "En la historia de los ‘tokens’ del club, ¿por qué dudaron los puestos?",
+                                                        "style_note": "El escenario ayuda a ESFJ/ESFP a imaginarlo y da un principio claro a ISTJ/ISFJ.",
+                                                        "correct_answer": "Cambiar las reglas a mitad del evento rompió la confianza de que los tokens servirían como se prometió."
+                                                    },
+                                                    "title": "Confianza: la columna invisible del dinero",
+                                                    "content": "El dinero funciona porque creemos que otros lo aceptarán mañana. En casa, la confianza aparece cuando un adulto promete mesada, un joven ahorra para un curso y el comerciante espera pagar al proveedor la semana que viene. En la plaza, es ver una lista de precios que todos respetan. La confianza tiene capas: los símbolos en billetes o saldos, las reglas detrás y el hábito de aceptación. Grietas pequeñas—comisiones confusas, reglas cambiantes—crecen en dudas grandes. Historia corta: un club emite ‘tokens’ para comidas; si cambian las reglas a mitad de la fiesta, los puestos se frenan. Con el dinero pasa igual: reglas estables mantienen todo en movimiento.",
+                                                    "objectives": [
+                                                        "Reconocer la confianza social como requisito del dinero.",
+                                                        "Vincular estabilidad de reglas con planificación diaria confiable."
+                                                    ],
+                                                    "duration_min": 3,
+                                                    "youtube_video_link": "TBD"
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "id": "M1-T02",
+                                            "name": "2. Propiedades del dinero",
+                                            "cards": [
+                                                {
+                                                    "id": "M1-T02-C1",
+                                                    "title": "Lección en video: Propiedades del buen dinero",
+                                                    "duration_min": 5,
+                                                    "youtube_video_link": ""
+                                                },
+                                                {
+                                                    "id": "M1-T02-C2",
+                                                    "quiz": {
+                                                        "type": "multiple_choice",
+                                                        "options": [
+                                                            "Escasez",
+                                                            "Divisibilidad",
+                                                            "Durabilidad",
+                                                            "Portabilidad"
+                                                        ],
+                                                        "question": "¿Qué propiedad ayuda más a dar la mesada exacta en casa?",
+                                                        "style_note": "Términos + escena familiar ayudan a ISTJ/ISFJ; el contexto de hogar conecta con ESFJ/ESFP.",
+                                                        "correct_answer": "Divisibilidad"
+                                                    },
+                                                    "title": "Seis rasgos del buen dinero",
+                                                    "content": "A lo largo del tiempo, el buen dinero suele tener seis rasgos: escasez (oferta limitada), divisibilidad (cambio exacto), durabilidad (no se echa a perder), portabilidad (fácil de mover), verificabilidad (se puede checar fácil) y aceptabilidad (la gente lo usa de verdad). Prueba familiar: ¿guardarías meses de esfuerzo en algo que se arruina (falla durabilidad) o que casi nadie acepta (falla aceptabilidad)? En el mercado, la divisibilidad importa para romper un billete grande; la verificabilidad importa cuando el puesto revisa si es legítimo. Las comunidades florecen cuando la unidad compartida puntúa alto en estos rasgos, porque gastan menos energía en dudas y más en servir necesidades reales.",
+                                                    "objectives": [
+                                                        "Enumerar las seis propiedades del dinero.",
+                                                        "Conectar cada propiedad con un ejemplo de hogar o mercado."
+                                                    ],
+                                                    "duration_min": 3,
+                                                    "youtube_video_link": "TBD"
+                                                },
+                                                {
+                                                    "id": "M1-T02-C3",
+                                                    "quiz": {
+                                                        "type": "multiple_choice",
+                                                        "options": [
+                                                            "Divisibilidad y verificabilidad",
+                                                            "Escasez y durabilidad",
+                                                            "Portabilidad y aceptabilidad",
+                                                            "Durabilidad y aceptabilidad"
+                                                        ],
+                                                        "question": "En la feria, ¿qué dos propiedades destacan al dar cambio y checar billetes?",
+                                                        "style_note": "Evento concreto para ESFJ/ESFP; pares de términos refuerzan estructura para ISTJ/ISFJ.",
+                                                        "correct_answer": "Divisibilidad y verificabilidad"
+                                                    },
+                                                    "title": "Prueba de estrés casera para el dinero",
+                                                    "content": "Haz una prueba rápida. Si te mudas mañana, ¿tus ahorros viajan fácil (portabilidad)? Si ahorras seis meses, ¿mantienen poder de compra (escasez + durabilidad)? Cuando recibes efectivo, ¿puedes saber que es real (verificabilidad)? ¿Lo aceptan vecinos y tiendas (aceptabilidad)? Historia: una feria de fin de semana donde los papás necesitan cambio para tickets (divisibilidad), los voluntarios revisan a contraluz (verificabilidad) y todos aceptan la misma unidad (aceptabilidad). Estas escenas pequeñas muestran verdades de diseño: cuanto más cumple el dinero estas pruebas, más fluida la planificación familiar y el comercio.",
+                                                    "objectives": [
+                                                        "Aplicar las seis propiedades a situaciones reales simples.",
+                                                        "Explicar cómo la aceptación compartida reduce fricción."
+                                                    ],
+                                                    "duration_min": 3,
+                                                    "youtube_video_link": "TBD"
+                                                },
+                                                {
+                                                    "id": "M1-T02-C4",
+                                                    "quiz": {
+                                                        "type": "multiple_choice",
+                                                        "options": [
+                                                            "Durabilidad",
+                                                            "Verificabilidad",
+                                                            "Portabilidad",
+                                                            "Escasez"
+                                                        ],
+                                                        "question": "En la historia del comedor escolar, ¿qué propiedad débil alargó la fila?",
+                                                        "style_note": "Recuerdo corto ayuda a ISTJ/ISFJ; la escena escolar conecta con ESFJ/ESFP.",
+                                                        "correct_answer": "Verificabilidad"
+                                                    },
+                                                    "title": "Compensaciones: cuando las propiedades chocan",
+                                                    "content": "Ninguna forma de dinero es perfecta. Algunas son durables pero difíciles de mover; otras portables pero menos escasas. En casa se sienten estas compensaciones: una tarjeta de una tienda puede ser cómoda (portabilidad) pero poco aceptada en toda la ciudad; un coleccionable puede ser escaso pero difícil de verificar de un vistazo. Vista de comunidad: los mejores sistemas reducen las fricciones grandes—dudas en la caja, cambios de precio frecuentes o redes de aceptación frágiles. Historia simple: un comedor escolar prueba un token tipo calcomanía—lindo pero fácil de copiar, así que la fila se hace lenta. Un buen diseño equilibra rasgos para que la vida no se trabe.",
+                                                    "objectives": [
+                                                        "Identificar compensaciones comunes entre propiedades del dinero.",
+                                                        "Describir cómo el equilibrio de diseño mejora las transacciones diarias."
+                                                    ],
+                                                    "duration_min": 3,
+                                                    "youtube_video_link": "TBD"
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "id": "M1-T03",
+                                            "name": "3. El oro como dinero y su caída",
+                                            "cards": [
+                                                {
+                                                    "id": "M1-T03-C1",
+                                                    "title": "Lección en video: El oro como dinero",
+                                                    "duration_min": 5,
+                                                    "youtube_video_link": ""
+                                                },
+                                                {
+                                                    "id": "M1-T03-C2",
+                                                    "quiz": {
+                                                        "type": "multiple_choice",
+                                                        "options": [
+                                                            "Escasez",
+                                                            "Durabilidad",
+                                                            "Portabilidad para valores grandes",
+                                                            "Divisibilidad"
+                                                        ],
+                                                        "question": "¿Qué limitación diaria ayudaron a resolver primero los ‘papeles’ contra oro?",
+                                                        "style_note": "Mapear rasgo→beneficio ayuda a ISTJ/ISFJ; la historia del artesano engancha a ESFJ/ESFP.",
+                                                        "correct_answer": "Portabilidad para valores grandes"
+                                                    },
+                                                    "title": "Por qué el oro funcionó tanto tiempo",
+                                                    "content": "El oro cumplía muchos rasgos de buen dinero: escaso, durable, divisible y muy reconocido. Las familias confiaban en él para llevar poder de compra entre estaciones; los comerciantes lo usaban para liquidar entre pueblos. Historia: un artesano viajero guarda una reserva pequeña que representa semanas de trabajo porque otros aceptan el metal a simple vista. Pero el oro no era ideal para lo cotidiano—sobre todo pagos chicos y transferencias largas. Esos límites abrieron paso a ‘papeles’ canjeables por oro: una capa de conveniencia sobre una base confiable.",
+                                                    "objectives": [
+                                                        "Describir las fortalezas del oro como dinero.",
+                                                        "Explicar por qué el uso diario empujó a usar papeles contra oro."
+                                                    ],
+                                                    "duration_min": 3,
+                                                    "youtube_video_link": "TBD"
+                                                },
+                                                {
+                                                    "id": "M1-T03-C3",
+                                                    "quiz": {
+                                                        "type": "multiple_choice",
+                                                        "options": [
+                                                            "Garantías de canje más fuertes",
+                                                            "Confianza más débil en el canje",
+                                                            "El oro se vuelve indivisible",
+                                                            "El papel se desgasta menos"
+                                                        ],
+                                                        "question": "¿Qué riesgo crece si los ‘papeles’ se expanden más rápido que el respaldo?",
+                                                        "style_note": "Causa→efecto para ISTJ/ISFJ; el ángulo de negocio familiar atrae a ESFJ/ESFP.",
+                                                        "correct_answer": "Confianza más débil en el canje"
+                                                    },
+                                                    "title": "Promesas en papel: conveniencia con truco",
+                                                    "content": "Los papeles contra oro hicieron el comercio más ágil: livianos, contables y fáciles de guardar. Para un negocio familiar, pagar proveedores con billetes era más seguro que mover monedas. Pero había truco: la confianza dependía de poder canjear por metal. La gente no veía las reservas. Si el emisor expandía papeles más rápido que el respaldo, la promesa se afinaba. En estrés, el canje podía volverse lento, parcial o pausado. Lección: la conveniencia abre nuevas preguntas de confianza que el diseño y la gobernanza deben resolver.",
+                                                    "objectives": [
+                                                        "Explicar la conveniencia de los papeles contra oro.",
+                                                        "Reconocer el riesgo de confianza por reservas ocultas."
+                                                    ],
+                                                    "duration_min": 3,
+                                                    "youtube_video_link": "TBD"
+                                                },
+                                                {
+                                                    "id": "M1-T03-C4",
+                                                    "quiz": {
+                                                        "type": "reflection",
+                                                        "options": [],
+                                                        "question": "A nivel de hogar, ¿qué cambió más cuando terminó la convertibilidad?",
+                                                        "style_note": "Reflexión para personalizar (ESFJ/ESFP) y consolidar (ISTJ/ISFJ).",
+                                                        "correct_answer": "Ya no se podía confiar en canjear billetes por metal, subió la incertidumbre sobre los ahorros."
+                                                    },
+                                                    "title": "De billetes respaldados a quiebres con el oro",
+                                                    "content": "Con el tiempo apareció tensión entre los papeles en la calle y el metal en reserva. En crisis, el canje se limitó; la confianza se erosionó; y al final, la convertibilidad terminó en muchos lugares. Vista del hogar: una abuela que creía que el billete equivalía al metal del banco de pronto vive con otras reglas. Vista comunitaria: planear se vuelve más difícil cuando el ancla cambia. Este giro de papeles respaldados a dinero sin respaldo explica discusiones posteriores sobre cómo traer disciplina sin perder usabilidad.",
+                                                    "objectives": [
+                                                        "Resumir por qué se debilitó el vínculo con el oro.",
+                                                        "Conectar quiebres con el oro y la incertidumbre para planear."
+                                                    ],
+                                                    "duration_min": 3,
+                                                    "youtube_video_link": "TBD"
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "id": "M1-T04",
+                                            "name": "4. Bretton Woods y el fin del patrón oro",
+                                            "cards": [
+                                                {
+                                                    "id": "M1-T04-C1",
+                                                    "title": "Lección en video: Bretton Woods y el fin del oro",
+                                                    "duration_min": 5,
+                                                    "youtube_video_link": ""
+                                                },
+                                                {
+                                                    "id": "M1-T04-C2",
+                                                    "quiz": {
+                                                        "type": "multiple_choice",
+                                                        "options": [
+                                                            "Controles de precios automáticos",
+                                                            "Convertibilidad a oro en la cima del sistema",
+                                                            "Bloqueo del comercio internacional",
+                                                            "Emisión ilimitada"
+                                                        ],
+                                                        "question": "¿Qué daba la confianza central en ese marco?",
+                                                        "style_note": "Una idea clave para ISTJ/ISFJ; el ángulo de estabilidad apoya a ESFJ/ESFP.",
+                                                        "correct_answer": "Convertibilidad a oro en la cima del sistema"
+                                                    },
+                                                    "title": "Un ancla de posguerra: convertibilidad (parcial) restaurada",
+                                                    "content": "Tras la guerra, los países coordinaron un sistema donde las monedas se relacionaban con una divisa clave y esa divisa prometía convertir a oro. Las familias lo vivieron como precios más calmados y comercio predecible; las comunidades como una unidad de referencia confiable. El diseño buscó cuidar la confianza atando el papel al metal al menos arriba de todo. Funcionó… mientras se pudo cumplir la promesa.",
+                                                    "objectives": [
+                                                        "Describir el objetivo del marco monetario de posguerra.",
+                                                        "Vincular promesas de convertibilidad con estabilidad diaria."
+                                                    ],
+                                                    "duration_min": 3,
+                                                    "youtube_video_link": "TBD"
+                                                },
+                                                {
+                                                    "id": "M1-T04-C3",
+                                                    "quiz": {
+                                                        "type": "scenario",
+                                                        "options": [],
+                                                        "question": "Para el exportador de la historia, ¿qué complicó la planificación?",
+                                                        "style_note": "Escenario para ESFJ/ESFP; causa→efecto claro para ISTJ/ISFJ.",
+                                                        "correct_answer": "Las dudas sobre el canje movieron el ancla de precios usada en contratos."
+                                                    },
+                                                    "title": "La tensión vuelve: más papel que metal",
+                                                    "content": "Con los años, el gasto y la emisión superaron las reservas de metal. Los tenedores extranjeros pidieron canje más seguido y se notó la tensión. La gente no veía las bóvedas día a día, pero las familias sentían más incertidumbre. Historia: un pequeño exportador fija precios con un ancla estable; luego cuestionan redenciones, los contratos se tambalean y el local reevalúa contratar. Sistemas basados en una promesa deben defenderla o cambiar las reglas.",
+                                                    "objectives": [
+                                                        "Explicar por qué la convertibilidad se volvió difícil de sostener.",
+                                                        "Ilustrar impactos en hogares y pequeños negocios."
+                                                    ],
+                                                    "duration_min": 3,
+                                                    "youtube_video_link": "TBD"
+                                                },
+                                                {
+                                                    "id": "M1-T04-C4",
+                                                    "quiz": {
+                                                        "type": "multiple_choice",
+                                                        "options": [
+                                                            "Canje por oro",
+                                                            "Reglas de política y credibilidad institucional",
+                                                            "Escasez automática",
+                                                            "Vuelta al trueque"
+                                                        ],
+                                                        "question": "En un sistema fiat, ¿de dónde sale la disciplina monetaria?",
+                                                        "style_note": "Recuerdo directo para ISTJ/ISFJ; ejemplos de comunidad para ESFJ/ESFP.",
+                                                        "correct_answer": "Reglas de política y credibilidad institucional"
+                                                    },
+                                                    "title": "Era fiat: disciplina por política, no por canje",
+                                                    "content": "Al terminar la convertibilidad, el valor del dinero pasó a depender de políticas y aceptación social más que de respaldo metálico. Ganó flexibilidad, perdió límites naturales. Las familias lo notaron de a poco—precios moviéndose más que los ahorros. Los presupuestos comunitarios se volvieron sensibles a sorpresas de política. Lo central: la disciplina debe venir de reglas claras y creíbles, o la función de reserva de valor se debilita y planear se vuelve una adivinanza.",
+                                                    "objectives": [
+                                                        "Identificar el cambio de diseño en un sistema fiat.",
+                                                        "Relacionar credibilidad de reglas con la planificación del hogar."
+                                                    ],
+                                                    "duration_min": 3,
+                                                    "youtube_video_link": "TBD"
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "id": "M1-T05",
+                                            "name": "5. Inflación: causas y consecuencias",
+                                            "cards": [
+                                                {
+                                                    "id": "M1-T05-C1",
+                                                    "title": "Lección en video: Lo básico de la inflación",
+                                                    "duration_min": 5,
+                                                    "youtube_video_link": ""
+                                                },
+                                                {
+                                                    "id": "M1-T05-C2",
+                                                    "quiz": {
+                                                        "type": "multiple_choice",
+                                                        "options": [
+                                                            "La oferta de dinero crece más rápido que la producción",
+                                                            "La producción crece más rápido que la oferta de dinero",
+                                                            "Bajan fuerte los costos de energía",
+                                                            "Un solo local sube precios una vez"
+                                                        ],
+                                                        "question": "¿Qué situación suele empujar precios al alza en toda la economía?",
+                                                        "style_note": "Mapa simple para ISTJ/ISFJ; ángulos de hogar y negocio conectan con ESFJ/ESFP.",
+                                                        "correct_answer": "La oferta de dinero crece más rápido que la producción"
+                                                    },
+                                                    "title": "Por qué suben los precios: lo esencial",
+                                                    "content": "La inflación es una suba general de precios: cada unidad compra menos. Un motor clave es emitir dinero más rápido que crecen bienes y servicios—más billetes persiguiendo lo mismo. Los choques de oferta también importan: si cae la producción o sube la energía, muchos precios se mueven juntos. Las familias lo ven primero en el súper o el transporte, luego en renta y escuela. Los negocios del barrio sienten márgenes más finos. La incertidumbre crece cuando la unidad de cuenta no se mantiene firme.",
+                                                    "objectives": [
+                                                        "Definir inflación en palabras simples.",
+                                                        "Nombrar motores monetarios y no monetarios clave."
+                                                    ],
+                                                    "duration_min": 3,
+                                                    "youtube_video_link": "TBD"
+                                                },
+                                                {
+                                                    "id": "M1-T05-C3",
+                                                    "quiz": {
+                                                        "type": "multiple_choice",
+                                                        "options": [
+                                                            "Hogares lejos de la fuente",
+                                                            "Los más cerca de la fuente",
+                                                            "Solo jubilados",
+                                                            "Solo negocios pequeños"
+                                                        ],
+                                                        "question": "Cuando entra dinero nuevo, ¿quién suele beneficiarse primero?",
+                                                        "style_note": "Recuerdo nítido para ISTJ/ISFJ; la secuencia en el barrio le cierra a ESFJ/ESFP.",
+                                                        "correct_answer": "Los más cerca de la fuente"
+                                                    },
+                                                    "title": "El camino desigual del dinero nuevo",
+                                                    "content": "El dinero nuevo no llega a todos a la vez. Los más cercanos a la fuente gastan con precios de ayer; los últimos, con los de hoy. Historia del barrio: unas empresas reciben fondos, mejoran equipos y cierran contratos a valores viejos; meses después, las familias ven subas en súper y servicios. Este camino desigual crea ganadores y perdedores en el mismo vecindario, por eso la inflación se siente injusta aunque el promedio diga otra cosa.",
+                                                    "objectives": [
+                                                        "Describir cómo entra el dinero nuevo de forma desigual.",
+                                                        "Relacionar el tiempo de llegada con la sensación de justicia."
+                                                    ],
+                                                    "duration_min": 3,
+                                                    "youtube_video_link": "TBD"
+                                                },
+                                                {
+                                                    "id": "M1-T05-C4",
+                                                    "quiz": {
+                                                        "type": "multiple_choice",
+                                                        "options": [
+                                                            "Perseguir cada ‘tip’",
+                                                            "Saltar el presupuesto",
+                                                            "Revisar un presupuesto simple con categorías claras",
+                                                            "Ignorar cambios de precios"
+                                                        ],
+                                                        "question": "¿Qué hábito ayuda más a una familia cuando los precios se mueven?",
+                                                        "style_note": "Paso accionable para ESFJ/ESFP; opción estructurada para ISTJ/ISFJ.",
+                                                        "correct_answer": "Revisar un presupuesto simple con categorías claras"
+                                                    },
+                                                    "title": "Familias bajo presión—y respuestas prácticas",
+                                                    "content": "La inflación vuelve los planes objetivos móviles. Una familia nota útiles o transporte subiendo antes de que el sueldo alcance; un café ve ingredientes subir a mitad de contrato. La respuesta comunitaria: revisar presupuestos más seguido, atar ahorros a metas claras y evitar decisiones por pánico o hype. Historia: padres usan ‘sobrecitos’—comida, cuentas, ahorro—para que lo esencial se cubra aunque los precios se muevan. La claridad baja el estrés cuando la unidad se tambalea.",
+                                                    "objectives": [
+                                                        "Explicar impactos de la inflación en el hogar.",
+                                                        "Identificar hábitos simples que bajan el estrés."
+                                                    ],
+                                                    "duration_min": 3,
+                                                    "youtube_video_link": "TBD"
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "id": "M1-T06",
+                                            "name": "6. Cómo funciona el sistema bancario actual",
+                                            "cards": [
+                                                {
+                                                    "id": "M1-T06-C1",
+                                                    "title": "Lección en video: Cómo funciona la banca hoy",
+                                                    "duration_min": 5,
+                                                    "youtube_video_link": ""
+                                                },
+                                                {
+                                                    "id": "M1-T06-C2",
+                                                    "quiz": {
+                                                        "type": "multiple_choice",
+                                                        "options": [
+                                                            "Los bancos guardan 100% de los depósitos",
+                                                            "Los bancos guardan una fracción y prestan el resto",
+                                                            "Retirar es ilegal",
+                                                            "Los préstamos reducen el dinero en circulación"
+                                                        ],
+                                                        "question": "¿Por qué puede haber una corrida bancaria en este sistema?",
+                                                        "style_note": "Causa→efecto claro para ISTJ/ISFJ; viñeta de barrio para ESFJ/ESFP.",
+                                                        "correct_answer": "Los bancos guardan una fracción y prestan el resto"
+                                                    },
+                                                    "title": "Banca fraccionaria en palabras simples",
+                                                    "content": "Cuando depositas, le prestas al banco. El banco guarda una parte y presta el resto; el deudor gasta; quien recibe deposita; y el ciclo expande el dinero que usamos. Lado bueno: crédito para casas y negocios. Lado malo: fragilidad—si muchos retiran a la vez, no alcanza para todos (corrida). Historia: corre un rumor, se hacen filas en cajeros, se frenan pedidos y las familias atrasan pagos. El sistema funciona… hasta que la confianza se resquebraja.",
+                                                    "objectives": [
+                                                        "Explicar cómo la banca fraccionaria expande el dinero.",
+                                                        "Entender por qué pueden ocurrir corridas bancarias."
+                                                    ],
+                                                    "duration_min": 3,
+                                                    "youtube_video_link": "TBD"
+                                                },
+                                                {
+                                                    "id": "M1-T06-C3",
+                                                    "quiz": {
+                                                        "type": "multiple_choice",
+                                                        "options": [
+                                                            "Una caja con tu efectivo exacto",
+                                                            "Un préstamo que le haces al banco",
+                                                            "Un bono del gobierno",
+                                                            "Saldo de tarjeta prepaga"
+                                                        ],
+                                                        "question": "Operativamente, ¿qué es mejor decir que es un depósito?",
+                                                        "style_note": "Chequeo de definición para ISTJ/ISFJ; efectos reales para ESFJ/ESFP.",
+                                                        "correct_answer": "Un préstamo que le haces al banco"
+                                                    },
+                                                    "title": "Bancos centrales, crédito y tu saldo",
+                                                    "content": "Los bancos centrales influyen en tasas y oferta de dinero; los bancos comerciales crean gran parte del saldo gastable al prestar. En la práctica, el número que ves es una promesa del banco, no un montón reservado para ti. Las familias lo notan cuando hay demoras en transferencias o límites al retirar en momentos de estrés. Vista de comunidad: la confianza mantiene las ruedas girando… hasta que mandan las reglas. Entender quién controla qué ayuda a armar planes B.",
+                                                    "objectives": [
+                                                        "Describir la influencia del banco central y el crédito bancario.",
+                                                        "Aclarar por qué el depósito no está 100% reservado para cada persona."
+                                                    ],
+                                                    "duration_min": 3,
+                                                    "youtube_video_link": "TBD"
+                                                },
+                                                {
+                                                    "id": "M1-T06-C4",
+                                                    "quiz": {
+                                                        "type": "scenario",
+                                                        "options": [],
+                                                        "question": "En la historia del almacenero, ¿qué se rompió primero?",
+                                                        "style_note": "Escenario visual para ESFJ/ESFP; lección concreta para ISTJ/ISFJ.",
+                                                        "correct_answer": "Falló el timing del pago aunque había saldo, mostrando riesgo de custodia."
+                                                    },
+                                                    "title": "Custodia y contingencia: planear el acceso",
+                                                    "content": "Como los depósitos dependen de instituciones, el acceso puede apretarse en estrés. Las familias lo sienten como topes o demoras; los comercios enfrentan plazos con fondos trabados. Historia: un almacén no puede pagar la entrega porque la transferencia se demora; los vecinos hacen un ‘préstamo puente’ y se mantiene el stock. Lección comunitaria: diversificar medios de pago y obligaciones con fecha para que un cuello de botella no pare la vida diaria.",
+                                                    "objectives": [
+                                                        "Reconocer el riesgo de acceso en dinero custodiado.",
+                                                        "Identificar formas simples de reducir cuellos de botella de tiempo."
+                                                    ],
+                                                    "duration_min": 3,
+                                                    "youtube_video_link": "TBD"
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "id": "M1-T07",
+                                            "name": "7. Por qué necesitamos dinero honesto",
+                                            "cards": [
+                                                {
+                                                    "id": "M1-T07-C1",
+                                                    "title": "Lección en video: Por qué importa el dinero honesto",
+                                                    "duration_min": 5,
+                                                    "youtube_video_link": ""
+                                                },
+                                                {
+                                                    "id": "M1-T07-C2",
+                                                    "quiz": {
+                                                        "type": "multiple_choice",
+                                                        "options": [
+                                                            "Expansión arbitraria por unos pocos",
+                                                            "Reglas iguales y escasez resistente",
+                                                            "Privilegios ocultos al emitir",
+                                                            "Redefiniciones sorpresa del valor"
+                                                        ],
+                                                        "question": "¿Qué rasgo pertenece al dinero honesto como lo definimos acá?",
+                                                        "style_note": "Definición clara para ISTJ/ISFJ; marco de justicia para ESFJ/ESFP.",
+                                                        "correct_answer": "Reglas iguales y escasez resistente"
+                                                    },
+                                                    "title": "Reglas justas para todos",
+                                                    "content": "Dinero honesto es escaso (no se devalúa a voluntad), justo (nadie con privilegio para crearlo de la nada) y confiable (las reglas aplican parejo). Las familias necesitan esto para planear renta, escuela y retiro; las comunidades para proyectos largos. Con reglas opacas o cambiantes, el poder de compra se mueve y la confianza se erosiona—golpes que suelen caer primero en trabajadores y ahorristas. Reglas claras vuelven a unir el esfuerzo de hoy con la seguridad de mañana.",
+                                                    "objectives": [
+                                                        "Definir rasgos clave del dinero honesto.",
+                                                        "Conectar claridad de reglas con la planificación familiar."
+                                                    ],
+                                                    "duration_min": 3,
+                                                    "youtube_video_link": "TBD"
+                                                },
+                                                {
+                                                    "id": "M1-T07-C3",
+                                                    "quiz": {
+                                                        "type": "multiple_choice",
+                                                        "options": [
+                                                            "Reglas impredecibles",
+                                                            "Una unidad estable y confiable",
+                                                            "Subsidios ocultos",
+                                                            "Crédito ilimitado"
+                                                        ],
+                                                        "question": "En la historia, ¿qué permitió a la familia comprometerse a aportar cada mes?",
+                                                        "style_note": "Planeo cotidiano para ESFJ/ESFP; causa→efecto nítido para ISTJ/ISFJ.",
+                                                        "correct_answer": "Una unidad estable y confiable"
+                                                    },
+                                                    "title": "De la incertidumbre a la confianza",
+                                                    "content": "Un dinero débil hace que todos adivinen: padres ajustan cuentas, comercios posponen contratar, barrios demoran arreglos. Con dinero honesto, el mapa entre esfuerzo y resultado es más claro. Historia: ahorrar para un curso en 12 meses—si la unidad mantiene valor, la familia puede dosificar sin miedo a que se evapore. Las comunidades coordinan mejor cuando se puede fijar y financiar metas con confianza.",
+                                                    "objectives": [
+                                                        "Describir costos sociales de un dinero débil.",
+                                                        "Explicar cómo la estabilidad apoya metas de largo plazo."
+                                                    ],
+                                                    "duration_min": 3,
+                                                    "youtube_video_link": "TBD"
+                                                },
+                                                {
+                                                    "id": "M1-T07-C4",
+                                                    "quiz": {
+                                                        "type": "reflection",
+                                                        "options": [],
+                                                        "question": "¿Qué ‘dividendo’ genera el dinero honesto en una comunidad?",
+                                                        "style_note": "Reflexión para ESFJ/ESFP; frase concisa para ISTJ/ISFJ.",
+                                                        "correct_answer": "Confianza que se compone y vuelve más fácil planear y cooperar con el tiempo."
+                                                    },
+                                                    "title": "La confianza comunitaria se compone",
+                                                    "content": "Con dinero honesto, la confianza se compone como el interés. Las familias mantienen fondo de emergencia sin miedo a erosión silenciosa; los pequeños negocios ponen precios justos; los grupos locales planean proyectos de varios años. Historia: una cooperativa del barrio agenda mejoras trimestrales porque el presupuesto mantiene sentido a lo largo de las estaciones. El ‘dividendo’ social es cooperación más suave—menos tiempo peleando con metas que se mueven, más tiempo creando valor.",
+                                                    "objectives": [
+                                                        "Vincular calidad del dinero y cooperación comunitaria.",
+                                                        "Identificar el efecto compuesto de la confianza en el tiempo."
+                                                    ],
+                                                    "duration_min": 3,
+                                                    "youtube_video_link": "TBD"
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "id": "M1-T08",
+                                            "name": "8. Psicología del dinero: miedo, codicia y ahorro",
+                                            "cards": [
+                                                {
+                                                    "id": "M1-T08-C1",
+                                                    "title": "Lección en video: Psicología del dinero",
+                                                    "duration_min": 5,
+                                                    "youtube_video_link": ""
+                                                },
+                                                {
+                                                    "id": "M1-T08-C2",
+                                                    "quiz": {
+                                                        "type": "reflection",
+                                                        "options": [],
+                                                        "question": "Cuando un amigo presume ganancias rápidas, ¿cuál es el primer paso sensato?",
+                                                        "style_note": "Reflexión engancha a ESFJ/ESFP; regla clara ayuda a ISTJ/ISFJ.",
+                                                        "correct_answer": "Pausar y revisar valor, riesgos y si te lo puedes permitir antes de actuar."
+                                                    },
+                                                    "title": "Manía, pánico y el botón de pausa",
+                                                    "content": "Las decisiones de dinero son emocionales. En bonanza, en la cena se escucha ‘todos se están haciendo ricos’; en bajón, el miedo empuja ventas apuradas. Patrón: euforia → exceso → corrección. Un hábito que protege es la pausa: ¿de dónde sale el valor?, ¿cómo puede fallar?, ¿cuánto puedes perder sin romper tu vida? Historia: un primo urge a comprar ya; la familia se toma un día, lista riesgos y evita un golpe caro. Los barrios mejoran cuando muchas familias cambian impulso por reflexión.",
+                                                    "objectives": [
+                                                        "Identificar ciclos emocionales que afectan decisiones.",
+                                                        "Practicar una rutina simple de pausa y chequeo."
+                                                    ],
+                                                    "duration_min": 3,
+                                                    "youtube_video_link": "TBD"
+                                                },
+                                                {
+                                                    "id": "M1-T08-C3",
+                                                    "quiz": {
+                                                        "type": "multiple_choice",
+                                                        "options": [
+                                                            "Esperar condiciones perfectas",
+                                                            "Separar una parte del ingreso con regularidad",
+                                                            "Perseguir tips de vecinos",
+                                                            "Ignorar metas"
+                                                        ],
+                                                        "question": "¿Qué hábito apoya mejor un ahorro resistente?",
+                                                        "style_note": "Paso accionable para ESFJ/ESFP; estructura para ISTJ/ISFJ.",
+                                                        "correct_answer": "Separar una parte del ingreso con regularidad"
+                                                    },
+                                                    "title": "Ahorrar como estabilizador",
+                                                    "content": "Ahorrar convierte el esfuerzo de hoy en opciones de mañana. Aunque los precios se muevan, ayudan los hábitos: apartar una parte del ingreso, atar ahorros a metas y evitar reaccionar a rumores. Historia: sistema de ‘sobrecitos’—comida, transporte, ahorro—mantiene lo esencial durante un trimestre difícil. Efecto en el barrio: cuando muchos ahorran parejo, los comercios ven demanda más estable y menos despidos.",
+                                                    "objectives": [
+                                                        "Describir cómo el ahorro constante construye resiliencia.",
+                                                        "Conectar hábitos del hogar con estabilidad en la comunidad."
+                                                    ],
+                                                    "duration_min": 3,
+                                                    "youtube_video_link": "TBD"
+                                                },
+                                                {
+                                                    "id": "M1-T08-C4",
+                                                    "quiz": {
+                                                        "type": "multiple_choice",
+                                                        "options": [
+                                                            "Revisiones mensuales de metas y constancia",
+                                                            "Competir con apuestas riesgosas",
+                                                            "Ignorar el presupuesto",
+                                                            "Festejar solo los ‘golpes de suerte’"
+                                                        ],
+                                                        "question": "¿Qué hábito grupal reduce más el ‘latigazo’ financiero?",
+                                                        "style_note": "Enfoque comunitario motiva a ESFJ/ESFP; opciones claras sirven a ISTJ/ISFJ.",
+                                                        "correct_answer": "Revisiones mensuales de metas y constancia"
+                                                    },
+                                                    "title": "Normas del barrio que bajan el ‘whiplash’",
+                                                    "content": "Nuestras elecciones crean normas. Si el barrio festeja pelotazos rápidos, otros sienten FOMO; si celebramos ahorro constante y precios justos, la gente imita la estabilidad. Historia: un grupo vecinal cambia los ‘tips calientes’ por chequeos mensuales de metas; baja el estrés y los pequeños logros se acumulan. Las familias ganan una red que premia la paciencia sobre la adrenalina, reduciendo el sube y baja que nos daña a todos.",
+                                                    "objectives": [
+                                                        "Explicar cómo las normas amplifican miedo o paciencia.",
+                                                        "Marcar una norma que apoye decisiones estables."
+                                                    ],
+                                                    "duration_min": 3,
+                                                    "youtube_video_link": "TBD"
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "id": "M1-T09",
+                                            "name": "9. El ‘Corralito’ en Argentina (2001)",
+                                            "cards": [
+                                                {
+                                                    "id": "M1-T09-C1",
+                                                    "title": "Lección en video: El ‘Corralito’ de 2001 en Argentina",
+                                                    "duration_min": 5,
+                                                    "youtube_video_link": ""
+                                                },
+                                                {
+                                                    "id": "M1-T09-C2",
+                                                    "quiz": {
+                                                        "type": "multiple_choice",
+                                                        "options": [
+                                                            "Crédito ilimitado",
+                                                            "Ahorros bloqueados por límites estrictos de retiro",
+                                                            "Topes de precios a todos los bienes",
+                                                            "Subas rápidas de salarios"
+                                                        ],
+                                                        "question": "¿Qué problema inmediato enfrentaron las familias?",
+                                                        "style_note": "Recuerdo factual para ISTJ/ISFJ; la historia del café engancha a ESFJ/ESFP.",
+                                                        "correct_answer": "Ahorros bloqueados por límites estrictos de retiro"
+                                                    },
+                                                    "title": "Cuando cortaron el acceso",
+                                                    "content": "En 2001 en Argentina, límites duros para retirar dejaron a mucha gente sin poder usar su plata en el banco. Las familias tenían saldo pero no acceso; los negocios no pagaban proveedores; hubo protestas. Historia: dueño de café con sueldos por pagar y retiros topeados—negocia vales con el equipo y los proveedores. Lección práctica: si tu dinero depende de custodios, las reglas pueden cambiar en el peor momento.",
+                                                    "objectives": [
+                                                        "Recordar la característica central: límites de retiro y acceso congelado.",
+                                                        "Describir efectos en hogares y negocios."
+                                                    ],
+                                                    "duration_min": 3,
+                                                    "youtube_video_link": "TBD"
+                                                },
+                                                {
+                                                    "id": "M1-T09-C3",
+                                                    "quiz": {
+                                                        "type": "scenario",
+                                                        "options": [],
+                                                        "question": "En la historia de la colegiatura, ¿qué falló primero?",
+                                                        "style_note": "Escenario ayuda a visualizar (ESFJ/ESFP); lección puntual para ISTJ/ISFJ.",
+                                                        "correct_answer": "Falló el timing del pago aunque había saldo."
+                                                    },
+                                                    "title": "Riesgo de tiempo en el hogar",
+                                                    "content": "El riesgo de acceso es riesgo de tiempo: las cuentas vencen según calendario, pero los fondos quizá no. Historia: un papá necesita pagar el viernes; la fila del banco y el tope lo patean a la semana siguiente. Vecinos ayudan con préstamos cortos y se ve cómo la comunidad amortigua golpes cuando el sistema falla. Diseño: ten plan B para pagos clave para que un cuello de botella no descarrile lo esencial.",
+                                                    "objectives": [
+                                                        "Definir el riesgo de acceso como desajuste de tiempos.",
+                                                        "Marcar una contingencia simple en el hogar."
+                                                    ],
+                                                    "duration_min": 3,
+                                                    "youtube_video_link": "TBD"
+                                                },
+                                                {
+                                                    "id": "M1-T09-C4",
+                                                    "quiz": {
+                                                        "type": "multiple_choice",
+                                                        "options": [
+                                                            "Múltiples caminos de pago independientes",
+                                                            "Un solo guardián para muchos pagos",
+                                                            "Exceso de ahorro barrial",
+                                                            "Transparencia total de precios"
+                                                        ],
+                                                        "question": "¿Qué diseño estructural agrandó el impacto local de la crisis?",
+                                                        "style_note": "Enfoque estructural para ISTJ/ISFJ; marco comunitario para ESFJ/ESFP.",
+                                                        "correct_answer": "Un solo guardián para muchos pagos"
+                                                    },
+                                                    "title": "Lecciones de diseño comunitario",
+                                                    "content": "La crisis mostró cómo un único guardián puede congelar el flujo de efectivo del barrio entero. Si se frenan sueldos, renta y pagos a proveedores, la confianza se gasta rápido. Las comunidades pueden bajar fragilidad evitando puntos únicos de fallo en pagos y comunicando planes de respaldo claros. Historia: una asociación local publica un checklist simple—quién puede dar crédito corto, quién acepta métodos alternativos—para que lo esencial siga aun con presión.",
+                                                    "objectives": [
+                                                        "Explicar por qué los puntos únicos de control suman fragilidad.",
+                                                        "Describir una mitigación a nivel comunidad."
+                                                    ],
+                                                    "duration_min": 3,
+                                                    "youtube_video_link": "TBD"
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "id": "M1-T10",
+                                            "name": "10. La confiscación de oro en EE. UU. (1933)",
+                                            "cards": [
+                                                {
+                                                    "id": "M1-T10-C1",
+                                                    "title": "Lección en video: Confiscación de oro en EE. UU. (1933)",
+                                                    "duration_min": 5,
+                                                    "youtube_video_link": ""
+                                                },
+                                                {
+                                                    "id": "M1-T10-C2",
+                                                    "quiz": {
+                                                        "type": "multiple_choice",
+                                                        "options": [
+                                                            "Guardar todo el oro en casa",
+                                                            "Entregar el oro monetario a cambio de papel",
+                                                            "Recibir nuevos certificados de oro",
+                                                            "Ignorar las reglas del banco"
+                                                        ],
+                                                        "question": "¿Qué tuvieron que hacer los ciudadanos bajo esa política?",
+                                                        "style_note": "Recuerdo directo para ISTJ/ISFJ; lente familiar para ESFJ/ESFP.",
+                                                        "correct_answer": "Entregar el oro monetario a cambio de papel"
+                                                    },
+                                                    "title": "Una regla que cambió los ahorros de la noche a la mañana",
+                                                    "content": "En los 30, autoridades de EE. UU. exigieron entregar el oro monetario a cambio de papel, con sanciones por negarse. Hasta entonces, la gente veía el oro como dinero en sí; de un día a otro, la ley redefinió qué contaba como dinero. Historia familiar: abuelos con monedas heredadas tuvieron que entregarlas. Muestra cómo reglas centralizadas pueden pasar por encima de planes personales y mover la confianza en un solo paso.",
+                                                    "objectives": [
+                                                        "Describir la esencia de la acción de 1933.",
+                                                        "Relacionar cambios de reglas con riesgo para ahorros."
+                                                    ],
+                                                    "duration_min": 3,
+                                                    "youtube_video_link": "TBD"
+                                                },
+                                                {
+                                                    "id": "M1-T10-C3",
+                                                    "quiz": {
+                                                        "type": "reflection",
+                                                        "options": [],
+                                                        "question": "¿Qué riesgo clave resalta este hecho?",
+                                                        "style_note": "Reflexión personaliza (ESFJ/ESFP) y consolida (ISTJ/ISFJ).",
+                                                        "correct_answer": "Ahorros atados a reglas cambiantes pueden verse comprometidos sin que la persona haga nada mal."
+                                                    },
+                                                    "title": "Confianza, ley y autonomía",
+                                                    "content": "Si las leyes pueden redefinir valor y acceso rápido, la autonomía del ahorrista se achica. Un hogar que pensaba en metal acepta términos nuevos de golpe. Vista comunitaria: negocios que preciaban con un benchmark pasan a otro. La lección no es meter miedo sino diseño: ahorros expuestos a cambios legales cargan riesgo extra. Planear con esa capa legal en mente evita sorpresas feas.",
+                                                    "objectives": [
+                                                        "Explicar cómo cambios legales afectan la autonomía del hogar.",
+                                                        "Identificar riesgo de diseño en ahorros dependientes de reglas."
+                                                    ],
+                                                    "duration_min": 3,
+                                                    "youtube_video_link": "TBD"
+                                                },
+                                                {
+                                                    "id": "M1-T10-C4",
+                                                    "quiz": {
+                                                        "type": "multiple_choice",
+                                                        "options": [
+                                                            "Mezclar todos los gastos",
+                                                            "Separar esenciales de corto plazo de metas más largas",
+                                                            "Ignorar fechas",
+                                                            "Usar un solo método de pago"
+                                                        ],
+                                                        "question": "¿Qué primer paso baja mejor el golpe de cambios repentinos?",
+                                                        "style_note": "Estructura accionable para ISTJ/ISFJ; enfoque hogar/comunidad para ESFJ/ESFP.",
+                                                        "correct_answer": "Separar esenciales de corto plazo de metas más largas"
+                                                    },
+                                                    "title": "Planear con incertidumbre legal",
+                                                    "content": "Una forma práctica es separar por tiempo: pagos cercanos (renta, comida), metas medianas y planes largos. Historia: una familia lista lo que vence este mes vs. después, y ve qué se puede correr si los rieles de pago se traban. En comunidad, algo similar con cronogramas claros. Meta: resiliencia—bajar la chance de que un decreto te frene lo esencial.",
+                                                    "objectives": [
+                                                        "Esbozar un enfoque por tiempos.",
+                                                        "Mostrar cómo la comunidad refleja la resiliencia del hogar."
+                                                    ],
+                                                    "duration_min": 3,
+                                                    "youtube_video_link": "TBD"
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "id": "M1-T11",
+                                            "name": "11. La burbuja de los tulipanes (1637)",
+                                            "cards": [
+                                                {
+                                                    "id": "M1-T11-C1",
+                                                    "title": "Lección en video: La burbuja de los tulipanes",
+                                                    "duration_min": 5,
+                                                    "youtube_video_link": ""
+                                                },
+                                                {
+                                                    "id": "M1-T11-C2",
+                                                    "quiz": {
+                                                        "type": "multiple_choice",
+                                                        "options": [
+                                                            "Valor asegurado en alimentos",
+                                                            "Especulación y demanda por estatus",
+                                                            "Topes de precios del gobierno",
+                                                            "Cosechas con rendimiento fijo"
+                                                        ],
+                                                        "question": "¿Qué empujó más los precios de los tulipanes?",
+                                                        "style_note": "Historia vívida conecta con ESFJ/ESFP; causa clara sirve a ISTJ/ISFJ.",
+                                                        "correct_answer": "Especulación y demanda por estatus"
+                                                    },
+                                                    "title": "Una flor que valía una casa… hasta que no",
+                                                    "content": "En la Holanda del siglo XVII, el tulipán fue símbolo de estatus. Las historias se contagiaron, los precios volaron y la especulación dominó. En el pico, se cambiaban propiedades por bulbos que ni habían florecido. Después, desaparecieron compradores y todo se desplomó. Historia familiar: una casa promete ingresos futuros por bulbos que luego valen mucho menos—quedan deudas y decisiones duras. La comunidad aprendió cómo miedo y codicia inflan precios lejos de lo real.",
+                                                    "objectives": [
+                                                        "Relatar el patrón de suba y caída.",
+                                                        "Identificar emociones que amplifican burbujas."
+                                                    ],
+                                                    "duration_min": 3,
+                                                    "youtube_video_link": "TBD"
+                                                },
+                                                {
+                                                    "id": "M1-T11-C3",
+                                                    "quiz": {
+                                                        "type": "multiple_choice",
+                                                        "options": [
+                                                            "Apostar solo por historias",
+                                                            "Cubrir lo esencial primero y poner tope al riesgo",
+                                                            "Endeudarse más si sube el precio",
+                                                            "Saltar el presupuesto para ir más rápido"
+                                                        ],
+                                                        "question": "¿Qué hábito limita mejor el daño de una burbuja?",
+                                                        "style_note": "Regla de decisión para ISTJ/ISFJ; enfoque familiar para ESFJ/ESFP.",
+                                                        "correct_answer": "Cubrir lo esencial primero y poner tope al riesgo"
+                                                    },
+                                                    "title": "Lecciones para el hogar",
+                                                    "content": "Las burbujas seducen con un cuento simple: ‘siempre sube’. Una regla que protege es separar necesidades de deseos. Historia: padres ponen un tope a apuestas especulativas—solo lo que pueden perder sin romper lo esencial—y mantienen lo básico cubierto. Cuando el ciclo gira, absorben la volatilidad sin sacrificar comida, renta o educación. No es evitar todo riesgo: es que el cuento no se trague a la familia.",
+                                                    "objectives": [
+                                                        "Marcar una regla del hogar para limitar daño de burbujas.",
+                                                        "Priorizar lo esencial antes que la especulación."
+                                                    ],
+                                                    "duration_min": 3,
+                                                    "youtube_video_link": "TBD"
+                                                },
+                                                {
+                                                    "id": "M1-T11-C4",
+                                                    "quiz": {
+                                                        "type": "multiple_choice",
+                                                        "options": [
+                                                            "Festejar riquezas express",
+                                                            "Compartir aprendizajes y favorecer hábitos constantes",
+                                                            "Esconder errores pasados",
+                                                            "Empujar máximo apalancamiento"
+                                                        ],
+                                                        "question": "¿Qué hábito comunitario funciona como ‘cinturón de seguridad social’?",
+                                                        "style_note": "Marco comunitario para ESFJ/ESFP; opciones ordenadas para ISTJ/ISFJ.",
+                                                        "correct_answer": "Compartir aprendizajes y favorecer hábitos constantes"
+                                                    },
+                                                    "title": "Memoria del barrio y normas más seguras",
+                                                    "content": "Barrios que recuerdan manías pasadas crean normas más sanas. Taller en el pueblo: mayores cuentan errores y pequeños aciertos; la idea que queda es ahorro constante, precios justos y escepticismo ante ‘ganancias garantizadas’. Con el cambio de normas, menos gente persigue palancas peligrosas y los comercios sufren menos vaivenes. La memoria es un cinturón social: no elimina el riesgo, pero baja los golpes fuertes.",
+                                                    "objectives": [
+                                                        "Explicar cómo la memoria compartida cambia conductas.",
+                                                        "Nombrar una norma que reduce daño de sube-y-baja."
+                                                    ],
+                                                    "duration_min": 3,
+                                                    "youtube_video_link": "TBD"
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "id": "M1-T12",
+                                            "name": "12. La pérdida de poder de compra de $100 en 20 años",
+                                            "cards": [
+                                                {
+                                                    "id": "M1-T12-C1",
+                                                    "title": "Lección en video: $100 ayer vs. hoy",
+                                                    "duration_min": 5,
+                                                    "youtube_video_link": ""
+                                                },
+                                                {
+                                                    "id": "M1-T12-C2",
+                                                    "quiz": {
+                                                        "type": "multiple_choice",
+                                                        "options": [
+                                                            "El color del billete",
+                                                            "El poder de compra del mismo $100",
+                                                            "Desaparecieron las necesidades del hogar",
+                                                            "Las tiendas dejaron de vender básicos"
+                                                        ],
+                                                        "question": "En el ejercicio, ¿qué cambió más en 20 años?",
+                                                        "style_note": "Comparar la canasta ayuda a ISTJ/ISFJ; historia familiar engancha a ESFJ/ESFP.",
+                                                        "correct_answer": "El poder de compra del mismo $100"
+                                                    },
+                                                    "title": "$100 antes y ahora: hacerlo tangible",
+                                                    "content": "Ejercicio simple: lista lo que $100 compraban hace 20 años—comida, transporte, útiles—y luego lista lo mismo hoy. La familia ve el hueco: el número es igual, la canasta es más chica. Historia: abuelos guardan un billete para una celebración; cuando llega el día, alcanza para menos. La comunidad lo siente en presupuestos más ajustados para eventos y arreglos. El punto: lo que importa es el poder de compra, no solo el saldo.",
+                                                    "objectives": [
+                                                        "Traducir la inflación a una canasta del hogar.",
+                                                        "Distinguir montos nominales de poder de compra real."
+                                                    ],
+                                                    "duration_min": 3,
+                                                    "youtube_video_link": "TBD"
+                                                },
+                                                {
+                                                    "id": "M1-T12-C3",
+                                                    "quiz": {
+                                                        "type": "multiple_choice",
+                                                        "options": [
+                                                            "Mirar solo totales",
+                                                            "Atar presupuestos a canastas reales de básicos",
+                                                            "Ignorar precios y rezar",
+                                                            "Patear todas las compras"
+                                                        ],
+                                                        "question": "¿Qué enfoque cuida mejor los planes cuando la unidad se mueve?",
+                                                        "style_note": "Método claro para ISTJ/ISFJ; ejemplos prácticos para ESFJ/ESFP.",
+                                                        "correct_answer": "Atar presupuestos a canastas reales de básicos"
+                                                    },
+                                                    "title": "Planear en términos reales, no solo nominales",
+                                                    "content": "Pensar nominal es mirar el número; pensar real es mirar lo que compra. Historia: un padre revisa el presupuesto escolar del año pasado y ve que ahora cubre menos libros y comidas. La familia ajusta categorías y tiempos para que lo esencial siga cubierto. Los grupos del barrio igual: planes atados a canastas, no solo totales. Ver a través del número protege metas cuando la unidad se corre.",
+                                                    "objectives": [
+                                                        "Explicar la diferencia entre pensar nominal y real.",
+                                                        "Aplicar presupuesto basado en canastas a hogar o comunidad."
+                                                    ],
+                                                    "duration_min": 3,
+                                                    "youtube_video_link": "TBD"
+                                                },
+                                                {
+                                                    "id": "M1-T12-C4",
+                                                    "quiz": {
+                                                        "type": "multiple_choice",
+                                                        "options": [
+                                                            "Revisión anual solamente",
+                                                            "Chequeos mensuales con ajustes pequeños",
+                                                            "Ignorar cuentas hasta el vencimiento",
+                                                            "Depender de golpes de suerte"
+                                                        ],
+                                                        "question": "¿Qué rutina reduce más las sorpresas del presupuesto?",
+                                                        "style_note": "Cadencia accionable para ESFJ/ESFP; rutina estructurada para ISTJ/ISFJ.",
+                                                        "correct_answer": "Chequeos mensuales con ajustes pequeños"
+                                                    },
+                                                    "title": "Hábitos que defienden el poder de compra",
+                                                    "content": "Cuando la unidad se debilita, los hábitos importan más. En casa se puede: (a) agendar revisiones regulares, (b) priorizar lo esencial antes que los gustos y (c) alinear ahorros con metas con fecha para que las demoras no erosionen en silencio. Historia: un ‘check-in’ mensual de dinero; el estrés baja porque las sorpresas se vuelven ajustes, no incendios. Los grupos del barrio hacen revisiones trimestrales y mantienen proyectos realistas aunque cambien los costos.",
+                                                    "objectives": [
+                                                        "Identificar hábitos que bajan el riesgo de erosión.",
+                                                        "Relacionar revisiones constantes con menos estrés financiero."
+                                                    ],
+                                                    "duration_min": 3,
+                                                    "youtube_video_link": "TBD"
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": "M2",
+                                    "name": "Módulo 2",
+                                    "topics": []
+                                },
+                                {
+                                    "id": "M3",
+                                    "name": "Módulo 3",
+                                    "topics": []
+                                }
+                            ]
+                        }
+                    },
+                    "createdAt": "2025-09-07T15:09:44.507Z",
+                    "updatedAt": "2025-09-22T07:38:11.806Z",
+                    "publishedAt": "2025-09-22T07:38:11.926Z",
+                    "locale": "es",
+                    "title": null,
+                    "slug": null,
+                    "description": null
+                }
+            ]
+        }
+    ],
+    "meta": {
+        "pagination": {
+            "page": 1,
+            "pageSize": 25,
+            "pageCount": 1,
+            "total": 1
+        }
+    }
+}
