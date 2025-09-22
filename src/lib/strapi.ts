@@ -38,26 +38,12 @@ function toSlug(title?: string): string {
 
 export async function getLessonPlans(locale: string): Promise<LessonPlan[]> {
   const params = new URLSearchParams();
-  params.set("filters[locale][$eq]", locale);
-  params.append("populate[0]", "coverImage");
+  params.set("populate", "*");
   const path = `/api/lesson-plans?${params.toString()}`;
   const json = await strapiFetch(path);
 
-  const entries: any[] = json?.data || [];
-  return entries.map((entry) => {
-    const course = entry.LessonPlanJSON?.course || {};
-    const title = course.name || entry.title;
-    const slug = entry.slug || toSlug(title) || course.id || String(entry.id);
-    return {
-      id: entry.documentId || entry.id,
-      title,
-      slug,
-      description: entry.description,
-      coverImage: resolveMedia(entry.coverImage?.url),
-      modules: course.modules || [],
-      locale: entry.locale || locale,
-    } as LessonPlan;
-  });
+  const entries: any[] = Array.isArray(json?.data) ? json.data : [];
+  return entries.map((entry) => mapLessonPlanEntry(entry, locale));
 }
 
 export async function getLessonPlan(
@@ -69,43 +55,136 @@ export async function getLessonPlan(
   const path = `/api/lesson-plans?${params.toString()}`;
   const json = await strapiFetch(path);
 
-  const entries: any[] = json?.data || [];
-  const entry = entries.find((e) => {
-      const s =
-      e.slug ||
-      e.LessonPlanJSON?.course?.id ||
-      toSlug(e.LessonPlanJSON?.course?.name) ||
-      toSlug(e.title) ||
-      String(e.id);
-    return s === slug;
-  });
+  const entries: any[] = Array.isArray(json?.data) ? json.data : [];
+  const entry = entries.find((candidate) => matchLessonPlanSlug(candidate, slug));
   if (!entry) {
     throw new Error("Not Found");
   }
 
-  let source = entry;
-  if (entry.locale !== locale) {
-    const match = entry.localizations?.find((l: any) => l.locale === locale);
-    if (match) source = match;
+  return mapLessonPlanEntry(entry, locale, slug);
+}
+
+function mapLessonPlanEntry(entry: any, locale: string, requestedSlug?: string): LessonPlan {
+  const { localeData, localeKey } = selectLessonPlanLocale(entry, locale);
+  const course = localeData?.course || {};
+  const modules = Array.isArray(course.modules) ? course.modules : [];
+  const title = course.name || entry?.title;
+  const slug = pickFirstNonEmpty(
+    course.id,
+    requestedSlug,
+    toSlug(title),
+    entry?.documentId,
+    entry?.slug,
+    entry?.id,
+  );
+  const description =
+    localeData?.description ??
+    course.description ??
+    entry?.description ??
+    (typeof entry?.summary === "string" ? entry.summary : undefined);
+  const coverImage = extractCoverImage(localeData?.coverImage, course.coverImage, entry?.coverImage);
+
+  return {
+    id: entry?.documentId || entry?.id,
+    title,
+    slug,
+    description,
+    coverImage,
+    modules,
+    locale: localeKey || locale,
+  } as LessonPlan;
+}
+
+function matchLessonPlanSlug(entry: any, slug: string): boolean {
+  if (!entry || !slug) return false;
+  const normalized = slug.toLowerCase();
+  const candidates = collectLessonPlanSlugCandidates(entry);
+  return candidates.some((candidate) => candidate.toLowerCase() === normalized);
+}
+
+function collectLessonPlanSlugCandidates(entry: any): string[] {
+  const result: string[] = [];
+  const push = (value: unknown) => {
+    if (!value) return;
+    const str = String(value).trim();
+    if (str) result.push(str);
+  };
+
+  push(entry?.slug);
+  push(entry?.documentId);
+  if (entry?.id != null) push(entry.id);
+
+  const locales = entry?.locales;
+  if (locales && typeof locales === "object") {
+    Object.values(locales).forEach((loc: any) => {
+      if (!loc || typeof loc !== "object") return;
+      const course = loc.course || {};
+      push(loc.slug);
+      push(course.id);
+      push(toSlug(course.name));
+    });
   }
 
-  const course = source?.LessonPlanJSON?.course || {};
-  const lesson: LessonPlan = {
-    modules: course.modules || [],
-  } as LessonPlan;
-  lesson.locale = source?.locale || locale;
-  lesson.title = course.name || source?.title;
-  // lesson.slug = entry.slug || toSlug(lesson.title) || course.id || String(entry.id);
-  lesson.slug =
-    entry.slug ||
-    entry.LessonPlanJSON?.course?.id ||
-    toSlug(entry.LessonPlanJSON?.course?.name) ||
-    toSlug(entry.title) ||
-    String(entry.id);
-  lesson.description = source?.description;
-  lesson.coverImage = resolveMedia(source?.coverImage?.url);
-  lesson.id = entry.documentId || entry.id;
-  return lesson;
+  return result.filter(Boolean);
+}
+
+function selectLessonPlanLocale(
+  entry: any,
+  locale: string,
+): { localeData?: any; localeKey?: string } {
+  const locales = entry?.locales;
+  if (!locales || typeof locales !== "object") return {};
+
+  const requested = (locale || "").toLowerCase();
+  const base = requested.split("-")[0];
+  const keys = Object.keys(locales);
+
+  const directKey = keys.find((key) => key.toLowerCase() === requested) ??
+    keys.find((key) => key.toLowerCase() === base);
+  if (directKey) {
+    return { localeData: locales[directKey], localeKey: directKey };
+  }
+
+  if (locales.en) {
+    return { localeData: locales.en, localeKey: "en" };
+  }
+
+  if (keys.length > 0) {
+    const fallbackKey = keys[0];
+    return { localeData: locales[fallbackKey], localeKey: fallbackKey };
+  }
+
+  return {};
+}
+
+function extractCoverImage(...sources: any[]): string {
+  for (const source of sources) {
+    if (!source) continue;
+    if (typeof source === "string") {
+      return resolveMedia(source);
+    }
+    if (typeof source === "object") {
+      const url =
+        typeof source.url === "string"
+          ? source.url
+          : typeof source?.data?.attributes?.url === "string"
+            ? source.data.attributes.url
+            : undefined;
+      if (url) {
+        return resolveMedia(url);
+      }
+    }
+  }
+  return "";
+}
+
+function pickFirstNonEmpty(...values: unknown[]): string {
+  for (const value of values) {
+    if (value == null) continue;
+    const str = String(value).trim();
+    if (str) return str;
+  }
+  return "";
 }
 
 // --- Products API ---
