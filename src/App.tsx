@@ -40,7 +40,6 @@ export default function App() {
   ];
 
   const desktopNav = [
-    { label: t("nav.home"), to: "/" },
     { label: t("nav.education"), to: "/education", dropdown: educationChildren },
     { label: t("nav.shop"), to: "/shop" },
     { label: t("nav.newsletter"), to: "/newsletter" },

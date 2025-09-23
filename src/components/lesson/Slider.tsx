@@ -6,6 +6,7 @@ import Card from "./Card";
 import { strapiFetch } from "../../api/strapi-client";
 import { useAuth } from "../../context/AuthContext";
 import LessonPointsCounter from "./LessonPointsCounter";
+import LessonTour, { type LessonTourStep } from "./LessonTour";
 import type { QuizCompletionMeta } from "./Quiz";
 import {
   calculateNextStudyStreak,
@@ -51,6 +52,7 @@ function createBezier(x1: number, y1: number, x2: number, y2: number) {
 }
 
 const clampPoints = (value: number) => Math.max(0, value);
+const LESSON_TOUR_STORAGE_KEY = "lessonPlanTourSeen";
 
 export default function Slider({
   cards,
@@ -89,6 +91,8 @@ export default function Slider({
     () => user?.studyStreak ?? initialLocalProgress.studyStreak ?? 0,
   );
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  const [customizeOpen, setCustomizeOpen] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
   const [completedCardIds, setCompletedCardIds] = useState<Set<string>>(() => {
     const initial = new Set<string>();
     if (lessonSlug) {
@@ -140,6 +144,61 @@ export default function Slider({
     return map;
   }, [modules, toCardKey]);
 
+  const tourSteps = useMemo<LessonTourStep[]>(
+    () => [
+      {
+        id: "course-navigation",
+        title: "Explore the course map",
+        description:
+          "Use the course navigation on the right to jump between lessons. On mobile tap Course Content to open it.",
+        target: {
+          desktop: '[data-tour-id="course-nav"]',
+          mobile: '[data-tour-id="course-content-toggle"]',
+        },
+      },
+      {
+        id: "lesson-flow",
+        title: "Work through each lesson",
+        description:
+          "Every topic starts with a video overview followed by three lessons and quizzes to lock in what you learn.",
+        target: {
+          all: '[data-tour-id="lesson-flow"]',
+        },
+      },
+      {
+        id: "points-and-streaks",
+        title: "Earn points & streaks",
+        description:
+          "Completing lessons and quizzes adds to your points and daily streak shown in this HUD.",
+        target: {
+          desktop: '[data-tour-id="points-hud-desktop"]',
+          mobile: '[data-tour-id="points-hud-mobile"]',
+        },
+      },
+      {
+        id: "save-progress",
+        title: "Save your progress",
+        description:
+          "Log in so your points and streak days stay with you on any device.",
+        target: {
+          desktop: '[data-tour-id="hud-auth-desktop"]',
+          mobile: '[data-tour-id="hud-auth-mobile"]',
+        },
+      },
+      {
+        id: "customize",
+        title: "Customize what's next",
+        description:
+          "Use the customize button to tailor upcoming lessons. Filters are coming soon!",
+        target: {
+          desktop: '[data-tour-id="lesson-customize-desktop"]',
+          mobile: '[data-tour-id="lesson-customize-mobile"]',
+        },
+      },
+    ],
+    [],
+  );
+
   const calculateCompletionBonus = useCallback(
     (card: LessonCard, previous: string[], next: string[]) => {
       let bonus = 0;
@@ -177,6 +236,18 @@ export default function Slider({
     setDisplayCards(cards);
     displayCardsRef.current = cards;
   }, [cards]);
+
+  useEffect(() => {
+    if (!customizeOpen) return;
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setCustomizeOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [customizeOpen]);
 
   useEffect(() => {
     if (displayCards.length === 0) return;
@@ -671,6 +742,22 @@ export default function Slider({
     return () => drawer.removeEventListener("keydown", handleKey);
   }, [tocOpen]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!cards.length) return;
+    const seen = window.localStorage.getItem(LESSON_TOUR_STORAGE_KEY);
+    if (seen) return;
+    const timer = window.setTimeout(() => setTourOpen(true), 600);
+    return () => window.clearTimeout(timer);
+  }, [cards.length]);
+
+  const handleTourDismiss = useCallback(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(LESSON_TOUR_STORAGE_KEY, "true");
+    }
+    setTourOpen(false);
+  }, []);
+
   const tocContent = (
     <div className="space-y-6 text-neutral-900 dark:text-neutral-100">
       {modules.map((m) => (
@@ -755,6 +842,7 @@ export default function Slider({
           <div
             ref={containerRef}
             className="flex overflow-x-auto snap-x snap-mandatory lg:h-full"
+            data-tour-id="lesson-flow"
           >
             {displayCards.map((c) => {
               const key = toCardKey(c.id);
@@ -841,6 +929,7 @@ export default function Slider({
             : undefined
         }
         aria-labelledby="course-title-desktop"
+        data-tour-id="course-nav"
       >
         <div className="flex h-full w-full flex-col min-h-0">
           <div className="space-y-1 shrink-0">
@@ -860,6 +949,41 @@ export default function Slider({
         </div>
       </nav>
       </div>
+      {customizeOpen && (
+        <div className="fixed inset-0 z-[65] flex items-center justify-center px-4 py-8">
+          <div
+            className="absolute inset-0 bg-neutral-900/60 backdrop-blur-sm"
+            onClick={() => setCustomizeOpen(false)}
+            aria-hidden
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="customize-dialog-title"
+            className="relative z-10 w-full max-w-sm rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 text-center shadow-[var(--shadow-soft)]"
+          >
+            <h2 id="customize-dialog-title" className="text-xl font-semibold tracking-tight">
+              Customization coming soon
+            </h2>
+            <p className="mt-3 text-sm text-[var(--fg-muted)]">
+              Customization filter coming soon.
+            </p>
+            <button
+              type="button"
+              onClick={() => setCustomizeOpen(false)}
+              className="mt-6 inline-flex items-center justify-center rounded-full border border-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-white transition hover:-translate-y-0.5 hover:shadow-[0_12px_30px_rgba(169,21,255,0.35)]"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+      <LessonTour
+        open={tourOpen}
+        steps={tourSteps}
+        onDismiss={handleTourDismiss}
+        onComplete={handleTourDismiss}
+      />
       <LessonPointsCounter
         points={displayPoints}
         studyStreak={displayStreak}
@@ -869,6 +993,7 @@ export default function Slider({
         onToggleCourseContent={() => setTocOpen((open) => !open)}
         courseContentOpen={tocOpen}
         courseContentButtonRef={toggleRef}
+        onRequestCustomize={() => setCustomizeOpen(true)}
       />
     </>
   );
