@@ -55,6 +55,7 @@ export default function LessonTour({
   const [highlightRect, setHighlightRect] = useState<HighlightRect | null>(
     null,
   );
+  const [containerPadding, setContainerPadding] = useState(48);
 
   useEffect(() => {
     if (!open) return;
@@ -100,15 +101,54 @@ export default function LessonTour({
     setHighlightRect(paddedRect);
   }, [activeStep?.target, open]);
 
+  const updateContainerPadding = useCallback(() => {
+    if (typeof window === "undefined") {
+      setContainerPadding(48);
+      return;
+    }
+
+    if (!open) {
+      setContainerPadding(48);
+      return;
+    }
+
+    if (window.innerWidth >= DESKTOP_BREAKPOINT) {
+      setContainerPadding(48);
+      return;
+    }
+
+    const hud = document.querySelector<HTMLElement>(
+      '[data-tour-id="points-hud-mobile"]',
+    );
+
+    if (!hud) {
+      setContainerPadding(48);
+      return;
+    }
+
+    const rect = hud.getBoundingClientRect();
+    const viewportHeight = window.innerHeight;
+    const hudHeight = Math.max(0, viewportHeight - rect.top);
+    const gap = 24;
+    const safeArea =
+      typeof window.visualViewport !== "undefined"
+        ? Math.max(0, window.innerHeight - window.visualViewport.height)
+        : 0;
+
+    setContainerPadding(Math.max(48, hudHeight + gap + safeArea));
+  }, [open]);
+
   useLayoutEffect(() => {
     if (!open) return;
+    updateContainerPadding();
     updateHighlight();
-  }, [open, currentIndex, updateHighlight]);
+  }, [open, currentIndex, updateHighlight, updateContainerPadding]);
 
   useEffect(() => {
     if (!open) return;
     updateHighlight();
-  }, [open, updateHighlight, i18n.language]);
+    updateContainerPadding();
+  }, [open, updateHighlight, updateContainerPadding, i18n.language]);
 
   useEffect(() => {
     if (!open || typeof window === "undefined") return;
@@ -122,7 +162,10 @@ export default function LessonTour({
 
   useEffect(() => {
     if (!open) return;
-    const handleResize = () => updateHighlight();
+    const handleResize = () => {
+      updateHighlight();
+      updateContainerPadding();
+    };
     const handleScroll = () => updateHighlight();
     const handleKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -146,7 +189,13 @@ export default function LessonTour({
       window.removeEventListener("scroll", handleScroll, true);
       window.removeEventListener("keydown", handleKey);
     };
-  }, [open, totalSteps, updateHighlight, onDismiss]);
+  }, [
+    open,
+    totalSteps,
+    updateHighlight,
+    updateContainerPadding,
+    onDismiss,
+  ]);
 
   useEffect(() => {
     if (!open || typeof document === "undefined") return;
@@ -175,10 +224,18 @@ export default function LessonTour({
   };
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-end justify-center px-4 pb-8">
+    <div
+      className="fixed inset-0 z-[70] flex items-end justify-center px-4"
+      style={{
+        paddingBottom: `${containerPadding}px`,
+      }}
+    >
       <div
         className="absolute inset-0 transition-colors"
-        style={{ background: "var(--tour-scrim)" }}
+        style={{
+          background: "var(--tour-scrim)",
+          backdropFilter: "none",
+        }}
         aria-hidden
       />
       {highlightRect ? (
