@@ -84,6 +84,53 @@
       "unsubscribeError": "Unsubscribe failed."
     }
   },
+  "lesson": {
+    "courseContent": {
+      "title": "Course Content",
+      "label": "Course Content",
+      "aria": "Course content"
+    },
+    "hud": {
+      "account": "Account",
+      "logIn": "Log in",
+      "signUp": "Sign up",
+      "dismiss": "Dismiss",
+      "loginPrompt": "Create an account so your points and lesson progress are saved.",
+      "customize": "Customize",
+      "customizeComingSoonTitle": "Customization coming soon",
+      "customizeComingSoonBody": "Customization filter coming soon.",
+      "close": "Close"
+    },
+    "tour": {
+      "heading": "Welcome tour {{current}} / {{total}}",
+      "skip": "Skip tour",
+      "prev": "Prev",
+      "next": "Next",
+      "finish": "Finish",
+      "steps": {
+        "courseNavigation": {
+          "title": "Explore the course map",
+          "description": "Use the course navigation on the right to jump between lessons. On mobile tap Course Content to open it."
+        },
+        "lessonFlow": {
+          "title": "Work through each lesson",
+          "description": "Every topic starts with a video overview followed by three lessons and quizzes to lock in what you learn."
+        },
+        "pointsAndStreaks": {
+          "title": "Earn points & streaks",
+          "description": "Completing lessons and quizzes adds to your points and daily streak shown in this HUD."
+        },
+        "saveProgress": {
+          "title": "Save your progress",
+          "description": "Log in so your points and streak days stay with you on any device."
+        },
+        "customize": {
+          "title": "Customize what's next",
+          "description": "Use the customize button to tailor upcoming lessons. Filters are coming soon!"
+        }
+      }
+    }
+  },
   "auth": {
     "login": {
       "title": "Login",
