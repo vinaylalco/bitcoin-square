@@ -287,7 +287,7 @@ export default function LessonPointsCounter({
           aria-label="Lesson heads-up display"
           data-tour-id="points-hud-mobile"
         >
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-5 gap-2">
             <div className="flex items-center justify-center" data-tour-id="hud-auth-mobile">
               {isLoggedIn ? (
                 <Link
@@ -344,19 +344,18 @@ export default function LessonPointsCounter({
                 <span className="sr-only">{t("lesson.courseContent.aria")}</span>
               </button>
             </div>
-          </div>
-          <div className="mt-3 flex justify-center">
-            <button
-              type="button"
-              onClick={onRequestCustomize}
-              disabled={!onRequestCustomize}
-              data-tour-id="lesson-customize-mobile"
-              className="flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-[0_12px_30px_rgba(169,21,255,0.35)] transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-60"
-              aria-label={t("lesson.hud.customize")}
-              title={t("lesson.hud.customize")}
-            >
-              <SlidersHorizontal className="h-5 w-5" aria-hidden="true" />
-            </button>
+            <div className="flex items-center justify-center" data-tour-id="lesson-customize-mobile">
+              <button
+                type="button"
+                onClick={onRequestCustomize}
+                disabled={!onRequestCustomize}
+                className="flex h-14 w-full items-center justify-center rounded-2xl border border-brand bg-brand text-white shadow-[0_12px_30px_rgba(169,21,255,0.35)] transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-60"
+                aria-label={t("lesson.hud.customize")}
+                title={t("lesson.hud.customize")}
+              >
+                <SlidersHorizontal className="h-5 w-5" aria-hidden="true" />
+              </button>
+            </div>
           </div>
         </nav>
       </div>

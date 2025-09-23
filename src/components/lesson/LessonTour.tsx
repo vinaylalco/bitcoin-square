@@ -177,7 +177,7 @@ export default function LessonTour({
   return (
     <div className="fixed inset-0 z-[70] flex items-end justify-center px-4 pb-8">
       <div
-        className="absolute inset-0 backdrop-blur-sm transition-colors"
+        className="absolute inset-0 transition-colors"
         style={{ background: "var(--tour-scrim)" }}
         aria-hidden
       />
