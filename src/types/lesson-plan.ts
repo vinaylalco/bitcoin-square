@@ -15,6 +15,8 @@ export interface Card {
   quiz?: Quiz;
   youtube?: string;
   youtube_video_link?: string;
+  youtube_video_link_en?: string;
+  youtube_video_link_es?: string;
   style_note?: string;
 }
 
