@@ -78,7 +78,6 @@ export default function Slider({
   const columnRef = useRef<HTMLDivElement>(null);
   const cardWrappers = useRef(new Map<string, HTMLDivElement>());
   const completionTimeoutRef = useRef<number | null>(null);
-  const cardLoadingTimeoutRef = useRef<number | null>(null);
   const [navHeight, setNavHeight] = useState<number | null>(null);
   const { user, token, updateUser } = useAuth();
   const initialLocalProgress = useMemo(() => readLocalProgress(), []);
@@ -106,7 +105,6 @@ export default function Slider({
     }
     return initial;
   });
-  const [cardLoading, setCardLoading] = useState(false);
 
   const topicCardIdsMap = useMemo(() => {
     const map = new Map<string, Set<string>>();
@@ -198,41 +196,6 @@ export default function Slider({
       container.scrollLeft = targetIndex * width;
     }
   }, [displayCards, completedCardIds, toCardKey]);
-
-  useEffect(() => {
-    const active = displayCards[index];
-    const shouldSkeleton = Boolean(active?.quiz);
-
-    if (typeof window !== "undefined" && cardLoadingTimeoutRef.current !== null) {
-      window.clearTimeout(cardLoadingTimeoutRef.current);
-      cardLoadingTimeoutRef.current = null;
-    }
-
-    if (!shouldSkeleton) {
-      setCardLoading(false);
-      return;
-    }
-
-    setCardLoading(true);
-
-    if (typeof window !== "undefined") {
-      const delay = reduceMotion ? 120 : 240;
-      cardLoadingTimeoutRef.current = window.setTimeout(() => {
-        setCardLoading(false);
-        cardLoadingTimeoutRef.current = null;
-      }, delay);
-    } else {
-      setCardLoading(false);
-    }
-  }, [displayCards, index, reduceMotion]);
-
-  useEffect(() => {
-    return () => {
-      if (typeof window !== "undefined" && cardLoadingTimeoutRef.current !== null) {
-        window.clearTimeout(cardLoadingTimeoutRef.current);
-      }
-    };
-  }, []);
 
   const total = displayCards.length;
 
@@ -812,7 +775,6 @@ export default function Slider({
                       quizCompleted={completedCardIds.has(
                         toCardKey(c.sourceCardId ?? c.id),
                       )}
-                      isLoading={isActive && cardLoading}
                     />
                   </div>
                 </div>

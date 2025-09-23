@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import VideoGhost from "./VideoGhost";
 
 interface YouTubeVideoProps {
@@ -7,231 +7,135 @@ interface YouTubeVideoProps {
   onEnded?: () => void;
 }
 
-interface YouTubePlayer {
-  destroy(): void;
-}
+const YOUTUBE_ORIGIN = "https://www.youtube.com";
 
-interface YouTubePlayerStateEvent {
-  data: number;
-}
-
-interface YouTubeNamespace {
-  Player: new (
-    element: HTMLElement,
-    options: {
-      videoId: string;
-      host?: string;
-      playerVars?: Record<string, unknown>;
-      events?: {
-        onReady?: () => void;
-        onStateChange?: (event: YouTubePlayerStateEvent) => void;
-        onError?: () => void;
-      };
-    },
-  ) => YouTubePlayer;
-  PlayerState: {
-    ENDED: number;
-  };
-}
-
-declare global {
-  interface Window {
-    YT?: YouTubeNamespace;
-    onYouTubeIframeAPIReady?: () => void;
-  }
-}
-
-let youTubeApiPromise: Promise<YouTubeNamespace> | null = null;
-
-function loadYouTubeIframeApi(): Promise<YouTubeNamespace> {
-  if (typeof window === "undefined") {
-    return Promise.reject(new Error("YouTube API is unavailable in this environment."));
-  }
-
-  if (window.YT && window.YT.Player) {
-    return Promise.resolve(window.YT);
-  }
-
-  if (youTubeApiPromise) {
-    return youTubeApiPromise;
-  }
-
-  youTubeApiPromise = new Promise<YouTubeNamespace>((resolve, reject) => {
-    const previous = window.onYouTubeIframeAPIReady;
-    let script = document.querySelector<HTMLScriptElement>("script[src='https://www.youtube.com/iframe_api']");
-
-    const cleanup = () => {
-      window.onYouTubeIframeAPIReady = previous;
-      if (script) {
-        script.onerror = null;
+function parseMessageData(data: unknown) {
+  if (typeof data === "string") {
+    try {
+      return JSON.parse(data);
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.warn("Unable to parse YouTube message", error);
       }
-    };
-
-    const handleError = () => {
-      if (timeout) {
-        window.clearTimeout(timeout);
-      }
-      cleanup();
-      youTubeApiPromise = null;
-      reject(new Error("Failed to load the YouTube iframe API."));
-    };
-
-    const timeout = window.setTimeout(() => {
-      handleError();
-    }, 15000);
-
-    window.onYouTubeIframeAPIReady = () => {
-      if (timeout) {
-        window.clearTimeout(timeout);
-      }
-      if (previous) {
-        previous();
-      }
-      cleanup();
-      resolve(window.YT!);
-    };
-
-    if (!script) {
-      script = document.createElement("script");
-      script.src = "https://www.youtube.com/iframe_api";
-      script.async = true;
-      script.onerror = handleError;
-      document.head.appendChild(script);
-    } else {
-      script.onerror = handleError;
+      return null;
     }
-  });
-
-  return youTubeApiPromise;
+  }
+  if (typeof data === "object" && data !== null) {
+    return data as Record<string, unknown>;
+  }
+  return null;
 }
 
 export default function YouTubeVideo({ videoId, title, onEnded }: YouTubeVideoProps) {
-  const [visible, setVisible] = useState(false);
-  const [errored, setErrored] = useState(false);
-  const [playerReady, setPlayerReady] = useState(false);
-  const intersectionRef = useRef<HTMLDivElement | null>(null);
-  const playerContainerRef = useRef<HTMLDivElement | null>(null);
-  const playerRef = useRef<YouTubePlayer | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const listenerId = useMemo(() => `${videoId}-${Math.random().toString(36).slice(2)}`, [videoId]);
+  const playerOrigin = YOUTUBE_ORIGIN;
 
   useEffect(() => {
-    const el = intersectionRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) {
-          setVisible(true);
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.25 },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    setErrored(false);
-    setPlayerReady(false);
+    setLoaded(false);
   }, [videoId]);
 
   useEffect(() => {
-    if (errored && import.meta.env.DEV) {
-      console.warn(`Failed to load YouTube video: ${videoId}`);
+    if (typeof window === "undefined") {
+      return undefined;
     }
-  }, [errored, videoId]);
-
-  useEffect(() => {
-    if (!visible || errored) {
-      return;
+    const iframe = iframeRef.current;
+    if (!iframe || !loaded) {
+      return undefined;
     }
 
-    let cancelled = false;
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== playerOrigin) {
+        return;
+      }
+      if (!iframe.contentWindow || event.source !== iframe.contentWindow) {
+        return;
+      }
 
-    const setupPlayer = async () => {
-      try {
-        const YT = await loadYouTubeIframeApi();
-        if (cancelled) {
-          return;
-        }
-        if (!playerContainerRef.current) {
-          return;
-        }
+      const data = parseMessageData(event.data);
+      if (!data) {
+        return;
+      }
 
-        if (playerRef.current) {
-          playerRef.current.destroy();
-          playerRef.current = null;
+      const eventName = typeof data.event === "string" ? data.event : undefined;
+      if (eventName === "onStateChange") {
+        const state = typeof data.info === "number" ? data.info : undefined;
+        if (state === 0) {
+          onEnded?.();
         }
+      }
 
-        playerRef.current = new YT.Player(playerContainerRef.current, {
-          videoId,
-          host: "https://www.youtube-nocookie.com",
-          playerVars: {
-            modestbranding: 1,
-            rel: 0,
-            playsinline: 1,
-          },
-          events: {
-            onReady: () => {
-              if (!cancelled) {
-                setPlayerReady(true);
-              }
-            },
-            onError: () => {
-              if (!cancelled) {
-                setErrored(true);
-              }
-            },
-            onStateChange: (event) => {
-              if (event.data === YT.PlayerState.ENDED) {
-                onEnded?.();
-              }
-            },
-          },
-        });
-      } catch (error) {
-        if (!cancelled) {
-          if (import.meta.env.DEV) {
-            console.error("Failed to initialize YouTube iframe", error);
-          }
-          setErrored(true);
+      if (eventName === "infoDelivery") {
+        const info = data.info as { playerState?: unknown } | undefined;
+        const state = typeof info?.playerState === "number" ? info.playerState : undefined;
+        if (state === 0) {
+          onEnded?.();
         }
       }
     };
 
-    void setupPlayer();
+    window.addEventListener("message", handleMessage);
+
+    const postCommand = (message: Record<string, unknown>) => {
+      try {
+        iframe.contentWindow?.postMessage(JSON.stringify(message), playerOrigin);
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          console.warn("Failed to post message to YouTube iframe", error);
+        }
+      }
+    };
+
+    postCommand({ event: "listening", id: listenerId });
+    postCommand({ event: "command", func: "addEventListener", args: ["onStateChange"] });
+
+    const pollId = window.setInterval(() => {
+      postCommand({ event: "listening", id: listenerId });
+      postCommand({ event: "command", func: "addEventListener", args: ["onStateChange"] });
+    }, 1500);
 
     return () => {
-      cancelled = true;
-      if (playerRef.current) {
-        playerRef.current.destroy();
-        playerRef.current = null;
-      }
+      window.clearInterval(pollId);
+      window.removeEventListener("message", handleMessage);
     };
-  }, [visible, videoId, onEnded, errored]);
+  }, [listenerId, loaded, onEnded, playerOrigin]);
+
+  const embedUrl = useMemo(() => {
+    const params = new URLSearchParams({
+      enablejsapi: "1",
+      rel: "0",
+      playsinline: "1",
+    });
+    return `${playerOrigin}/embed/${videoId}?${params.toString()}`;
+  }, [playerOrigin, videoId]);
 
   return (
-    <div ref={intersectionRef} className="w-full">
-      {!visible || errored ? (
-        <VideoGhost />
-      ) : (
-        <div className="relative w-full aspect-video">
-          {!playerReady && (
-            <div
-              className="absolute inset-0 flex items-center justify-center rounded bg-neutral-200/90 text-neutral-400 dark:bg-neutral-700/80"
-              aria-hidden="true"
-            >
-              <svg className="h-12 w-12" viewBox="0 0 24 24" fill="currentColor" focusable="false">
-                <path d="M8 5v14l11-7z" />
-              </svg>
-            </div>
-          )}
-          <div
-            ref={playerContainerRef}
-            className={`absolute inset-0 h-full w-full overflow-hidden rounded bg-black transition-opacity duration-300 ${
-              playerReady ? "opacity-100" : "opacity-0"
-            }`}
-            title={`YouTube video: ${title}`}
+    <div className="relative w-full">
+      <div
+        className={`relative w-full overflow-hidden rounded-2xl transition-opacity duration-300 ${
+          loaded ? "opacity-100" : "opacity-0"
+        }`}
+      >
+        <div className="aspect-video w-full">
+          <iframe
+            ref={iframeRef}
+            className="h-full w-full"
+            width="560"
+            height="315"
+            src={embedUrl}
+            title="YouTube video player"
+            frameBorder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            referrerPolicy="strict-origin-when-cross-origin"
+            allowFullScreen
+            onLoad={() => setLoaded(true)}
           />
+        </div>
+      </div>
+      {!loaded && (
+        <div className="absolute inset-0">
+          <VideoGhost />
         </div>
       )}
     </div>

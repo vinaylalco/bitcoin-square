@@ -16,6 +16,8 @@ export type LessonFromJson = {
   objectives: string[];
   quiz: Quiz;
   youtube?: string;
+  youtube_video_link_en?: string;
+  youtube_video_link_es?: string;
 };
 
 export type TopicFile = {
