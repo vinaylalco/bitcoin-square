@@ -9,6 +9,31 @@ type UnknownRecord = Record<string, unknown>;
 type RichCard = Card & UnknownRecord;
 type VideoCandidate = { key: string; value: string };
 
+const LOCALE_VIDEO_KEYS: Record<"en" | "es", string[]> = {
+  en: [
+    "youtube_video_link_en",
+    "video_link_en",
+    "youtube_en",
+    "youtubeLinkEn",
+    "youtube_url_en",
+    "videoLinkEn",
+    "video_en",
+    "videoEn",
+    "videoUrlEn",
+  ],
+  es: [
+    "youtube_video_link_es",
+    "video_link_es",
+    "youtube_es",
+    "youtubeLinkEs",
+    "youtube_url_es",
+    "videoLinkEs",
+    "video_es",
+    "videoEs",
+    "videoUrlEs",
+  ],
+};
+
 function normalizeLocale(locale?: string): "en" | "es" | undefined {
   if (!locale) return undefined;
   const lower = locale.toLowerCase();
@@ -52,42 +77,19 @@ function buildPreferredVideoKeys(locale?: "en" | "es"): string[] {
     "youtube_url",
     "video_link",
     "videoLink",
-    "youtube_video_link_en",
-    "youtube_video_link_es",
-    "youtube_en",
-    "youtube_es",
-    "youtubeLinkEn",
-    "youtubeLinkEs",
-    "youtube_url_en",
-    "youtube_url_es",
-    "video_link_en",
-    "video_link_es",
-    "videoLinkEn",
-    "videoLinkEs",
   ];
 
-  const localeSpecific: string[] = [];
-  if (locale === "en") {
-    localeSpecific.push(
-      "youtube_video_link_en",
-      "video_link_en",
-      "youtube_en",
-      "youtubeLinkEn",
-      "youtube_url_en",
-      "videoLinkEn",
-    );
-  } else if (locale === "es") {
-    localeSpecific.push(
-      "youtube_video_link_es",
-      "video_link_es",
-      "youtube_es",
-      "youtubeLinkEs",
-      "youtube_url_es",
-      "videoLinkEs",
+  if (!locale) {
+    return Array.from(
+      new Set([
+        ...LOCALE_VIDEO_KEYS.en,
+        ...LOCALE_VIDEO_KEYS.es,
+        ...baseKeys,
+      ]),
     );
   }
 
-  return Array.from(new Set([...localeSpecific, ...baseKeys]));
+  return Array.from(new Set([...LOCALE_VIDEO_KEYS[locale], ...baseKeys]));
 }
 
 function isNonEmptyString(value: unknown): value is string {
@@ -167,6 +169,34 @@ function extractVideoUrl(
   }
 
   return results[0]?.value;
+}
+
+function extractLocaleSpecificVideoUrl(
+  record: UnknownRecord | undefined,
+  locale?: string,
+): string | undefined {
+  if (!record) return undefined;
+
+  const normalizedLocale = normalizeLocale(locale);
+  if (!normalizedLocale) {
+    return undefined;
+  }
+
+  for (const key of LOCALE_VIDEO_KEYS[normalizedLocale]) {
+    const candidate = (record as UnknownRecord)[key];
+    if (typeof candidate === "string" && looksLikeVideoCandidate(candidate)) {
+      return candidate.trim();
+    }
+  }
+
+  const results: VideoCandidate[] = [];
+  collectVideoStrings(record, results, new Set());
+
+  const match = results.find((candidate) =>
+    keyMatchesLocale(candidate.key, normalizedLocale),
+  );
+
+  return match?.value;
 }
 
 function cloneCard(raw: unknown): RichCard {
@@ -294,13 +324,15 @@ function buildLessonCard({
         ? `Video overview: ${topic.name}`
         : "Video overview"
       : `Lesson ${cardIndex + 1}`;
-  const videoUrl = isVideoLesson ? extractVideoUrl(cardData, locale) : undefined;
-  const youtubeValue =
-    isVideoLesson && videoUrl
-      ? videoUrl
-      : isNonEmptyString(cardData.youtube) && looksLikeVideoCandidate(cardData.youtube)
-        ? cardData.youtube.trim()
-        : undefined;
+  const localizedVideoUrl = isVideoLesson
+    ? extractLocaleSpecificVideoUrl(cardData, locale)
+    : undefined;
+  const videoUrl = isVideoLesson ? localizedVideoUrl : undefined;
+  const youtubeValue = isVideoLesson
+    ? videoUrl
+    : isNonEmptyString(cardData.youtube) && looksLikeVideoCandidate(cardData.youtube)
+      ? cardData.youtube.trim()
+      : undefined;
 
   return {
     ...cardData,

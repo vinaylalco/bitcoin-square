@@ -26,7 +26,7 @@ export default function Card({
   onRequestNext?: () => void;
   quizCompleted?: boolean;
 }) {
-  const videoUrl = card.videoUrl || card.youtube;
+  const videoUrl = card.videoUrl;
   const videoId = videoUrl ? getYouTubeId(videoUrl) : null;
   if (videoUrl && !videoId && import.meta.env.DEV) {
     console.warn(`Invalid YouTube ID or URL: ${videoUrl}`);
