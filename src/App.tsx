@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import {
+  Bitcoin,
   BookOpen,
   Home as HomeIcon,
   LayoutDashboard,
@@ -97,9 +98,13 @@ export default function App() {
             </button>
 
             <Link to="/" className="flex items-center gap-2">
-              <span className="relative text-lg font-black uppercase tracking-[0.28em]">
-                Bitcoin
-                <span className="ml-2 rounded-full bg-brand px-2 py-0.5 text-[0.65rem] font-semibold text-white">Square</span>
+              <span className="relative flex items-center gap-2 text-lg font-black uppercase tracking-[0.28em]">
+                <span className="flex items-center gap-2">
+                  <Bitcoin aria-hidden className="h-5 w-5" />
+                  <span className="sr-only">Bitcoin</span>
+                  <span>itcoin</span>
+                </span>
+                <span className="rounded-full bg-brand px-2 py-0.5 text-[0.65rem] font-semibold text-white">Square</span>
               </span>
             </Link>
           </div>
