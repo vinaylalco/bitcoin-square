@@ -1,0 +1,1231 @@
+{
+  "course": {
+    "id": "btc-full-course",
+    "name": "Curso completo de BTC",
+    "modules": [
+      {
+        "id": "M4",
+        "name": "Módulo 4: Nodos, Lightning y minería",
+        "topics": [
+          {
+            "id": "M4-T01",
+            "name": "4.1 ¿Qué es un nodo?",
+            "cards": [
+              {
+                "id": "M4-T01-C1",
+                "title": "Videolección: ¿Qué es un nodo?",
+                "duration_min": 5,
+                "youtube_video_link_en": "",
+                "youtube_video_link_es": ""
+              },
+              {
+                "id": "M4-T01-C2",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Fija el precio del mercado",
+                    "Verifica las reglas y comparte datos válidos",
+                    "Crea monedas nuevas a voluntad",
+                    "Guarda contraseñas de usuarios"
+                  ],
+                  "question": "¿Qué hace principalmente un nodo de Bitcoin?",
+                  "style_note": "Una definición clara conecta con ISTJ/ISFJ; el calendario familiar y el barrio enganchan a ESFJ/ESFP.",
+                  "correct_answer": "Verifica las reglas y comparte datos válidos"
+                },
+                "title": "Tu verificador de reglas personal",
+                "content": "<p><strong>Estructura:</strong> Un nodo de Bitcoin es un software que descarga bloques, verifica cada regla (límite de emisión, firmas y condiciones de script) y comparte información válida con sus pares. Los nodos son los árbitros: no confían en mineros ni en exchanges, solo en las reglas del protocolo.</p><p><strong>Ejemplo familiar:</strong> Piensa en un calendario del hogar que toda la familia respeta. Cuando alguien propone un plan nuevo, primero se revisa el calendario. Un nodo es ese calendario: evita que otros cuelen promesas inválidas.</p><p><strong>Enfoque comunitario:</strong> Cuando muchos vecinos ejecutan nodos, nadie puede redefinir las reglas por su cuenta. Prevalece el consenso de la comunidad.</p><p><strong>Historia:</strong> Un amigo oyó el rumor de una moneda con \"suministro extra\". Su nodo la rechazó automáticamente. Se acabó el pánico: ganó la verificación.</p>",
+                "objectives": [
+                  "Definir el papel de un nodo como verificador independiente.",
+                  "Relacionar la soberanía del nodo con reglas familiares y comunitarias."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M4-T01-C3",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Ganancias garantizadas",
+                    "Menos dependencia de servidores de terceros",
+                    "Electricidad gratis",
+                    "Bloques más rápidos"
+                  ],
+                  "question": "¿Una ventaja de usar tu propio nodo es?",
+                  "style_note": "La relación causa→efecto convence a ISTJ; las historias de cocina y compras conectan con ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Menos dependencia de servidores de terceros"
+                },
+                "title": "Propiedad sin pedir permiso",
+                "content": "<p><strong>Estructura:</strong> Ejecutar tu propio nodo te permite revisar saldos y transacciones con tus reglas, no con las de un servidor externo. Así reduces filtraciones de datos y las oportunidades de censura o errores.</p><p><strong>Ejemplo familiar:</strong> Consultar una receta en tu propio recetario en vez de confiar en la memoria de un desconocido. El recetario (tu nodo) evita medidas equivocadas.</p><p><strong>Enfoque comunitario:</strong> Un meetup local con varios nodos reduce la dependencia de un solo servicio web. Si uno falla, los demás siguen encendidos.</p><p><strong>Historia:</strong> Durante una caída de servicio, una madre confirmó un pago con su nodo. La compra del súper se pagó sin drama.</p>",
+                "objectives": [
+                  "Describir cómo un nodo reduce la dependencia de terceros."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M4-T01-C4",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Lo amplifican",
+                    "Lo ignoran o rechazan",
+                    "Pagan una tarifa para arreglarlo",
+                    "Votan que es válido"
+                  ],
+                  "question": "¿Cómo manejan los nodos los datos inválidos?",
+                  "style_note": "La corrección binaria convence a ISTJ; la historia del rumor en la cuadra engancha a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Lo ignoran o rechazan"
+                },
+                "title": "Señal en un mundo ruidoso",
+                "content": "<p><strong>Estructura:</strong> Los nodos cortan los rumores. Aceptan bloques y transacciones válidas, ignoran las inválidas y ofrecen una visión local veraz de la red.</p><p><strong>Ejemplo familiar:</strong> Cuando los hijos traen datos contradictorios, los padres consultan una fuente confiable antes de actuar. El nodo es esa fuente de confianza para el dinero.</p><p><strong>Enfoque comunitario:</strong> Muchos nodos crean un bien común resiliente: ningún altavoz solo puede pisar la verdad.</p><p><strong>Historia:</strong> Tras un post viral sobre \"transacciones revertidas\", el chat comunitario comparó lo que mostraban sus nodos: todo estaba bien y volvió la calma.</p>",
+                "objectives": [
+                  "Explicar cómo los nodos ofrecen información confiable."
+                ],
+                "duration_min": 3
+              }
+            ]
+          },
+          {
+            "id": "M4-T02",
+            "name": "4.2 Cómo funciona un nodo completo",
+            "cards": [
+              {
+                "id": "M4-T02-C1",
+                "title": "Videolección: Cómo funciona un nodo completo",
+                "duration_min": 5,
+                "youtube_video_link_en": "",
+                "youtube_video_link_es": ""
+              },
+              {
+                "id": "M4-T02-C2",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Historial de precios",
+                    "Nombres de usuario",
+                    "Conjunto UTXO",
+                    "Lista de correos"
+                  ],
+                  "question": "¿Qué conjunto de datos mantiene un nodo para saber qué fondos son gastables?",
+                  "style_note": "La terminología precisa ayuda a ISTJ; la analogía del libro por capítulos sirve a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Conjunto UTXO"
+                },
+                "title": "Del bloque génesis a hoy",
+                "content": "<p><strong>Estructura:</strong> Un nodo completo descarga toda la cadena de bloques, verifica la prueba de trabajo de cada bloque, comprueba cada firma y script y mantiene un conjunto UTXO validado. Sigue las reglas de consenso, no a sus pares, así que la historia se mantiene coherente.</p><p><strong>Ejemplo familiar:</strong> Es como leer cada capítulo de un libro, no solo el final, para asegurarte de que la historia tiene sentido.</p><p><strong>Enfoque comunitario:</strong> Cuando muchos participantes verifican de forma independiente, el fraude se vuelve caro y la coordinación se fortalece.</p><p><strong>Historia:</strong> Una persona dejó que su nodo sincronizara durante el fin de semana. El lunes ya podía validar pagos con su propia copia de la historia.</p>",
+                "objectives": [
+                  "Enumerar los pasos que realiza un nodo completo para validar la cadena."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M4-T02-C3",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Identidades personales",
+                    "Bloques y transacciones válidos",
+                    "Correos publicitarios",
+                    "Imágenes y videos"
+                  ],
+                  "question": "¿Para qué se conectan principalmente los nodos entre sí?",
+                  "style_note": "La evocación directa funciona para ISTJ; las redes de aula y vecindario atraen a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Bloques y transacciones válidos"
+                },
+                "title": "Red y privacidad",
+                "content": "<p><strong>Estructura:</strong> Los nodos se conectan con pares, reenvían transacciones y bloques válidos y pueden usar opciones para reducir fugas de metadatos. No necesitan tu nombre, solo datos válidos.</p><p><strong>Ejemplo familiar:</strong> Compartir apuntes correctos con compañeros: solo pasan las respuestas bien hechas.</p><p><strong>Enfoque comunitario:</strong> Los nodos del barrio forman una malla; si una ruta va lenta, otra lleva el mensaje.</p><p><strong>Historia:</strong> Cuando un servidor público se volvió inestable, el nodo de la familia siguió reenviando pagos rápido por otros pares.</p>",
+                "objectives": [
+                  "Describir a alto nivel las conexiones entre pares y el reenvío de datos."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M4-T02-C4",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Para filtrar más datos",
+                    "Para depender de terceros",
+                    "Para obtener una vista local confiable de la cadena",
+                    "Para acelerar los gráficos"
+                  ],
+                  "question": "¿Por qué consultar tu propio nodo?",
+                  "style_note": "El razonamiento convence a ISTJ; los ejemplos de despensa y cafetería conectan con ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Para obtener una vista local confiable de la cadena"
+                },
+                "title": "Fuente local de verdad",
+                "content": "<p><strong>Estructura:</strong> Al guardar una copia validada, tu nodo permite que las billeteras consulten saldos y emitan pagos sin pedir permiso a desconocidos. Así reduces dependencias y mejoras la consistencia.</p><p><strong>Ejemplo familiar:</strong> Revisar tu propia despensa antes de ir al mercado: no hace falta llamar al vecino para adivinar qué falta.</p><p><strong>Enfoque comunitario:</strong> Comercios locales pueden cerrar cuentas rápido gracias a sus propios nodos.</p><p><strong>Historia:</strong> Una cafetería procesaba actualizaciones de canales Lightning mientras su nodo aportaba datos on-chain confiables: operación sin tropiezos.</p>",
+                "objectives": [
+                  "Explicar cómo los nodos respaldan a las billeteras y flujos de negocio."
+                ],
+                "duration_min": 3
+              }
+            ]
+          },
+          {
+            "id": "M4-T03",
+            "name": "4.3 Qué necesitas para correr un nodo",
+            "cards": [
+              {
+                "id": "M4-T03-C1",
+                "title": "Videolección: Qué necesitas para correr un nodo",
+                "duration_min": 5,
+                "youtube_video_link_en": "",
+                "youtube_video_link_es": ""
+              },
+              {
+                "id": "M4-T03-C2",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Un SSD por confiabilidad y velocidad",
+                    "Solo discos en la nube",
+                    "Sin almacenamiento",
+                    "Una tarjeta de cámara"
+                  ],
+                  "question": "¿Qué almacenamiento se prefiere para un nodo?",
+                  "style_note": "La lista clara anima a ISTJ; la analogía del servidor casero ayuda a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Un SSD por confiabilidad y velocidad"
+                },
+                "title": "Hardware, almacenamiento y red",
+                "content": "<p><strong>Estructura:</strong> Lo típico: una computadora modesta o placa única, energía estable, buen internet y suficiente espacio en SSD para la cadena. Si puedes, usa cable de red y una UPS.</p><p><strong>Ejemplo familiar:</strong> Como montar un servidor multimedia para la familia: pequeño, silencioso y siempre encendido.</p><p><strong>Enfoque comunitario:</strong> Un centro comunitario puede alojar uno para aprender en grupo.</p><p><strong>Historia:</strong> Una madre recicló un mini PC con un SSD nuevo. El nodo quedó junto al router, sincronizando mientras todos dormían.</p>",
+                "objectives": [
+                  "Enumerar los componentes básicos de un nodo casero."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M4-T03-C3",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Ignorar el almacenamiento",
+                    "Vigilar el espacio libre en disco",
+                    "Desenchufar al azar",
+                    "Desactivar actualizaciones para siempre"
+                  ],
+                  "question": "¿Qué hábito sencillo evita interrupciones del nodo?",
+                  "style_note": "El paso procedural encaja con ISTJ; montar en pareja ayuda a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Vigilar el espacio libre en disco"
+                },
+                "title": "Software y mantenimiento",
+                "content": "<p><strong>Estructura:</strong> Instala el software del nodo, verifica las descargas, sincroniza la cadena, activa actualizaciones y respaldos automáticos y vigila el disco. Lleva un registro sencillo de cambios.</p><p><strong>Ejemplo familiar:</strong> Un recordatorio mensual revisa el espacio libre y las actualizaciones.</p><p><strong>Enfoque comunitario:</strong> Formen parejas para ayudarse en la primera instalación.</p><p><strong>Historia:</strong> Una alerta temprana de disco lleno evitó un apagón en un fin de semana ocupado: el mantenimiento importó.</p>",
+                "objectives": [
+                  "Esbozar una rutina ligera de mantenimiento para la confiabilidad."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M4-T03-C4",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Dejar cables sin etiqueta",
+                    "Etiquetar cables y configuraciones básicas",
+                    "Esconder las notas",
+                    "No llevar registros"
+                  ],
+                  "question": "¿Qué hábito acelera la recuperación después de mudarte?",
+                  "style_note": "Los detalles de operación en casa cuadran con ISTJ; la mudanza familiar engancha a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Etiquetar cables y configuraciones básicas"
+                },
+                "title": "Hábitos amigables para el hogar",
+                "content": "<p><strong>Estructura:</strong> Coloca el nodo cerca del router, usa una UPS, etiqueta cables y anota los cambios de Wi-Fi o router. Controla calor y polvo.</p><p><strong>Ejemplo familiar:</strong> Una etiqueta pequeña en el equipo guarda notas clave: tu yo futuro se lo agradecerá al presente.</p><p><strong>Enfoque comunitario:</strong> Comparte una checklist imprimible para nuevos operadores.</p><p><strong>Historia:</strong> Tras una mudanza, las etiquetas claras permitieron que el adolescente reconectara el nodo en minutos.</p>",
+                "objectives": [
+                  "Adoptar hábitos prácticos que vuelven los nodos a prueba de familia."
+                ],
+                "duration_min": 3
+              }
+            ]
+          },
+          {
+            "id": "M4-T04",
+            "name": "4.4 Lightning explicado de forma simple",
+            "cards": [
+              {
+                "id": "M4-T04-C1",
+                "title": "Videolección: Lightning explicado de forma simple",
+                "duration_min": 5,
+                "youtube_video_link_en": "",
+                "youtube_video_link_es": ""
+              },
+              {
+                "id": "M4-T04-C2",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Una cuenta corriente semanal",
+                    "Una bóveda sellada sin cambios",
+                    "Un sistema de correo en papel",
+                    "Una lotería"
+                  ],
+                  "question": "Los canales de Lightning se parecen más a:",
+                  "style_note": "La analogía ayuda a ISTJ/ISFJ; la historia en la cafetería conecta con ESFJ/ESFP.",
+                  "correct_answer": "Una cuenta corriente semanal"
+                },
+                "title": "Pestañas, no recibos",
+                "content": "<p><strong>Estructura:</strong> Lightning es una red de canales de pago. Dos partes bloquean una pequeña cantidad on-chain y luego actualizan saldos al instante fuera de cadena, como una cuenta corriente; solo el resultado final se asienta en la blockchain.</p><p><strong>Ejemplo familiar:</strong> Padres e hijos llevan una lista de snacks compartida durante la semana; el domingo hacen un solo ajuste.</p><p><strong>Enfoque comunitario:</strong> Los comercios locales disfrutan pagos instantáneos y con comisiones mínimas.</p><p><strong>Historia:</strong> Una cafetería aceptó docenas de micro pagos Lightning en el almuerzo sin filas; el cierre del día fue sencillo.</p>",
+                "objectives": [
+                  "Explicar qué son los canales y por qué Lightning se siente instantáneo."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M4-T04-C3",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Sí, siempre",
+                    "No, los pagos pueden rutearse por otros",
+                    "Solo para montos grandes",
+                    "Solo los fines de semana"
+                  ],
+                  "question": "¿Necesitas un canal con cada persona a la que pagas?",
+                  "style_note": "La regla concisa encaja con ISTJ; la clase y el tutor conectan con ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "No, los pagos pueden rutearse por otros"
+                },
+                "title": "Enrutamiento a través de la red",
+                "content": "<p><strong>Estructura:</strong> Los pagos pueden viajar por nodos con liquidez. No necesitas un canal directo con todos: solo una ruta. Las comisiones y la confiabilidad dependen de cómo se financian y administran los canales.</p><p><strong>Ejemplo familiar:</strong> Como pasar una nota en clase; cualquier cadena de amigos puede llevarla.</p><p><strong>Enfoque comunitario:</strong> Comercios y vecinos forman hubs locales que mantienen el flujo.</p><p><strong>Historia:</strong> Una madre pagó a una tutora lejana con Lightning; el pago cruzó tres nodos en un segundo.</p>",
+                "objectives": [
+                  "Describir a alto nivel el enrutamiento en Lightning."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M4-T04-C4",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Pagos frecuentes y pequeños",
+                    "Custodia fría permanente",
+                    "Archivar documentos",
+                    "Minar bloques"
+                  ],
+                  "question": "Lightning es mejor para:",
+                  "style_note": "Mapear casos de uso ayuda a ISTJ; escenas familiares y de mercado animan a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Pagos frecuentes y pequeños"
+                },
+                "title": "Cuándo conviene Lightning",
+                "content": "<p><strong>Estructura:</strong> Lightning brilla en pagos frecuentes y pequeños; on-chain es mejor para montos grandes y liquidaciones finales. Muchas familias usan ambos: Lightning para cafés y propinas; on-chain para ahorros.</p><p><strong>Ejemplo familiar:</strong> Los hijos usan Lightning para la mesada en la cooperativa escolar.</p><p><strong>Enfoque comunitario:</strong> Ferias y mercados se agilizan cuando todos llevan una billetera Lightning sencilla.</p><p><strong>Historia:</strong> Un mercado de fin de semana probó Lightning: las filas bajaron y los vendedores cuadraron cuentas sin líos.</p>",
+                "objectives": [
+                  "Relacionar Lightning y on-chain con usos cotidianos."
+                ],
+                "duration_min": 3
+              }
+            ]
+          },
+          {
+            "id": "M4-T05",
+            "name": "4.5 Bitcoin sin internet: satélite y radio",
+            "cards": [
+              {
+                "id": "M4-T05-C1",
+                "title": "Videolección: Bitcoin sin internet — satélite y radio",
+                "duration_min": 5,
+                "youtube_video_link_en": "",
+                "youtube_video_link_es": ""
+              },
+              {
+                "id": "M4-T05-C2",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "El rendimiento en videojuegos",
+                    "La resiliencia durante cortes",
+                    "La predicción de precios",
+                    "Compartir fotos"
+                  ],
+                  "question": "Los métodos satelitales + radio mejoran sobre todo:",
+                  "style_note": "El tema de resiliencia atrae a ISTJ; la historia de tormenta engancha a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "La resiliencia durante cortes"
+                },
+                "title": "Recibir la cadena sin internet",
+                "content": "<p><strong>Estructura:</strong> Los servicios satelitales pueden difundir datos de la blockchain en una sola dirección; la radio de bajo ancho de banda puede transmitir transacciones firmadas de salida. Así logras resiliencia cuando el internet es inestable.</p><p><strong>Ejemplo familiar:</strong> Como una radio meteorológica: aunque se caiga el Wi-Fi, sigues recibiendo avisos cruciales.</p><p><strong>Enfoque comunitario:</strong> Centros comunitarios pueden alojar receptores para dar acceso local.</p><p><strong>Historia:</strong> Tras una tormenta, un grupo vecinal mantuvo sus nodos sincronizados por satélite mientras llegaban las cuadrillas eléctricas.</p>",
+                "objectives": [
+                  "Describir los caminos de recepción y envío offline a alto nivel."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M4-T05-C3",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Túnel bidireccional",
+                    "Enlace descendente unidireccional",
+                    "Cable USB",
+                    "Hotspot Wi-Fi"
+                  ],
+                  "question": "El satélite normalmente proporciona un ______ para los bloques.",
+                  "style_note": "El enfoque en terminología cuadra con ISTJ; la analogía TV/SMS sirve a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Enlace descendente unidireccional"
+                },
+                "title": "Rutas de ida y de ida y vuelta",
+                "content": "<p><strong>Estructura:</strong> El satélite es unidireccional (downlink) para los bloques; la radio u otras líneas pueden llevar tu transacción de regreso. Las billeteras preparan y firman en local y luego envían por la vía que funcione.</p><p><strong>Ejemplo familiar:</strong> Recibes noticias por televisión y envías mensajes por SMS cuando no hay internet.</p><p><strong>Enfoque comunitario:</strong> Los clubes de radioaficionados pueden practicar relevos seguros y legales.</p><p><strong>Historia:</strong> Una voluntaria conectó su nodo a un enlace de radio simple para emitir una transacción durante un corte breve.</p>",
+                "objectives": [
+                  "Diferenciar los roles de bajada y subida en montajes offline."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M4-T05-C4",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Usarlos a diario para todo",
+                    "Probarlos de vez en cuando con una lista clara",
+                    "Ignorarlos hasta el desastre",
+                    "Depender de la memoria"
+                  ],
+                  "question": "¿Cuál es la mejor forma de abordar las opciones offline?",
+                  "style_note": "El enfoque de proceso y práctica habla a ISTJ/ISFJ; la preparación comunitaria inspira a ESFJ/ESFP.",
+                  "correct_answer": "Probarlos de vez en cuando con una lista clara"
+                },
+                "title": "Preparados, no paranoicos",
+                "content": "<p><strong>Estructura:</strong> Las herramientas offline son para continuidad, no para el uso diario. Pruébalas a veces, documenta los pasos y maneja expectativas realistas.</p><p><strong>Ejemplo familiar:</strong> Un simulacro anual revisa respaldos, energía y alineación de antenas.</p><p><strong>Enfoque comunitario:</strong> Los grupos regionales comparten listas y contactos.</p><p><strong>Historia:</strong> Un simulacro de tormenta hizo que el apagón real se sintiera rutinario: cero pánico.</p>",
+                "objectives": [
+                  "Definir expectativas prácticas y cadencia de pruebas."
+                ],
+                "duration_min": 3
+              }
+            ]
+          },
+          {
+            "id": "M4-T06",
+            "name": "4.6 Minería de Bitcoin: qué es y cómo funciona",
+            "cards": [
+              {
+                "id": "M4-T06-C1",
+                "title": "Videolección: Conceptos básicos de minería de Bitcoin",
+                "duration_min": 5,
+                "youtube_video_link_en": "",
+                "youtube_video_link_es": ""
+              },
+              {
+                "id": "M4-T06-C2",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Fijar precios",
+                    "Encontrar una prueba de trabajo válida para agregar un bloque",
+                    "Firmar llaves de usuarios",
+                    "Escribir apps de billetera"
+                  ],
+                  "question": "Los mineros compiten principalmente por:",
+                  "style_note": "La respuesta directa sirve a ISTJ; las analogías de dados y cuadernos ayudan a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Encontrar una prueba de trabajo válida para agregar un bloque"
+                },
+                "title": "Prueba de trabajo, bloques y recompensas",
+                "content": "<p><strong>Estructura:</strong> Los mineros empaquetan transacciones en bloques y compiten realizando prueba de trabajo. El bloque ganador se suma a la cadena y obtiene la subvención más las comisiones.</p><p><strong>Ejemplo familiar:</strong> Es como tirar dados rapidísimo hasta que sale un patrón raro; quien gana añade la siguiente página al libro contable.</p><p><strong>Enfoque comunitario:</strong> La competencia global evita que un solo grupo decida la historia.</p><p><strong>Historia:</strong> Un estudiante miraba el panel de un pool y veía llegar nuevos bloques: cada uno era una página verificada marcada en la historia.</p>",
+                "objectives": [
+                  "Describir el rol de la minería al ordenar transacciones y emitir monedas."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M4-T06-C3",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Las tarifas eléctricas",
+                    "El intervalo de bloques",
+                    "El precio del token",
+                    "El brillo de la pantalla"
+                  ],
+                  "question": "¿Qué busca mantener estable el ajuste de dificultad?",
+                  "style_note": "La cadena causa→efecto sencilla convence a ISTJ; la analogía de la caminadora sirve a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "El intervalo de bloques"
+                },
+                "title": "Dificultad y previsibilidad",
+                "content": "<p><strong>Estructura:</strong> La red ajusta la dificultad para que los bloques lleguen cada diez minutos, sin importar cuántas máquinas entren o salgan. Así la emisión es predecible.</p><p><strong>Ejemplo familiar:</strong> Una caminadora que sube la inclinación para mantener el pulso constante.</p><p><strong>Enfoque comunitario:</strong> Tiempos previsibles ayudan a los servicios a planear confirmaciones.</p><p><strong>Historia:</strong> Un boom de minería no aceleró los bloques por mucho: la dificultad subió y estabilizó el ritmo.</p>",
+                "objectives": [
+                  "Explicar por qué el ajuste de dificultad estabiliza el tiempo de bloque."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M4-T06-C4",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Siguen las reglas y, si fallan, los nodos rechazan el bloque",
+                    "Se saltan pasos y reciben pagos extra",
+                    "Pueden inventar reglas nuevas",
+                    "Cobran aunque hagan trampa"
+                  ],
+                  "question": "¿Cómo se alinean los incentivos con la seguridad?",
+                  "style_note": "La lógica de incentivos convence a ISTJ; la historia de las tareas conecta con ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Siguen las reglas y, si fallan, los nodos rechazan el bloque"
+                },
+                "title": "Los incentivos alinean la seguridad",
+                "content": "<p><strong>Estructura:</strong> Los mineros ganan siguiendo las reglas; los bloques inválidos son rechazados por los nodos y desperdician energía. Los incentivos económicos guían el comportamiento hacia la honestidad.</p><p><strong>Ejemplo familiar:</strong> Las tareas solo reciben paga si están bien hechas; si haces trampa, no hay recompensa.</p><p><strong>Enfoque comunitario:</strong> La participación global dispersa el poder de hash.</p><p><strong>Historia:</strong> Un minero intentó un atajo y no ganó nada: aprendió que tocar las reglas no funciona.</p>",
+                "objectives": [
+                  "Mostrar cómo los incentivos económicos fomentan la honestidad."
+                ],
+                "duration_min": 3
+              }
+            ]
+          },
+          {
+            "id": "M4-T07",
+            "name": "4.7 Tipos de minería de Bitcoin",
+            "cards": [
+              {
+                "id": "M4-T07-C1",
+                "title": "Videolección: Tipos de minería de Bitcoin",
+                "duration_min": 5,
+                "youtube_video_link_en": "",
+                "youtube_video_link_es": ""
+              },
+              {
+                "id": "M4-T07-C2",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Desde montajes caseros hasta granjas industriales",
+                    "Solo granjas industriales",
+                    "Únicamente energía solar",
+                    "Minar con teléfonos"
+                  ],
+                  "question": "La minería abarca:",
+                  "style_note": "La claridad de inventario sirve a ISTJ; el ejemplo del garaje engancha a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Desde montajes caseros hasta granjas industriales"
+                },
+                "title": "Hogar, hospedado e industrial",
+                "content": "<p><strong>Estructura:</strong> La minería va desde equipos caseros hasta rigs hospedados y granjas industriales. Variables clave: precio de energía, enfriamiento, tiempo activo y destreza de mantenimiento.</p><p><strong>Ejemplo familiar:</strong> Un equipo silencioso en el garaje enseña a los adolescentes sobre consumo y ruido.</p><p><strong>Enfoque comunitario:</strong> Las cooperativas pueden negociar tarifas eléctricas y compartir experiencia.</p><p><strong>Historia:</strong> Un aficionado descubrió que el costo bajo de energía pesaba más que el hardware vistoso.</p>",
+                "objectives": [
+                  "Comparar contextos de minería y sus variables clave."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M4-T07-C3",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Unirse a pools para suavizar ingresos",
+                    "Minar solo para recibir jackpots",
+                    "Usar exclusivamente equipos viejos",
+                    "Evitar cualquier transparencia"
+                  ],
+                  "question": "La mayoría de los mineros opta por:",
+                  "style_note": "La dinámica de equipo convence a ISTJ; compartir ingresos tipo cuadrilla engancha a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Unirse a pools para suavizar ingresos"
+                },
+                "title": "Pools y pagos",
+                "content": "<p><strong>Estructura:</strong> La mayoría se une a pools para suavizar el flujo. El pool agrega trabajo y reparte según participación; las reglas varían.</p><p><strong>Ejemplo familiar:</strong> Un grupo que corta césped reparte el pago del finde según las horas.</p><p><strong>Enfoque comunitario:</strong> La transparencia en las estadísticas genera confianza.</p><p><strong>Historia:</strong> Un minero cambió de pool tras revisar los términos: el flujo constante superó a los premios raros.</p>",
+                "objectives": [
+                  "Describir por qué existen los pools y cómo reparten recompensas."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M4-T07-C4",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Controlar calor y ruido",
+                    "Ignorar ventilación",
+                    "Apilar equipos sin orden",
+                    "Compartir extensiones sobrecargadas"
+                  ],
+                  "question": "¿Qué práctica es clave al operar en casa o en grupo?",
+                  "style_note": "Los detalles prácticos encajan con ISTJ; los acuerdos de convivencia conectan con ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Controlar calor y ruido"
+                },
+                "title": "Ambiente y ruido",
+                "content": "<p><strong>Estructura:</strong> Hay que gestionar calor y ruido. Importan la ventilación, filtros y circuitos seguros.</p><p><strong>Ejemplo familiar:</strong> Un proyecto en el garaje usó ductos para sacar calor y un circuito dedicado para evitar cortes.</p><p><strong>Enfoque comunitario:</strong> Los espacios compartidos necesitan acuerdos de ruido y revisiones de seguridad.</p><p><strong>Historia:</strong> Al añadir filtros, bajó el polvo y subió el tiempo activo.</p>",
+                "objectives": [
+                  "Adoptar medidas ambientales básicas para minería doméstica o colectiva."
+                ],
+                "duration_min": 3
+              }
+            ]
+          },
+          {
+            "id": "M4-T08",
+            "name": "4.8 Energía renovable en la minería",
+            "cards": [
+              {
+                "id": "M4-T08-C1",
+                "title": "Videolección: Energía renovable en la minería",
+                "duration_min": 5,
+                "youtube_video_link_en": "",
+                "youtube_video_link_es": ""
+              },
+              {
+                "id": "M4-T08-C2",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Aprovechar energía varada o intermitente",
+                    "Comprar solo energía fósil",
+                    "Evitar sitios remotos",
+                    "Usar electricidad residencial cara"
+                  ],
+                  "question": "Los mineros pueden ubicarse para:",
+                  "style_note": "Pensar en inventario energético atrae a ISTJ; la analogía hogareña engancha a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Aprovechar energía varada o intermitente"
+                },
+                "title": "Energía varada e intermitente",
+                "content": "<p><strong>Estructura:</strong> Los mineros pueden instalarse cerca de hidro, viento, solar u otras energías desaprovechadas, convirtiendo potencia ociosa en ingresos. La movilidad y la carga flexible encajan con renovables.</p><p><strong>Ejemplo familiar:</strong> Cargar aparatos cuando el sol pega más fuerte en casa: usar la energía cuando abunda.</p><p><strong>Enfoque comunitario:</strong> Sitios rurales monetizan energía que nadie compraba.</p><p><strong>Historia:</strong> Una finca pequeña alimentó algunas máquinas con hidro estacional y ganó durante los picos.</p>",
+                "objectives": [
+                  "Explicar cómo la minería aprovecha energía varada o intermitente."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M4-T08-C3",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Subir cuando sobra energía y bajar cuando falta",
+                    "Mantener consumo fijo pase lo que pase",
+                    "Aumentar apagones",
+                    "Ignorar acuerdos locales"
+                  ],
+                  "question": "Como carga controlable, la minería puede:",
+                  "style_note": "El pensamiento sistémico encaja con ISTJ; apagar aparatos en casa resuena con ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Subir cuando sobra energía y bajar cuando falta"
+                },
+                "title": "Servicios de red y recorte",
+                "content": "<p><strong>Estructura:</strong> Al ser una carga controlable, la minería puede bajar durante estrés en la red y subir cuando sobra oferta, estabilizando operaciones y economía.</p><p><strong>Ejemplo familiar:</strong> Apagar electrodomésticos fuertes durante un bajón en el barrio.</p><p><strong>Enfoque comunitario:</strong> Las alianzas locales formalizan la respuesta a la demanda.</p><p><strong>Historia:</strong> Un sitio pausó en una ola de calor y ganó créditos por ayudar al balance.</p>",
+                "objectives": [
+                  "Relacionar la flexibilidad de la minería con servicios de red."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M4-T08-C4",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Financiar empleos y mejoras locales con transparencia",
+                    "Operar en secreto",
+                    "Evitar cualquier diálogo",
+                    "Ignorar métricas"
+                  ],
+                  "question": "El beneficio comunitario llega cuando:",
+                  "style_note": "Los logros cívicos motivan a ESFJ/ISFJ; la claridad de datos apela a ISTJ; historias optimistas inspiran a ESFP.",
+                  "correct_answer": "Financiar empleos y mejoras locales con transparencia"
+                },
+                "title": "Ganancias para la comunidad",
+                "content": "<p><strong>Estructura:</strong> Monetizar energía desperdiciada puede financiar empleos e infraestructura si se hace con transparencia y seguridad.</p><p><strong>Ejemplo familiar:</strong> El pueblo reinvierte en parques o en mejor internet.</p><p><strong>Enfoque comunitario:</strong> Comunicar con claridad mantiene la confianza.</p><p><strong>Historia:</strong> Un piloto publicó mensualmente ruido, energía y producción; el apoyo creció gracias a los datos.</p>",
+                "objectives": [
+                  "Mostrar cómo la minería puede traducirse en beneficios locales."
+                ],
+                "duration_min": 3
+              }
+            ]
+          },
+          {
+            "id": "M4-T09",
+            "name": "4.9 Prueba de trabajo y seguridad de la red",
+            "cards": [
+              {
+                "id": "M4-T09-C1",
+                "title": "Videolección: Prueba de trabajo y seguridad",
+                "duration_min": 5,
+                "youtube_video_link_en": "",
+                "youtube_video_link_es": ""
+              },
+              {
+                "id": "M4-T09-C2",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Hace caro reescribir historia reciente",
+                    "Garantiza bloques gratis",
+                    "Elimina la necesidad de nodos",
+                    "Permite cambios sin coste"
+                  ],
+                  "question": "La prueba de trabajo logra que:",
+                  "style_note": "El enfoque en costos reales gusta a ISTJ; la analogía del mural resuena con ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Hace caro reescribir historia reciente"
+                },
+                "title": "Coste de reescribir historia",
+                "content": "<p><strong>Estructura:</strong> La prueba de trabajo hace caro reescribir bloques recientes. Un atacante debe superar la energía de los mineros honestos para reorganizar, y los nodos igual rechazan reglas inválidas.</p><p><strong>Ejemplo familiar:</strong> Es como intentar borrar un mural mientras la comunidad lo repinta más rápido.</p><p><strong>Enfoque comunitario:</strong> Mucho hash distribuido y muchos nodos endurecen la seguridad.</p><p><strong>Historia:</strong> Un rumor sobre un reorg fácil se desinfló cuando el meetup calculó la energía y los chequeos de nodos necesarios.</p>",
+                "objectives": [
+                  "Explicar por qué la prueba de trabajo desincentiva reorganizaciones."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M4-T09-C3",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Los mineros ordenan, los nodos validan y los usuarios eligen software",
+                    "Los mineros mandan en todo",
+                    "Solo importan los exchanges",
+                    "Los usuarios no cuentan"
+                  ],
+                  "question": "La separación de funciones implica que:",
+                  "style_note": "El equilibrio de roles convence a ISTJ; los papeles en el hogar enganchan a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Los mineros ordenan, los nodos validan y los usuarios eligen software"
+                },
+                "title": "Separación de poderes",
+                "content": "<p><strong>Estructura:</strong> Los mineros ordenan transacciones; los nodos hacen cumplir reglas; los usuarios deciden qué software ejecutar. Esa separación evita que un grupo domine.</p><p><strong>Ejemplo familiar:</strong> En casa, quien planifica, compra y lleva las cuentas equilibra decisiones.</p><p><strong>Enfoque comunitario:</strong> La diversidad de roles suma resiliencia.</p><p><strong>Historia:</strong> Un debate sobre cambios de reglas terminó cuando recordaron que los nodos, no los mineros, deciden la validez.</p>",
+                "objectives": [
+                  "Describir los roles complementarios de mineros, nodos y usuarios."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M4-T09-C4",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Más confirmaciones implican más coste para revertir",
+                    "Las confirmaciones no importan",
+                    "Menos confirmaciones hacen más seguro un pago grande",
+                    "Siempre hay que esperar 100 confirmaciones"
+                  ],
+                  "question": "En la práctica, la finalidad se logra:",
+                  "style_note": "Los lineamientos claros sirven a ISTJ; aceptar pagos pequeños vs grandes conecta con ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Más confirmaciones implican más coste para revertir"
+                },
+                "title": "Finalidad en la práctica",
+                "content": "<p><strong>Estructura:</strong> Cuantas más confirmaciones, mayor el coste de revertir. Para pagos pequeños basta una; para montos grandes, espera más.</p><p><strong>Ejemplo familiar:</strong> Para un juguete aceptas una confirmación rápida; para un auto esperas el papeleo.</p><p><strong>Enfoque comunitario:</strong> Los comercios ajustan sus políticas de confirmación según el riesgo.</p><p><strong>Historia:</strong> Una tienda pidió seis confirmaciones para artículos caros; los clientes agradecieron la claridad.</p>",
+                "objectives": [
+                  "Relacionar el número de confirmaciones con el riesgo del pago."
+                ],
+                "duration_min": 3
+              }
+            ]
+          },
+          {
+            "id": "M4-T10",
+            "name": "4.10 Prueba de trabajo vs prueba de participación",
+            "cards": [
+              {
+                "id": "M4-T10-C1",
+                "title": "Videolección: Prueba de trabajo vs prueba de participación",
+                "duration_min": 5,
+                "youtube_video_link_en": "",
+                "youtube_video_link_es": ""
+              },
+              {
+                "id": "M4-T10-C2",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "PoW usa costo externo; PoS usa apuestas internas",
+                    "Ambos son idénticos",
+                    "PoW depende de votos",
+                    "PoS depende de pruebas físicas"
+                  ],
+                  "question": "¿En qué difieren los anclajes de seguridad?",
+                  "style_note": "Comparar incentivos ayuda a ISTJ; las analogías de tareas vs ahorros conectan con ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "PoW usa costo externo; PoS usa apuestas internas"
+                },
+                "title": "Anclajes de seguridad distintos",
+                "content": "<p><strong>Estructura:</strong> PoW ancla la seguridad en un coste externo (energía); PoS lo hace en participaciones internas y gobernanza. Cambian incentivos y modos de fallo.</p><p><strong>Ejemplo familiar:</strong> PoW es como demostrar esfuerzo terminando el jardín; PoS como votar según tus ahorros.</p><p><strong>Enfoque comunitario:</strong> Conviene entender los intercambios al comparar sistemas.</p><p><strong>Historia:</strong> Un grupo de estudio listó pros y contras y eligió lo que calzaba con sus metas.</p>",
+                "objectives": [
+                  "Comparar los incentivos de PoW y PoS."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M4-T10-C3",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "En PoW con nodos fuertes, mineros no cambian reglas; en PoS, la gobernanza varía",
+                    "Los mineros siempre pueden reescribir reglas",
+                    "PoS no tiene gobernanza",
+                    "Los usuarios no pueden elegir"
+                  ],
+                  "question": "Al preguntar quién cambia qué, debemos recordar que:",
+                  "style_note": "Las políticas claras gustan a ISTJ; las reglas de la casa atraen a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "En PoW con nodos fuertes, mineros no cambian reglas; en PoS, la gobernanza varía"
+                },
+                "title": "¿Quién puede cambiar qué?",
+                "content": "<p><strong>Estructura:</strong> En PoW con fuerte cumplimiento de nodos, los mineros no cambian reglas; en PoS, la dinámica de validadores difiere. Pregunta: ¿cómo se protege a las minorías?</p><p><strong>Ejemplo familiar:</strong> Las reglas de la casa requieren consenso y estar escritas, no solo la opinión de quien guarda el dinero.</p><p><strong>Enfoque comunitario:</strong> Entender la gobernanza ayuda a fijar expectativas.</p><p><strong>Historia:</strong> Un club prefirió sistemas donde las reglas no se reescriben fácilmente desde adentro.</p>",
+                "objectives": [
+                  "Identificar cómo cada sistema gestiona cambios de reglas."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M4-T10-C4",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Elegir PoW con nodos fuertes si buscas dinero difícil de cooptar",
+                    "Elegir PoS para emisión predecible",
+                    "Usar PoW para cualquier objetivo",
+                    "Evitar escribir prioridades"
+                  ],
+                  "question": "La elección de sistema depende de:",
+                  "style_note": "La priorización previa convence a ISTJ; la charla familiar sobre metas engancha a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Elegir PoW con nodos fuertes si buscas dinero difícil de cooptar"
+                },
+                "title": "Elegir según el objetivo",
+                "content": "<p><strong>Estructura:</strong> Si priorizas un dinero difícil de cooptar, con emisión predecible y reglas estrictas, PoW con nodos firmes encaja. Otros objetivos pueden elegir distinto.</p><p><strong>Ejemplo familiar:</strong> Para ahorros largos, la familia prefiere reglas difíciles de cambiar.</p><p><strong>Enfoque comunitario:</strong> Los grupos deberían escribir sus prioridades antes de comparar sistemas.</p><p><strong>Historia:</strong> Tras una sesión enfocada en metas, bajó la confusión y tomar decisiones fue más sencillo.</p>",
+                "objectives": [
+                  "Vincular prioridades con la elección de mecanismos de consenso."
+                ],
+                "duration_min": 3
+              }
+            ]
+          },
+          {
+            "id": "M4-T11",
+            "name": "4.11 China prohíbe la minería (2021)",
+            "cards": [
+              {
+                "id": "M4-T11-C1",
+                "title": "Videolección: China prohíbe la minería (2021)",
+                "duration_min": 5,
+                "youtube_video_link_en": "",
+                "youtube_video_link_es": ""
+              },
+              {
+                "id": "M4-T11-C2",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Ordenar cierres y forzar reubicación",
+                    "Subir automáticamente el precio",
+                    "Eliminar la minería global",
+                    "Aumentar subsidios"
+                  ],
+                  "question": "La orden principal en 2021 provocó:",
+                  "style_note": "Los hechos directos ayudan a ISTJ; la comparación con la escuela conecta con ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Ordenar cierres y forzar reubicación"
+                },
+                "title": "Choque y reubicación",
+                "content": "<p><strong>Estructura:</strong> Una jurisdicción mayor ordenó cerrar mineros, forzando reubicaciones rápidas. El hashrate cayó y luego se recuperó al mudarse a otras regiones.</p><p><strong>Ejemplo familiar:</strong> Como cerrar una escuela de golpe: las clases se reanudan en edificios nuevos tras una pausa.</p><p><strong>Enfoque comunitario:</strong> Participantes desagregados se adaptan; la red sigue.</p><p><strong>Historia:</strong> Un pool anunció mudanzas y, meses después, operaba con normalidad.</p>",
+                "objectives": [
+                  "Describir cómo la descentralización responde a choques regulatorios."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M4-T11-C3",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Bajar dificultad para estabilizar el intervalo",
+                    "Subir tarifas de inmediato",
+                    "Detener la red",
+                    "Desactivar nodos"
+                  ],
+                  "question": "¿Cómo absorbió el golpe la dificultad?",
+                  "style_note": "El recordatorio de autoajuste encaja con ISTJ; la caminadora convence a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Bajar dificultad para estabilizar el intervalo"
+                },
+                "title": "La dificultad absorbe el impacto",
+                "content": "<p><strong>Estructura:</strong> Con menos mineros, los bloques se ralentizaron; el ajuste bajó la dificultad y recuperó el intervalo objetivo.</p><p><strong>Ejemplo familiar:</strong> La caminadora baja la inclinación tras una semana pesada para mantener el ritmo.</p><p><strong>Enfoque comunitario:</strong> Las reglas del protocolo, no la política, marcan el paso a la larga.</p><p><strong>Historia:</strong> Observadores vieron el ajuste y las confirmaciones volvieron a sentirse normales.</p>",
+                "objectives": [
+                  "Explicar cómo el ajuste de dificultad estabiliza la red tras un shock."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M4-T11-C4",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Las reglas globales permiten moverse",
+                    "La geografía dicta las reglas",
+                    "Una zona manda para siempre",
+                    "Moverse rompe el protocolo"
+                  ],
+                  "question": "La lección geografía ≠ control subraya que:",
+                  "style_note": "El principio claro convence a ISTJ; la analogía de la liga engancha a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Las reglas globales permiten moverse"
+                },
+                "title": "Lección: geografía ≠ control",
+                "content": "<p><strong>Estructura:</strong> Con reglas globales y abiertas, los participantes se mueven. La concentración provoca choques de corto plazo pero no cambia reglas.</p><p><strong>Ejemplo familiar:</strong> La liga sigue aunque cierre un estadio; los partidos cambian de sede.</p><p><strong>Enfoque comunitario:</strong> La descentralización convierte golpes locales en desvíos temporales.</p><p><strong>Historia:</strong> Una cooperativa minera se dividió en dos regiones y ambas volvieron a conectarse sin drama.</p>",
+                "objectives": [
+                  "Resumir por qué moverse no altera las reglas de Bitcoin."
+                ],
+                "duration_min": 3
+              }
+            ]
+          },
+          {
+            "id": "M4-T12",
+            "name": "4.12 El Salvador adopta Bitcoin",
+            "cards": [
+              {
+                "id": "M4-T12-C1",
+                "title": "Videolección: El Salvador adopta Bitcoin",
+                "duration_min": 5,
+                "youtube_video_link_en": "",
+                "youtube_video_link_es": ""
+              },
+              {
+                "id": "M4-T12-C2",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Resultados mixtos que mejoran con capacitación",
+                    "Perfección instantánea",
+                    "Imposible de aplicar",
+                    "Aceptación total sin entrenamiento"
+                  ],
+                  "question": "Los primeros resultados suelen verse:",
+                  "style_note": "El realismo apela a ISTJ; las escenas familiares y de mercado conectan con ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Resultados mixtos que mejoran con capacitación"
+                },
+                "title": "Experimento nacional, historias locales",
+                "content": "<p><strong>Estructura:</strong> Un país reconoció Bitcoin como moneda de curso legal, promoviendo billeteras y comercios. Los resultados varían según región y usuarios.</p><p><strong>Ejemplo familiar:</strong> Una madre pagó con Lightning en un puesto de playa; otra tienda prefirió efectivo. La adopción mezclada es normal al inicio.</p><p><strong>Enfoque comunitario:</strong> La infraestructura y la capacitación moldean los resultados.</p><p><strong>Historia:</strong> Un mercado local aceleró pagos pequeños tras talleres básicos.</p>",
+                "objectives": [
+                  "Describir cómo la política y la educación influyen en la adopción."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M4-T12-C3",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Comisiones bajas y remesas rápidas",
+                    "Ganancias garantizadas",
+                    "Nada cambia",
+                    "No hace falta soporte"
+                  ],
+                  "question": "Un beneficio citado con frecuencia es:",
+                  "style_note": "El equilibrio pros/contras convence a ISTJ; las historias de panadería y remesas conectan con ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Comisiones bajas y remesas rápidas"
+                },
+                "title": "Comercios y remesas",
+                "content": "<p><strong>Estructura:</strong> Beneficios: microventas con bajas comisiones y remesas más rápidas; retos: educación, dispositivos y soporte.</p><p><strong>Ejemplo familiar:</strong> Familiares enviaron valor un domingo y estuvo disponible al instante para útiles escolares.</p><p><strong>Enfoque comunitario:</strong> Los comercios comparten mejores prácticas.</p><p><strong>Historia:</strong> Una panadería adoptó Lightning para artículos pequeños; las conversiones a efectivo eran semanales.</p>",
+                "objectives": [
+                  "Identificar beneficios y obstáculos para comercios y familias."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M4-T12-C4",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Transacciones guiadas y pequeñitas",
+                    "Solo carteles",
+                    "Pagos enormes al inicio",
+                    "Evitar la asistencia"
+                  ],
+                  "question": "¿Qué acción genera más confianza?",
+                  "style_note": "El enfoque práctico encanta a ISTJ/ISFJ; el acompañamiento paciente motiva a ESFJ/ESFP.",
+                  "correct_answer": "Transacciones guiadas y pequeñitas"
+                },
+                "title": "Primero educación",
+                "content": "<p><strong>Estructura:</strong> Señalética clara, billeteras simples y apoyo paciente valen más que los eslóganes. Empieza con montos pequeños para generar confianza.</p><p><strong>Ejemplo familiar:</strong> Los padres enseñan a los hijos a pedir direcciones nuevas y confirmar recibos.</p><p><strong>Enfoque comunitario:</strong> Mentores acompañan a nuevos comercios para evitar errores.</p><p><strong>Historia:</strong> Tras unas ventas guiadas, una comerciante nerviosa empezó a cobrar sin miedo.</p>",
+                "objectives": [
+                  "Resaltar la capacitación práctica para adopciones sostenibles."
+                ],
+                "duration_min": 3
+              }
+            ]
+          },
+          {
+            "id": "M4-T13",
+            "name": "4.13 ¿Qué ocurrirá cuando se minen los 21 millones?",
+            "cards": [
+              {
+                "id": "M4-T13-C1",
+                "title": "Videolección: Después de los 21 millones",
+                "duration_min": 5,
+                "youtube_video_link_en": "",
+                "youtube_video_link_es": ""
+              },
+              {
+                "id": "M4-T13-C2",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Las comisiones por transacción",
+                    "Las firmas",
+                    "El clima",
+                    "El marketing"
+                  ],
+                  "question": "Cuando la subvención baja, los ingresos mineros dependen más de:",
+                  "style_note": "La mecánica directa convence a ISTJ; la analogía de la mesada conecta con ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Las comisiones por transacción"
+                },
+                "title": "Las comisiones sostienen la seguridad",
+                "content": "<p><strong>Estructura:</strong> Con el tiempo baja la subvención; quedan las comisiones como ingreso minero. La competencia por espacio incentiva la honestidad, mientras los nodos imponen reglas.</p><p><strong>Ejemplo familiar:</strong> La mesada disminuye con la edad pero los pagos por tareas (comisiones) siguen: el trabajo se hace igual.</p><p><strong>Enfoque comunitario:</strong> Los usuarios eligen cuándo transar según urgencia y tarifa.</p><p><strong>Historia:</strong> Una familia esperó una hora tranquila para enviar un pago de baja prioridad sin gastar de más.</p>",
+                "objectives": [
+                  "Explicar el cambio de subvención a comisiones."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M4-T13-C3",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Reducir el coste por pago",
+                    "Aumentar el total pagado",
+                    "Acelerar el intervalo de bloques",
+                    "Cambiar reglas"
+                  ],
+                  "question": "Agrupar transacciones ayuda principalmente a:",
+                  "style_note": "El consejo operativo conecta con ISTJ; la analogía de correo y club engancha a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Reducir el coste por pago"
+                },
+                "title": "Mercado de espacio en bloque",
+                "content": "<p><strong>Estructura:</strong> El espacio es limitado, así que los usuarios compiten con comisiones. Herramientas ayudan a planificar o agrupar pagos para ahorrar.</p><p><strong>Ejemplo familiar:</strong> Elegir envío exprés o normal: pagas más por rapidez o esperas por ahorro.</p><p><strong>Enfoque comunitario:</strong> Negocios agrupan pagos para recortar gastos.</p><p><strong>Historia:</strong> Un club agrupó reembolsos semanales y bajó costos.</p>",
+                "objectives": [
+                  "Conectar la puja de comisiones con la prioridad de transacciones."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M4-T13-C4",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Moverse a capas más rápidas",
+                    "Quedarse solo on-chain",
+                    "Detenerse",
+                    "Usar formularios en papel"
+                  ],
+                  "question": "Los pagos pequeños y frecuentes probablemente:",
+                  "style_note": "El diseño por capas convence a ISTJ; la analogía de bóveda y pestaña engancha a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Moverse a capas más rápidas"
+                },
+                "title": "Ahorro y capas",
+                "content": "<p><strong>Estructura:</strong> Cuando las comisiones pesan más, la gente ahorra on-chain y gasta en capas como Lightning para pagos pequeños.</p><p><strong>Ejemplo familiar:</strong> La familia guarda ahorros en una caja fuerte y usa una pestaña para snacks diarios.</p><p><strong>Enfoque comunitario:</strong> Los comercios combinan capas según el monto.</p><p><strong>Historia:</strong> Una asociación guardó fondos a largo plazo on-chain y usó Lightning para gastos de campo.</p>",
+                "objectives": [
+                  "Relacionar la dinámica de comisiones con el uso de capas."
+                ],
+                "duration_min": 3
+              }
+            ]
+          },
+          {
+            "id": "M4-T14",
+            "name": "4.14 Posibles ataques y defensas de Bitcoin",
+            "cards": [
+              {
+                "id": "M4-T14-C1",
+                "title": "Videolección: Ataques y defensas",
+                "duration_min": 5,
+                "youtube_video_link_en": "",
+                "youtube_video_link_es": ""
+              },
+              {
+                "id": "M4-T14-C2",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Aislamiento tipo eclipse",
+                    "Tarifas más baratas",
+                    "Pantallas más grandes",
+                    "Errores de dirección"
+                  ],
+                  "question": "La diversidad de pares ayuda contra:",
+                  "style_note": "Mapear amenaza→defensa ayuda a ISTJ; las rutas de contacto en casa conectan con ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Aislamiento tipo eclipse"
+                },
+                "title": "51 %, eclipse y spam — visión general",
+                "content": "<p><strong>Estructura:</strong> Amenazas: concentración de hash (riesgo de reorg), aislamiento (eclipse) y spam de mempool. Defensas: hash distribuido, diversidad de pares, límites anti-DoS y mercado de tarifas.</p><p><strong>Ejemplo familiar:</strong> No confíes en un solo mensajero; mantén varios canales.</p><p><strong>Enfoque comunitario:</strong> Ejecutar nodos diversos y múltiples pares refuerza la robustez.</p><p><strong>Historia:</strong> Un operador sumó pares tras una lentitud y mejoró la conectividad al instante.</p>",
+                "objectives": [
+                  "Identificar ataques comunes y sus defensas."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M4-T14-C3",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Los bloques inválidos se rechazan y no cobran",
+                    "Los bloques inválidos reciben pago parcial",
+                    "Los bloques inválidos se guardan para luego",
+                    "Los bloques inválidos se convierten en comisiones"
+                  ],
+                  "question": "Los incentivos económicos indican que:",
+                  "style_note": "Las consecuencias de reglas convencen a ISTJ; la analogía de los quehaceres ayuda a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Los bloques inválidos se rechazan y no cobran"
+                },
+                "title": "Escudos económicos",
+                "content": "<p><strong>Estructura:</strong> Atacar cuesta. Las comisiones premian la inclusión; los bloques inválidos no cobran; el comportamiento honesto es el equilibrio.</p><p><strong>Ejemplo familiar:</strong> Hacer mal las tareas no ahorra tiempo si toca repetirlas.</p><p><strong>Enfoque comunitario:</strong> Entender incentivos reduce el pánico.</p><p><strong>Historia:</strong> Un susto por supuestos \"doble gastos gratis\" se disipó tras repasar los incentivos.</p>",
+                "objectives": [
+                  "Explicar cómo los incentivos desaniman ataques."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M4-T14-C4",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Esperar más confirmaciones en ventas de alto valor",
+                    "Aceptar cero confirmaciones siempre",
+                    "No dar recibos",
+                    "Reglas aleatorias"
+                  ],
+                  "question": "¿Qué política reduce disputas en ventas grandes?",
+                  "style_note": "Las políticas claras gustan a ISTJ; la escena de caja conecta con ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Esperar más confirmaciones en ventas de alto valor"
+                },
+                "title": "Hábitos operativos",
+                "content": "<p><strong>Estructura:</strong> Mantén software actualizado, pares diversos y respaldos listos. Para pagos grandes, espera más confirmaciones.</p><p><strong>Ejemplo familiar:</strong> Compras grandes requieren revisiones extra; las pequeñas, sentido común.</p><p><strong>Enfoque comunitario:</strong> Publica políticas claras de pago.</p><p><strong>Historia:</strong> Un vendedor redujo disputas tras colocar las reglas de confirmación en la caja.</p>",
+                "objectives": [
+                  "Adoptar prácticas sencillas que suben el margen de seguridad."
+                ],
+                "duration_min": 3
+              }
+            ]
+          },
+          {
+            "id": "M4-T15",
+            "name": "4.15 Bitcoin y la transición energética",
+            "cards": [
+              {
+                "id": "M4-T15-C1",
+                "title": "Videolección: Bitcoin y la transición energética",
+                "duration_min": 5,
+                "youtube_video_link_en": "",
+                "youtube_video_link_es": ""
+              },
+              {
+                "id": "M4-T15-C2",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Absorber excedentes y pausar cuando haya estrés",
+                    "Forzar producción constante",
+                    "Subir precios minoristas",
+                    "Bloquear proyectos nuevos"
+                  ],
+                  "question": "La minería ayuda a renovables al:",
+                  "style_note": "El pensamiento sistémico favorece a ISTJ; las analogías hogar/red conectan con ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Absorber excedentes y pausar cuando haya estrés"
+                },
+                "title": "Demanda flexible, oferta variable",
+                "content": "<p><strong>Estructura:</strong> Las renovables varían; las redes necesitan cargas flexibles. La minería puede absorber exceso y pausar en estrés, mejorando la utilización.</p><p><strong>Ejemplo familiar:</strong> Poner la lavadora cuando el sol está fuerte.</p><p><strong>Enfoque comunitario:</strong> Proyectos se emparejan con renovables para estabilizar ingresos.</p><p><strong>Historia:</strong> Un parque eólico probó mineros para monetizar recortes; apagar durante tormentas ayudó a la estabilidad.</p>",
+                "objectives": [
+                  "Conectar la flexibilidad de la minería con la integración renovable."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M4-T15-C3",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Reducir desperdicio al usarlo productivamente",
+                    "Incrementar desperdicio",
+                    "Reemplazar todas las redes",
+                    "Eliminar mantenimiento"
+                  ],
+                  "question": "Usar energía varada para minar puede:",
+                  "style_note": "La causa→efecto clara convence a ISTJ; la analogía de subproductos ayuda a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Reducir desperdicio al usarlo productivamente"
+                },
+                "title": "Gas varado y mitigación de metano",
+                "content": "<p><strong>Estructura:</strong> Energía remota o varada (como gas venteado) puede convertirse en electricidad in situ para minar, reduciendo desperdicio y creando valor.</p><p><strong>Ejemplo familiar:</strong> Aprovechar calor de la cocina para calentar agua: usar subproductos.</p><p><strong>Enfoque comunitario:</strong> Proyectos rurales convierten pasivos en ingresos.</p><p><strong>Historia:</strong> Un piloto usó gas desperdiciado para alimentar mineros: menos venteo, más ingresos.</p>",
+                "objectives": [
+                  "Describir cómo la minería monetiza energía varada."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M4-T15-C4",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Informes transparentes y diálogo",
+                    "Información mínima",
+                    "Sin contacto",
+                    "Solo marketing"
+                  ],
+                  "question": "¿Qué aumenta la confianza comunitaria?",
+                  "style_note": "El enfoque cívico atrae a ESFJ/ISFJ; las opciones directas sirven a ISTJ; el tono narrativo motiva a ESFP.",
+                  "correct_answer": "Informes transparentes y diálogo"
+                },
+                "title": "Conversaciones con la comunidad",
+                "content": "<p><strong>Estructura:</strong> Métricas transparentes (ruido, energía, recortes, empleos) mantienen diálogos constructivos. Los buenos proyectos publican paneles y aceptan auditorías.</p><p><strong>Ejemplo familiar:</strong> Un presupuesto pegado en la nevera genera confianza.</p><p><strong>Enfoque comunitario:</strong> Las sesiones abiertas reducen conflictos.</p><p><strong>Historia:</strong> Tras reportes mensuales, vecinas escépticas pasaron a ser neutrales o aliadas.</p>",
+                "objectives": [
+                  "Impulsar la transparencia como herramienta de aceptación social."
+                ],
+                "duration_min": 3
+              }
+            ]
+          },
+          {
+            "id": "M4-T16",
+            "name": "4.16 Bitcoin y la economía global del trabajo remoto",
+            "cards": [
+              {
+                "id": "M4-T16-C1",
+                "title": "Videolección: Bitcoin y el trabajo remoto global",
+                "duration_min": 5,
+                "youtube_video_link_en": "",
+                "youtube_video_link_es": ""
+              },
+              {
+                "id": "M4-T16-C2",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Liquidaciones fronterizas rápidas",
+                    "Pagos más lentos",
+                    "Visitas obligatorias a oficina",
+                    "Facturas solo en papel"
+                  ],
+                  "question": "Bitcoin ayuda a trabajadores remotos permitiendo:",
+                  "style_note": "La claridad de resultado gusta a ISTJ; la escena de compras y equipo remoto atrae a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Liquidaciones fronterizas rápidas"
+                },
+                "title": "Facturas sin fronteras",
+                "content": "<p><strong>Estructura:</strong> Bitcoin permite pagos transfronterizos rápidos sin esperar días ni depender de intermediarios. Los trabajadores pueden fijar precios en una unidad neutral y liquidar globalmente.</p><p><strong>Ejemplo familiar:</strong> Una diseñadora cobra el viernes y compra víveres ese mismo día.</p><p><strong>Enfoque comunitario:</strong> El talento remoto trae ingresos externos a las comunidades.</p><p><strong>Historia:</strong> Un equipo en tres continentes cerraba cuentas cada semana vía Lightning: los bancos ya no marcaban el ritmo.</p>",
+                "objectives": [
+                  "Explicar cómo Bitcoin agiliza los pagos remotos."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M4-T16-C3",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Un reparto de conversión definido",
+                    "Sin plan",
+                    "Operar por impulsos diarios",
+                    "Ignorar facturas"
+                  ],
+                  "question": "¿Qué reduce el estrés a quienes cobran en Bitcoin?",
+                  "style_note": "El consejo de proceso ayuda a ISTJ; el tono de presupuesto familiar conecta con ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Un reparto de conversión definido"
+                },
+                "title": "Presupuesto en mercados volátiles",
+                "content": "<p><strong>Estructura:</strong> Se puede convertir una parte al recibir: algo a moneda local para gastos, algo para ahorro. Reglas claras reducen estrés.</p><p><strong>Ejemplo familiar:</strong> Un reparto simple: 70 % gastos, 30 % ahorro, con revisiones periódicas.</p><p><strong>Enfoque comunitario:</strong> Freelancers comparten estrategias en meetups.</p><p><strong>Historia:</strong> Una escritora siguió un presupuesto estable y evitó decisiones impulsivas durante la volatilidad.</p>",
+                "objectives": [
+                  "Mostrar presupuestos prácticos ante precios variables."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M4-T16-C4",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Nuevas habilidades y servicios locales",
+                    "Mayores fricciones",
+                    "Ningún cambio",
+                    "Menos educación"
+                  ],
+                  "question": "Un efecto comunitario de ingresos remotos en Bitcoin es:",
+                  "style_note": "El progreso comunitario motiva a ESFJ/ISFJ; la claridad convence a ISTJ; historias inspiradoras animan a ESFP.",
+                  "correct_answer": "Nuevas habilidades y servicios locales"
+                },
+                "title": "Impacto local, acceso global",
+                "content": "<p><strong>Estructura:</strong> Los ingresos globales pueden financiar educación, salud y microempresas locales. Las redes neutrales reducen comisiones que suelen irse de la comunidad.</p><p><strong>Ejemplo familiar:</strong> Un padre financia un curso para su hija con trabajos transfronterizos.</p><p><strong>Enfoque comunitario:</strong> Los pueblos con trabajadores remotos ven nuevos cafés, talleres y coworks.</p><p><strong>Historia:</strong> Un círculo de estudio enseñó a facturar; en meses varios miembros consiguieron clientes globales.</p>",
+                "objectives": [
+                  "Conectar ingresos globales con desarrollo local."
+                ],
+                "duration_min": 3
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

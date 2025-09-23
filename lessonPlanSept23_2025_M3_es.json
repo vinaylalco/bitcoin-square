@@ -1,0 +1,1615 @@
+{
+  "course": {
+    "id": "btc-full-course",
+    "name": "Curso completo de BTC",
+    "modules": [
+      {
+        "id": "M3",
+        "name": "Módulo 3: Custodia, seguridad y uso práctico",
+        "topics": [
+          {
+            "id": "M3-T01",
+            "name": "3.1 Si no son tus llaves, no es tu bitcoin",
+            "cards": [
+              {
+                "id": "M3-T01-C1",
+                "title": "Videolección: Si no son tus llaves, no es tu bitcoin",
+                "duration_min": 5,
+                "youtube_video_link_en": "",
+                "youtube_video_link_es": ""
+              },
+              {
+                "id": "M3-T01-C2",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Una captura de pantalla de tu saldo",
+                    "Un correo del soporte",
+                    "La posesión de las llaves privadas",
+                    "Un recibo de un amigo"
+                  ],
+                  "question": "¿Qué demuestra que controlas tu bitcoin?",
+                  "style_note": "El repaso claro ayuda a ISTJ/ISFJ; la historia de las llaves de casa y la vecina engancha a ESFJ/ESFP.",
+                  "correct_answer": "La posesión de las llaves privadas"
+                },
+                "title": "Por qué llaves = control",
+                "content": "<p><strong>Principio:</strong> Quien controla las llaves privadas controla el bitcoin. Si las tiene un custodio, tú solo tienes una promesa, no el activo. Es como la diferencia entre tener la bicicleta en tu casa y guardar un vale que alguien promete respetar.</p><p><strong>Ejemplo familiar:</strong> Las llaves de la casa se quedan con los padres. Si una vecina se ofrece a guardarlas “para mayor comodidad”, la familia pierde control directo. La casa sigue siendo suya, pero el acceso depende de los horarios y la honestidad de la vecina.</p><p><strong>Enfoque comunitario:</strong> Cuando muchos vecinos dependen de una sola persona que guarda las llaves, un único fallo puede dejarlos a todos afuera. Distribuir y controlar las llaves de forma individual reduce el riesgo compartido.</p><p><strong>Historia:</strong> Un primo guardó monedas en un exchange. Un congelamiento detuvo los retiros durante días. Luego las pasó a una billetera personal y aprendió a firmar un mensaje para comprobar la propiedad: recuperó el control directo.</p>",
+                "objectives": [
+                  "Distinguir la propiedad del activo de las reclamaciones custodiales.",
+                  "Explicar por qué las llaves privadas representan control."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M3-T01-C3",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Mayor control directo",
+                    "Menor riesgo de contraparte",
+                    "Más riesgo de contraparte",
+                    "Nunca más verificaciones de identidad"
+                  ],
+                  "question": "¿Qué sacrificio suelen implicar los servicios de custodia?",
+                  "style_note": "El contraste binario le funciona a ISTJ; dividir entre familia y comunidad conecta con ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Más riesgo de contraparte"
+                },
+                "title": "Custodia: conveniencia vs. control",
+                "content": "<p><strong>Estructura:</strong> Las cuentas custodiales son cómodas (reseteo de contraseñas, interfaces conocidas), pero añaden riesgo de contraparte. La autocustodia exige más responsabilidad, aunque te da control directo. Muchas personas empiezan con custodia y luego hacen la transición.</p><p><strong>Ejemplo familiar:</strong> Un padre inicia con una billetera alojada para probar con montos pequeños, y mueve los ahorros a una billetera personal cuando ya se siente seguro.</p><p><strong>Enfoque comunitario:</strong> Un club puede mantener un fondo de gasto con un servicio y guardar el dinero de largo plazo en autocustodia para diversificar riesgos.</p><p><strong>Historia:</strong> Un grupo de ayuda comunitaria tenía las donaciones en una plataforma. Un apagón regional los dejó sin acceso el fin de semana. Después dividieron los saldos: el uso diario en un servicio, y las reservas críticas en autocustodia, para evitar puntos únicos de fallo.</p>",
+                "objectives": [
+                  "Comparar la conveniencia de la custodia con el control de la autocustodia."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M3-T01-C4",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Actualizar la gráfica de precio",
+                    "Firmar un mensaje con tu billetera",
+                    "Leer publicaciones de marketing",
+                    "Preguntarle a una mesa de ayuda"
+                  ],
+                  "question": "¿Qué práctica refuerza que controlas los fondos directamente?",
+                  "style_note": "La acción concreta ayuda a ISTJ; la historia del taller compartido conecta con ESFJ/ESFP; el tono de apoyo funciona para ISFJ.",
+                  "correct_answer": "Firmar un mensaje con tu billetera"
+                },
+                "title": "Primeros pasos prácticos",
+                "content": "<p><strong>Estructura:</strong> Empieza en pequeño. Aprende a recibir, enviar y confirmar. Practica firmar un mensaje. Retira gradualmente de los custodios.</p><p><strong>Ejemplo familiar:</strong> Una adolescente recibe un pago pequeño, lo pasa a una billetera personal y revisa la transacción en un explorador de bloques junto con su madre.</p><p><strong>Enfoque comunitario:</strong> En un meetup organizan una sesión práctica: todos envían una cantidad mínima y confirman la recepción para construir confianza compartida.</p><p><strong>Historia:</strong> Después de meses leyendo, una persona retira un monto modesto. La primera confirmación on-chain se siente como recoger las llaves de la casa: la propiedad se vuelve tangible.</p>",
+                "objectives": [
+                  "Describir una ruta gradual y sin estrés hacia la autocustodia."
+                ],
+                "duration_min": 3
+              }
+            ]
+          },
+          {
+            "id": "M3-T02",
+            "name": "3.2 ¿Qué es una billetera?",
+            "cards": [
+              {
+                "id": "M3-T02-C1",
+                "title": "Videolección: ¿Qué es una billetera?",
+                "duration_min": 5,
+                "youtube_video_link_en": "",
+                "youtube_video_link_es": ""
+              },
+              {
+                "id": "M3-T02-C2",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Monedas físicas",
+                    "Usuarios de inicio de sesión",
+                    "Llaves privadas y direcciones",
+                    "Tarjetas SIM"
+                  ],
+                  "question": "¿Qué gestiona principalmente una billetera de bitcoin?",
+                  "style_note": "La claridad en la terminología ayuda a ISTJ; la analogía del buzón y la historia de restauración funcionan para ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Llaves privadas y direcciones"
+                },
+                "title": "Llaves, direcciones y el libro mayor",
+                "content": "<p><strong>Estructura:</strong> Una billetera no “guarda monedas”; guarda llaves que autorizan gastos en el libro mayor global. Genera direcciones (públicas) y almacena llaves privadas (secretas). Piensa en la diferencia entre la dirección del buzón y la llave que te quedas en casa.</p><p><strong>Ejemplo familiar:</strong> Los padres comparten libremente la dirección del hogar, pero cuidan la llave de la puerta. Del mismo modo, puedes compartir una dirección de bitcoin para recibir, pero las llaves privadas se mantienen ocultas.</p><p><strong>Enfoque comunitario:</strong> Un lenguaje claro reduce la confusión en los meetups: “billetera = interfaz de llaves”, no una cuenta bancaria.</p><p><strong>Historia:</strong> Un amigo pensaba que las monedas vivían dentro del teléfono. Tras perder el dispositivo, restauró usando sus 12/24 palabras y vio el mismo saldo en un teléfono nuevo: el libro mayor es global; la billetera es el acceso.</p>",
+                "objectives": [
+                  "Definir el papel de una billetera como gestora de llaves.",
+                  "Diferenciar direcciones de llaves privadas."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M3-T02-C3",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Bóveda solo en frío",
+                    "Billetera caliente para montos pequeños",
+                    "Registros solo en papel",
+                    "Custodio para todo"
+                  ],
+                  "question": "¿Qué configuración se ajusta mejor al gasto diario?",
+                  "style_note": "Los análisis de decisión ayudan a ISTJ; la analogía bolsillo vs. caja fuerte resuena con ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Billetera caliente para montos pequeños"
+                },
+                "title": "Caliente vs. fría",
+                "content": "<p><strong>Estructura:</strong> Las billeteras calientes se conectan a internet (son convenientes, pero más expuestas). Las billeteras frías mantienen las llaves fuera de línea (menos cómodas, más protegidas). Elige según el monto y la frecuencia de uso.</p><p><strong>Ejemplo familiar:</strong> Como el efectivo en el bolsillo (gasto) vs. el ahorro en la caja fuerte (largo plazo). Mantén saldos pequeños en caliente y los ahorros mayores en frío.</p><p><strong>Enfoque comunitario:</strong> Los grupos locales pueden tener una billetera caliente para reembolsos pequeños, mientras las reservas de largo plazo quedan desconectadas.</p><p><strong>Historia:</strong> Una vendedora del mercado usa una billetera en el teléfono para las ventas diarias, pero cada semana envía las ganancias a una hardware wallet: operación fluida con capas de seguridad.</p>",
+                "objectives": [
+                  "Comparar los pros y contras de las billeteras calientes y frías."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M3-T02-C4",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Las cuentas guardan reclamaciones; las billeteras guardan llaves para gastar",
+                    "Ambas son idénticas",
+                    "Las billeteras son solo para expertos",
+                    "Las cuentas nunca se congelan"
+                  ],
+                  "question": "¿Cuál es la diferencia práctica?",
+                  "style_note": "El contraste nítido beneficia a ISTJ/ISFJ; el ejemplo cotidiano de crédito vs. efectivo conecta con ESFJ/ESFP.",
+                  "correct_answer": "Las cuentas guardan reclamaciones; las billeteras guardan llaves para gastar"
+                },
+                "title": "Cuentas vs. billeteras",
+                "content": "<p><strong>Estructura:</strong> Una cuenta en un exchange es un servicio; una billetera es software o hardware que controlas. La cuenta muestra pagarés; la billetera te permite gastar en cadena.</p><p><strong>Ejemplo familiar:</strong> Crédito en una tienda vs. efectivo en casa. El crédito es cómodo pero puede congelarse; el efectivo lo usas cuando quieras.</p><p><strong>Enfoque comunitario:</strong> Los clubes reducen riesgos guardando parte de los fondos en una billetera que operan ellos mismos, no solo en saldos de servicios.</p><p><strong>Historia:</strong> Cuando un servicio pausó retiros, una familia con billetera personal siguió operando con normalidad: la independencia mantuvo la continuidad.</p>",
+                "objectives": [
+                  "Diferenciar las cuentas de servicio de las billeteras en autocustodia."
+                ],
+                "duration_min": 3
+              }
+            ]
+          },
+          {
+            "id": "M3-T03",
+            "name": "3.3 Billeteras hardware (Jade, SeedSigner, Passport…)",
+            "cards": [
+              {
+                "id": "M3-T03-C1",
+                "title": "Videolección: Billeteras hardware",
+                "duration_min": 5,
+                "youtube_video_link_en": "",
+                "youtube_video_link_es": ""
+              },
+              {
+                "id": "M3-T03-C2",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Acceso siempre en línea",
+                    "Almacenamiento y firma de llaves fuera de línea",
+                    "Ganancia garantizada",
+                    "Sin necesidad de aprender nada"
+                  ],
+                  "question": "¿Cuál es el principal beneficio de una billetera hardware?",
+                  "style_note": "La claridad del proceso satisface a ISTJ/ISFJ; los ejemplos familiares y de tesorería compartida enganchan a ESFJ/ESFP.",
+                  "correct_answer": "Almacenamiento y firma de llaves fuera de línea"
+                },
+                "title": "Propósito y patrones",
+                "content": "<p><strong>Estructura:</strong> Las billeteras hardware mantienen las llaves privadas fuera de línea y firman transacciones en un entorno controlado. Los dispositivos varían, pero la meta es la misma: reducir la exposición mientras permiten gastar con seguridad.</p><p><strong>Ejemplo familiar:</strong> Piensa en un dispositivo para firmar cheques guardado en la caja fuerte. Preparas el pago, conectas el equipo para firmar y luego lo guardas. El dinero del día a día sigue a la mano; los ahorros de largo plazo permanecen protegidos.</p><p><strong>Enfoque comunitario:</strong> Para tesorerías compartidas, estos dispositivos establecen un estándar que todos los miembros pueden aprender juntos.</p><p><strong>Historia:</strong> Una madre recibe su ingreso mensual en una billetera del teléfono, pero aparta una parte en una hardware wallet. Cuando cambió de computadora portátil, nada se rompió: las llaves nunca tocaron el equipo.</p>",
+                "objectives": [
+                  "Explicar cómo las billeteras hardware reducen la exposición.",
+                  "Describir el modelo de firmar y desconectar."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M3-T03-C3",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Usuario de redes sociales",
+                    "Dirección de destino y monto",
+                    "Anuncios del explorador de bloques",
+                    "Fondo de pantalla del teléfono"
+                  ],
+                  "question": "¿Qué debes confirmar en el propio dispositivo?",
+                  "style_note": "La verificación concreta en el dispositivo atrae a ISTJ; la historia del casi error conecta con ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Dirección de destino y monto"
+                },
+                "title": "Diversidad de dispositivos, mismo objetivo",
+                "content": "<p><strong>Estructura:</strong> Los modelos cambian (con cámara, aislados, USB) en experiencia y funciones. Lo esencial se mantiene: generar y guardar llaves fuera de línea, verificar los datos en la pantalla del dispositivo y confirmar a propósito.</p><p><strong>Ejemplo familiar:</strong> Algunos prefieren un equipo sencillo con pantalla clara; otros eligen opciones modulares o estilo DIY. Elige el formato que tu hogar pueda usar con confianza.</p><p><strong>Enfoque comunitario:</strong> Enseña a revisar direcciones y montos en el dispositivo antes de aprobar.</p><p><strong>Historia:</strong> En un día agitado, un padre estuvo a punto de aprobar la dirección equivocada copiada desde un portapapeles. La pantalla del dispositivo mostró el dato correcto y evitó el error a último minuto.</p>",
+                "objectives": [
+                  "Reconocer distintos patrones de experiencia en hardware.",
+                  "Reforzar el hábito de verificar en el dispositivo."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M3-T03-C4",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Movimientos irregulares sin registro",
+                    "Barridos periódicos y pruebas de restauración",
+                    "Aprobar transacciones a ciegas",
+                    "Compartir las palabras de recuperación"
+                  ],
+                  "question": "¿Qué hábito favorece la seguridad a largo plazo?",
+                  "style_note": "El pensamiento tipo checklist encaja con ISTJ/ISFJ; la rutina familiar y la idea del meetup atraen a ESFJ/ESFP.",
+                  "correct_answer": "Barridos periódicos y pruebas de restauración"
+                },
+                "title": "Rutinas en el hogar",
+                "content": "<p><strong>Estructura:</strong> Define una rutina: monto pequeño en caliente para el uso diario; barrido periódico a hardware y verificación de respaldos.</p><p><strong>Ejemplo familiar:</strong> El sábado es el “día de barrido”: revisan transacciones, envían a frío y prueban una restauración con las palabras de recuperación.</p><p><strong>Enfoque comunitario:</strong> Un checklist mensual en los meetups crea hábitos constantes y confianza compartida.</p><p><strong>Historia:</strong> Tras perder el teléfono, una restauración rápida validó la rutina: calma en lugar de pánico.</p>",
+                "objectives": [
+                  "Trazar una rutina repetible de almacenamiento en frío."
+                ],
+                "duration_min": 3
+              }
+            ]
+          },
+          {
+            "id": "M3-T04",
+            "name": "3.4 Billeteras de software (Samurai, Sparrow, Electrum)",
+            "cards": [
+              {
+                "id": "M3-T04-C1",
+                "title": "Videolección: Billeteras de software",
+                "duration_min": 5,
+                "youtube_video_link_en": "",
+                "youtube_video_link_es": ""
+              },
+              {
+                "id": "M3-T04-C2",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Reutilizar direcciones al azar",
+                    "Etiquetas y notas",
+                    "Publicar llaves en público",
+                    "Ignorar las confirmaciones"
+                  ],
+                  "question": "Una función útil para organizar transacciones es:",
+                  "style_note": "Recordar funciones ayuda a ISTJ; las historias de familia y freelancer apoyan a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Etiquetas y notas"
+                },
+                "title": "Capacidades y compromisos",
+                "content": "<p><strong>Estructura:</strong> Las billeteras de software van desde opciones para principiantes hasta herramientas avanzadas. Muchas permiten etiquetar transacciones, usar coin control y elegir distintas conexiones de red. Son flexibles, pero viven en dispositivos conectados: requiere hábitos cuidadosos.</p><p><strong>Ejemplo familiar:</strong> Un padre etiqueta los reembolsos del súper; la hija lleva sus ahorros y metas con notas.</p><p><strong>Enfoque comunitario:</strong> Las convenciones compartidas (etiquetas, notas) ayudan a que los voluntarios concilien actividades de varias personas.</p><p><strong>Historia:</strong> Un freelancer usa una billetera de escritorio para separar los UTXO del trabajo y los personales, lo que evita enredos en la temporada de impuestos.</p>",
+                "objectives": [
+                  "Resumir los puntos fuertes de las billeteras de software.",
+                  "Identificar funciones diarias como el etiquetado."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M3-T04-C3",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Para aumentar la independencia y reducir terceros",
+                    "Para eliminar todas las confirmaciones",
+                    "Para obligar a otros a pagar comisiones",
+                    "Para garantizar ganancias"
+                  ],
+                  "question": "¿Por qué conectar una billetera a tu propio nodo?",
+                  "style_note": "El análisis de infraestructura sirve a ISTJ; los ejemplos de nodo en casa y nodo comunitario motivan a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Para aumentar la independencia y reducir terceros"
+                },
+                "title": "Opciones de conexión",
+                "content": "<p><strong>Estructura:</strong> Las billeteras pueden conectarse a servidores públicos o a tu propio nodo. Los servidores públicos permiten empezar rápido; tu nodo aumenta la independencia y minimiza la filtración de datos.</p><p><strong>Ejemplo familiar:</strong> Inician con el servidor predeterminado; más adelante se conectan al nodo en casa para ganar autonomía.</p><p><strong>Enfoque comunitario:</strong> Un nodo compartido por la comunidad mejora la confiabilidad para los usuarios locales.</p><p><strong>Historia:</strong> Durante una caída de servicio, una familia se conectó a su nodo doméstico y siguió operando sin sobresaltos.</p>",
+                "objectives": [
+                  "Diferenciar conexiones a servidores públicos y a nodos propios."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M3-T04-C4",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Sin etiquetas en ningún lado",
+                    "Usar palabras de recuperación y etiquetas consistentes",
+                    "Compartir contraseñas sin cuidado",
+                    "Aprobar códigos QR desconocidos"
+                  ],
+                  "question": "¿Qué práctica facilitó retomar todo tras un problema con el dispositivo?",
+                  "style_note": "Los hábitos con historia apoyan a ISFJ/ESFJ/ESFP; la claridad de proceso ayuda a ISTJ.",
+                  "correct_answer": "Usar palabras de recuperación y etiquetas consistentes"
+                },
+                "title": "Patrones de uso diario",
+                "content": "<p><strong>Estructura:</strong> Mantén montos pequeños en caliente, etiqueta transacciones, verifica direcciones y respalda las palabras de recuperación.</p><p><strong>Ejemplo familiar:</strong> Los padres usan una billetera de escritorio para las cuentas del hogar y dejan notas por categoría; los hijos usan billeteras móviles para sus mesadas.</p><p><strong>Enfoque comunitario:</strong> Los voluntarios adoptan un esquema de etiquetas compartido para que los reembolsos cuadren rápido.</p><p><strong>Historia:</strong> Un reinicio inesperado del dispositivo no fue un desastre: las palabras de recuperación devolvieron el acceso y las etiquetas hicieron sencilla la puesta al día.</p>",
+                "objectives": [
+                  "Describir hábitos prácticos de organización en billeteras de software."
+                ],
+                "duration_min": 3
+              }
+            ]
+          },
+          {
+            "id": "M3-T05",
+            "name": "3.5 Billeteras DIY",
+            "cards": [
+              {
+                "id": "M3-T05-C1",
+                "title": "Videolección: Billeteras DIY",
+                "duration_min": 5,
+                "youtube_video_link_en": "",
+                "youtube_video_link_es": ""
+              },
+              {
+                "id": "M3-T05-C2",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Cero aprendizaje necesario",
+                    "Mayor transparencia y flexibilidad",
+                    "Ganancias garantizadas",
+                    "Declaraciones de impuestos automáticas"
+                  ],
+                  "question": "Un beneficio típico de las billeteras DIY es:",
+                  "style_note": "El análisis de ventajas y costos apoya a ISTJ; la historia de la noche maker engancha a ESFJ/ESFP; el tono de tranquilidad sirve a ISFJ.",
+                  "correct_answer": "Mayor transparencia y flexibilidad"
+                },
+                "title": "¿Por qué DIY?",
+                "content": "<p><strong>Estructura:</strong> Las billeteras DIY buscan transparencia y flexibilidad: construir con componentes reduce la dependencia de un solo proveedor. El costo es el tiempo, la curva de aprendizaje y la disciplina operativa.</p><p><strong>Ejemplo familiar:</strong> Como armar tu propia PC: eliges las piezas y entiendes cómo encajan.</p><p><strong>Enfoque comunitario:</strong> Las noches de taller permiten aprender en grupo y validar pasos colectivamente.</p><p><strong>Historia:</strong> Una persona entusiasta armó un dispositivo de firma simple. El proceso profundizó su comprensión de las transacciones y los respaldos: confianza gracias al trabajo con las manos.</p>",
+                "objectives": [
+                  "Explicar las motivaciones y los costos de las billeteras DIY."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M3-T05-C3",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Sin notas",
+                    "Documentación detallada y reproducible",
+                    "Apurarse la primera vez con montos grandes",
+                    "Improvisar cada vez"
+                  ],
+                  "question": "¿Qué mejora la repetibilidad en los armados DIY?",
+                  "style_note": "A ISTJ le importa la documentación; la analogía de la receta y la revisión entre pares conectan con ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Documentación detallada y reproducible"
+                },
+                "title": "Hábitos operativos",
+                "content": "<p><strong>Estructura:</strong> Documenta el armado, guarda checksums e instrucciones y prueba con montos diminutos primero.</p><p><strong>Ejemplo familiar:</strong> Conserva una guía impresa con fotos, como una receta familiar, para que cualquiera en casa pueda repetir los pasos.</p><p><strong>Enfoque comunitario:</strong> Comparte guías reproducibles y revisen los pasos entre pares.</p><p><strong>Historia:</strong> Meses después armaron un segundo dispositivo con la misma guía; la repetibilidad suave confirmó el proceso.</p>",
+                "objectives": [
+                  "Describir la documentación y las pruebas necesarias para dispositivos DIY."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M3-T05-C4",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Transparencia y aprendizaje práctico",
+                    "Cero esfuerzo de aprendizaje",
+                    "Quedar atado a un proveedor",
+                    "Solo valor de reventa inmediato"
+                  ],
+                  "question": "El DIY es más adecuado cuando valoras:",
+                  "style_note": "Evaluar el encaje ayuda a ISTJ; la división de tareas en familia y el ejemplo del club conectan con ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Transparencia y aprendizaje práctico"
+                },
+                "title": "Cuándo encaja el DIY",
+                "content": "<p><strong>Estructura:</strong> El DIY es ideal para quienes disfrutan cacharrear, para entornos educativos o cuando se necesita máxima transparencia. Los dispositivos comerciales pueden convenir si se prioriza la simplicidad.</p><p><strong>Ejemplo familiar:</strong> Un hermano experto mantiene el firmador DIY; el resto usa una hardware wallet convencional.</p><p><strong>Enfoque comunitario:</strong> Un club conserva un equipo DIY para aprender, pero recomienda modelos populares al resto.</p><p><strong>Historia:</strong> El equipo DIY ayudó a responder preguntas difíciles en talleres: la claridad se difundió más allá de la persona que lo armó.</p>",
+                "objectives": [
+                  "Identificar situaciones donde el DIY es la mejor opción."
+                ],
+                "duration_min": 3
+              }
+            ]
+          },
+          {
+            "id": "M3-T06",
+            "name": "3.6 Billeteras multisig",
+            "cards": [
+              {
+                "id": "M3-T06-C1",
+                "title": "Videolección: Billeteras multisig",
+                "duration_min": 5,
+                "youtube_video_link_en": "",
+                "youtube_video_link_es": ""
+              },
+              {
+                "id": "M3-T06-C2",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Cualquier llave sola puede gastar",
+                    "Se necesitan dos de tres llaves para firmar",
+                    "Las tres llaves deben firmar",
+                    "Las llaves son opcionales"
+                  ],
+                  "question": "¿Qué significa un esquema 2-de-3 en multisig?",
+                  "style_note": "La definición exacta satisface a ISTJ; los escenarios de familia y club motivan a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Se necesitan dos de tres llaves para firmar"
+                },
+                "title": "Muchas llaves, reglas claras",
+                "content": "<p><strong>Estructura:</strong> Multisig exige varias llaves (por ejemplo, 2-de-3) para gastar. Distribuye la responsabilidad y reduce el riesgo de que falle un solo dispositivo.</p><p><strong>Ejemplo familiar:</strong> Dos padres guardan llaves separadas y un tercer respaldo queda almacenado con seguridad. Cualquier par puede aprobar un gasto.</p><p><strong>Enfoque comunitario:</strong> Los clubes asignan llaves a diferentes responsables; nadie puede actuar en solitario.</p><p><strong>Historia:</strong> Cuando un dispositivo falló, los fondos siguieron seguros. El grupo lo reemplazó y continuó: resiliencia en acción.</p>",
+                "objectives": [
+                  "Explicar qué es multisig y sus beneficios de resiliencia."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M3-T06-C3",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Guardar todas las llaves en el mismo cajón",
+                    "Distribuir llaves entre dispositivos y lugares",
+                    "No dejar documentación",
+                    "Nunca hacer pruebas"
+                  ],
+                  "question": "¿Qué práctica refuerza la resiliencia de un multisig?",
+                  "style_note": "La lógica tipo checklist apoya a ISTJ; los ejemplos de familiares y mapas para el club conectan con ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Distribuir llaves entre dispositivos y lugares"
+                },
+                "title": "Patrones de configuración",
+                "content": "<p><strong>Estructura:</strong> Mezcla dispositivos y ubicaciones. Guarda un mapa de quién tiene cada llave y pasos claros de recuperación. Empieza con montos pequeños.</p><p><strong>Ejemplo familiar:</strong> Un dispositivo en casa, otro con un pariente de confianza y otro en almacenamiento seguro.</p><p><strong>Enfoque comunitario:</strong> Documenten políticas de quórum y procedimientos de rotación; acuerden cómo reemplazar una llave perdida.</p><p><strong>Historia:</strong> Un simulacro planificado permitió reemplazar una llave sin sobresaltos, validando el plan antes de una emergencia.</p>",
+                "objectives": [
+                  "Describir diseños simples y resilientes de multisig."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M3-T06-C4",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Compras diarias diminutas",
+                    "Ahorros de alto valor o fondos compartidos",
+                    "Propinas únicas",
+                    "Direcciones desechables"
+                  ],
+                  "question": "El multisig es más apropiado para:",
+                  "style_note": "Relacionar el uso ayuda a ISTJ; el ejemplo de ahorro vs. caja chica orienta a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Ahorros de alto valor o fondos compartidos"
+                },
+                "title": "Cuándo conviene el multisig",
+                "content": "<p><strong>Estructura:</strong> Multisig añade coordinación. Conviene para ahorros mayores o tesorerías compartidas donde los pasos extra valen la pena.</p><p><strong>Ejemplo familiar:</strong> Los ahorros para educación van a multisig; el dinero de bolsillo no.</p><p><strong>Enfoque comunitario:</strong> Los fondos de subvenciones o emergencias usan multisig; el efectivo de caja chica se mantiene simple.</p><p><strong>Historia:</strong> Un fondo comunitario evitó un único punto de fallo cuando una persona viajó: los demás pudieron cofirmar pagos urgentes.</p>",
+                "objectives": [
+                  "Relacionar el multisig con escenarios que justifican la coordinación."
+                ],
+                "duration_min": 3
+              }
+            ]
+          },
+          {
+            "id": "M3-T07",
+            "name": "3.7 Cómo guardar tus 12 o 24 palabras",
+            "cards": [
+              {
+                "id": "M3-T07-C1",
+                "title": "Videolección: Cómo guardar tus 12/24 palabras",
+                "duration_min": 5,
+                "youtube_video_link_en": "",
+                "youtube_video_link_es": ""
+              },
+              {
+                "id": "M3-T07-C2",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Fotografiarlas y subirlas a internet",
+                    "Compartirlas con un amigo por chat",
+                    "Escribirlas con claridad y resguardarlas fuera de línea",
+                    "Memorizarlas y descartar todas las copias al instante"
+                  ],
+                  "question": "¿Cuál es la forma más segura de manejar tus 12/24 palabras?",
+                  "style_note": "La regla clara ayuda a ISTJ; la analogía del título de propiedad y las revisiones entre pares orientan a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Escribirlas con claridad y resguardarlas fuera de línea"
+                },
+                "title": "Conceptos básicos de la frase de recuperación",
+                "content": "<p><strong>Estructura:</strong> Tus 12/24 palabras regeneran las llaves. Si alguien las obtiene, puede tomar los fondos. Si las pierdes sin respaldo, el dinero se pierde. Trátalas como el título de la casa.</p><p><strong>Ejemplo familiar:</strong> Escríbelas con letra legible, verifica la ortografía y evita fotos o copias en la nube.</p><p><strong>Enfoque comunitario:</strong> Anima a tus pares a revisar legibilidad y completitud (sin revelar las palabras).</p><p><strong>Historia:</strong> Una tarjeta manchada causó problemas al restaurar. Reescribir con cuidado y verificar palabra por palabra evitó futuros sustos.</p>",
+                "objectives": [
+                  "Explicar el papel y la sensibilidad de las frases de recuperación."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M3-T07-C3",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Poner la etiqueta “Semillas Bitcoin” en el refrigerador",
+                    "Proteger los respaldos del agua/fuego y de miradas curiosas",
+                    "Publicar una foto en el grupo familiar",
+                    "Quedarse con una sola copia expuesta"
+                  ],
+                  "question": "¿Cuál es una práctica prudente?",
+                  "style_note": "La conciencia de riesgos atrae a ISTJ/ISFJ; los ejemplos domésticos conectan con ESFJ/ESFP.",
+                  "correct_answer": "Proteger los respaldos del agua/fuego y de miradas curiosas"
+                },
+                "title": "Resiliencia física",
+                "content": "<p><strong>Estructura:</strong> Piensa en la durabilidad frente a fuego/inundaciones y en el riesgo de robo o curiosidad. Evita lugares obvios.</p><p><strong>Ejemplo familiar:</strong> Guarda una copia sellada en un sitio seguro, no en sobres etiquetados sobre el escritorio.</p><p><strong>Enfoque comunitario:</strong> Comparte recomendaciones generales en los meetups sin revelar configuraciones personales.</p><p><strong>Historia:</strong> Tras una pequeña filtración, la copia en papel siguió legible gracias al resguardo: una previsión sencilla trajo gran alivio.</p>",
+                "objectives": [
+                  "Identificar riesgos ambientales y humanos para los respaldos."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M3-T07-C4",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "No tener plan",
+                    "Una instrucción simple y sellada sobre dónde hallar los respaldos",
+                    "Compartir las palabras por mensaje de texto",
+                    "Dejar pistas en redes sociales"
+                  ],
+                  "question": "¿Qué ayuda a las familias durante emergencias?",
+                  "style_note": "La planificación de emergencias encaja con ISTJ; el enfoque compasivo hacia la familia ayuda a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Una instrucción simple y sellada sobre dónde hallar los respaldos"
+                },
+                "title": "Acceso vs. seguridad",
+                "content": "<p><strong>Estructura:</strong> Equilibra el acceso rápido con el secreto. Considera cómo actuaría tu familia si tú no estás disponible.</p><p><strong>Ejemplo familiar:</strong> Documenta dónde encontrar las instrucciones sin exponer las palabras.</p><p><strong>Enfoque comunitario:</strong> Evalúa procesos con testigos de confianza para emergencias.</p><p><strong>Historia:</strong> Un contratiempo en un viaje retrasó a un padre; la pareja siguió una tarjeta con instrucciones selladas: los fondos quedaron seguros y accesibles.</p>",
+                "objectives": [
+                  "Equilibrar accesibilidad y secreto para las frases de recuperación."
+                ],
+                "duration_min": 3
+              }
+            ]
+          },
+          {
+            "id": "M3-T08",
+            "name": "3.8 Métodos de respaldo",
+            "cards": [
+              {
+                "id": "M3-T08-C1",
+                "title": "Videolección: Métodos de respaldo",
+                "duration_min": 5,
+                "youtube_video_link_en": "",
+                "youtube_video_link_es": ""
+              },
+              {
+                "id": "M3-T08-C2",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Una sola copia, sin probar",
+                    "Varias copias y restauraciones periódicas de prueba",
+                    "Fotos en redes sociales",
+                    "Ubicación desconocida"
+                  ],
+                  "question": "¿Qué combinación describe un respaldo robusto?",
+                  "style_note": "El pensamiento checklist encaja con ISTJ; el escenario de mudanza familiar ayuda a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Varias copias y restauraciones periódicas de prueba"
+                },
+                "title": "Simple, redundante y probado",
+                "content": "<p><strong>Estructura:</strong> Los respaldos deben ser legibles, redundantes (más de una copia), con ubicaciones sensatas y probados con restauraciones pequeñas.</p><p><strong>Ejemplo familiar:</strong> Dos copias: una en casa y otra en un lugar de confianza distinto.</p><p><strong>Enfoque comunitario:</strong> Propongan revisiones trimestrales para confirmar que las instrucciones y el almacenamiento siguen teniendo sentido.</p><p><strong>Historia:</strong> Durante una mudanza se extravió una copia; la segunda copia salvó la situación, demostrando el valor de la redundancia.</p>",
+                "objectives": [
+                  "Resumir los principios de redundancia y pruebas."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M3-T08-C3",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Las palabras de recuperación",
+                    "Una funda del teléfono",
+                    "El fondo de pantalla de escritorio",
+                    "La firma del correo electrónico"
+                  ],
+                  "question": "¿Qué elemento es esencial para restaurar una billetera?",
+                  "style_note": "El recuerdo directo ayuda a ISTJ/ISFJ; el enfoque sencillo para la familia apoya a ESFJ/ESFP.",
+                  "correct_answer": "Las palabras de recuperación"
+                },
+                "title": "Qué respaldar",
+                "content": "<p><strong>Estructura:</strong> Respalda las palabras de recuperación, los detalles de derivación si hacen falta, las passphrases (si existen) y las instrucciones claras. Evita guardar el PIN junto con la semilla.</p><p><strong>Ejemplo familiar:</strong> Mantén las instrucciones separadas de las palabras para reducir un punto único de compromiso.</p><p><strong>Enfoque comunitario:</strong> Usa un lenguaje neutral en los documentos; evita exponer marcas o modelos públicamente.</p><p><strong>Historia:</strong> Una lista clara evitó confusiones al reemplazar un dispositivo perdido.</p>",
+                "objectives": [
+                  "Enumerar los elementos esenciales de un respaldo de billetera."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M3-T08-C4",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Garrapatear en cursiva",
+                    "Usar letras mayúsculas y revisar palabra por palabra",
+                    "Mezclar el orden “por seguridad”",
+                    "Un solo sobre para todo con etiquetas llamativas"
+                  ],
+                  "question": "¿Qué práctica reduce los errores al restaurar?",
+                  "style_note": "El checklist práctico beneficia a ISTJ; la claridad en el hogar ayuda a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Usar letras mayúsculas y revisar palabra por palabra"
+                },
+                "title": "Evitar errores comunes",
+                "content": "<p><strong>Estructura:</strong> La letra ilegible, el orden cambiado y las notas confusas causan fallos. Mantén todo limpio, consistente y verificado.</p><p><strong>Ejemplo familiar:</strong> Escribe en mayúsculas y verifica cada palabra desde la pantalla del dispositivo.</p><p><strong>Enfoque comunitario:</strong> Revisiones anónimas del proceso (sin revelar secretos) mejoran la calidad.</p><p><strong>Historia:</strong> Un sobre mal rotulado provocó un susto; mejorarlo con etiquetas simples lo solucionó.</p>",
+                "objectives": [
+                  "Identificar y prevenir errores comunes en los respaldos."
+                ],
+                "duration_min": 3
+              }
+            ]
+          },
+          {
+            "id": "M3-T09",
+            "name": "3.9 Estrategias de herencia con bitcoin",
+            "cards": [
+              {
+                "id": "M3-T09-C1",
+                "title": "Videolección: Estrategias de herencia con bitcoin",
+                "duration_min": 5,
+                "youtube_video_link_en": "",
+                "youtube_video_link_es": ""
+              },
+              {
+                "id": "M3-T09-C2",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Notas llenas de jerga",
+                    "Instrucciones claras en lenguaje sencillo",
+                    "No tener plan",
+                    "Dar solo pistas verbales"
+                  ],
+                  "question": "¿Qué aumenta la probabilidad de una herencia sin tropiezos?",
+                  "style_note": "La claridad ayuda a ISTJ; el enfoque de cuidados conecta con ISFJ/ESFJ; la sencillez favorece a ESFP.",
+                  "correct_answer": "Instrucciones claras en lenguaje sencillo"
+                },
+                "title": "Planificar la entrega",
+                "content": "<p><strong>Estructura:</strong> Define quién heredará, qué necesita saber y cómo accederá. Mantén instrucciones entendibles para alguien no técnico.</p><p><strong>Ejemplo familiar:</strong> Una carta sellada indica dónde están las instrucciones y quién puede ayudar.</p><p><strong>Enfoque comunitario:</strong> Anima a escribir notas sin jerga para evitar confusiones.</p><p><strong>Historia:</strong> Cuando un cuidador intervino, los pasos en lenguaje llano facilitaron la transferencia sin adivinanzas.</p>",
+                "objectives": [
+                  "Describir los componentes de un plan de herencia sencillo."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M3-T09-C3",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Una sola persona con control total",
+                    "Un quórum simple con roles documentados",
+                    "Sin documentación",
+                    "Solo acuerdos verbales"
+                  ],
+                  "question": "¿Qué estructura reduce el punto único de fallo?",
+                  "style_note": "El marco de gobernanza ayuda a ISTJ; el ejemplo de roles familiares apoya a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Un quórum simple con roles documentados"
+                },
+                "title": "Roles y redundancia",
+                "content": "<p><strong>Estructura:</strong> Considera un quórum simple (por ejemplo, 2-de-3) o guías de confianza. Evita entregar todo el poder a una sola persona salvo que sea imprescindible.</p><p><strong>Ejemplo familiar:</strong> Dos parientes pueden asistir a la persona heredera, evitando cuellos de botella.</p><p><strong>Enfoque comunitario:</strong> Lleva un registro de quién cumple cada rol (no de las semillas) para evitar confusiones.</p><p><strong>Historia:</strong> Perder un contacto causó problemas en un caso; en otro, la lista de roles evitó demoras.</p>",
+                "objectives": [
+                  "Explicar por qué los roles y la redundancia importan en la herencia."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M3-T09-C4",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Ignorar los cambios",
+                    "Revisiones anuales y pequeñas restauraciones de prueba",
+                    "Publicar las semillas para resguardo",
+                    "Depender solo de la memoria"
+                  ],
+                  "question": "¿Qué hábito mantiene confiables los planes con el tiempo?",
+                  "style_note": "La rutina de mantenimiento encaja con ISTJ; el tono de apoyo familiar sirve a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Revisiones anuales y pequeñas restauraciones de prueba"
+                },
+                "title": "Mantenerlo actualizado",
+                "content": "<p><strong>Estructura:</strong> La vida cambia: revisa cada año. Actualiza instrucciones si cambias de dispositivos, ubicaciones o situación familiar.</p><p><strong>Ejemplo familiar:</strong> Un recordatorio en el calendario impulsa un repaso rápido y una restauración pequeña.</p><p><strong>Enfoque comunitario:</strong> Las revisiones anuales en los meetups normalizan el mantenimiento.</p><p><strong>Historia:</strong> Una mudanza habría roto el plan; la revisión anual lo detectó y corrigió a tiempo.</p>",
+                "objectives": [
+                  "Resaltar la importancia de revisar periódicamente los planes de herencia."
+                ],
+                "duration_min": 3
+              }
+            ]
+          },
+          {
+            "id": "M3-T10",
+            "name": "3.10 Estafas con bitcoin",
+            "cards": [
+              {
+                "id": "M3-T10-C1",
+                "title": "Videolección: Estafas con bitcoin",
+                "duration_min": 5,
+                "youtube_video_link_en": "",
+                "youtube_video_link_es": ""
+              },
+              {
+                "id": "M3-T10-C2",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Pedir tus palabras de recuperación",
+                    "Sugerir que etiquetes transacciones",
+                    "Animar a hacer envíos de prueba pequeños",
+                    "Proporcionar documentación abierta"
+                  ],
+                  "question": "¿Cuál es una señal universal de alerta?",
+                  "style_note": "Recordar banderas rojas ayuda a ISTJ/ISFJ; el apoyo familiar conecta con ESFJ/ESFP.",
+                  "correct_answer": "Pedir tus palabras de recuperación"
+                },
+                "title": "Patrones que debes notar",
+                "content": "<p><strong>Estructura:</strong> Las promesas de rendimientos garantizados, la presión para actuar rápido, las solicitudes de tus palabras de recuperación y la suplantación de identidad son patrones comunes.</p><p><strong>Ejemplo familiar:</strong> Un mensaje dice ser del soporte y pide las 24 palabras; los servicios legítimos nunca las solicitan.</p><p><strong>Enfoque comunitario:</strong> Comparte listas de alertas en los meetups.</p><p><strong>Historia:</strong> Una amiga evitó pérdidas al recordar una regla: “Si piden tus 12/24 palabras, es una estafa”.</p>",
+                "objectives": [
+                  "Reconocer señales comunes de estafa."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M3-T10-C3",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Actuar de inmediato",
+                    "Verificar a través de un canal confiable y separado",
+                    "Hacer clic en todos los enlaces",
+                    "Compartir llaves para acelerar"
+                  ],
+                  "question": "¿Qué contrarresta las tácticas de alta presión?",
+                  "style_note": "El paso de verificación sirve a ISTJ; el sistema de acompañamiento motiva a ESFJ/ESFP; el tono calmado apoya a ISFJ.",
+                  "correct_answer": "Verificar a través de un canal confiable y separado"
+                },
+                "title": "Presión y urgencia",
+                "content": "<p><strong>Estructura:</strong> Las estafas suelen usar cuentas regresivas y presión social. Tómate tiempo y verifica por un canal independiente.</p><p><strong>Ejemplo familiar:</strong> Un padre se detiene, llama al número oficial del sitio web y confirma que no hay urgencias reales.</p><p><strong>Enfoque comunitario:</strong> Crea un sistema de compañeros para revisar mensajes sospechosos.</p><p><strong>Historia:</strong> Un temporizador casi apresura una decisión; una llamada rápida a un amigo rompió el hechizo.</p>",
+                "objectives": [
+                  "Aplicar pasos simples de verificación para contrarrestar la urgencia."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M3-T10-C4",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Aguantar en silencio por vergüenza",
+                    "Cultura de preguntar primero y verificar",
+                    "Compartir semillas para revisión",
+                    "Decisiones de una sola persona"
+                  ],
+                  "question": "¿Qué norma ayuda a las comunidades a evitar estafas?",
+                  "style_note": "El enfoque de normas sociales conviene a ESFJ/ISFJ; la regla concreta ayuda a ISTJ; la historia compartida engancha a ESFP.",
+                  "correct_answer": "Cultura de preguntar primero y verificar"
+                },
+                "title": "Inmunidad comunitaria",
+                "content": "<p><strong>Estructura:</strong> Recordatorios frecuentes, ejemplos compartidos y una cultura de “pregunta primero” reducen el daño.</p><p><strong>Ejemplo familiar:</strong> Los adolescentes muestran a los padres un texto fraudulento; los padres muestran un correo de phishing: todos aprenden.</p><p><strong>Enfoque comunitario:</strong> Coloca una checklist sencilla en el tablero comunitario.</p><p><strong>Historia:</strong> Una persona nueva publicó un enlace sospechoso; la retroalimentación del grupo evitó una cascada de pérdidas.</p>",
+                "objectives": [
+                  "Fomentar una cultura que detecte y frene estafas a tiempo."
+                ],
+                "duration_min": 3
+              }
+            ]
+          },
+          {
+            "id": "M3-T11",
+            "name": "3.11 Seguridad digital básica",
+            "cards": [
+              {
+                "id": "M3-T11-C1",
+                "title": "Videolección: Seguridad digital básica",
+                "duration_min": 5,
+                "youtube_video_link_en": "",
+                "youtube_video_link_es": ""
+              },
+              {
+                "id": "M3-T11-C2",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Una contraseña simple para todo",
+                    "Un gestor de contraseñas",
+                    "Compartir contraseñas por correo",
+                    "Pegarlas en notas adhesivas"
+                  ],
+                  "question": "¿Qué reduce el riesgo de reutilizar contraseñas?",
+                  "style_note": "El checklist apoya a ISTJ; la rutina familiar compartida ayuda a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Un gestor de contraseñas"
+                },
+                "title": "Capas simples",
+                "content": "<p><strong>Estructura:</strong> Contraseñas robustas y únicas por sitio, gestor de contraseñas, actualizaciones del dispositivo y conciencia de phishing forman la base.</p><p><strong>Ejemplo familiar:</strong> Todos usan un gestor para evitar reutilizaciones; las actualizaciones se agendan en un calendario compartido.</p><p><strong>Enfoque comunitario:</strong> Organiza mini sesiones de “puesta a punto de seguridad”.</p><p><strong>Historia:</strong> Una contraseña reutilizada se filtró; el gestor lo detectó y motivó cambios: el daño quedó contenido.</p>",
+                "objectives": [
+                  "Enumerar las capas básicas de seguridad digital."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M3-T11-C3",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Ignorar las actualizaciones",
+                    "Instalar apps desconocidas sin filtro",
+                    "Actualizar regularmente el sistema y las apps",
+                    "Desactivar los bloqueos de pantalla"
+                  ],
+                  "question": "¿Qué hábito mejora la fiabilidad del dispositivo?",
+                  "style_note": "La claridad procedimental conviene a ISTJ; el apoyo familiar/comunitario ayuda a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Actualizar regularmente el sistema y las apps"
+                },
+                "title": "Higiene de dispositivos",
+                "content": "<p><strong>Estructura:</strong> Mantén el sistema y las apps actualizadas, usa bloqueos de pantalla y desconfía de software desconocido. Separa, si puedes, los dispositivos de uso diario de los de almacenamiento.</p><p><strong>Ejemplo familiar:</strong> Una “noche de actualizaciones” compartida asegura que todos estén al día.</p><p><strong>Enfoque comunitario:</strong> Voluntarios ayudan a personas mayores a revisar ajustes sin invadir su privacidad.</p><p><strong>Historia:</strong> Por omitir actualizaciones, un bug causó fallos; la rutina posterior evitó que se repitiera.</p>",
+                "objectives": [
+                  "Describir la higiene básica de los dispositivos para uso cotidiano."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M3-T11-C4",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Hacer clic de inmediato",
+                    "Verificar en un canal confiable y separado",
+                    "Enviar contraseñas para confirmación",
+                    "Ignorar todos los mensajes futuros"
+                  ],
+                  "question": "¿Cuál es una respuesta segura ante una solicitud inesperada?",
+                  "style_note": "La verificación accionable encaja con ISTJ; el chequeo grupal resuena con ESFJ/ISFJ/ESFP.",
+                  "correct_answer": "Verificar en un canal confiable y separado"
+                },
+                "title": "Conciencia de phishing",
+                "content": "<p><strong>Estructura:</strong> Revisa los detalles del remitente, evita enlaces desconocidos y confirma las solicitudes por un canal distinto.</p><p><strong>Ejemplo familiar:</strong> Un chat grupal rápido confirma si un mensaje sorpresivo es real.</p><p><strong>Enfoque comunitario:</strong> Comparte ejemplos anonimizados para que otros aprendan sin riesgo.</p><p><strong>Historia:</strong> Un correo con un dominio casi idéntico se detectó al revisar con calma: la atención evitó problemas.</p>",
+                "objectives": [
+                  "Identificar comprobaciones sencillas contra el phishing."
+                ],
+                "duration_min": 3
+              }
+            ]
+          },
+          {
+            "id": "M3-T12",
+            "name": "3.12 Seguridad avanzada",
+            "cards": [
+              {
+                "id": "M3-T12-C1",
+                "title": "Videolección: Seguridad avanzada",
+                "duration_min": 5,
+                "youtube_video_link_en": "",
+                "youtube_video_link_es": ""
+              },
+              {
+                "id": "M3-T12-C2",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Depender de una sola capa perfecta",
+                    "Tener múltiples capas para que una falla no sea fatal",
+                    "Ignorar los procesos",
+                    "Compartir secretos ampliamente"
+                  ],
+                  "question": "¿Cuál es la idea central de la defensa en profundidad?",
+                  "style_note": "La lógica por capas se ajusta a ISTJ; los escenarios de familia y comunidad ayudan a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Tener múltiples capas para que una falla no sea fatal"
+                },
+                "title": "Mentalidad de defensa en profundidad",
+                "content": "<p><strong>Estructura:</strong> Combina capas: llaves fuera de línea, multisig, dispositivos segmentados y procesos claros. Asume que algún componente fallará y planea una degradación controlada.</p><p><strong>Ejemplo familiar:</strong> Una llave en casa, otra fuera del hogar y una tercera con un proceso confiable: ningún percance rompe el acceso.</p><p><strong>Enfoque comunitario:</strong> Documenta a quién contactar, qué hacer y cómo rotar dispositivos.</p><p><strong>Historia:</strong> Un robo se llevó un dispositivo; el plan permitió rotarlo sin decisiones apresuradas.</p>",
+                "objectives": [
+                  "Describir la seguridad en capas para escenarios de mayor riesgo."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M3-T12-C3",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Un solo dispositivo para todos los roles",
+                    "Dispositivos separados para gasto y almacenamiento en frío",
+                    "Todos los encargados con la misma sesión",
+                    "Permisos ilimitados en todas partes"
+                  ],
+                  "question": "¿Qué configuración sigue el principio de menor privilegio?",
+                  "style_note": "La separación por principios convence a ISTJ; los roles familiares y de oficiales enganchan a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Dispositivos separados para gasto y almacenamiento en frío"
+                },
+                "title": "Segmentación y mínimo privilegio",
+                "content": "<p><strong>Estructura:</strong> Mantén separados el gasto y el ahorro; limita lo que cada dispositivo puede hacer. Usa el acceso mínimo necesario.</p><p><strong>Ejemplo familiar:</strong> Una billetera móvil pequeña para el día a día y otro dispositivo para los ahorros.</p><p><strong>Enfoque comunitario:</strong> Cada responsable tiene un rol distinto; nadie concentra todas las capacidades.</p><p><strong>Historia:</strong> Un malware en la laptop de navegación no afectó al almacenamiento en frío: la segmentación funcionó.</p>",
+                "objectives": [
+                  "Explicar la segmentación y el mínimo privilegio con ejemplos."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M3-T12-C4",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Para garantizar ganancias de precio",
+                    "Para ensayar la recuperación y mantener la calma en caídas",
+                    "Para aumentar el tiempo frente a la pantalla",
+                    "Para compartir semillas públicamente"
+                  ],
+                  "question": "¿Por qué realizar simulacros periódicos?",
+                  "style_note": "Enfatizar la práctica sirve a ISTJ/ISFJ; los simulacros grupales encajan con ESFJ/ESFP.",
+                  "correct_answer": "Para ensayar la recuperación y mantener la calma en caídas"
+                },
+                "title": "Pruebas y simulacros",
+                "content": "<p><strong>Estructura:</strong> Practica restauraciones y rotaciones de llaves de manera programada. Prueba los supuestos con montos pequeños.</p><p><strong>Ejemplo familiar:</strong> Un simulacro trimestral restaura en un dispositivo de repuesto y confirma direcciones.</p><p><strong>Enfoque comunitario:</strong> Un día de simulacro crea confianza colectiva sin exponer secretos.</p><p><strong>Historia:</strong> Un corte real se sintió rutinario porque ya habían ensayado los pasos.</p>",
+                "objectives": [
+                  "Promover simulacros programados para garantizar la fiabilidad."
+                ],
+                "duration_min": 3
+              }
+            ]
+          },
+          {
+            "id": "M3-T13",
+            "name": "3.13 Privacidad básica",
+            "cards": [
+              {
+                "id": "M3-T13-C1",
+                "title": "Videolección: Privacidad básica",
+                "duration_min": 5,
+                "youtube_video_link_en": "",
+                "youtube_video_link_es": ""
+              },
+              {
+                "id": "M3-T13-C2",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Compartir todos los datos personales",
+                    "Usar correos únicos según el contexto",
+                    "Publicar las palabras de recuperación",
+                    "Una sola contraseña para todo"
+                  ],
+                  "question": "¿Qué hábito apoya la privacidad?",
+                  "style_note": "Los hábitos simples sirven a ISTJ; el tono respetuoso en comunidad ayuda a ISFJ/ESFJ; el enfoque práctico engancha a ESFP.",
+                  "correct_answer": "Usar correos únicos según el contexto"
+                },
+                "title": "Minimiza, separa, verifica",
+                "content": "<p><strong>Estructura:</strong> Comparte solo lo necesario, separa identidades y contextos, y verifica las solicitudes antes de responder. La privacidad protege la dignidad y reduce el riesgo de ser blanco.</p><p><strong>Ejemplo familiar:</strong> Usa correos distintos para compras y para finanzas.</p><p><strong>Enfoque comunitario:</strong> Respeta los límites de los demás; no recolectes datos que no necesitas.</p><p><strong>Historia:</strong> Un correo exclusivo para servicios de billetera hizo más fácil detectar mensajes sospechosos.</p>",
+                "objectives": [
+                  "Explicar hábitos de privacidad básicos que reducen la exposición."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M3-T13-C3",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Reutilizar la misma dirección",
+                    "Usar una dirección nueva por pago",
+                    "Publicar todas las direcciones",
+                    "Mezclar fondos personales y del club"
+                  ],
+                  "question": "¿Qué reduce los vínculos en cadena?",
+                  "style_note": "Recordar reglas prácticas ayuda a ISTJ; el ejemplo de la mesada familiar conecta con ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Usar una dirección nueva por pago"
+                },
+                "title": "Conceptos básicos de visibilidad on-chain",
+                "content": "<p><strong>Estructura:</strong> El libro mayor de Bitcoin es público. Reutilizar direcciones puede revelar patrones. Prefiere direcciones nuevas por pago y evita mezclar actividades sin necesidad.</p><p><strong>Ejemplo familiar:</strong> Los padres generan una dirección diferente para cada mesada.</p><p><strong>Enfoque comunitario:</strong> Enseña a las personas nuevas que la transparencia es una característica, pero la buena higiene importa.</p><p><strong>Historia:</strong> Reutilizar direcciones expuso a quienes donaban a una alcancía; adoptar direcciones nuevas redujo la filtración de patrones.</p>",
+                "objectives": [
+                  "Describir por qué la reutilización de direcciones puede filtrar información."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M3-T13-C4",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Presumir públicamente las tenencias",
+                    "Compartir capturas de saldos",
+                    "Hablar de principios sin revelar montos",
+                    "Publicar las frases semilla como prueba"
+                  ],
+                  "question": "¿Qué hábito social reduce el riesgo?",
+                  "style_note": "El enfoque social ayuda a ESFJ/ISFJ; la regla concisa sirve a ISTJ; la historia cotidiana atrae a ESFP.",
+                  "correct_answer": "Hablar de principios sin revelar montos"
+                },
+                "title": "Privacidad social",
+                "content": "<p><strong>Estructura:</strong> La discreción sobre las tenencias evita convertirse en objetivo. Comparte conocimientos, no balances.</p><p><strong>Ejemplo familiar:</strong> Los padres enseñan a no presumir de los ahorros.</p><p><strong>Enfoque comunitario:</strong> Una cultura de modestia protege a todos.</p><p><strong>Historia:</strong> Un vecino que presumía atrajo estafas; cambió sus hábitos y los problemas desaparecieron.</p>",
+                "objectives": [
+                  "Promover la discreción para reducir riesgos sociales."
+                ],
+                "duration_min": 3
+              }
+            ]
+          },
+          {
+            "id": "M3-T14",
+            "name": "3.14 CoinJoin, UTXO y CoinControl",
+            "cards": [
+              {
+                "id": "M3-T14-C1",
+                "title": "Videolección: CoinJoin, UTXO y CoinControl",
+                "duration_min": 5,
+                "youtube_video_link_en": "",
+                "youtube_video_link_es": ""
+              },
+              {
+                "id": "M3-T14-C2",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Elegir UTXO específicos para gastar",
+                    "Imprimir dinero",
+                    "Desactivar las confirmaciones",
+                    "Ocultar las palabras semilla en correos"
+                  ],
+                  "question": "Coin control te ayuda a:",
+                  "style_note": "La función concreta satisface a ISTJ; la analogía de sobres ayuda a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Elegir UTXO específicos para gastar"
+                },
+                "title": "Conceptos básicos de UTXO y coin control",
+                "content": "<p><strong>Estructura:</strong> Bitcoin lleva el control de saldos como UTXO, equivalentes a sobres separados de valor. Coin control te permite escoger qué sobre gastar, evitando uniones accidentales.</p><p><strong>Ejemplo familiar:</strong> Usa un sobre para el súper y otro para regalos; no mezcles sin intención.</p><p><strong>Enfoque comunitario:</strong> Etiquetas compartidas reducen confusiones contables.</p><p><strong>Historia:</strong> Un freelancer separó con etiquetas los UTXO de clientes y personales; los impuestos fueron más simples.</p>",
+                "objectives": [
+                  "Explicar los UTXO y por qué importa el coin control."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M3-T14-C3",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Garantizar ganancias",
+                    "Reducir la vinculación on-chain de los fondos",
+                    "Acelerar los bloques",
+                    "Evitar confirmaciones"
+                  ],
+                  "question": "¿Cuál es el propósito de CoinJoin?",
+                  "style_note": "Enfocarse en la meta ayuda a ISTJ; la historia del vecindario conecta con ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Reducir la vinculación on-chain de los fondos"
+                },
+                "title": "CoinJoin a alto nivel",
+                "content": "<p><strong>Estructura:</strong> CoinJoin es una transacción colaborativa donde varias personas mezclan entradas y salidas de montos iguales para reducir la vinculación.</p><p><strong>Ejemplo familiar:</strong> Vecinos juntan billetes similares y reciben cambio nuevo: es más difícil rastrear quién pagó qué parte.</p><p><strong>Enfoque comunitario:</strong> Enseña conceptos e higiene antes de usar herramientas avanzadas.</p><p><strong>Historia:</strong> Una persona practicó con montos pequeños primero, logrando comprensión sin estrés.</p>",
+                "objectives": [
+                  "Describir CoinJoin de forma conceptual y su objetivo."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M3-T14-C4",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Unir todos los UTXO cada vez",
+                    "Usar direcciones nuevas y etiquetas",
+                    "Publicar las direcciones en público",
+                    "Ignorar los saldos de cambio"
+                  ],
+                  "question": "¿Qué hábito ayuda a reducir los vínculos?",
+                  "style_note": "El checklist de higiene ayuda a ISTJ; los ejemplos familiares y de negocio conectan con ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Usar direcciones nuevas y etiquetas"
+                },
+                "title": "Higiene cotidiana",
+                "content": "<p><strong>Estructura:</strong> Etiqueta UTXO, evita uniones innecesarias y usa direcciones nuevas. Aprende herramientas de manera gradual y consciente.</p><p><strong>Ejemplo familiar:</strong> Los padres mantienen ahorros para regalos separados del gasto diario para no revelar patrones.</p><p><strong>Enfoque comunitario:</strong> Los talleres se enfocan primero en conceptos y luego en herramientas.</p><p><strong>Historia:</strong> Buenos hábitos por sí solos redujeron vínculos no deseados para un pequeño negocio.</p>",
+                "objectives": [
+                  "Resumir prácticas sencillas de higiene on-chain."
+                ],
+                "duration_min": 3
+              }
+            ]
+          },
+          {
+            "id": "M3-T15",
+            "name": "3.15 Riesgos de custodios y KYC",
+            "cards": [
+              {
+                "id": "M3-T15-C1",
+                "title": "Videolección: Riesgos de los custodios y el KYC",
+                "duration_min": 5,
+                "youtube_video_link_en": "",
+                "youtube_video_link_es": ""
+              },
+              {
+                "id": "M3-T15-C2",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Exposición de datos",
+                    "Autocustodia más rápida",
+                    "Sin necesidad de verificación",
+                    "Ganancia garantizada"
+                  ],
+                  "question": "¿Cuál es un punto negativo clave del KYC?",
+                  "style_note": "Enfocar el riesgo sirve a ISTJ/ISFJ; los ejemplos de viaje y club ayudan a ESFJ/ESFP.",
+                  "correct_answer": "Exposición de datos"
+                },
+                "title": "Riesgos de contraparte y de datos",
+                "content": "<p><strong>Estructura:</strong> Los custodios pueden congelar cuentas; el KYC recopila datos personales que pueden filtrarse o usarse mal. La conveniencia se contrapone al control y la privacidad.</p><p><strong>Ejemplo familiar:</strong> Una cuenta congelada durante un viaje generó estrés; la autocustodia mantuvo lo esencial en movimiento.</p><p><strong>Enfoque comunitario:</strong> Los clubes evalúan qué datos comparten y por qué.</p><p><strong>Historia:</strong> Una filtración de datos en otro lugar desencadenó intentos de phishing: minimizar datos marcó la diferencia.</p>",
+                "objectives": [
+                  "Describir los riesgos asociados a los custodios y al KYC."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M3-T15-C3",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Dejar todo en la plataforma",
+                    "Retirar los fondos de largo plazo a autocustodia",
+                    "Compartir las semillas con soporte",
+                    "Ignorar los retrasos"
+                  ],
+                  "question": "¿Qué enfoque reduce el riesgo de plataforma para los ahorros?",
+                  "style_note": "Aclarar la compensación ayuda a ISTJ; la planificación familiar y comunitaria conecta con ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Retirar los fondos de largo plazo a autocustodia"
+                },
+                "title": "Equilibrar necesidades",
+                "content": "<p><strong>Estructura:</strong> Algunas personas usan custodios por comodidad y trasladan los ahorros a autocustodia. Decide conscientemente según el propósito.</p><p><strong>Ejemplo familiar:</strong> Operan montos pequeños en una plataforma, pero retiran los ahorros a una billetera personal.</p><p><strong>Enfoque comunitario:</strong> Documenta qué fondos permanecen dónde y por qué.</p><p><strong>Historia:</strong> Una división clara redujo el estrés cuando una plataforma sufrió retrasos.</p>",
+                "objectives": [
+                  "Explicar elecciones de custodia conscientes para distintos objetivos."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M3-T15-C4",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Recopilar más datos",
+                    "Minimizar los datos",
+                    "Tableros públicos de saldos",
+                    "Una sola cuenta para todos"
+                  ],
+                  "question": "¿Qué principio reduce el riesgo de ser blanco?",
+                  "style_note": "Recordar el principio ayuda a ISTJ; la historia del donante conecta con ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Minimizar los datos"
+                },
+                "title": "Consideraciones sociales",
+                "content": "<p><strong>Estructura:</strong> Sé consciente de quién conoce tus saldos y qué organizaciones guardan tus datos. La privacidad protege a familias y donantes.</p><p><strong>Ejemplo familiar:</strong> Limita la exposición dentro del hogar solo a quienes necesitan acceso.</p><p><strong>Enfoque comunitario:</strong> Las organizaciones sin fines de lucro documentan la recolección mínima de datos.</p><p><strong>Historia:</strong> Una persona donante cambió a métodos menos reveladores tras recibir mensajes no deseados.</p>",
+                "objectives": [
+                  "Promover la minimización de datos y el intercambio prudente."
+                ],
+                "duration_min": 3
+              }
+            ]
+          },
+          {
+            "id": "M3-T16",
+            "name": "3.16 Comprar bitcoin con KYC: riesgos",
+            "cards": [
+              {
+                "id": "M3-T16-C1",
+                "title": "Videolección: Comprar con KYC — riesgos",
+                "duration_min": 5,
+                "youtube_video_link_en": "",
+                "youtube_video_link_es": ""
+              },
+              {
+                "id": "M3-T16-C2",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "El anonimato",
+                    "La exposición a phishing dirigido",
+                    "La fortaleza de las llaves",
+                    "La privacidad on-chain"
+                  ],
+                  "question": "Los registros KYC pueden aumentar:",
+                  "style_note": "La relación causa-efecto encaja con ISTJ; la experiencia familiar cercana ayuda a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "La exposición a phishing dirigido"
+                },
+                "title": "Exposición y rastros en papel",
+                "content": "<p><strong>Estructura:</strong> Las compras con KYC crean registros que vinculan identidad con saldos y movimientos. Eso incrementa la exposición a phishing dirigido y perfiles no deseados.</p><p><strong>Ejemplo familiar:</strong> Un padre recibe mensajes sospechosos que mencionan compras pasadas, quizá provenientes de datos filtrados.</p><p><strong>Enfoque comunitario:</strong> Conversa sobre las implicaciones antes de elegir dónde comprar.</p><p><strong>Historia:</strong> Tras notar estafas a medida, una persona ajustó hábitos y redujo lo que compartía.</p>",
+                "objectives": [
+                  "Identificar los riesgos de privacidad vinculados a compras con KYC."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M3-T16-C3",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Reutilizar el mismo correo para todo",
+                    "Detalles de contacto únicos y alertas",
+                    "Publicar recibos en línea",
+                    "Saltar revisiones"
+                  ],
+                  "question": "¿Qué hábito ayuda cuando compras con KYC?",
+                  "style_note": "Los pasos concretos sirven a ISTJ; el enfoque familiar y comunitario apoya a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Detalles de contacto únicos y alertas"
+                },
+                "title": "Mitigaciones y expectativas",
+                "content": "<p><strong>Estructura:</strong> Si usas servicios con KYC, reduce la reutilización de datos, activa alertas y revisa la custodia. Entiende que existen registros y planea en consecuencia.</p><p><strong>Ejemplo familiar:</strong> Usa correos únicos y autenticación fuerte; mueve los ahorros a autocustodia.</p><p><strong>Enfoque comunitario:</strong> Comparte listas genéricas de seguridad sin revelar detalles personales.</p><p><strong>Historia:</strong> Ajustar configuraciones redujo las molestias con el tiempo.</p>",
+                "objectives": [
+                  "Enumerar mitigaciones prácticas cuando el KYC es inevitable."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M3-T16-C4",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Publicar saldos",
+                    "Usar lenguaje neutro y discreción",
+                    "Compartir palabras semilla con amistades",
+                    "Reenviar enlaces dudosos"
+                  ],
+                  "question": "¿Qué hábito de comunicación es prudente?",
+                  "style_note": "El enfoque doméstico conecta con ISFJ/ESFJ; la regla precisa ayuda a ISTJ; la historia realista atrae a ESFP.",
+                  "correct_answer": "Usar lenguaje neutro y discreción"
+                },
+                "title": "Efectos sociales",
+                "content": "<p><strong>Estructura:</strong> Considera cómo tus comentarios afectan a tus seres queridos. La privacidad protege al hogar, no solo al individuo.</p><p><strong>Ejemplo familiar:</strong> Las madres y padres eligen con cuidado las palabras al hablar de finanzas.</p><p><strong>Enfoque comunitario:</strong> Los grupos adoptan prácticas que no invaden a donantes ni participantes.</p><p><strong>Historia:</strong> Tras una fanfarronería inocente, una persona joven recibió mensajes fraudulentos: lección sobre la discreción.</p>",
+                "objectives": [
+                  "Hablar de hábitos de comunicación que protegen al hogar."
+                ],
+                "duration_min": 3
+              }
+            ]
+          },
+          {
+            "id": "M3-T17",
+            "name": "3.17 Estrategia DCA",
+            "cards": [
+              {
+                "id": "M3-T17-C1",
+                "title": "Videolección: Estrategia DCA",
+                "duration_min": 5,
+                "youtube_video_link_en": "",
+                "youtube_video_link_es": ""
+              },
+              {
+                "id": "M3-T17-C2",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Maximizar ganancias a corto plazo",
+                    "Eliminar las decisiones de “timing” con compras constantes",
+                    "Garantizar beneficios",
+                    "Evitar toda volatilidad"
+                  ],
+                  "question": "El DCA ayuda principalmente a:",
+                  "style_note": "La claridad de proceso beneficia a ISTJ; el tono calmado de presupuesto familiar ayuda a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Eliminar las decisiones de “timing” con compras constantes"
+                },
+                "title": "Pequeño, regular, sin drama",
+                "content": "<p><strong>Estructura:</strong> El DCA consiste en comprar una cantidad fija en un calendario, sin importar el precio. Reduce el estrés de decidir el momento y los errores de sincronización.</p><p><strong>Ejemplo familiar:</strong> Una compra automática modesta coincide con el día de pago.</p><p><strong>Enfoque comunitario:</strong> Los clubes evitan discusiones especulativas adoptando contribuciones constantes.</p><p><strong>Historia:</strong> Una persona nueva evitó perseguir los picos y se sintió más tranquila con el paso de los meses.</p>",
+                "objectives": [
+                  "Explicar el DCA y su beneficio de reducir estrés."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M3-T17-C3",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Desplaza renta y comida",
+                    "Cabe después de lo esencial y se puede pausar si hace falta",
+                    "Siempre aumenta sin importar el ingreso",
+                    "Depende de créditos"
+                  ],
+                  "question": "Un plan DCA saludable es aquel que:",
+                  "style_note": "El enfoque de presupuesto responsable apoya a ISTJ/ISFJ; el tono de apoyo favorece a ESFJ/ESFP.",
+                  "correct_answer": "Cabe después de lo esencial y se puede pausar si hace falta"
+                },
+                "title": "Ajuste al presupuesto",
+                "content": "<p><strong>Estructura:</strong> Elige un monto que no presione los gastos esenciales. Trátalo como un hábito de largo plazo, no como un juego rápido.</p><p><strong>Ejemplo familiar:</strong> Primero se cubren alimentos y renta; el DCA usa lo que sobra.</p><p><strong>Enfoque comunitario:</strong> Enseña planeación realista a quienes empiezan.</p><p><strong>Historia:</strong> Una persona pausó el DCA en una emergencia y lo retomó después: la flexibilidad mantuvo la estabilidad.</p>",
+                "objectives": [
+                  "Alinear el DCA con un presupuesto familiar responsable."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M3-T17-C4",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Mirar el precio a diario",
+                    "Revisiones trimestrales del proceso",
+                    "Aumentos impulsivos",
+                    "Pedir préstamos para comprar más"
+                  ],
+                  "question": "¿Qué refuerza el éxito del DCA?",
+                  "style_note": "El ritmo de proceso sirve a ISTJ; el apoyo familiar/comunitario resuena con ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Revisiones trimestrales del proceso"
+                },
+                "title": "Proceso, no predicción",
+                "content": "<p><strong>Estructura:</strong> Concéntrate en repetir un proceso sencillo en lugar de predecir. Evalúa cada trimestre, no a diario.</p><p><strong>Ejemplo familiar:</strong> Revisan juntos cada estación y celebran la constancia.</p><p><strong>Enfoque comunitario:</strong> Las revisiones grupales mantienen la motivación sin caer en el hype.</p><p><strong>Historia:</strong> Al ignorar los titulares y seguir el plan, la ansiedad bajó y las metas quedaron más claras.</p>",
+                "objectives": [
+                  "Enfatizar la constancia sobre la predicción."
+                ],
+                "duration_min": 3
+              }
+            ]
+          },
+          {
+            "id": "M3-T18",
+            "name": "3.18 Por qué evitar el apalancamiento",
+            "cards": [
+              {
+                "id": "M3-T18-C1",
+                "title": "Videolección: Por qué evitar el apalancamiento",
+                "duration_min": 5,
+                "youtube_video_link_en": "",
+                "youtube_video_link_es": ""
+              },
+              {
+                "id": "M3-T18-C2",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Ganancia garantizada",
+                    "Liquidación forzada",
+                    "Menos estrés",
+                    "Monedas gratis"
+                  ],
+                  "question": "¿Qué puede provocar el apalancamiento en una caída repentina?",
+                  "style_note": "La mecánica del riesgo encaja con ISTJ; la historia sobre la colegiatura y las normas comunitarias ayudan a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Liquidación forzada"
+                },
+                "title": "Desventaja asimétrica",
+                "content": "<p><strong>Estructura:</strong> Pedir prestado para especular puede forzar una liquidación en plena volatilidad. Las ganancias son inciertas; las pérdidas pueden ser totales y repentinas.</p><p><strong>Ejemplo familiar:</strong> Un margin call durante una caída arruina los ahorros destinados a la colegiatura.</p><p><strong>Enfoque comunitario:</strong> Fomenta la paciencia y estrategias sin deuda.</p><p><strong>Historia:</strong> Alguien persiguió “ganancias rápidas” y perdió más de lo invertido: dura lección de que la deuda multiplica el estrés.</p>",
+                "objectives": [
+                  "Describir por qué el apalancamiento multiplica el riesgo para los hogares."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M3-T18-C3",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Retornos máximos garantizados",
+                    "Menor riesgo de venta forzada",
+                    "Crédito gratuito",
+                    "Sin necesidad de presupuesto"
+                  ],
+                  "question": "¿Cuál es un beneficio de evitar el apalancamiento?",
+                  "style_note": "Aclarar el intercambio ayuda a ISTJ; el bienestar familiar resuena con ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Menor riesgo de venta forzada"
+                },
+                "title": "Costo de oportunidad de la seguridad",
+                "content": "<p><strong>Estructura:</strong> Evitar el apalancamiento puede parecer más lento, pero protege las metas familiares. La acumulación constante supera los ciclos de boom y caída.</p><p><strong>Ejemplo familiar:</strong> Un camino prudente mantiene la renta pagada y la despensa llena.</p><p><strong>Enfoque comunitario:</strong> Los grupos evitan dramas cuando nadie está sobreapalancado.</p><p><strong>Historia:</strong> Quien fue prudente no duplicó rápido, pero nunca enfrentó ventas de emergencia: se duerme mejor.</p>",
+                "objectives": [
+                  "Contrastar el enfoque estable con los ciclos de apalancamiento."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M3-T18-C4",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Apalancamiento individual silencioso",
+                    "Regla de cero apalancamiento para fondos grupales",
+                    "Pedir prestado primero, consultar después",
+                    "Sin documentación"
+                  ],
+                  "question": "¿Qué política protege los fondos compartidos?",
+                  "style_note": "El enfoque de políticas sirve a ISTJ; la seguridad grupal conecta con ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Regla de cero apalancamiento para fondos grupales"
+                },
+                "title": "Estándares comunitarios",
+                "content": "<p><strong>Estructura:</strong> Establece una norma: nada de apalancamiento con fondos compartidos; hablen de los riesgos abiertamente.</p><p><strong>Ejemplo familiar:</strong> Una regla doméstica prohíbe endeudarse para comprar activos volátiles.</p><p><strong>Enfoque comunitario:</strong> Los clubes exigen votos explícitos antes de endeudarse (a menudo: nunca).</p><p><strong>Historia:</strong> Una política evitó que una persona voluntaria arriesgara la tesorería durante una moda pasajera.</p>",
+                "objectives": [
+                  "Impulsar salvaguardas contra el apalancamiento en contextos colectivos."
+                ],
+                "duration_min": 3
+              }
+            ]
+          },
+          {
+            "id": "M3-T19",
+            "name": "3.19 Stablecoins vs. Bitcoin",
+            "cards": [
+              {
+                "id": "M3-T19-C1",
+                "title": "Videolección: Stablecoins vs. Bitcoin",
+                "duration_min": 5,
+                "youtube_video_link_en": "",
+                "youtube_video_link_es": ""
+              },
+              {
+                "id": "M3-T19-C2",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Un emisor y reservas/pegs",
+                    "Un tope fijo de 21 millones sin emisor",
+                    "Recompensas de minería solamente",
+                    "Ausencia total de contrapartes"
+                  ],
+                  "question": "Las stablecoins generalmente dependen de:",
+                  "style_note": "El contraste claro sirve a ISTJ; los ejemplos familiares y de negocios ayudan a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Un emisor y reservas/pegs"
+                },
+                "title": "Trabajos distintos",
+                "content": "<p><strong>Estructura:</strong> Las stablecoins buscan estabilidad de precio a corto plazo mediante reservas y pegs, y dependen de emisores; Bitcoin busca escasez verificable a largo plazo sin emisor.</p><p><strong>Ejemplo familiar:</strong> Un padre puede guardar valor estable para facturas cercanas y bitcoin para ahorrar a largo plazo.</p><p><strong>Enfoque comunitario:</strong> Elige la herramienta según la tarea: flujo de caja vs. ancla de ahorro.</p><p><strong>Historia:</strong> Un negocio pequeño usa unidades estables para facturar, pero ahorra utilidades en bitcoin para durabilidad.</p>",
+                "objectives": [
+                  "Diferenciar el riesgo de emisor frente a la escasez sin emisor."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M3-T19-C3",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Bitcoin para todo",
+                    "Unidad estable para facturas; bitcoin para ahorrar",
+                    "Sin plan alguno",
+                    "Cambios aleatorios"
+                  ],
+                  "question": "¿Qué combinación encaja con facturas a corto plazo vs. ahorro a largo plazo?",
+                  "style_note": "Mapear el uso sirve a ISTJ; los ejemplos familiares y de ONG conectan con ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Unidad estable para facturas; bitcoin para ahorrar"
+                },
+                "title": "Consideraciones operativas",
+                "content": "<p><strong>Estructura:</strong> Evalúa términos de rescate, custodia y horarios de acceso para stablecoins; para bitcoin, piensa en autocustodia y tolerancia a la volatilidad.</p><p><strong>Ejemplo familiar:</strong> Mantén los gastos próximos en valor estable y los ahorros en bitcoin.</p><p><strong>Enfoque comunitario:</strong> Las organizaciones definen qué fondos van en cada instrumento y por qué.</p><p><strong>Historia:</strong> Políticas claras evitaron el pánico durante una interrupción de servicio.</p>",
+                "objectives": [
+                  "Mapear diferencias operativas relevantes para el uso diario."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M3-T19-C4",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Garantías de precio",
+                    "Autocustodia y respaldos",
+                    "Rescate por parte del emisor",
+                    "Atención telefónica"
+                  ],
+                  "question": "El ahorro sin emisor aumenta la responsabilidad en:",
+                  "style_note": "Enfocarse en la responsabilidad conviene a ISTJ; el tono de apoyo sirve a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Autocustodia y respaldos"
+                },
+                "title": "Lente social",
+                "content": "<p><strong>Estructura:</strong> Las herramientas con emisor añaden contrapartes y datos; los activos sin emisor exigen autocustodia.</p><p><strong>Ejemplo familiar:</strong> Decide según la confianza y la capacidad de manejo.</p><p><strong>Enfoque comunitario:</strong> Enseña abiertamente los pros y contras.</p><p><strong>Historia:</strong> Una familia ajustó la mezcla a medida que creció la confianza en la autocustodia.</p>",
+                "objectives": [
+                  "Explicar los intercambios sociales y de responsabilidad."
+                ],
+                "duration_min": 3
+              }
+            ]
+          },
+          {
+            "id": "M3-T20",
+            "name": "3.20 Bitcoin en países en crisis",
+            "cards": [
+              {
+                "id": "M3-T20-C1",
+                "title": "Videolección: Bitcoin en países en crisis",
+                "duration_min": 5,
+                "youtube_video_link_en": "",
+                "youtube_video_link_es": ""
+              },
+              {
+                "id": "M3-T20-C2",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Horario exclusivo bancario",
+                    "Transferencia de valor portátil y neutral",
+                    "Tipos de cambio garantizados",
+                    "Cero planificación"
+                  ],
+                  "question": "Una ventaja específica en crisis es:",
+                  "style_note": "Recordar la función sirve a ISTJ; el impacto humano resuena con ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Transferencia de valor portátil y neutral"
+                },
+                "title": "Por qué ayuda un dinero portátil y neutral",
+                "content": "<p><strong>Estructura:</strong> En crisis, la banca puede fallar y las monedas volverse inestables. La neutralidad y portabilidad de Bitcoin permiten mover valor o recibir ayuda.</p><p><strong>Ejemplo familiar:</strong> Un pariente en el exterior envía apoyo directo.</p><p><strong>Enfoque comunitario:</strong> Los grupos de ayuda pueden canalizar montos pequeños con rapidez.</p><p><strong>Historia:</strong> Una familia conservó parte de sus ahorros al reubicarse: el valor viajó con ellos.</p>",
+                "objectives": [
+                  "Describir cómo la portabilidad y neutralidad ayudan en crisis."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M3-T20-C3",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "El color de la app",
+                    "Disponibilidad de energía/conectividad",
+                    "Cantidad de emojis",
+                    "El fondo de pantalla"
+                  ],
+                  "question": "¿Qué factor puede limitar el uso durante crisis?",
+                  "style_note": "Reconocer las limitaciones reales atrae a ISTJ; la historia del centro comunitario apoya a ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Disponibilidad de energía/conectividad"
+                },
+                "title": "Restricciones prácticas",
+                "content": "<p><strong>Estructura:</strong> Importan el acceso a electricidad/internet, la seguridad del dispositivo y las normas locales. Mantén expectativas realistas y enfócate en pasos pequeños y probados.</p><p><strong>Ejemplo familiar:</strong> Mantén dispositivos cargados e instrucciones simples.</p><p><strong>Enfoque comunitario:</strong> Los centros locales pueden apoyar con conectividad y educación.</p><p><strong>Historia:</strong> Un centro vecinal se volvió un salvavidas para enviar y recibir durante los apagones.</p>",
+                "objectives": [
+                  "Reconocer restricciones y enfoques graduales."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M3-T20-C4",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Procedimientos secretos y complejos",
+                    "Roles claros y guías simples compartidas",
+                    "Una sola persona al mando",
+                    "Sin capacitación"
+                  ],
+                  "question": "¿Qué mantiene estable la ayuda comunitaria?",
+                  "style_note": "La coordinación clara sirve a ESFJ/ISFJ; las opciones concisas ayudan a ISTJ; el tono práctico conecta con ESFP.",
+                  "correct_answer": "Roles claros y guías simples compartidas"
+                },
+                "title": "Coordinación comunitaria",
+                "content": "<p><strong>Estructura:</strong> Define roles claros, guías compartidas y puntos de encuentro seguros. Enseña pasos de verificación y transacciones pequeñas primero.</p><p><strong>Ejemplo familiar:</strong> Una tarjeta laminada ayuda a cuidadores a apoyar a personas mayores.</p><p><strong>Enfoque comunitario:</strong> Procesos coordinados y simples mantienen el flujo de ayuda.</p><p><strong>Historia:</strong> Un grupo de apoyo movió fondos de manera constante porque todos sabían su parte.</p>",
+                "objectives": [
+                  "Destacar la coordinación local y protocolos sencillos."
+                ],
+                "duration_min": 3
+              }
+            ]
+          },
+          {
+            "id": "M3-T21",
+            "name": "3.21 Qué hacer si tu país prohíbe Bitcoin",
+            "cards": [
+              {
+                "id": "M3-T21-C1",
+                "title": "Videolección: Si tu país prohíbe Bitcoin",
+                "duration_min": 5,
+                "youtube_video_link_en": "",
+                "youtube_video_link_es": ""
+              },
+              {
+                "id": "M3-T21-C2",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Ignorarla",
+                    "Entender qué está restringido y las posibles sanciones",
+                    "Publicar tus tenencias en línea",
+                    "Enviar transacciones grandes de inmediato"
+                  ],
+                  "question": "¿Cuál es el primer paso ante una prohibición?",
+                  "style_note": "El enfoque de riesgo primero sirve a ISTJ; la cautela familiar y la historia del viajero conectan con ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Entender qué está restringido y las posibles sanciones"
+                },
+                "title": "Entender el panorama",
+                "content": "<p><strong>Estructura:</strong> Las prohibiciones pueden apuntar a exchanges, pagos o tenencia. Evalúa qué está restringido y las sanciones potenciales. La seguridad y la legalidad van primero.</p><p><strong>Ejemplo familiar:</strong> La familia detiene la actividad hasta aprender las reglas y riesgos.</p><p><strong>Enfoque comunitario:</strong> Comparte recursos educativos y nociones generales de riesgo.</p><p><strong>Historia:</strong> Una persona viajera evitó problemas al entender las restricciones antes de cruzar la frontera.</p>",
+                "objectives": [
+                  "Identificar tipos de restricciones y priorizar la seguridad."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M3-T21-C3",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Depender de una sola app",
+                    "Mantener instrucciones y contactos redundantes",
+                    "No tener copias fuera de línea",
+                    "Ocultar información a quienes ayudan"
+                  ],
+                  "question": "¿Qué práctica apoya la resiliencia?",
+                  "style_note": "La lista de resiliencia ayuda a ISTJ; el apoyo del hogar y la comunidad conecta con ISFJ/ESFJ/ESFP.",
+                  "correct_answer": "Mantener instrucciones y contactos redundantes"
+                },
+                "title": "Plan de resiliencia",
+                "content": "<p><strong>Estructura:</strong> Considera redundancia para comunicaciones, respaldos e instrucciones. Mantén contactos de emergencia y copias no digitales cuando corresponda.</p><p><strong>Ejemplo familiar:</strong> Un sobre sellado explica dónde hallar la información si los servicios caen.</p><p><strong>Enfoque comunitario:</strong> El apoyo mutuo y el intercambio de conocimiento reducen el pánico.</p><p><strong>Historia:</strong> Durante interrupciones de servicio, una guía preparada mantuvo a la familia organizada.</p>",
+                "objectives": [
+                  "Esbozar pasos de resiliencia para familias y grupos."
+                ],
+                "duration_min": 3
+              },
+              {
+                "id": "M3-T21-C4",
+                "quiz": {
+                  "type": "multiple_choice",
+                  "options": [
+                    "Presumir configuraciones",
+                    "Compartir semillas para “probar” puntos",
+                    "Educación discreta y normas de apoyo",
+                    "Publicar direcciones ampliamente"
+                  ],
+                  "question": "¿Qué enfoque protege a los miembros de la comunidad?",
+                  "style_note": "El enfoque de seguridad comunitaria sirve a ESFJ/ISFJ; las opciones claras ayudan a ISTJ; el tono práctico encaja con ESFP.",
+                  "correct_answer": "Educación discreta y normas de apoyo"
+                },
+                "title": "Cuidado comunitario",
+                "content": "<p><strong>Estructura:</strong> Evita conductas públicas riesgosas. Enfócate en educación y conversaciones seguras. Comparte principios generales, no configuraciones personales.</p><p><strong>Ejemplo familiar:</strong> Hablen sobre valores financieros sin revelar montos.</p><p><strong>Enfoque comunitario:</strong> Mantén la comunicación tranquila y respetuosa para proteger a todos.</p><p><strong>Historia:</strong> Un grupo se mantuvo seguro e informado al cambiar a encuentros discretos y de apoyo.</p>",
+                "objectives": [
+                  "Enfatizar comportamientos comunitarios de bajo riesgo y apoyo."
+                ],
+                "duration_min": 3
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
