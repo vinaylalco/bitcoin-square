@@ -84,6 +84,53 @@
       "unsubscribeError": "Error al cancelar la suscripción."
     }
   },
+  "lesson": {
+    "courseContent": {
+      "title": "Contenido del curso",
+      "label": "Contenido del curso",
+      "aria": "Contenido del curso"
+    },
+    "hud": {
+      "account": "Cuenta",
+      "logIn": "Iniciar sesión",
+      "signUp": "Crear cuenta",
+      "dismiss": "Descartar",
+      "loginPrompt": "Crea una cuenta para que tus puntos y progreso de lecciones se guarden.",
+      "customize": "Personalizar",
+      "customizeComingSoonTitle": "Personalización muy pronto",
+      "customizeComingSoonBody": "El filtro de personalización llegará pronto.",
+      "close": "Cerrar"
+    },
+    "tour": {
+      "heading": "Recorrido de bienvenida {{current}} / {{total}}",
+      "skip": "Saltar recorrido",
+      "prev": "Anterior",
+      "next": "Siguiente",
+      "finish": "Finalizar",
+      "steps": {
+        "courseNavigation": {
+          "title": "Explora el mapa del curso",
+          "description": "Usa la navegación del curso a la derecha para saltar entre lecciones. En móviles toca Contenido del curso para abrirlo."
+        },
+        "lessonFlow": {
+          "title": "Avanza por cada lección",
+          "description": "Cada tema comienza con un video de resumen seguido de tres lecciones y cuestionarios para afianzar lo aprendido."
+        },
+        "pointsAndStreaks": {
+          "title": "Gana puntos y rachas",
+          "description": "Completar lecciones y cuestionarios suma a tus puntos y a la racha diaria que ves en este HUD."
+        },
+        "saveProgress": {
+          "title": "Guarda tu progreso",
+          "description": "Inicia sesión para mantener tus puntos y días de racha en cualquier dispositivo."
+        },
+        "customize": {
+          "title": "Personaliza lo que sigue",
+          "description": "Usa el botón de personalización para adaptar las próximas lecciones. ¡Los filtros llegarán pronto!"
+        }
+      }
+    }
+  },
   "auth": {
     "login": {
       "title": "Iniciar sesión",

@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { usePreferences } from "../../context/PreferencesContext";
+import { useTranslation } from "react-i18next";
 
 function createReverbImpulse(ctx: BaseAudioContext): AudioBuffer {
   const duration = 0.9;
@@ -48,6 +49,7 @@ export default function LessonPointsCounter({
   courseContentButtonRef,
   onRequestCustomize,
 }: LessonPointsCounterProps) {
+  const { t } = useTranslation();
   const [animateStrike, setAnimateStrike] = useState(false);
   const lastPoints = useRef(points);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -222,7 +224,7 @@ export default function LessonPointsCounter({
                   <Link
                     to="/dashboard"
                     className="points-hud__account"
-                    aria-label="Account"
+                    aria-label={t("lesson.hud.account")}
                   >
                     <UserRound className="h-5 w-5" aria-hidden="true" />
                   </Link>
@@ -230,7 +232,7 @@ export default function LessonPointsCounter({
                   <Link
                     to="/login"
                     className="points-hud__login"
-                    aria-label="Log in"
+                    aria-label={t("lesson.hud.logIn")}
                   >
                     <LogIn className="h-4 w-4" aria-hidden="true" />
                   </Link>
@@ -241,10 +243,10 @@ export default function LessonPointsCounter({
                 onClick={onRequestCustomize}
                 disabled={!onRequestCustomize}
                 data-tour-id="lesson-customize-desktop"
-                className="points-hud__cta points-hud__cta--ghost w-full justify-center disabled:cursor-not-allowed disabled:opacity-60"
+                className="points-hud__cta w-full justify-center bg-brand text-white shadow-[0_12px_30px_rgba(169,21,255,0.35)] transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <SlidersHorizontal className="mr-2 h-4 w-4" aria-hidden="true" />
-                Customize
+                {t("lesson.hud.customize")}
               </button>
             </div>
           </div>
@@ -253,27 +255,27 @@ export default function LessonPointsCounter({
       {!isLoggedIn && showLoginPrompt && (
         <div className="hidden lg:block points-hud__prompt">
           <p className="mb-3 font-medium text-neutral-900 dark:text-neutral-100">
-            Create an account so your points and lesson progress are saved.
+            {t("lesson.hud.loginPrompt")}
           </p>
           <div className="flex flex-wrap gap-2">
             <Link
               to="/register"
               className="points-hud__cta points-hud__cta--primary"
             >
-              Sign up
+              {t("lesson.hud.signUp")}
             </Link>
             <Link
               to="/login"
               className="points-hud__cta points-hud__cta--ghost"
             >
-              Log in
+              {t("lesson.hud.logIn")}
             </Link>
             <button
               type="button"
               onClick={onDismissPrompt}
               className="ml-auto text-xs font-semibold uppercase tracking-wide text-neutral-500 transition hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200"
             >
-              Dismiss
+              {t("lesson.hud.dismiss")}
             </button>
           </div>
         </div>
@@ -290,7 +292,7 @@ export default function LessonPointsCounter({
                 <Link
                   to="/dashboard"
                   className="flex h-14 w-full items-center justify-center rounded-2xl border border-neutral-200 bg-white text-neutral-900 shadow-sm transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
-                  aria-label="Account"
+                  aria-label={t("lesson.hud.account")}
                 >
                   <UserRound className="h-5 w-5" aria-hidden="true" />
                 </Link>
@@ -298,7 +300,7 @@ export default function LessonPointsCounter({
                 <Link
                   to="/login"
                   className="flex h-14 w-full items-center justify-center rounded-2xl border border-neutral-200 bg-white text-neutral-900 shadow-sm transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
-                  aria-label="Log in"
+                  aria-label={t("lesson.hud.logIn")}
                 >
                   <LogIn className="h-5 w-5" aria-hidden="true" />
                 </Link>
@@ -338,7 +340,7 @@ export default function LessonPointsCounter({
                 data-tour-id="course-content-toggle"
               >
                 <BookOpen className="h-5 w-5" aria-hidden="true" />
-                <span className="sr-only">Course content</span>
+                <span className="sr-only">{t("lesson.courseContent.aria")}</span>
               </button>
             </div>
           </div>
@@ -347,10 +349,10 @@ export default function LessonPointsCounter({
             onClick={onRequestCustomize}
             disabled={!onRequestCustomize}
             data-tour-id="lesson-customize-mobile"
-            className="mt-3 flex h-14 w-full items-center justify-center rounded-2xl border border-neutral-200 bg-white text-neutral-900 shadow-sm transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-60 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+            className="mt-3 flex h-14 w-full items-center justify-center rounded-2xl bg-brand text-xs font-semibold uppercase tracking-[0.32em] text-white shadow-[0_12px_30px_rgba(169,21,255,0.35)] transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-60"
           >
             <SlidersHorizontal className="mr-2 h-5 w-5" aria-hidden="true" />
-            Customize
+            {t("lesson.hud.customize")}
           </button>
         </nav>
       </div>

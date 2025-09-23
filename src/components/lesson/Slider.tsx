@@ -16,6 +16,7 @@ import {
   persistLocalProgress,
   readLocalProgress,
 } from "../../utils/localProgress";
+import { useTranslation } from "react-i18next";
 
 function createBezier(x1: number, y1: number, x2: number, y2: number) {
   const cx = 3 * x1;
@@ -65,6 +66,7 @@ export default function Slider({
   courseTitle?: string;
   lessonSlug?: string;
 }) {
+  const { t, i18n } = useTranslation();
   const [index, setIndex] = useState(0);
   const [displayCards, setDisplayCards] = useState<LessonCard[]>(cards);
   const displayCardsRef = useRef(displayCards);
@@ -148,9 +150,8 @@ export default function Slider({
     () => [
       {
         id: "course-navigation",
-        title: "Explore the course map",
-        description:
-          "Use the course navigation on the right to jump between lessons. On mobile tap Course Content to open it.",
+        title: t("lesson.tour.steps.courseNavigation.title"),
+        description: t("lesson.tour.steps.courseNavigation.description"),
         target: {
           desktop: '[data-tour-id="course-nav"]',
           mobile: '[data-tour-id="course-content-toggle"]',
@@ -158,18 +159,16 @@ export default function Slider({
       },
       {
         id: "lesson-flow",
-        title: "Work through each lesson",
-        description:
-          "Every topic starts with a video overview followed by three lessons and quizzes to lock in what you learn.",
+        title: t("lesson.tour.steps.lessonFlow.title"),
+        description: t("lesson.tour.steps.lessonFlow.description"),
         target: {
           all: '[data-tour-id="lesson-flow"]',
         },
       },
       {
         id: "points-and-streaks",
-        title: "Earn points & streaks",
-        description:
-          "Completing lessons and quizzes adds to your points and daily streak shown in this HUD.",
+        title: t("lesson.tour.steps.pointsAndStreaks.title"),
+        description: t("lesson.tour.steps.pointsAndStreaks.description"),
         target: {
           desktop: '[data-tour-id="points-hud-desktop"]',
           mobile: '[data-tour-id="points-hud-mobile"]',
@@ -177,9 +176,8 @@ export default function Slider({
       },
       {
         id: "save-progress",
-        title: "Save your progress",
-        description:
-          "Log in so your points and streak days stay with you on any device.",
+        title: t("lesson.tour.steps.saveProgress.title"),
+        description: t("lesson.tour.steps.saveProgress.description"),
         target: {
           desktop: '[data-tour-id="hud-auth-desktop"]',
           mobile: '[data-tour-id="hud-auth-mobile"]',
@@ -187,16 +185,15 @@ export default function Slider({
       },
       {
         id: "customize",
-        title: "Customize what's next",
-        description:
-          "Use the customize button to tailor upcoming lessons. Filters are coming soon!",
+        title: t("lesson.tour.steps.customize.title"),
+        description: t("lesson.tour.steps.customize.description"),
         target: {
           desktop: '[data-tour-id="lesson-customize-desktop"]',
           mobile: '[data-tour-id="lesson-customize-mobile"]',
         },
       },
     ],
-    [],
+    [t, i18n.language],
   );
 
   const calculateCompletionBonus = useCallback(
@@ -911,10 +908,10 @@ export default function Slider({
                 id="course-title-mobile"
                 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100"
               >
-                {courseTitle || "Course Content"}
+                {courseTitle || t("lesson.courseContent.title")}
               </h2>
               <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                Course Content
+                {t("lesson.courseContent.label")}
               </p>
             </div>
             {tocContent}
@@ -937,10 +934,10 @@ export default function Slider({
               id="course-title-desktop"
               className="text-lg font-semibold text-neutral-900 dark:text-neutral-100"
             >
-              {courseTitle || "Course Content"}
+              {courseTitle || t("lesson.courseContent.title")}
             </h2>
             <p className="text-sm text-neutral-500 dark:text-neutral-400">
-              Course Content
+              {t("lesson.courseContent.label")}
             </p>
           </div>
           <div className="mt-4 flex-1 overflow-y-auto pr-2 lg:min-h-0">
@@ -963,17 +960,17 @@ export default function Slider({
             className="relative z-10 w-full max-w-sm rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 text-center shadow-[var(--shadow-soft)]"
           >
             <h2 id="customize-dialog-title" className="text-xl font-semibold tracking-tight">
-              Customization coming soon
+              {t("lesson.hud.customizeComingSoonTitle")}
             </h2>
             <p className="mt-3 text-sm text-[var(--fg-muted)]">
-              Customization filter coming soon.
+              {t("lesson.hud.customizeComingSoonBody")}
             </p>
             <button
               type="button"
               onClick={() => setCustomizeOpen(false)}
-              className="mt-6 inline-flex items-center justify-center rounded-full border border-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-white transition hover:-translate-y-0.5 hover:shadow-[0_12px_30px_rgba(169,21,255,0.35)]"
+              className="mt-6 inline-flex items-center justify-center rounded-full border border-brand bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-white shadow-[0_12px_30px_rgba(169,21,255,0.35)] transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
             >
-              Close
+              {t("lesson.hud.close")}
             </button>
           </div>
         </div>

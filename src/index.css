@@ -26,6 +26,9 @@
     --border-strong: rgba(17, 17, 18, 0.12);
     --border-subtle: rgba(17, 17, 18, 0.08);
     --shadow-soft: 0 20px 45px rgba(17, 17, 18, 0.12);
+    --tour-scrim: rgba(15, 23, 42, 0.65);
+    --tour-highlight-shadow: rgba(15, 23, 42, 0.55);
+    --tour-highlight-fill: rgba(255, 255, 255, 0.3);
   }
 
   .dark {
@@ -38,6 +41,9 @@
     --border-strong: rgba(245, 245, 247, 0.18);
     --border-subtle: rgba(245, 245, 247, 0.08);
     --shadow-soft: 0 25px 55px rgba(0, 0, 0, 0.55);
+    --tour-scrim: rgba(5, 5, 7, 0.72);
+    --tour-highlight-shadow: rgba(3, 3, 5, 0.7);
+    --tour-highlight-fill: rgba(255, 255, 255, 0.14);
   }
 
   body {
