@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { ExternalLink, PlayCircle } from "lucide-react";
 import type { LessonCard } from "../../types/lesson-plan";
 import Quiz, { type QuizCompletionMeta } from "./Quiz";
 import { getYouTubeId } from "../../lib/getYouTubeId";
@@ -35,9 +34,7 @@ export default function Card({
   if (videoUrl && !videoId && import.meta.env.DEV) {
     console.warn(`Invalid YouTube ID or URL: ${videoUrl}`);
   }
-  const headerImage = videoId
-    ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
-    : placeholderImage;
+  const headerImage = placeholderImage;
   const cardKey = useMemo(() => normalizeCardId(card.id) ?? String(card.id), [card.id]);
   const isVideoLesson = Boolean(card.isVideoLesson || (videoUrl && !card.content && !card.quiz));
   const [videoCompleted, setVideoCompleted] = useState(false);
@@ -200,18 +197,6 @@ export default function Card({
                 </p>
               </div>
             )}
-            {videoUrl && (
-              <a
-                href={videoUrl}
-                target="_blank"
-                rel="noreferrer noopener"
-                className="inline-flex items-center gap-2 self-start rounded-full border border-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-brand transition hover:-translate-y-0.5 hover:bg-brand/10"
-              >
-                <PlayCircle className="h-4 w-4" aria-hidden="true" />
-                <span>Open video</span>
-                <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-              </a>
-            )}
           </section>
         )}
 
@@ -247,9 +232,10 @@ export default function Card({
             >
               Lesson Content
             </h2>
-            <p className="leading-relaxed whitespace-pre-line">
-              {card.content}
-            </p>
+            <div
+              className="leading-relaxed [&_p]:mb-4 [&_p:last-child]:mb-0 [&_ul]:my-4 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-4 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-brand [&_a]:underline"
+              dangerouslySetInnerHTML={{ __html: card.content }}
+            />
           </section>
         )}
 
