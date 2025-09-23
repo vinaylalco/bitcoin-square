@@ -106,38 +106,21 @@ export default function App() {
 
           <nav className="hidden lg:flex items-center gap-8 text-sm font-semibold uppercase tracking-[0.22em]">
             {desktopNav.map((item) => (
-              <div key={item.to} className="relative group">
-                <NavLink
-                  to={item.to}
-                  className={({ isActive }) =>
-                    cn(
-                      "inline-flex items-center gap-2 py-2 transition",
-                      "text-[var(--fg-muted)] hover:text-brand",
-                      isActive && "text-brand",
-                    )
-                  }
-                >
-                  {item.label}
-                </NavLink>
-                {item.dropdown && (
-                  <div className="pointer-events-none absolute top-full left-1/2 z-40 mt-3 w-56 -translate-x-1/2 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3 opacity-0 shadow-[var(--shadow-soft)] transition-all duration-200 group-hover:pointer-events-auto group-hover:translate-y-1 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:translate-y-1 group-focus-within:opacity-100">
-                    {item.dropdown.map((child) => (
-                      <NavLink
-                        key={child.to}
-                        to={child.to}
-                        className={({ isActive }) =>
-                          cn(
-                            "block rounded-xl px-4 py-3 text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)] transition-colors hover:bg-brand/10 hover:text-brand",
-                            isActive && "bg-brand/10 text-brand",
-                          )
-                        }
-                      >
-                        {child.label}
-                      </NavLink>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={({ isActive }) =>
+                  cn(
+                    "inline-flex items-center gap-2 py-2 transition",
+                    item.highlight
+                      ? "rounded-full border border-brand px-4 text-xs tracking-[0.32em] text-brand hover:-translate-y-0.5 hover:border-brand hover:shadow-[0_12px_30px_rgba(169,21,255,0.35)]"
+                      : "text-[var(--fg-muted)] hover:text-brand",
+                    isActive && (item.highlight ? "bg-brand text-white" : "text-brand"),
+                  )
+                }
+              >
+                {item.label}
+              </NavLink>
             ))}
           </nav>
 
