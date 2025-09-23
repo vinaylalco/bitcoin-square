@@ -230,14 +230,6 @@ export default function LessonTour({
         paddingBottom: `${containerPadding}px`,
       }}
     >
-      <div
-        className="absolute inset-0 transition-colors"
-        style={{
-          background: "var(--tour-scrim)",
-          backdropFilter: "none",
-        }}
-        aria-hidden
-      />
       {highlightRect ? (
         <div
           className="pointer-events-none absolute rounded-3xl border-2 border-brand transition-all duration-200"
@@ -246,12 +238,19 @@ export default function LessonTour({
             left: highlightRect.left,
             width: highlightRect.width,
             height: highlightRect.height,
-            boxShadow: "0 0 0 9999px var(--tour-highlight-shadow)",
-            background: "var(--tour-highlight-fill)",
+            boxShadow: "0 0 0 9999px var(--tour-scrim)",
           }}
           aria-hidden
         />
-      ) : null}
+      ) : (
+        <div
+          className="absolute inset-0 transition-colors"
+          style={{
+            background: "var(--tour-scrim)",
+          }}
+          aria-hidden
+        />
+      )}
       <section
         role="dialog"
         aria-modal="true"
