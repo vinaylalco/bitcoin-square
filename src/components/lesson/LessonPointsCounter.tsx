@@ -218,7 +218,7 @@ export default function LessonPointsCounter({
               </span>
             </div>
             <div className="points-hud__divider" aria-hidden />
-            <div className="flex w-full flex-col items-center gap-3">
+            <div className="flex flex-col items-center gap-3">
               <div className="flex justify-center" data-tour-id="hud-auth-desktop">
                 {isLoggedIn ? (
                   <Link
@@ -243,10 +243,11 @@ export default function LessonPointsCounter({
                 onClick={onRequestCustomize}
                 disabled={!onRequestCustomize}
                 data-tour-id="lesson-customize-desktop"
-                className="points-hud__cta w-full justify-center bg-brand text-white shadow-[0_12px_30px_rgba(169,21,255,0.35)] transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-brand text-white shadow-[0_12px_30px_rgba(169,21,255,0.35)] transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-60"
+                aria-label={t("lesson.hud.customize")}
+                title={t("lesson.hud.customize")}
               >
-                <SlidersHorizontal className="mr-2 h-4 w-4" aria-hidden="true" />
-                {t("lesson.hud.customize")}
+                <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
           </div>
@@ -344,16 +345,19 @@ export default function LessonPointsCounter({
               </button>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onRequestCustomize}
-            disabled={!onRequestCustomize}
-            data-tour-id="lesson-customize-mobile"
-            className="mt-3 flex h-14 w-full items-center justify-center rounded-2xl bg-brand text-xs font-semibold uppercase tracking-[0.32em] text-white shadow-[0_12px_30px_rgba(169,21,255,0.35)] transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <SlidersHorizontal className="mr-2 h-5 w-5" aria-hidden="true" />
-            {t("lesson.hud.customize")}
-          </button>
+          <div className="mt-3 flex justify-center">
+            <button
+              type="button"
+              onClick={onRequestCustomize}
+              disabled={!onRequestCustomize}
+              data-tour-id="lesson-customize-mobile"
+              className="flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-[0_12px_30px_rgba(169,21,255,0.35)] transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-60"
+              aria-label={t("lesson.hud.customize")}
+              title={t("lesson.hud.customize")}
+            >
+              <SlidersHorizontal className="h-5 w-5" aria-hidden="true" />
+            </button>
+          </div>
         </nav>
       </div>
     </>
