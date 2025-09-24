@@ -7,6 +7,7 @@ import { strapiFetch } from "../../api/strapi-client";
 import { useAuth } from "../../context/AuthContext";
 import LessonPointsCounter from "./LessonPointsCounter";
 import LessonTour, { type LessonTourStep } from "./LessonTour";
+import CustomizeDialog from "./CustomizeDialog";
 import type { QuizCompletionMeta } from "./Quiz";
 import {
   calculateNextStudyStreak,
@@ -16,6 +17,13 @@ import {
   persistLocalProgress,
   readLocalProgress,
 } from "../../utils/localProgress";
+import {
+  buildPersonalizedFlatPlan,
+  type FlatPlan,
+  type SurveyAnswers,
+  type Topic as PlanTopic,
+} from "../../utils/buildPersonalizedFlatPlan";
+import { getTopicCategory } from "../../utils/topicCategories";
 import { useTranslation } from "react-i18next";
 
 function createBezier(x1: number, y1: number, x2: number, y2: number) {
@@ -95,6 +103,8 @@ export default function Slider({
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [customizeOpen, setCustomizeOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
+  const [surveyAnswers, setSurveyAnswers] = useState<SurveyAnswers | null>(null);
+  const [personalizedPlan, setPersonalizedPlan] = useState<FlatPlan | null>(null);
   const [completedCardIds, setCompletedCardIds] = useState<Set<string>>(() => {
     const initial = new Set<string>();
     if (lessonSlug) {
@@ -145,6 +155,50 @@ export default function Slider({
     });
     return map;
   }, [modules, toCardKey]);
+
+  const planTopics = useMemo<PlanTopic[]>(() => {
+    const result: PlanTopic[] = [];
+    modules.forEach((module, moduleIndex) => {
+      const moduleTopics = Array.isArray(module.topics) ? module.topics : [];
+      const moduleId = module?.id != null ? String(module.id) : `module-${moduleIndex}`;
+      const moduleTitle =
+        typeof module.name === "string" && module.name.length > 0
+          ? module.name
+          : `Module ${moduleIndex + 1}`;
+      moduleTopics.forEach((topic, topicIndex) => {
+        const topicId = topic?.id != null ? String(topic.id) : `${moduleId}-topic-${topicIndex}`;
+        const topicTitle =
+          typeof topic?.name === "string" && topic.name.length > 0
+            ? topic.name
+            : `Topic ${moduleIndex + 1}.${topicIndex + 1}`;
+        result.push({
+          id: topicId,
+          title: topicTitle,
+          categoryId: getTopicCategory(topicId),
+          originalOrder: result.length,
+          moduleId,
+          moduleTitle,
+        });
+      });
+    });
+    return result;
+  }, [modules]);
+
+  const cardsByTopic = useMemo(() => {
+    const map = new Map<string, LessonCard[]>();
+    modules.forEach((module) => {
+      const moduleTopics = Array.isArray(module.topics) ? module.topics : [];
+      moduleTopics.forEach((topic) => {
+        const topicId = topic?.id != null ? String(topic.id) : undefined;
+        if (!topicId) return;
+        const topicCards = Array.isArray(topic.cards)
+          ? (topic.cards as LessonCard[])
+          : [];
+        map.set(topicId, topicCards);
+      });
+    });
+    return map;
+  }, [modules]);
 
   const tourSteps = useMemo<LessonTourStep[]>(
     () => [
@@ -272,6 +326,46 @@ export default function Slider({
     displayCards.forEach((c, i) => map.set(toCardKey(c.id), i));
     return map;
   }, [displayCards, toCardKey]);
+
+  const handleCustomizeSubmit = useCallback(
+    (answers: SurveyAnswers) => {
+      setSurveyAnswers(answers);
+      const plan = buildPersonalizedFlatPlan(answers, planTopics);
+      setPersonalizedPlan(plan);
+
+      const nextCards: LessonCard[] = [];
+      const seenTopics = new Set<string>();
+
+      plan.topics.forEach((topic) => {
+        seenTopics.add(topic.id);
+        const topicCards = cardsByTopic.get(topic.id);
+        if (topicCards && topicCards.length > 0) {
+          nextCards.push(...topicCards);
+        }
+      });
+
+      if (nextCards.length < cards.length) {
+        planTopics.forEach((topic) => {
+          if (seenTopics.has(topic.id)) return;
+          const topicCards = cardsByTopic.get(topic.id);
+          if (topicCards && topicCards.length > 0) {
+            nextCards.push(...topicCards);
+          }
+        });
+      }
+
+      if (nextCards.length === 0) {
+        setDisplayCards(cards);
+        displayCardsRef.current = cards;
+      } else {
+        setDisplayCards(nextCards);
+        displayCardsRef.current = nextCards;
+      }
+
+      setCustomizeOpen(false);
+    },
+    [cards, cardsByTopic, planTopics],
+  );
 
   const applyPointDelta = useCallback(
     (delta: number) => {
@@ -947,33 +1041,13 @@ export default function Slider({
       </nav>
       </div>
       {customizeOpen && (
-        <div className="fixed inset-0 z-[65] flex items-center justify-center px-4 py-8">
-          <div
-            className="absolute inset-0 bg-neutral-900/60 backdrop-blur-sm"
-            onClick={() => setCustomizeOpen(false)}
-            aria-hidden
-          />
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="customize-dialog-title"
-            className="relative z-10 w-full max-w-sm rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 text-center shadow-[var(--shadow-soft)]"
-          >
-            <h2 id="customize-dialog-title" className="text-xl font-semibold tracking-tight">
-              {t("lesson.hud.customizeComingSoonTitle")}
-            </h2>
-            <p className="mt-3 text-sm text-[var(--fg-muted)]">
-              {t("lesson.hud.customizeComingSoonBody")}
-            </p>
-            <button
-              type="button"
-              onClick={() => setCustomizeOpen(false)}
-              className="mt-6 inline-flex items-center justify-center rounded-full border border-brand bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-white shadow-[0_12px_30px_rgba(169,21,255,0.35)] transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-            >
-              {t("lesson.hud.close")}
-            </button>
-          </div>
-        </div>
+        <CustomizeDialog
+          open={customizeOpen}
+          onClose={() => setCustomizeOpen(false)}
+          onSubmit={handleCustomizeSubmit}
+          initialAnswers={surveyAnswers ?? undefined}
+          plan={personalizedPlan}
+        />
       )}
       <LessonTour
         open={tourOpen}
