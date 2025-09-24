@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import {
-  Bitcoin,
   BookOpen,
   Home as HomeIcon,
   LayoutDashboard,
@@ -27,8 +26,10 @@ export default function App() {
 
   const { t, i18n } = useTranslation();
   const loc = useLocation();
-  useTheme(); // ensures theme context is mounted
+  const { theme } = useTheme(); // ensures theme context is mounted
   const { user, logout } = useAuth();
+
+  const hideFooterOnPage = /^\/education\/[\w-]+/.test(loc.pathname);
 
   const lang = (i18n.language || "en").toLowerCase().startsWith("es") ? "es" : "en";
   const changeLang = (lng: "en" | "es") => i18n.changeLanguage(lng);
@@ -100,7 +101,12 @@ export default function App() {
             <Link to="/" className="flex items-center gap-2">
               <span className="relative flex items-center gap-2 text-lg font-black uppercase tracking-[0.28em]">
                 <span className="flex items-center gap-2">
-                  <Bitcoin aria-hidden className="h-5 w-5" />
+                  <img
+                    src={theme === "dark" ? "/btc_B_white.png" : "/btc_B_orange.png"}
+                    alt=""
+                    aria-hidden
+                    className="h-5 w-5 object-contain"
+                  />
                   <span className="sr-only">Bitcoin</span>
                   <span>itcoin</span>
                 </span>
@@ -348,7 +354,7 @@ export default function App() {
 
       <main className="flex-1">
         <Outlet />
-        <Footer />
+        {!hideFooterOnPage && <Footer />}
       </main>
     </div>
   );
