@@ -149,7 +149,7 @@ export default function CustomizeDialog({
   }, [plan, t]);
 
   return (
-    <div className="fixed inset-0 z-[65] flex items-center justify-center px-4 py-8">
+    <div className="fixed inset-0 z-[65] flex items-center justify-center overflow-y-auto px-4 py-8">
       <div
         className="absolute inset-0 bg-neutral-900/60 backdrop-blur-sm"
         onClick={onClose}
@@ -159,155 +159,157 @@ export default function CustomizeDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="customize-dialog-title"
-        className="relative z-10 w-full max-w-3xl rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 text-left shadow-[var(--shadow-soft)] sm:p-8"
+        className="relative z-10 flex w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] text-left shadow-[var(--shadow-soft)] max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-4rem)]"
       >
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--fg-muted)] transition hover:text-[var(--fg-default)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+          className="absolute right-6 top-6 inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--fg-muted)] transition hover:text-[var(--fg-default)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand sm:right-8 sm:top-8"
         >
           <span className="sr-only">{t("lesson.customize.actions.close")}</span>
           <X className="h-5 w-5" aria-hidden="true" />
         </button>
-        <div className="space-y-6">
-          <div className="space-y-3 pr-10 sm:pr-12">
-            <h2
-              id="customize-dialog-title"
-              className="text-2xl font-semibold tracking-tight text-[var(--fg-default)]"
-            >
-              {t("lesson.customize.title")}
-            </h2>
-            <p className="text-sm text-[var(--fg-muted)]">
-              {t("lesson.customize.intro")}
-            </p>
-            {plan && (
-              <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-4 text-sm text-[var(--fg-muted)]">
-                <p className="text-xs font-semibold uppercase tracking-[0.32em] text-brand">
-                  {t("lesson.customize.summary.title")}
-                </p>
-                <p className="mt-2 font-medium text-[var(--fg-default)]">
-                  {t("lesson.customize.summary.primary", {
-                    label: t(`lesson.customize.categories.${plan.primaryCategory}`),
-                  })}
-                </p>
-                {summarySecondaryLabels.length > 0 && (
-                  <p className="mt-1">
-                    {t("lesson.customize.summary.secondary", {
-                      list: summarySecondaryLabels.join(", "),
+        <div className="flex-1 overflow-y-auto px-6 pb-6 pt-16 sm:px-8 sm:pb-8 sm:pt-20">
+          <div className="space-y-6">
+            <div className="space-y-3 pr-10 sm:pr-12">
+              <h2
+                id="customize-dialog-title"
+                className="text-2xl font-semibold tracking-tight text-[var(--fg-default)]"
+              >
+                {t("lesson.customize.title")}
+              </h2>
+              <p className="text-sm text-[var(--fg-muted)]">
+                {t("lesson.customize.intro")}
+              </p>
+              {plan && (
+                <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-4 text-sm text-[var(--fg-muted)]">
+                  <p className="text-xs font-semibold uppercase tracking-[0.32em] text-brand">
+                    {t("lesson.customize.summary.title")}
+                  </p>
+                  <p className="mt-2 font-medium text-[var(--fg-default)]">
+                    {t("lesson.customize.summary.primary", {
+                      label: t(`lesson.customize.categories.${plan.primaryCategory}`),
                     })}
                   </p>
-                )}
-              </div>
-            )}
-          </div>
-          <form onSubmit={handleSubmit} className="space-y-8">
-            <section>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-baseline sm:justify-between">
-                <h3 className="text-lg font-semibold text-[var(--fg-default)]">
-                  {t("lesson.customize.q1.prompt")}
-                </h3>
-                <span className="text-sm font-medium text-[var(--fg-muted)]">
-                  {t("lesson.customize.q1.selectedCount", {
-                    count: answers.q1.length,
-                    total: 3,
-                  })}
-                </span>
-              </div>
-              <p className="mt-1 text-sm text-[var(--fg-muted)]">
-                {t("lesson.customize.q1.helper")}
-              </p>
-              <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                {categoryOptions.map((option) => {
-                  const selected = answers.q1.includes(option.id);
-                  return (
-                    <button
-                      key={option.id}
-                      type="button"
-                      onClick={() => handleToggleCategory(option.id)}
-                      aria-pressed={selected}
-                      className={`group flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
-                        selected
-                          ? "border-brand bg-brand text-white shadow-[0_12px_30px_rgba(169,21,255,0.35)]"
-                          : "border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--fg-default)] hover:-translate-y-0.5"
-                      }`}
-                    >
-                      <span className="font-medium leading-snug">
-                        {option.label}
-                      </span>
-                      {selected && <Check className="h-4 w-4" aria-hidden="true" />}
-                    </button>
-                  );
-                })}
-              </div>
-              {attemptedSubmit && !isQ1Valid && (
-                <p className="mt-2 text-sm font-medium text-red-500">
-                  {t("lesson.customize.errors.q1")}
-                </p>
+                  {summarySecondaryLabels.length > 0 && (
+                    <p className="mt-1">
+                      {t("lesson.customize.summary.secondary", {
+                        list: summarySecondaryLabels.join(", "),
+                      })}
+                    </p>
+                  )}
+                </div>
               )}
-            </section>
-
-            <SurveyRadios
-              name="q2"
-              title={t("lesson.customize.q2.prompt")}
-              options={q2Options}
-              value={answers.q2}
-              onChange={(value) => handleRadioChange("q2", value)}
-              attempted={attemptedSubmit}
-              errorLabel={t("lesson.customize.errors.required")}
-            />
-
-            <SurveyRadios
-              name="q3"
-              title={t("lesson.customize.q3.prompt")}
-              options={q3Options}
-              value={answers.q3}
-              onChange={(value) => handleRadioChange("q3", value)}
-              attempted={attemptedSubmit}
-              errorLabel={t("lesson.customize.errors.required")}
-            />
-
-            <SurveyRadios
-              name="q4"
-              title={t("lesson.customize.q4.prompt")}
-              options={q4Options}
-              value={answers.q4}
-              onChange={(value) => handleRadioChange("q4", value)}
-              attempted={attemptedSubmit}
-              errorLabel={t("lesson.customize.errors.required")}
-            />
-
-            <SurveyRadios
-              name="q5"
-              title={t("lesson.customize.q5.prompt")}
-              options={q5Options}
-              value={answers.q5}
-              onChange={(value) => handleRadioChange("q5", value)}
-              attempted={attemptedSubmit}
-              errorLabel={t("lesson.customize.errors.required")}
-            />
-
-            <div className="flex flex-col gap-4 border-t border-[var(--border-subtle)] pt-4 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm text-[var(--fg-muted)]">
-                {t("lesson.customize.footerNote")}
-              </p>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="inline-flex items-center justify-center rounded-full border border-[var(--border-subtle)] px-5 py-2 text-sm font-semibold uppercase tracking-[0.32em] text-[var(--fg-default)] transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-                >
-                  {t("lesson.customize.actions.cancel")}
-                </button>
-                <button
-                  type="submit"
-                  disabled={!isComplete}
-                  className="inline-flex items-center justify-center rounded-full border border-brand bg-brand px-5 py-2 text-sm font-semibold uppercase tracking-[0.32em] text-white shadow-[0_12px_30px_rgba(169,21,255,0.35)] transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {t("lesson.customize.actions.continue")}
-                </button>
-              </div>
             </div>
-          </form>
+            <form onSubmit={handleSubmit} className="space-y-8">
+              <section>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-baseline sm:justify-between">
+                  <h3 className="text-lg font-semibold text-[var(--fg-default)]">
+                    {t("lesson.customize.q1.prompt")}
+                  </h3>
+                  <span className="text-sm font-medium text-[var(--fg-muted)]">
+                    {t("lesson.customize.q1.selectedCount", {
+                      count: answers.q1.length,
+                      total: 3,
+                    })}
+                  </span>
+                </div>
+                <p className="mt-1 text-sm text-[var(--fg-muted)]">
+                  {t("lesson.customize.q1.helper")}
+                </p>
+                <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                  {categoryOptions.map((option) => {
+                    const selected = answers.q1.includes(option.id);
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => handleToggleCategory(option.id)}
+                        aria-pressed={selected}
+                        className={`group flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
+                          selected
+                            ? "border-brand bg-brand text-white shadow-[0_12px_30px_rgba(169,21,255,0.35)]"
+                            : "border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--fg-default)] hover:-translate-y-0.5"
+                        }`}
+                      >
+                        <span className="font-medium leading-snug">
+                          {option.label}
+                        </span>
+                        {selected && <Check className="h-4 w-4" aria-hidden="true" />}
+                      </button>
+                    );
+                  })}
+                </div>
+                {attemptedSubmit && !isQ1Valid && (
+                  <p className="mt-2 text-sm font-medium text-red-500">
+                    {t("lesson.customize.errors.q1")}
+                  </p>
+                )}
+              </section>
+
+              <SurveyRadios
+                name="q2"
+                title={t("lesson.customize.q2.prompt")}
+                options={q2Options}
+                value={answers.q2}
+                onChange={(value) => handleRadioChange("q2", value)}
+                attempted={attemptedSubmit}
+                errorLabel={t("lesson.customize.errors.required")}
+              />
+
+              <SurveyRadios
+                name="q3"
+                title={t("lesson.customize.q3.prompt")}
+                options={q3Options}
+                value={answers.q3}
+                onChange={(value) => handleRadioChange("q3", value)}
+                attempted={attemptedSubmit}
+                errorLabel={t("lesson.customize.errors.required")}
+              />
+
+              <SurveyRadios
+                name="q4"
+                title={t("lesson.customize.q4.prompt")}
+                options={q4Options}
+                value={answers.q4}
+                onChange={(value) => handleRadioChange("q4", value)}
+                attempted={attemptedSubmit}
+                errorLabel={t("lesson.customize.errors.required")}
+              />
+
+              <SurveyRadios
+                name="q5"
+                title={t("lesson.customize.q5.prompt")}
+                options={q5Options}
+                value={answers.q5}
+                onChange={(value) => handleRadioChange("q5", value)}
+                attempted={attemptedSubmit}
+                errorLabel={t("lesson.customize.errors.required")}
+              />
+
+              <div className="flex flex-col gap-4 border-t border-[var(--border-subtle)] pt-4 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-[var(--fg-muted)]">
+                  {t("lesson.customize.footerNote")}
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="inline-flex items-center justify-center rounded-full border border-[var(--border-subtle)] px-5 py-2 text-sm font-semibold uppercase tracking-[0.32em] text-[var(--fg-default)] transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                  >
+                    {t("lesson.customize.actions.cancel")}
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!isComplete}
+                    className="inline-flex items-center justify-center rounded-full border border-brand bg-brand px-5 py-2 text-sm font-semibold uppercase tracking-[0.32em] text-white shadow-[0_12px_30px_rgba(169,21,255,0.35)] transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {t("lesson.customize.actions.continue")}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
     </div>

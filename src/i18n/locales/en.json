@@ -27,89 +27,6 @@
       "openAria": "Open menu",
       "closeAria": "Close menu",
       "ariaLabel": "Main menu"
-    },
-    "customize": {
-      "title": "Customize your lesson path",
-      "intro": "Answer five quick questions to reprioritize the course topics around what matters to you.",
-      "summary": {
-        "title": "Your current focus",
-        "primary": "Primary: {{label}}",
-        "secondary": "Secondary: {{list}}"
-      },
-      "categories": {
-        "1": "Monetary history & fiat dynamics",
-        "2": "\"Honest money\" vs today's system",
-        "3": "Bitcoin's origins & ethos",
-        "4": "Core technology & network mechanics",
-        "5": "Economic roles & adoption",
-        "6": "Payments, access & financial sovereignty",
-        "7": "Human rights & social impact",
-        "8": "Security, self-custody & personal risk"
-      },
-      "q1": {
-        "prompt": "Which themes feel most relevant for you right now?",
-        "helper": "Select exactly three themes to prioritize.",
-        "selectedCount": "{{count}} of {{total}} selected"
-      },
-      "q2": {
-        "prompt": "Which challenge sounds most like you?",
-        "options": {
-          "12": "I need context on money's history and why today's fiat system feels unstable.",
-          "3": "I want the origin story and ethos behind Bitcoin.",
-          "4": "I'm curious about how the technology actually works.",
-          "56": "I need practical guidance for using Bitcoin in daily life.",
-          "7": "I'm focused on human rights, energy, and community impact.",
-          "8": "I'm worried about personal security and avoiding mistakes."
-        }
-      },
-      "q3": {
-        "prompt": "What kind of lessons keep you motivated?",
-        "options": {
-          "1": "Stories about how money evolved and why inflation happens.",
-          "2": "Comparisons between Bitcoin and today's financial system.",
-          "3": "The why, philosophy, and culture behind Bitcoin.",
-          "4": "Deep dives into nodes, mining, and network mechanics.",
-          "5": "Case studies on adoption and economic outcomes.",
-          "6": "Hands-on steps for acquiring and spending Bitcoin.",
-          "7": "Examples of Bitcoin improving lives or energy systems.",
-          "8": "Guides that help me protect my savings and manage risk."
-        }
-      },
-      "q4": {
-        "prompt": "Which outcome would feel most valuable after this course?",
-        "options": {
-          "1": "Explain monetary history and inflation with confidence.",
-          "2": "Debate fiat versus Bitcoin using strong arguments.",
-          "3": "Share Bitcoin's mission and ethos with others.",
-          "4": "Feel capable of running or troubleshooting the tech.",
-          "5": "Spot real-world adoption opportunities and trends.",
-          "6": "Help someone go from zero to their first Bitcoin transaction.",
-          "7": "Advocate for human rights, energy, or social impact conversations.",
-          "8": "Secure my own savings and avoid costly custody errors."
-        }
-      },
-      "q5": {
-        "prompt": "Where do you need the most support right now?",
-        "options": {
-          "12": "Inflation and fiat policy still confuse me.",
-          "3": "I haven't explored Bitcoin's origin story yet.",
-          "4": "Technical concepts like nodes or mining slow me down.",
-          "5": "I need examples that prove Bitcoin's economic role.",
-          "6": "I want clearer steps to get and spend Bitcoin safely.",
-          "7": "I look for stories about Bitcoin empowering communities.",
-          "8": "I'm unsure how to self-custody securely for the long term."
-        }
-      },
-      "actions": {
-        "close": "Close",
-        "cancel": "Cancel",
-        "continue": "Continue"
-      },
-      "errors": {
-        "q1": "Select exactly three themes to continue.",
-        "required": "Choose one option to continue."
-      },
-      "footerNote": "You can update these answers anytime."
     }
   },
   "settings": {
@@ -210,6 +127,89 @@
           "description": "Answer a short survey to reprioritize the upcoming lessons."
         }
       }
+    },
+    "customize": {
+      "title": "Customize your lesson path",
+      "intro": "Answer five quick questions to reprioritize the course topics around what matters to you.",
+      "summary": {
+        "title": "Your current focus",
+        "primary": "Primary: {{label}}",
+        "secondary": "Secondary: {{list}}"
+      },
+      "categories": {
+        "1": "Monetary history & fiat dynamics",
+        "2": "\"Honest money\" vs today's system",
+        "3": "Bitcoin's origins & ethos",
+        "4": "Core technology & network mechanics",
+        "5": "Economic roles & adoption",
+        "6": "Payments, access & financial sovereignty",
+        "7": "Human rights & social impact",
+        "8": "Security, self-custody & personal risk"
+      },
+      "q1": {
+        "prompt": "Which themes feel most relevant for you right now?",
+        "helper": "Select exactly three themes to prioritize.",
+        "selectedCount": "{{count}} of {{total}} selected"
+      },
+      "q2": {
+        "prompt": "Which challenge sounds most like you?",
+        "options": {
+          "12": "I need context on money's history and why today's fiat system feels unstable.",
+          "3": "I want the origin story and ethos behind Bitcoin.",
+          "4": "I'm curious about how the technology actually works.",
+          "56": "I need practical guidance for using Bitcoin in daily life.",
+          "7": "I'm focused on human rights, energy, and community impact.",
+          "8": "I'm worried about personal security and avoiding mistakes."
+        }
+      },
+      "q3": {
+        "prompt": "What kind of lessons keep you motivated?",
+        "options": {
+          "1": "Stories about how money evolved and why inflation happens.",
+          "2": "Comparisons between Bitcoin and today's financial system.",
+          "3": "The why, philosophy, and culture behind Bitcoin.",
+          "4": "Deep dives into nodes, mining, and network mechanics.",
+          "5": "Case studies on adoption and economic outcomes.",
+          "6": "Hands-on steps for acquiring and spending Bitcoin.",
+          "7": "Examples of Bitcoin improving lives or energy systems.",
+          "8": "Guides that help me protect my savings and manage risk."
+        }
+      },
+      "q4": {
+        "prompt": "Which outcome would feel most valuable after this course?",
+        "options": {
+          "1": "Explain monetary history and inflation with confidence.",
+          "2": "Debate fiat versus Bitcoin using strong arguments.",
+          "3": "Share Bitcoin's mission and ethos with others.",
+          "4": "Feel capable of running or troubleshooting the tech.",
+          "5": "Spot real-world adoption opportunities and trends.",
+          "6": "Help someone go from zero to their first Bitcoin transaction.",
+          "7": "Advocate for human rights, energy, or social impact conversations.",
+          "8": "Secure my own savings and avoid costly custody errors."
+        }
+      },
+      "q5": {
+        "prompt": "Where do you need the most support right now?",
+        "options": {
+          "12": "Inflation and fiat policy still confuse me.",
+          "3": "I haven't explored Bitcoin's origin story yet.",
+          "4": "Technical concepts like nodes or mining slow me down.",
+          "5": "I need examples that prove Bitcoin's economic role.",
+          "6": "I want clearer steps to get and spend Bitcoin safely.",
+          "7": "I look for stories about Bitcoin empowering communities.",
+          "8": "I'm unsure how to self-custody securely for the long term."
+        }
+      },
+      "actions": {
+        "close": "Close",
+        "cancel": "Cancel",
+        "continue": "Continue"
+      },
+      "errors": {
+        "q1": "Select exactly three themes to continue.",
+        "required": "Choose one option to continue."
+      },
+      "footerNote": "You can update these answers anytime."
     }
   },
   "auth": {
