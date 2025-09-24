@@ -83,6 +83,7 @@ export default function Slider({
   const cardWrappers = useRef(new Map<string, HTMLDivElement>());
   const completionTimeoutRef = useRef<number | null>(null);
   const [navHeight, setNavHeight] = useState<number | null>(null);
+  const lastScrollY = useRef(0);
   const { user, token, updateUser } = useAuth();
   const initialLocalProgress = useMemo(() => readLocalProgress(), []);
   const [localProgress, setLocalProgress] = useState<LocalProgress>(initialLocalProgress);
@@ -95,6 +96,7 @@ export default function Slider({
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [customizeOpen, setCustomizeOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
+  const [navHiddenByScroll, setNavHiddenByScroll] = useState(false);
   const [completedCardIds, setCompletedCardIds] = useState<Set<string>>(() => {
     const initial = new Set<string>();
     if (lessonSlug) {
@@ -748,12 +750,58 @@ export default function Slider({
     return () => window.clearTimeout(timer);
   }, [cards.length]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    lastScrollY.current = window.scrollY;
+    const threshold = 8;
+
+    const handleScroll = () => {
+      if (tourOpen) {
+        setNavHiddenByScroll(false);
+        return;
+      }
+
+      const currentY = window.scrollY;
+      const delta = currentY - lastScrollY.current;
+      lastScrollY.current = currentY;
+
+      if (currentY <= 0) {
+        setNavHiddenByScroll(false);
+        return;
+      }
+
+      if (Math.abs(delta) < threshold) {
+        return;
+      }
+
+      if (delta > 0) {
+        setNavHiddenByScroll(true);
+      } else {
+        setNavHiddenByScroll(false);
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [tourOpen]);
+
   const handleTourDismiss = useCallback(() => {
     if (typeof window !== "undefined") {
       window.localStorage.setItem(LESSON_TOUR_STORAGE_KEY, "true");
     }
     setTourOpen(false);
+    setNavHiddenByScroll(false);
   }, []);
+
+  const showDesktopNav = !tourOpen && !navHiddenByScroll;
+  const columnClassNames = [
+    "flex flex-col gap-4",
+    showDesktopNav ? "lg:w-2/3 lg:pr-4" : "lg:w-full",
+  ].join(" ");
+  const navStyle =
+    showDesktopNav && navHeight
+      ? { height: navHeight, maxHeight: navHeight }
+      : undefined;
 
   const tocContent = (
     <div className="space-y-6 text-neutral-900 dark:text-neutral-100">
@@ -817,10 +865,7 @@ export default function Slider({
         className="lg:flex lg:items-start"
         style={{ "--chrome": `${chrome}px` } as CSSProperties}
       >
-      <div
-        ref={columnRef}
-        className="lg:w-2/3 lg:pr-4 flex flex-col gap-4"
-      >
+      <div ref={columnRef} className={columnClassNames}>
         <div ref={progressContainerRef} className="flex items-center">
           <div
             ref={progressRef}
@@ -919,13 +964,14 @@ export default function Slider({
         </div>
       </div>
       <nav
-        className="hidden lg:flex lg:w-1/3 lg:pl-4 bg-white dark:bg-neutral-900"
-        style={
-          navHeight
-            ? { height: navHeight, maxHeight: navHeight }
-            : undefined
-        }
+        className={[
+          "hidden",
+          showDesktopNav ? "lg:flex" : "lg:hidden",
+          "lg:w-1/3 lg:pl-4 bg-white dark:bg-neutral-900",
+        ].join(" ")}
+        style={navStyle}
         aria-labelledby="course-title-desktop"
+        aria-hidden={!showDesktopNav}
         data-tour-id="course-nav"
       >
         <div className="flex h-full w-full flex-col min-h-0">
