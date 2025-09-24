@@ -996,7 +996,7 @@ export default function Slider({
   }, []);
 
 
-  const showDesktopNav = !tourOpen && !navHiddenByScroll;
+  const showDesktopNav = tourOpen || !navHiddenByScroll;
   const columnClassNames = [
     "flex flex-col gap-4",
     showDesktopNav ? "lg:w-2/3 lg:pr-4" : "lg:w-full",
