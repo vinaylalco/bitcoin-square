@@ -40,7 +40,7 @@ export default function CustomizeDialog({
   plan,
   onRevert,
 }: CustomizeDialogProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [answers, setAnswers] = useState<SurveyAnswers>(EMPTY_ANSWERS);
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
 
@@ -59,7 +59,7 @@ export default function CustomizeDialog({
         id,
         label: t(`lesson.customize.categories.${id}`),
       })),
-    [t],
+    [t, i18n.language],
   );
 
   const q2Options = useMemo<SurveyQuestion[]>(
@@ -71,7 +71,7 @@ export default function CustomizeDialog({
       { value: "7", label: t("lesson.customize.q2.options.7") },
       { value: "8", label: t("lesson.customize.q2.options.8") },
     ],
-    [t],
+    [t, i18n.language],
   );
 
   const q3Options = useMemo<SurveyQuestion[]>(
@@ -80,7 +80,7 @@ export default function CustomizeDialog({
         value: id,
         label: t(`lesson.customize.q3.options.${id}`),
       })),
-    [t],
+    [t, i18n.language],
   );
 
   const q4Options = useMemo<SurveyQuestion[]>(
@@ -89,7 +89,7 @@ export default function CustomizeDialog({
         value: id,
         label: t(`lesson.customize.q4.options.${id}`),
       })),
-    [t],
+    [t, i18n.language],
   );
 
   const q5Options = useMemo<SurveyQuestion[]>(
@@ -102,7 +102,7 @@ export default function CustomizeDialog({
       { value: "7", label: t("lesson.customize.q5.options.7") },
       { value: "8", label: t("lesson.customize.q5.options.8") },
     ],
-    [t],
+    [t, i18n.language],
   );
 
   const handleToggleCategory = useCallback((categoryId: CategoryId) => {
@@ -148,7 +148,7 @@ export default function CustomizeDialog({
     return plan.secondaryCategories
       .slice(0, 3)
       .map((id) => t(`lesson.customize.categories.${id}`));
-  }, [plan, t]);
+  }, [plan, t, i18n.language]);
 
   return (
     <div className="fixed inset-0 z-[65] flex items-center justify-center overflow-y-auto px-4 py-8">
@@ -357,7 +357,7 @@ function SurveyRadios({
               key={option.value}
               className={`flex cursor-pointer items-start gap-3 rounded-2xl border px-4 py-3 transition focus-within:outline-none focus-within:ring-2 focus-within:ring-brand ${
                 checked
-                  ? "border-brand bg-brand/10 text-[var(--fg-default)]"
+                  ? "border-brand bg-brand/10 text-[var(--fg-default)] dark:bg-brand/20"
                   : "border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--fg-default)] hover:-translate-y-0.5"
               }`}
             >
