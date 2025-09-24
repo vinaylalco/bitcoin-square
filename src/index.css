@@ -71,6 +71,12 @@
   }
 }
 
+@layer base {
+  html.lesson-tour-active [data-app-header] {
+    display: none;
+  }
+}
+
 :root {
   --ring: #a915ff;
 }
