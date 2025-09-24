@@ -987,6 +987,19 @@ export default function Slider({
     return () => window.removeEventListener("scroll", handleScroll);
   }, [tourOpen]);
 
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const root = document.documentElement;
+    if (tourOpen) {
+      root.classList.add("lesson-tour-active");
+    } else {
+      root.classList.remove("lesson-tour-active");
+    }
+    return () => {
+      root.classList.remove("lesson-tour-active");
+    };
+  }, [tourOpen]);
+
   const handleTourDismiss = useCallback(() => {
     if (typeof window !== "undefined") {
       window.localStorage.setItem(LESSON_TOUR_STORAGE_KEY, "true");
@@ -995,8 +1008,7 @@ export default function Slider({
     setNavHiddenByScroll(false);
   }, []);
 
-
-  const showDesktopNav = !tourOpen && !navHiddenByScroll;
+  const showDesktopNav = tourOpen || !navHiddenByScroll;
   const columnClassNames = [
     "flex flex-col gap-4",
     showDesktopNav ? "lg:w-2/3 lg:pr-4" : "lg:w-full",
