@@ -24,6 +24,7 @@ type CustomizeDialogProps = {
   onSubmit: (answers: SurveyAnswers) => void;
   initialAnswers?: SurveyAnswers | null;
   plan?: FlatPlan | null;
+  onRevert?: () => void;
 };
 
 type SurveyQuestion = {
@@ -37,6 +38,7 @@ export default function CustomizeDialog({
   onSubmit,
   initialAnswers,
   plan,
+  onRevert,
 }: CustomizeDialogProps) {
   const { t } = useTranslation();
   const [answers, setAnswers] = useState<SurveyAnswers>(EMPTY_ANSWERS);
@@ -292,6 +294,15 @@ export default function CustomizeDialog({
                   {t("lesson.customize.footerNote")}
                 </p>
                 <div className="flex items-center gap-2">
+                  {onRevert && (
+                    <button
+                      type="button"
+                      onClick={onRevert}
+                      className="inline-flex items-center justify-center rounded-full border border-[var(--border-subtle)] px-5 py-2 text-sm font-semibold uppercase tracking-[0.32em] text-[var(--fg-default)] transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                    >
+                      {t("lesson.customize.actions.revert")}
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={onClose}

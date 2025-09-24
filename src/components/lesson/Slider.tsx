@@ -467,6 +467,14 @@ export default function Slider({
     [cards, cardsByTopic, planTopics],
   );
 
+  const handleCustomizeRevert = useCallback(() => {
+    setSurveyAnswers(null);
+    setPersonalizedPlan(null);
+    setDisplayCards(cards);
+    displayCardsRef.current = cards;
+    setCustomizeOpen(false);
+  }, [cards]);
+
   const applyPointDelta = useCallback(
     (delta: number) => {
       if (delta === 0) return;
@@ -1185,6 +1193,7 @@ export default function Slider({
           onSubmit={handleCustomizeSubmit}
           initialAnswers={surveyAnswers ?? undefined}
           plan={personalizedPlan}
+          onRevert={personalizedPlan ? handleCustomizeRevert : undefined}
         />
       )}
       <LessonTour

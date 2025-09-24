@@ -203,7 +203,8 @@
       "actions": {
         "close": "Close",
         "cancel": "Cancel",
-        "continue": "Continue"
+        "continue": "Continue",
+        "revert": "Revert to original"
       },
       "errors": {
         "q1": "Select exactly three themes to continue.",
