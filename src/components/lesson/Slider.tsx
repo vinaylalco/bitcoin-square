@@ -1,12 +1,17 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import type { CSSProperties } from "react";
 import { Check, ChevronLeft, ChevronRight } from "lucide-react";
-import type { LessonCard, Module } from "../../types/lesson-plan";
+import type {
+  LessonCard,
+  Module,
+  Topic as LessonPlanTopic,
+} from "../../types/lesson-plan";
 import Card from "./Card";
 import { strapiFetch } from "../../api/strapi-client";
 import { useAuth } from "../../context/AuthContext";
 import LessonPointsCounter from "./LessonPointsCounter";
 import LessonTour, { type LessonTourStep } from "./LessonTour";
+import CustomizeDialog from "./CustomizeDialog";
 import type { QuizCompletionMeta } from "./Quiz";
 import {
   calculateNextStudyStreak,
@@ -16,6 +21,13 @@ import {
   persistLocalProgress,
   readLocalProgress,
 } from "../../utils/localProgress";
+import {
+  buildPersonalizedFlatPlan,
+  type FlatPlan,
+  type SurveyAnswers,
+  type Topic as PlanTopic,
+} from "../../utils/buildPersonalizedFlatPlan";
+import { getTopicCategory } from "../../utils/topicCategories";
 import { useTranslation } from "react-i18next";
 
 function createBezier(x1: number, y1: number, x2: number, y2: number) {
@@ -54,6 +66,30 @@ function createBezier(x1: number, y1: number, x2: number, y2: number) {
 
 const clampPoints = (value: number) => Math.max(0, value);
 const LESSON_TOUR_STORAGE_KEY = "lessonPlanTourSeen";
+
+const getModuleId = (module: Module, moduleIndex: number) =>
+  module?.id != null ? String(module.id) : `module-${moduleIndex}`;
+
+const getModuleTitle = (module: Module, moduleIndex: number) =>
+  typeof module?.name === "string" && module.name.length > 0
+    ? module.name
+    : `Module ${moduleIndex + 1}`;
+
+const getTopicId = (
+  topic: LessonPlanTopic | undefined,
+  moduleId: string,
+  moduleIndex: number,
+  topicIndex: number,
+) => (topic?.id != null ? String(topic.id) : `${moduleId}-topic-${topicIndex}`);
+
+const getTopicTitle = (
+  topic: LessonPlanTopic | undefined,
+  moduleIndex: number,
+  topicIndex: number,
+) =>
+  typeof topic?.name === "string" && topic.name.length > 0
+    ? topic.name
+    : `Topic ${moduleIndex + 1}.${topicIndex + 1}`;
 
 export default function Slider({
   cards,
@@ -97,6 +133,8 @@ export default function Slider({
   const [customizeOpen, setCustomizeOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
   const [navHiddenByScroll, setNavHiddenByScroll] = useState(false);
+  const [surveyAnswers, setSurveyAnswers] = useState<SurveyAnswers | null>(null);
+  const [personalizedPlan, setPersonalizedPlan] = useState<FlatPlan | null>(null);
   const [completedCardIds, setCompletedCardIds] = useState<Set<string>>(() => {
     const initial = new Set<string>();
     if (lessonSlug) {
@@ -147,6 +185,122 @@ export default function Slider({
     });
     return map;
   }, [modules, toCardKey]);
+
+  const planTopics = useMemo<PlanTopic[]>(() => {
+    const result: PlanTopic[] = [];
+    modules.forEach((module, moduleIndex) => {
+      const moduleTopics = Array.isArray(module.topics) ? module.topics : [];
+      const moduleId = getModuleId(module, moduleIndex);
+      const moduleTitle = getModuleTitle(module, moduleIndex);
+      moduleTopics.forEach((topic, topicIndex) => {
+        const topicId = getTopicId(topic, moduleId, moduleIndex, topicIndex);
+        const topicTitle = getTopicTitle(topic, moduleIndex, topicIndex);
+        result.push({
+          id: topicId,
+          title: topicTitle,
+          categoryId: getTopicCategory(topicId),
+          originalOrder: result.length,
+          moduleId,
+          moduleTitle,
+        });
+      });
+    });
+    return result;
+  }, [modules]);
+
+  const cardsByTopic = useMemo(() => {
+    const map = new Map<string, LessonCard[]>();
+    modules.forEach((module, moduleIndex) => {
+      const moduleTopics = Array.isArray(module.topics) ? module.topics : [];
+      const moduleId = getModuleId(module, moduleIndex);
+      moduleTopics.forEach((topic, topicIndex) => {
+        const topicId = getTopicId(topic, moduleId, moduleIndex, topicIndex);
+        const topicCards = Array.isArray(topic?.cards)
+          ? (topic.cards as LessonCard[])
+          : [];
+        map.set(topicId, topicCards);
+      });
+    });
+    return map;
+  }, [modules]);
+
+  const topicsById = useMemo(
+    () => {
+      const map = new Map<
+        string,
+        {
+          topic: LessonPlanTopic | undefined;
+          moduleTitle: string;
+          moduleId: string;
+          topicTitle: string;
+        }
+      >();
+
+      modules.forEach((module, moduleIndex) => {
+        const moduleTopics = Array.isArray(module.topics) ? module.topics : [];
+        const moduleId = getModuleId(module, moduleIndex);
+        const moduleTitle = getModuleTitle(module, moduleIndex);
+
+        moduleTopics.forEach((topic, topicIndex) => {
+          const topicId = getTopicId(topic, moduleId, moduleIndex, topicIndex);
+          map.set(topicId, {
+            topic,
+            moduleTitle,
+            moduleId,
+            topicTitle: getTopicTitle(topic, moduleIndex, topicIndex),
+          });
+        });
+      });
+
+      return map;
+    },
+    [modules],
+  );
+
+  const personalizedTocTopics = useMemo(() => {
+    if (!personalizedPlan) return null;
+
+    const seen = new Set<string>();
+    const ordered: {
+      topicId: string;
+      topic: LessonPlanTopic | undefined;
+      moduleTitle: string;
+      topicTitle: string;
+    }[] = [];
+
+    personalizedPlan.topics.forEach((planTopic) => {
+      const entry = topicsById.get(planTopic.id);
+      if (!entry || seen.has(planTopic.id)) return;
+
+      ordered.push({
+        topicId: planTopic.id,
+        topic: entry.topic,
+        moduleTitle: entry.moduleTitle,
+        topicTitle: entry.topicTitle,
+      });
+      seen.add(planTopic.id);
+    });
+
+    modules.forEach((module, moduleIndex) => {
+      const moduleTopics = Array.isArray(module.topics) ? module.topics : [];
+      const moduleId = getModuleId(module, moduleIndex);
+      moduleTopics.forEach((topic, topicIndex) => {
+        const topicId = getTopicId(topic, moduleId, moduleIndex, topicIndex);
+        if (seen.has(topicId)) return;
+        const entry = topicsById.get(topicId);
+        if (!entry) return;
+        ordered.push({
+          topicId,
+          topic: entry.topic,
+          moduleTitle: entry.moduleTitle,
+          topicTitle: entry.topicTitle,
+        });
+        seen.add(topicId);
+      });
+    });
+
+    return ordered;
+  }, [modules, personalizedPlan, topicsById]);
 
   const tourSteps = useMemo<LessonTourStep[]>(
     () => [
@@ -274,6 +428,54 @@ export default function Slider({
     displayCards.forEach((c, i) => map.set(toCardKey(c.id), i));
     return map;
   }, [displayCards, toCardKey]);
+
+  const handleCustomizeSubmit = useCallback(
+    (answers: SurveyAnswers) => {
+      setSurveyAnswers(answers);
+      const plan = buildPersonalizedFlatPlan(answers, planTopics);
+      setPersonalizedPlan(plan);
+
+      const nextCards: LessonCard[] = [];
+      const seenTopics = new Set<string>();
+
+      plan.topics.forEach((topic) => {
+        seenTopics.add(topic.id);
+        const topicCards = cardsByTopic.get(topic.id);
+        if (topicCards && topicCards.length > 0) {
+          nextCards.push(...topicCards);
+        }
+      });
+
+      if (nextCards.length < cards.length) {
+        planTopics.forEach((topic) => {
+          if (seenTopics.has(topic.id)) return;
+          const topicCards = cardsByTopic.get(topic.id);
+          if (topicCards && topicCards.length > 0) {
+            nextCards.push(...topicCards);
+          }
+        });
+      }
+
+      if (nextCards.length === 0) {
+        setDisplayCards(cards);
+        displayCardsRef.current = cards;
+      } else {
+        setDisplayCards(nextCards);
+        displayCardsRef.current = nextCards;
+      }
+
+      setCustomizeOpen(false);
+    },
+    [cards, cardsByTopic, planTopics],
+  );
+
+  const handleCustomizeRevert = useCallback(() => {
+    setSurveyAnswers(null);
+    setPersonalizedPlan(null);
+    setDisplayCards(cards);
+    displayCardsRef.current = cards;
+    setCustomizeOpen(false);
+  }, [cards]);
 
   const applyPointDelta = useCallback(
     (delta: number) => {
@@ -793,6 +995,7 @@ export default function Slider({
     setNavHiddenByScroll(false);
   }, []);
 
+
   const showDesktopNav = !tourOpen && !navHiddenByScroll;
   const columnClassNames = [
     "flex flex-col gap-4",
@@ -803,59 +1006,97 @@ export default function Slider({
       ? { height: navHeight, maxHeight: navHeight }
       : undefined;
 
+  const renderTopicCards = (
+    topicCards: LessonPlanTopic["cards"] | undefined,
+    topicId: string,
+  ) => {
+    const cardsForTopic = Array.isArray(topicCards) ? topicCards : [];
+    return (
+      <ul className="space-y-1 pl-6">
+        {cardsForTopic.map((c) => {
+          const cardKey = toCardKey(c.id);
+          const isActive = activeCardId === cardKey;
+          const cardIndex = idToIndex.get(cardKey);
+          const isCompleted =
+            completedCardIds.has(cardKey) ||
+            (!c.quiz && cardIndex !== undefined && cardIndex < index);
+          return (
+            <li key={`${topicId}-${cardKey}`}>
+              <button
+                type="button"
+                aria-current={isActive ? "true" : undefined}
+                className={[
+                  "text-left w-full px-2 py-1 rounded focus:outline-none focus-visible:ring-2 ring-brand text-sm transition-colors",
+                  "text-neutral-900 dark:text-neutral-100",
+                  isActive
+                    ? "bg-neutral-100 dark:bg-neutral-800"
+                    : "hover:bg-neutral-100 dark:hover:bg-neutral-800/60",
+                ].join(" ")}
+                onClick={() => handleSelect(cardKey)}
+              >
+                <span className="flex items-center gap-2">
+                  <span className="flex w-4 justify-center">
+                    {isCompleted ? (
+                      <Check className="h-4 w-4 text-brand" aria-hidden="true" />
+                    ) : null}
+                  </span>
+                  <span>{c.title}</span>
+                  {isCompleted ? <span className="sr-only">(completed)</span> : null}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    );
+  };
+
   const tocContent = (
     <div className="space-y-6 text-neutral-900 dark:text-neutral-100">
-      {modules.map((m) => (
-        <div key={m.id} className="space-y-4">
-          <p className="font-semibold">{m.name}</p>
-          <div className="space-y-4">
-            {m.topics.map((t) => (
-              <div key={t.id} className="space-y-2">
-                <div className="flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                  <ChevronRight className="text-brand" />
-                  <b><span>{t.name}</span></b>
-                </div>
-                <ul className="space-y-1 pl-6">
-                  {t.cards.map((c) => {
-                    const cardKey = toCardKey(c.id);
-                    const isActive = activeCardId === cardKey;
-                    const cardIndex = idToIndex.get(cardKey);
-                    const isCompleted =
-                      completedCardIds.has(cardKey) ||
-                      (!c.quiz && cardIndex !== undefined && cardIndex < index);
-                    return (
-                      <li key={cardKey}>
-                        <button
-                          type="button"
-                          aria-current={isActive ? "true" : undefined}
-                          className={[
-                            "text-left w-full px-2 py-1 rounded focus:outline-none focus-visible:ring-2 ring-brand text-sm transition-colors",
-                            "text-neutral-900 dark:text-neutral-100",
-                            isActive
-                              ? "bg-neutral-100 dark:bg-neutral-800"
-                              : "hover:bg-neutral-100 dark:hover:bg-neutral-800/60",
-                          ].join(" ")}
-                          onClick={() => handleSelect(cardKey)}
-                        >
-                          <span className="flex items-center gap-2">
-                            <span className="flex w-4 justify-center">
-                              {isCompleted ? (
-                                <Check className="h-4 w-4 text-brand" aria-hidden="true" />
-                              ) : null}
-                            </span>
-                            <span>{c.title}</span>
-                            {isCompleted ? <span className="sr-only">(completed)</span> : null}
-                          </span>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            ))}
+      {personalizedPlan && personalizedTocTopics && personalizedTocTopics.length > 0 ? (
+        personalizedTocTopics.map(({ topicId, topic, moduleTitle, topicTitle }) => (
+          <div key={topicId} className="space-y-2">
+            <div className="flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-300">
+              <ChevronRight className="text-brand" />
+              <b>
+                <span>{topicTitle}</span>
+              </b>
+            </div>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">{moduleTitle}</p>
+            {renderTopicCards(topic?.cards, topicId)}
           </div>
-        </div>
-      ))}
+        ))
+      ) : (
+        modules.map((module, moduleIndex) => {
+          const moduleId = getModuleId(module, moduleIndex);
+          const moduleTitle = getModuleTitle(module, moduleIndex);
+          const moduleTopics = Array.isArray(module.topics) ? module.topics : [];
+
+          return (
+            <div key={moduleId} className="space-y-4">
+              <p className="font-semibold">{moduleTitle}</p>
+              <div className="space-y-4">
+                {moduleTopics.map((topic, topicIndex) => {
+                  const topicId = getTopicId(topic, moduleId, moduleIndex, topicIndex);
+                  const topicTitle = getTopicTitle(topic, moduleIndex, topicIndex);
+
+                  return (
+                    <div key={topicId} className="space-y-2">
+                      <div className="flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                        <ChevronRight className="text-brand" />
+                        <b>
+                          <span>{topicTitle}</span>
+                        </b>
+                      </div>
+                      {renderTopicCards(topic?.cards, topicId)}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })
+      )}
     </div>
   );
 
@@ -993,33 +1234,14 @@ export default function Slider({
       </nav>
       </div>
       {customizeOpen && (
-        <div className="fixed inset-0 z-[65] flex items-center justify-center px-4 py-8">
-          <div
-            className="absolute inset-0 bg-neutral-900/60 backdrop-blur-sm"
-            onClick={() => setCustomizeOpen(false)}
-            aria-hidden
-          />
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="customize-dialog-title"
-            className="relative z-10 w-full max-w-sm rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 text-center shadow-[var(--shadow-soft)]"
-          >
-            <h2 id="customize-dialog-title" className="text-xl font-semibold tracking-tight">
-              {t("lesson.hud.customizeComingSoonTitle")}
-            </h2>
-            <p className="mt-3 text-sm text-[var(--fg-muted)]">
-              {t("lesson.hud.customizeComingSoonBody")}
-            </p>
-            <button
-              type="button"
-              onClick={() => setCustomizeOpen(false)}
-              className="mt-6 inline-flex items-center justify-center rounded-full border border-brand bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-white shadow-[0_12px_30px_rgba(169,21,255,0.35)] transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-            >
-              {t("lesson.hud.close")}
-            </button>
-          </div>
-        </div>
+        <CustomizeDialog
+          open={customizeOpen}
+          onClose={() => setCustomizeOpen(false)}
+          onSubmit={handleCustomizeSubmit}
+          initialAnswers={surveyAnswers ?? undefined}
+          plan={personalizedPlan}
+          onRevert={personalizedPlan ? handleCustomizeRevert : undefined}
+        />
       )}
       <LessonTour
         open={tourOpen}
