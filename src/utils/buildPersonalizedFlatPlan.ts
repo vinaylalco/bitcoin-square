@@ -1,3 +1,10 @@
+import {
+  calculateLearningStyleProfile,
+  type LearningStyleAnswers,
+  type LearningStyleProfile,
+} from "./learningStyle";
+import type { PersonalizedModulePath } from "./personalizedLearningPath";
+
 export type CategoryId = "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8";
 
 export type Topic = {
@@ -18,6 +25,7 @@ export type SurveyAnswers = {
   q3: string;
   q4: string;
   q5: string;
+  learningStyle: LearningStyleAnswers;
 };
 
 export type CategoryScore = { id: CategoryId; label: string; score: number };
@@ -27,6 +35,8 @@ export type FlatPlan = {
   categoryScores: CategoryScore[];
   primaryCategory: CategoryId;
   secondaryCategories: CategoryId[];
+  learningProfile: LearningStyleProfile;
+  modulePaths?: PersonalizedModulePath[];
 };
 
 const CATEGORY_LABELS: Record<CategoryId, string> = {
@@ -42,13 +52,15 @@ const CATEGORY_LABELS: Record<CategoryId, string> = {
 
 const CATEGORY_IDS: CategoryId[] = ["1", "2", "3", "4", "5", "6", "7", "8"];
 
-const QUESTION_WEIGHTS = {
+type InterestQuestionKey = "q1" | "q2" | "q3" | "q4" | "q5";
+
+const QUESTION_WEIGHTS: Record<InterestQuestionKey, number> = {
   q1: 2,
   q2: 1,
   q3: 1,
   q4: 1,
   q5: 1,
-} as const satisfies Record<keyof SurveyAnswers, number>;
+};
 
 const CATEGORY_ID_PATTERN = /[1-8]/g;
 
@@ -194,11 +206,16 @@ export const buildPersonalizedFlatPlan = (
 
   const [primaryCategory, ...otherCategories] = sortedCategoryIds;
 
+  const learningProfile = calculateLearningStyleProfile(
+    answers.learningStyle,
+  );
+
   return {
     topics: sortedTopics,
     categoryScores,
     primaryCategory,
     secondaryCategories: otherCategories,
+    learningProfile,
   };
 };
 

@@ -130,7 +130,7 @@
     },
     "customize": {
       "title": "Personaliza tu ruta de lecciones",
-      "intro": "Responde cinco preguntas rápidas para reordenar los temas del curso según lo que más te importa.",
+      "intro": "Responde un cuestionario rápido para reordenar los temas del curso y adaptar cada lección a tu forma de aprender.",
       "summary": {
         "title": "Tu enfoque actual",
         "primary": "Principal: {{label}}",
@@ -200,6 +200,73 @@
           "8": "No estoy seguro de cómo autocustodiar con seguridad a largo plazo."
         }
       },
+      "learningStyle": {
+        "title": "Ajusta tu estilo de aprendizaje",
+        "intro": "Cuéntanos cómo prefieres aprender para ordenar cada tema según tus fortalezas.",
+        "summary": {
+          "title": "Enfoque de estilo de aprendizaje",
+          "primary": "Principal: {{label}}",
+          "secondary": "Secundario: {{label}}"
+        },
+        "styles": {
+          "visual": "Aprendiz visual",
+          "verbal": "Aprendiz verbal/lector",
+          "active": "Aprendiz activo",
+          "reflective": "Aprendiz reflexivo"
+        },
+        "questions": {
+          "ls1": {
+            "prompt": "Cuando el tema es totalmente nuevo, ¿qué te ayuda a entenderlo más rápido?",
+            "visual": "Ver un video corto o un recorrido con gráficos.",
+            "verbal": "Leer primero un artículo claro o una transcripción."
+          },
+          "ls2": {
+            "prompt": "¿Cómo prefieres involucrarte con material nuevo?",
+            "active": "Entrar de inmediato a una práctica, quiz o demostración.",
+            "reflective": "Hacer una pausa para leer en silencio y tomar notas antes de actuar."
+          },
+          "ls3": {
+            "prompt": "¿Qué tipo de explicación te mantiene más enganchado?",
+            "visual": "Historias, analogías o ejemplos reales que puedo imaginar.",
+            "verbal": "Definiciones precisas y terminología."
+          },
+          "ls4": {
+            "prompt": "Cuando dudas de una idea, ¿qué haces?",
+            "active": "Probar un ejercicio o escenario para comprobarla.",
+            "reflective": "Pensarla en silencio antes de responder."
+          },
+          "ls5": {
+            "prompt": "¿Qué formato hace que las ideas complejas encajen?",
+            "visual": "Diagramas, gráficos o capturas anotadas.",
+            "verbal": "Explicaciones escritas con pasos detallados."
+          },
+          "ls6": {
+            "prompt": "En un grupo de estudio, ¿qué rol tomas?",
+            "active": "Guiar una actividad o explicar haciendo juntos.",
+            "reflective": "Escuchar, anotar ideas y compartir una reflexión."
+          },
+          "ls7": {
+            "prompt": "Para repasar una lección, ¿qué eliges?",
+            "visual": "Animaciones, líneas de tiempo o diapositivas narradas.",
+            "verbal": "Un resumen imprimible o un esquema para leer."
+          },
+          "ls8": {
+            "prompt": "Si tienes poco tiempo, ¿cómo avanzas?",
+            "active": "Hacer un quiz rápido o un mini desafío para fijarlo.",
+            "reflective": "Escribir en un diario o anotar preguntas para revisar."
+          },
+          "ls9": {
+            "prompt": "¿Qué recurso te ayuda a recordar mejor una historia?",
+            "visual": "Estudios de caso o narrativas que muestran el recorrido.",
+            "verbal": "Puntos clave escritos en viñetas."
+          },
+          "ls10": {
+            "prompt": "Antes de enseñar a alguien más, ¿cómo te preparas?",
+            "active": "Crear una demostración práctica o una lista de verificación.",
+            "reflective": "Redactar una explicación o contexto cuidadoso."
+          }
+        }
+      },
       "actions": {
         "close": "Cerrar",
         "cancel": "Cancelar",
@@ -208,7 +275,8 @@
       },
       "errors": {
         "q1": "Selecciona exactamente tres temas para continuar.",
-        "required": "Elige una opción para continuar."
+        "required": "Elige una opción para continuar.",
+        "learningStyle": "Responde todas las preguntas de estilo de aprendizaje para continuar."
       },
       "footerNote": "Puedes actualizar estas respuestas cuando quieras."
     }

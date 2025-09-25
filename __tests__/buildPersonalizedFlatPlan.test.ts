@@ -6,6 +6,7 @@ import {
   type SurveyAnswers,
   type Topic,
 } from "../src/utils/buildPersonalizedFlatPlan";
+import { buildEmptyLearningStyleAnswers } from "../src/utils/learningStyle";
 
 describe("buildPersonalizedFlatPlan", () => {
   const createTopic = (
@@ -33,6 +34,7 @@ describe("buildPersonalizedFlatPlan", () => {
       q3: "4",
       q4: "8",
       q5: "8",
+      learningStyle: buildEmptyLearningStyleAnswers(),
     };
 
     const plan = buildPersonalizedFlatPlan(answers, topics);
@@ -76,6 +78,7 @@ describe("buildPersonalizedFlatPlan", () => {
       q3: "1",
       q4: "2",
       q5: "3",
+      learningStyle: buildEmptyLearningStyleAnswers(),
     };
 
     const plan = buildPersonalizedFlatPlan(answers, topics);

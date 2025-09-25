@@ -1,3 +1,5 @@
+import type { LearningStyle } from "../utils/learningStyle";
+
 export interface Quiz {
   question: string;
   type: string;
@@ -39,6 +41,7 @@ export interface LessonCard extends Card {
   summaryItems?: LessonSummaryItem[];
   isVideoLesson?: boolean;
   videoUrl?: string;
+  learningTags?: LearningStyle[];
 }
 
 export interface Topic {

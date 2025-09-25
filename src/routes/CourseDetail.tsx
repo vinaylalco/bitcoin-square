@@ -4,6 +4,7 @@ import Slider from "../components/lesson/Slider";
 import CourseDetailSkeleton from "../components/course/CourseDetailSkeleton";
 import { useLessonPlan } from "../hooks/useLessonPlan";
 import type { Card, LessonCard, Module, Topic } from "../types/lesson-plan";
+import type { LearningStyle } from "../utils/learningStyle";
 
 type UnknownRecord = Record<string, unknown>;
 type RichCard = Card & UnknownRecord;
@@ -334,6 +335,37 @@ function buildLessonCard({
       ? cardData.youtube.trim()
       : undefined;
 
+  const learningTagsSet = new Set<LearningStyle>();
+
+  if (isVideoLesson || youtubeValue) {
+    learningTagsSet.add("visual");
+  }
+
+  if (cardData.content && cardData.content.trim().length > 0) {
+    learningTagsSet.add("verbal");
+  }
+
+  if (cardData.quiz && typeof cardData.quiz.question === "string") {
+    learningTagsSet.add("active");
+    if (
+      typeof cardData.quiz.type === "string" &&
+      cardData.quiz.type.toLowerCase() === "reflection"
+    ) {
+      learningTagsSet.add("reflective");
+    }
+  }
+
+  if (
+    typeof cardData.style_note === "string" &&
+    cardData.style_note.toLowerCase().includes("reflect")
+  ) {
+    learningTagsSet.add("reflective");
+  }
+
+  const learningTags = learningTagsSet.size > 0
+    ? Array.from(learningTagsSet)
+    : undefined;
+
   return {
     ...cardData,
     id: cardId,
@@ -351,6 +383,7 @@ function buildLessonCard({
       moduleIndex === modulesLength - 1 &&
       topicIndex === topicCount - 1 &&
       cardIndex === totalTopicCards - 1,
+    learningTags,
   } as LessonCard;
 }
 
