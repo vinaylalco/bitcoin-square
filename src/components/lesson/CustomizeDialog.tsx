@@ -7,16 +7,24 @@ import type {
   FlatPlan,
   SurveyAnswers,
 } from "../../utils/buildPersonalizedFlatPlan";
+import {
+  LEARNING_STYLE_QUESTION_CONFIG,
+  LEARNING_STYLE_QUESTION_IDS,
+  buildEmptyLearningStyleAnswers,
+  type LearningStyle,
+  type LearningStyleQuestionId,
+} from "../../utils/learningStyle";
 
 const CATEGORY_IDS: CategoryId[] = ["1", "2", "3", "4", "5", "6", "7", "8"];
 
-const EMPTY_ANSWERS: SurveyAnswers = {
+const createEmptyAnswers = (): SurveyAnswers => ({
   q1: [],
   q2: "",
   q3: "",
   q4: "",
   q5: "",
-};
+  learningStyle: buildEmptyLearningStyleAnswers(),
+});
 
 type CustomizeDialogProps = {
   open: boolean;
@@ -41,14 +49,18 @@ export default function CustomizeDialog({
   onRevert,
 }: CustomizeDialogProps) {
   const { t, i18n } = useTranslation();
-  const [answers, setAnswers] = useState<SurveyAnswers>(EMPTY_ANSWERS);
+  const [answers, setAnswers] = useState<SurveyAnswers>(createEmptyAnswers());
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     const nextAnswers = initialAnswers
-      ? { ...initialAnswers, q1: [...initialAnswers.q1] }
-      : { ...EMPTY_ANSWERS, q1: [] };
+      ? {
+          ...initialAnswers,
+          q1: [...initialAnswers.q1],
+          learningStyle: { ...initialAnswers.learningStyle },
+        }
+      : createEmptyAnswers();
     setAnswers(nextAnswers);
     setAttemptedSubmit(false);
   }, [open, initialAnswers]);
@@ -125,20 +137,38 @@ export default function CustomizeDialog({
     [],
   );
 
+  const handleLearningStyleChange = useCallback(
+    (questionId: LearningStyleQuestionId, value: LearningStyle) => {
+      setAnswers((prev) => ({
+        ...prev,
+        learningStyle: { ...prev.learningStyle, [questionId]: value },
+      }));
+    },
+    [],
+  );
+
   const isQ1Valid = answers.q1.length === 3;
   const isComplete =
     isQ1Valid &&
     answers.q2.length > 0 &&
     answers.q3.length > 0 &&
     answers.q4.length > 0 &&
-    answers.q5.length > 0;
+    answers.q5.length > 0 &&
+    LEARNING_STYLE_QUESTION_IDS.every(
+      (questionId) =>
+        (answers.learningStyle[questionId] ?? "").length > 0,
+    );
 
   const handleSubmit = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
       setAttemptedSubmit(true);
       if (!isComplete) return;
-      onSubmit({ ...answers, q1: [...answers.q1] });
+      onSubmit({
+        ...answers,
+        q1: [...answers.q1],
+        learningStyle: { ...answers.learningStyle },
+      });
     },
     [answers, isComplete, onSubmit],
   );
@@ -149,6 +179,35 @@ export default function CustomizeDialog({
       .slice(0, 3)
       .map((id) => t(`lesson.customize.categories.${id}`));
   }, [plan, t, i18n.language]);
+
+  const learningStyleSummary = useMemo(() => {
+    if (!plan?.learningProfile) return null;
+    const primaryLabel = t(
+      `lesson.customize.learningStyle.styles.${plan.learningProfile.primary}`,
+    );
+    const secondaryLabel = plan.learningProfile.secondary
+      ? t(
+          `lesson.customize.learningStyle.styles.${plan.learningProfile.secondary}`,
+        )
+      : null;
+
+    return { primaryLabel, secondaryLabel };
+  }, [plan, t, i18n.language]);
+
+  const learningStyleQuestions = useMemo<
+    { id: LearningStyleQuestionId; prompt: string; options: SurveyQuestion[] }[]
+  >(
+    () =>
+      LEARNING_STYLE_QUESTION_CONFIG.map((question) => ({
+        id: question.id,
+        prompt: t(question.promptKey),
+        options: question.options.map((option) => ({
+          value: option.value,
+          label: t(option.labelKey),
+        })),
+      })),
+    [t, i18n.language],
+  );
 
   return (
     <div className="fixed inset-0 z-[65] flex items-center justify-center overflow-y-auto px-4 py-8">
@@ -199,6 +258,25 @@ export default function CustomizeDialog({
                         list: summarySecondaryLabels.join(", "),
                       })}
                     </p>
+                  )}
+                  {learningStyleSummary && (
+                    <div className="mt-4 border-t border-[var(--border-subtle)] pt-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.32em] text-brand">
+                        {t("lesson.customize.learningStyle.summary.title")}
+                      </p>
+                      <p className="mt-2 font-medium text-[var(--fg-default)]">
+                        {t("lesson.customize.learningStyle.summary.primary", {
+                          label: learningStyleSummary.primaryLabel,
+                        })}
+                      </p>
+                      {learningStyleSummary.secondaryLabel && (
+                        <p className="mt-1">
+                          {t("lesson.customize.learningStyle.summary.secondary", {
+                            label: learningStyleSummary.secondaryLabel,
+                          })}
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
@@ -288,6 +366,36 @@ export default function CustomizeDialog({
                 attempted={attemptedSubmit}
                 errorLabel={t("lesson.customize.errors.required")}
               />
+
+              <section className="space-y-6">
+                <div className="space-y-2">
+                  <h3 className="text-lg font-semibold text-[var(--fg-default)]">
+                    {t("lesson.customize.learningStyle.title")}
+                  </h3>
+                  <p className="text-sm text-[var(--fg-muted)]">
+                    {t("lesson.customize.learningStyle.intro")}
+                  </p>
+                </div>
+                <div className="space-y-6">
+                  {learningStyleQuestions.map((question) => (
+                    <SurveyRadios
+                      key={question.id}
+                      name={`learning-${question.id}`}
+                      title={question.prompt}
+                      options={question.options}
+                      value={answers.learningStyle[question.id]}
+                      onChange={(value) =>
+                        handleLearningStyleChange(
+                          question.id,
+                          value as LearningStyle,
+                        )
+                      }
+                      attempted={attemptedSubmit}
+                      errorLabel={t("lesson.customize.errors.learningStyle")}
+                    />
+                  ))}
+                </div>
+              </section>
 
               <div className="flex flex-col gap-4 border-t border-[var(--border-subtle)] pt-4 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm text-[var(--fg-muted)]">

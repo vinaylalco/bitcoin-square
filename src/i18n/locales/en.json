@@ -130,7 +130,7 @@
     },
     "customize": {
       "title": "Customize your lesson path",
-      "intro": "Answer five quick questions to reprioritize the course topics around what matters to you.",
+      "intro": "Answer a quick questionnaire to reprioritize the course topics and tailor each lesson to how you learn best.",
       "summary": {
         "title": "Your current focus",
         "primary": "Primary: {{label}}",
@@ -200,6 +200,73 @@
           "8": "I'm unsure how to self-custody securely for the long term."
         }
       },
+      "learningStyle": {
+        "title": "Dial in your learning style",
+        "intro": "Tell us how you like to absorb new information so we can order every topic around your strengths.",
+        "summary": {
+          "title": "Learning style focus",
+          "primary": "Primary: {{label}}",
+          "secondary": "Secondary: {{label}}"
+        },
+        "styles": {
+          "visual": "Visual learner",
+          "verbal": "Verbal/text learner",
+          "active": "Active learner",
+          "reflective": "Reflective learner"
+        },
+        "questions": {
+          "ls1": {
+            "prompt": "When a topic is brand new, what helps you understand it fastest?",
+            "visual": "Watching a short video or graphic walkthrough.",
+            "verbal": "Reading a clear article or transcript first."
+          },
+          "ls2": {
+            "prompt": "How do you prefer to engage with new material?",
+            "active": "Jump into a quick practice, quiz, or demo.",
+            "reflective": "Pause to read quietly and take notes before acting."
+          },
+          "ls3": {
+            "prompt": "Which explanation keeps you engaged longer?",
+            "visual": "Stories, analogies, or real-world examples I can picture.",
+            "verbal": "Precise definitions and terminology."
+          },
+          "ls4": {
+            "prompt": "When you're unsure about an idea, what do you do?",
+            "active": "Try an exercise or scenario to test it.",
+            "reflective": "Think it through silently before responding."
+          },
+          "ls5": {
+            "prompt": "What format makes complex ideas click?",
+            "visual": "Diagrams, charts, or annotated screenshots.",
+            "verbal": "Detailed written breakdowns and step-by-step text."
+          },
+          "ls6": {
+            "prompt": "In a study group, what role do you take?",
+            "active": "Lead an activity or explain by doing together.",
+            "reflective": "Listen, jot insights, and share a thoughtful takeaway."
+          },
+          "ls7": {
+            "prompt": "To review a lesson, what do you reach for?",
+            "visual": "Animations, timelines, or narrated slides.",
+            "verbal": "A printable summary or outline to read."
+          },
+          "ls8": {
+            "prompt": "When time is short, how do you make progress?",
+            "active": "Take a quick quiz or mini challenge to lock it in.",
+            "reflective": "Reflect in a journal or write questions to revisit."
+          },
+          "ls9": {
+            "prompt": "Which resource helps you remember a story best?",
+            "visual": "Case studies or narratives that show the journey.",
+            "verbal": "Key points written out in bullet form."
+          },
+          "ls10": {
+            "prompt": "Before teaching someone else, what prep do you do?",
+            "active": "Build a hands-on demo or checklist they can try.",
+            "reflective": "Draft a thoughtful explanation or context overview."
+          }
+        }
+      },
       "actions": {
         "close": "Close",
         "cancel": "Cancel",
@@ -208,7 +275,8 @@
       },
       "errors": {
         "q1": "Select exactly three themes to continue.",
-        "required": "Choose one option to continue."
+        "required": "Choose one option to continue.",
+        "learningStyle": "Answer each learning style question to continue."
       },
       "footerNote": "You can update these answers anytime."
     }

@@ -27,6 +27,7 @@ import {
   type SurveyAnswers,
   type Topic as PlanTopic,
 } from "../../utils/buildPersonalizedFlatPlan";
+import { buildPersonalizedLessonPath } from "../../utils/personalizedLearningPath";
 import { getTopicCategory } from "../../utils/topicCategories";
 import { useTranslation } from "react-i18next";
 
@@ -429,39 +430,35 @@ export default function Slider({
     return map;
   }, [displayCards, toCardKey]);
 
+  useEffect(() => {
+    if (personalizedPlan?.modulePaths && personalizedPlan.modulePaths.length > 0) {
+      console.info(
+        "Personalized module learning paths",
+        JSON.stringify(personalizedPlan.modulePaths, null, 2),
+      );
+    }
+  }, [personalizedPlan]);
+
   const handleCustomizeSubmit = useCallback(
     (answers: SurveyAnswers) => {
       setSurveyAnswers(answers);
       const plan = buildPersonalizedFlatPlan(answers, planTopics);
-      setPersonalizedPlan(plan);
-
-      const nextCards: LessonCard[] = [];
-      const seenTopics = new Set<string>();
-
-      plan.topics.forEach((topic) => {
-        seenTopics.add(topic.id);
-        const topicCards = cardsByTopic.get(topic.id);
-        if (topicCards && topicCards.length > 0) {
-          nextCards.push(...topicCards);
-        }
+      const { orderedCards, modulePaths } = buildPersonalizedLessonPath({
+        plan,
+        allTopics: planTopics,
+        cardsByTopic,
+        defaultCards: cards,
       });
 
-      if (nextCards.length < cards.length) {
-        planTopics.forEach((topic) => {
-          if (seenTopics.has(topic.id)) return;
-          const topicCards = cardsByTopic.get(topic.id);
-          if (topicCards && topicCards.length > 0) {
-            nextCards.push(...topicCards);
-          }
-        });
-      }
+      const enhancedPlan: FlatPlan = { ...plan, modulePaths };
+      setPersonalizedPlan(enhancedPlan);
 
-      if (nextCards.length === 0) {
+      if (orderedCards.length === 0) {
         setDisplayCards(cards);
         displayCardsRef.current = cards;
       } else {
-        setDisplayCards(nextCards);
-        displayCardsRef.current = nextCards;
+        setDisplayCards(orderedCards);
+        displayCardsRef.current = orderedCards;
       }
 
       setCustomizeOpen(false);
