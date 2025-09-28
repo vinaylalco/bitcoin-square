@@ -1,9 +1,11 @@
+import { FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import Slider from "../components/lesson/Slider";
 import CourseDetailSkeleton from "../components/course/CourseDetailSkeleton";
 import { useLessonPlan } from "../hooks/useLessonPlan";
 import type { Card, LessonCard, Module, Topic } from "../types/lesson-plan";
+import { useAuth } from "../context/AuthContext";
 
 type UnknownRecord = Record<string, unknown>;
 type RichCard = Card & UnknownRecord;
@@ -199,6 +201,125 @@ function extractLocaleSpecificVideoUrl(
   return match?.value;
 }
 
+function CourseAccessGate({
+  onLogin,
+}: {
+  onLogin: (email: string, password: string) => Promise<void>;
+}) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (submitting) return;
+    setError(null);
+    setSubmitting(true);
+    try {
+      await onLogin(email.trim(), password);
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message || "Failed to log in. Please try again.");
+      } else {
+        setError("Failed to log in. Please try again.");
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="relative isolate flex min-h-screen items-center justify-center overflow-hidden bg-[var(--bg-app)] px-4 py-12">
+      <div className="absolute inset-0 -z-10 bg-neutral-950/35 backdrop-blur-sm" aria-hidden />
+      <div className="relative z-10 w-full max-w-md rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-8 shadow-[var(--shadow-soft)]">
+        <div className="mb-6 text-center">
+          <p className="text-xs font-semibold uppercase tracking-[0.32em] text-brand">Members Only</p>
+          <h1 className="mt-2 text-2xl font-bold tracking-tight text-[var(--fg-default)]">Log in to unlock this course</h1>
+          <p className="mt-2 text-sm text-[var(--fg-muted)]">
+            Sign in so we can save your lesson progress, streaks, and points across devices.
+          </p>
+        </div>
+        <form className="space-y-4" onSubmit={handleSubmit}>
+          <div className="space-y-2">
+            <label
+              htmlFor="course-login-email"
+              className="text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]"
+            >
+              Email
+            </label>
+            <input
+              id="course-login-email"
+              type="email"
+              required
+              autoComplete="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-app)] px-4 py-3 text-[var(--fg-default)] shadow-sm transition focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand"
+              placeholder="you@example.com"
+            />
+          </div>
+          <div className="space-y-2">
+            <label
+              htmlFor="course-login-password"
+              className="text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]"
+            >
+              Password
+            </label>
+            <input
+              id="course-login-password"
+              type="password"
+              required
+              autoComplete="current-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-app)] px-4 py-3 text-[var(--fg-default)] shadow-sm transition focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand"
+              placeholder="••••••••"
+            />
+          </div>
+          {error && (
+            <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-600 dark:border-red-400/40 dark:bg-red-500/10 dark:text-red-200">
+              {error}
+            </p>
+          )}
+          <button
+            type="submit"
+            disabled={submitting}
+            className="inline-flex w-full items-center justify-center rounded-2xl bg-brand px-4 py-3 text-sm font-semibold uppercase tracking-[0.32em] text-white shadow-[0_12px_30px_rgba(169,21,255,0.35)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_40px_rgba(169,21,255,0.45)] disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {submitting ? "Signing in…" : "Log in"}
+          </button>
+        </form>
+        <div className="mt-6 space-y-4 text-center text-sm text-[var(--fg-muted)]">
+          <p>
+            <Link to="/forgot-password" className="font-semibold text-brand transition hover:text-brand/80">
+              Forgot your password?
+            </Link>
+          </p>
+          <p>
+            New here?{" "}
+            <Link to="/register" className="font-semibold text-brand transition hover:text-brand/80">
+              Create an account
+            </Link>
+            .
+          </p>
+          <p className="text-xs leading-relaxed text-[var(--fg-muted)]">
+            If you want to use a SimpleLogin email address for privacy feel free.{" "}
+            <a
+              href="https://simplelogin.io"
+              target="_blank"
+              rel="noreferrer"
+              className="font-semibold text-brand transition hover:text-brand/80"
+            >
+              simplelogin.io
+            </a>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function cloneCard(raw: unknown): RichCard {
   if (!raw || typeof raw !== "object") {
     return { id: "", title: "" } as RichCard;
@@ -357,8 +478,13 @@ function buildLessonCard({
 export default function CourseDetail() {
   const { i18n } = useTranslation();
   const { slug = "" } = useParams();
+  const { user, login } = useAuth();
   const locale = i18n.language?.toLowerCase().startsWith("es") ? "es" : "en";
   const { data, isLoading, error, isFetching } = useLessonPlan(locale, slug);
+
+  if (!user) {
+    return <CourseAccessGate onLogin={login} />;
+  }
 
   if (isLoading && !data) {
     return <CourseDetailSkeleton />;
