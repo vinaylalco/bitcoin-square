@@ -654,11 +654,15 @@ export default function Slider({
         ?? (card.quiz?.type === "multiple_choice" ? "correct" : "revealed");
       const currentIndex = index;
 
+      const shouldScroll = !(meta?.preventScroll || meta?.result === "video_complete");
+
       const advance = () => {
         const totalCards = displayCardsRef.current.length;
         if (currentIndex < totalCards - 1) {
           void animateScroll(currentIndex + 1).then(() => {
-            scrollToColumnTop();
+            if (shouldScroll) {
+              scrollToColumnTop();
+            }
           });
         }
       };

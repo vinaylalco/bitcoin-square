@@ -12,6 +12,7 @@ export interface QuizCompletionMeta {
   delayMs?: number;
   result: "correct" | "incorrect" | "revealed" | "video_complete";
   suppressAutoAdvance?: boolean;
+  preventScroll?: boolean;
 }
 
 const MULTIPLE_CHOICE_FLASH_DURATION = 650;

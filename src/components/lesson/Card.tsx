@@ -65,6 +65,7 @@ export default function Card({
       onVideoComplete(card, {
         result: "video_complete",
         delayMs: 500,
+        preventScroll: true,
       });
       return;
     }
