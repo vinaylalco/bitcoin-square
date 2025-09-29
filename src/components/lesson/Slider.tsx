@@ -119,7 +119,6 @@ export default function Slider({
   const cardWrappers = useRef(new Map<string, HTMLDivElement>());
   const completionTimeoutRef = useRef<number | null>(null);
   const [navHeight, setNavHeight] = useState<number | null>(null);
-  const lastScrollY = useRef(0);
   const { user, token, updateUser } = useAuth();
   const initialLocalProgress = useMemo(() => readLocalProgress(), []);
   const [localProgress, setLocalProgress] = useState<LocalProgress>(initialLocalProgress);
@@ -132,7 +131,6 @@ export default function Slider({
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [customizeOpen, setCustomizeOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
-  const [navHiddenByScroll, setNavHiddenByScroll] = useState(false);
   const [surveyAnswers, setSurveyAnswers] = useState<SurveyAnswers | null>(null);
   const [personalizedPlan, setPersonalizedPlan] = useState<FlatPlan | null>(null);
   const [completedCardIds, setCompletedCardIds] = useState<Set<string>>(() => {
@@ -957,41 +955,6 @@ export default function Slider({
   }, [cards.length]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    lastScrollY.current = window.scrollY;
-    const threshold = 8;
-
-    const handleScroll = () => {
-      if (tourOpen) {
-        setNavHiddenByScroll(false);
-        return;
-      }
-
-      const currentY = window.scrollY;
-      const delta = currentY - lastScrollY.current;
-      lastScrollY.current = currentY;
-
-      if (currentY <= 0) {
-        setNavHiddenByScroll(false);
-        return;
-      }
-
-      if (Math.abs(delta) < threshold) {
-        return;
-      }
-
-      if (delta > 0) {
-        setNavHiddenByScroll(true);
-      } else {
-        setNavHiddenByScroll(false);
-      }
-    };
-
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, [tourOpen]);
-
-  useEffect(() => {
     if (typeof document === "undefined") return;
     const root = document.documentElement;
     if (tourOpen) {
@@ -1009,18 +972,11 @@ export default function Slider({
       window.localStorage.setItem(LESSON_TOUR_STORAGE_KEY, "true");
     }
     setTourOpen(false);
-    setNavHiddenByScroll(false);
   }, []);
 
-  const showDesktopNav = tourOpen || !navHiddenByScroll;
-  const columnClassNames = [
-    "flex flex-col gap-4",
-    showDesktopNav ? "lg:w-2/3 lg:pr-4" : "lg:w-full",
-  ].join(" ");
+  const columnClassNames = ["flex flex-col gap-4", "lg:w-2/3 lg:pr-4"].join(" ");
   const navStyle =
-    showDesktopNav && navHeight
-      ? { height: navHeight, maxHeight: navHeight }
-      : undefined;
+    navHeight != null ? { height: navHeight, maxHeight: navHeight } : undefined;
 
   const renderTopicCards = (
     topicCards: LessonPlanTopic["cards"] | undefined,
@@ -1223,12 +1179,11 @@ export default function Slider({
       <nav
         className={[
           "hidden",
-          showDesktopNav ? "lg:flex" : "lg:hidden",
+          "lg:flex",
           "lg:w-1/3 lg:pl-4 bg-white dark:bg-neutral-900",
         ].join(" ")}
         style={navStyle}
         aria-labelledby="course-title-desktop"
-        aria-hidden={!showDesktopNav}
         data-tour-id="course-nav"
       >
         <div className="flex h-full w-full flex-col min-h-0">
