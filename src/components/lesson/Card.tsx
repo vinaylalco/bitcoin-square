@@ -14,6 +14,7 @@ export default function Card({
   topicName,
   onQuizComplete,
   onVideoComplete,
+  onVideoPlay,
   onRequestNext,
   quizCompleted,
 }: {
@@ -22,6 +23,7 @@ export default function Card({
   topicName?: string;
   onQuizComplete?: (card: LessonCard, meta?: QuizCompletionMeta) => void;
   onVideoComplete?: (card: LessonCard, meta?: QuizCompletionMeta) => void;
+  onVideoPlay?: (card: LessonCard) => void;
   onRequestNext?: () => void;
   quizCompleted?: boolean;
 }) {
@@ -50,6 +52,13 @@ export default function Card({
       setVideoCompleted(true);
     }
   }, [isVideoLesson, quizAlreadyComplete]);
+
+  const handleVideoStarted = useCallback(() => {
+    if (!isVideoLesson) {
+      return;
+    }
+    onVideoPlay?.(card);
+  }, [card, isVideoLesson, onVideoPlay]);
 
   const handleVideoEnded = useCallback(() => {
     if (!isVideoLesson) {
@@ -131,7 +140,12 @@ export default function Card({
               Video Overview
             </h2>
             {videoId ? (
-              <YouTubeVideo videoId={videoId} title={card.title} onEnded={handleVideoEnded} />
+              <YouTubeVideo
+                videoId={videoId}
+                title={card.title}
+                onPlay={handleVideoStarted}
+                onEnded={handleVideoEnded}
+              />
             ) : (
               <div className="space-y-3">
                 <VideoGhost />

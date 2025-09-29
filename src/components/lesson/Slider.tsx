@@ -118,6 +118,7 @@ export default function Slider({
   const columnRef = useRef<HTMLDivElement>(null);
   const cardWrappers = useRef(new Map<string, HTMLDivElement>());
   const completionTimeoutRef = useRef<number | null>(null);
+  const skipScrollOnVideoRef = useRef(false);
   const [navHeight, setNavHeight] = useState<number | null>(null);
   const { user, token, updateUser } = useAuth();
   const initialLocalProgress = useMemo(() => readLocalProgress(), []);
@@ -652,7 +653,12 @@ export default function Slider({
         ?? (card.quiz?.type === "multiple_choice" ? "correct" : "revealed");
       const currentIndex = index;
 
-      const shouldScroll = !(meta?.preventScroll || meta?.result === "video_complete");
+      const skipScroll =
+        skipScrollOnVideoRef.current || meta?.preventScroll || meta?.result === "video_complete";
+      if (skipScrollOnVideoRef.current) {
+        skipScrollOnVideoRef.current = false;
+      }
+      const shouldScroll = !skipScroll;
 
       const advance = () => {
         const totalCards = displayCardsRef.current.length;
@@ -823,6 +829,10 @@ export default function Slider({
       user,
     ],
   );
+
+  const handleVideoPlay = useCallback((_: LessonCard) => {
+    skipScrollOnVideoRef.current = true;
+  }, []);
 
   const handleSelect = (id: string) => {
     const key = toCardKey(id);
@@ -1114,6 +1124,7 @@ export default function Slider({
                       topicName={c.topicName}
                       onQuizComplete={(cardMeta, meta) => handleCardResult(cardMeta, meta)}
                       onVideoComplete={(cardMeta, meta) => handleCardResult(cardMeta, meta)}
+                      onVideoPlay={handleVideoPlay}
                       onRequestNext={next}
                       quizCompleted={completedCardIds.has(
                         toCardKey(c.sourceCardId ?? c.id),
