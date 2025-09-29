@@ -5,6 +5,7 @@ interface YouTubeVideoProps {
   videoId: string;
   title: string;
   onEnded?: () => void;
+  onPlay?: () => void;
 }
 
 const YOUTUBE_ORIGIN = "https://www.youtube.com";
@@ -26,14 +27,21 @@ function parseMessageData(data: unknown) {
   return null;
 }
 
-export default function YouTubeVideo({ videoId, title, onEnded }: YouTubeVideoProps) {
+export default function YouTubeVideo({
+  videoId,
+  title,
+  onEnded,
+  onPlay,
+}: YouTubeVideoProps) {
   const [loaded, setLoaded] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const listenerId = useMemo(() => `${videoId}-${Math.random().toString(36).slice(2)}`, [videoId]);
   const playerOrigin = YOUTUBE_ORIGIN;
+  const lastPlayerStateRef = useRef<number | null>(null);
 
   useEffect(() => {
     setLoaded(false);
+    lastPlayerStateRef.current = null;
   }, [videoId]);
 
   useEffect(() => {
@@ -61,16 +69,28 @@ export default function YouTubeVideo({ videoId, title, onEnded }: YouTubeVideoPr
       const eventName = typeof data.event === "string" ? data.event : undefined;
       if (eventName === "onStateChange") {
         const state = typeof data.info === "number" ? data.info : undefined;
-        if (state === 0) {
-          onEnded?.();
+        if (state !== undefined) {
+          if (state === 1 && lastPlayerStateRef.current !== 1) {
+            onPlay?.();
+          }
+          if (state === 0) {
+            onEnded?.();
+          }
+          lastPlayerStateRef.current = state;
         }
       }
 
       if (eventName === "infoDelivery") {
         const info = data.info as { playerState?: unknown } | undefined;
         const state = typeof info?.playerState === "number" ? info.playerState : undefined;
-        if (state === 0) {
-          onEnded?.();
+        if (state !== undefined) {
+          if (state === 1 && lastPlayerStateRef.current !== 1) {
+            onPlay?.();
+          }
+          if (state === 0) {
+            onEnded?.();
+          }
+          lastPlayerStateRef.current = state;
         }
       }
     };
@@ -99,7 +119,7 @@ export default function YouTubeVideo({ videoId, title, onEnded }: YouTubeVideoPr
       window.clearInterval(pollId);
       window.removeEventListener("message", handleMessage);
     };
-  }, [listenerId, loaded, onEnded, playerOrigin]);
+  }, [listenerId, loaded, onEnded, onPlay, playerOrigin]);
 
   const embedUrl = useMemo(() => {
     const params = new URLSearchParams({

@@ -118,6 +118,8 @@ export default function Slider({
   const columnRef = useRef<HTMLDivElement>(null);
   const cardWrappers = useRef(new Map<string, HTMLDivElement>());
   const completionTimeoutRef = useRef<number | null>(null);
+  const skipScrollOnVideoRef = useRef(false);
+  const shouldRestoreProgressRef = useRef(true);
   const [navHeight, setNavHeight] = useState<number | null>(null);
   const { user, token, updateUser } = useAuth();
   const initialLocalProgress = useMemo(() => readLocalProgress(), []);
@@ -131,7 +133,6 @@ export default function Slider({
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [customizeOpen, setCustomizeOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
-  const [navHiddenByScroll, setNavHiddenByScroll] = useState(false);
   const [surveyAnswers, setSurveyAnswers] = useState<SurveyAnswers | null>(null);
   const [personalizedPlan, setPersonalizedPlan] = useState<FlatPlan | null>(null);
   const [completedCardIds, setCompletedCardIds] = useState<Set<string>>(() => {
@@ -387,7 +388,12 @@ export default function Slider({
   useEffect(() => {
     setDisplayCards(cards);
     displayCardsRef.current = cards;
+    shouldRestoreProgressRef.current = true;
   }, [cards]);
+
+  useEffect(() => {
+    shouldRestoreProgressRef.current = true;
+  }, [lessonSlug]);
 
   useEffect(() => {
     if (!customizeOpen) return;
@@ -402,14 +408,33 @@ export default function Slider({
   }, [customizeOpen]);
 
   useEffect(() => {
+    if (!shouldRestoreProgressRef.current) return;
     if (displayCards.length === 0) return;
 
-    const firstIncompleteIndex = displayCards.findIndex((card) => {
-      const cardKey = toCardKey(card.id);
-      return !completedCardIds.has(cardKey);
-    });
+    let targetIndex = 0;
 
-    const targetIndex = firstIncompleteIndex === -1 ? 0 : firstIncompleteIndex;
+    const findLastCompletedIndex = () => {
+      for (let i = displayCards.length - 1; i >= 0; i--) {
+        const cardKey = toCardKey(displayCards[i].id);
+        if (completedCardIds.has(cardKey)) {
+          return i;
+        }
+      }
+      return -1;
+    };
+
+    const lastCompletedIndex = findLastCompletedIndex();
+    if (lastCompletedIndex >= 0) {
+      targetIndex = lastCompletedIndex;
+    } else {
+      const firstIncompleteIndex = displayCards.findIndex((card) => {
+        const cardKey = toCardKey(card.id);
+        return !completedCardIds.has(cardKey);
+      });
+      targetIndex = firstIncompleteIndex === -1 ? 0 : firstIncompleteIndex;
+    }
+
+    shouldRestoreProgressRef.current = false;
 
     setIndex((prev) => (prev === targetIndex ? prev : targetIndex));
 
@@ -456,9 +481,11 @@ export default function Slider({
       }
 
       if (nextCards.length === 0) {
+        shouldRestoreProgressRef.current = true;
         setDisplayCards(cards);
         displayCardsRef.current = cards;
       } else {
+        shouldRestoreProgressRef.current = true;
         setDisplayCards(nextCards);
         displayCardsRef.current = nextCards;
       }
@@ -471,6 +498,7 @@ export default function Slider({
   const handleCustomizeRevert = useCallback(() => {
     setSurveyAnswers(null);
     setPersonalizedPlan(null);
+    shouldRestoreProgressRef.current = true;
     setDisplayCards(cards);
     displayCardsRef.current = cards;
     setCustomizeOpen(false);
@@ -653,11 +681,20 @@ export default function Slider({
         ?? (card.quiz?.type === "multiple_choice" ? "correct" : "revealed");
       const currentIndex = index;
 
+      const skipScroll =
+        skipScrollOnVideoRef.current || meta?.preventScroll || meta?.result === "video_complete";
+      if (skipScrollOnVideoRef.current) {
+        skipScrollOnVideoRef.current = false;
+      }
+      const shouldScroll = !skipScroll;
+
       const advance = () => {
         const totalCards = displayCardsRef.current.length;
         if (currentIndex < totalCards - 1) {
           void animateScroll(currentIndex + 1).then(() => {
-            scrollToColumnTop();
+            if (shouldScroll) {
+              scrollToColumnTop();
+            }
           });
         }
       };
@@ -821,6 +858,10 @@ export default function Slider({
     ],
   );
 
+  const handleVideoPlay = useCallback((_: LessonCard) => {
+    skipScrollOnVideoRef.current = true;
+  }, []);
+
   const handleSelect = (id: string) => {
     const key = toCardKey(id);
     goToCardById(key);
@@ -952,11 +993,6 @@ export default function Slider({
   }, [cards.length]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    setNavHiddenByScroll(false);
-  }, [tourOpen]);
-
-  useEffect(() => {
     if (typeof document === "undefined") return;
     const root = document.documentElement;
     if (tourOpen) {
@@ -974,18 +1010,11 @@ export default function Slider({
       window.localStorage.setItem(LESSON_TOUR_STORAGE_KEY, "true");
     }
     setTourOpen(false);
-    setNavHiddenByScroll(false);
   }, []);
 
-  const showDesktopNav = tourOpen || !navHiddenByScroll;
-  const columnClassNames = [
-    "flex flex-col gap-4",
-    showDesktopNav ? "lg:w-2/3 lg:pr-4" : "lg:w-full",
-  ].join(" ");
+  const columnClassNames = ["flex flex-col gap-4", "lg:w-2/3 lg:pr-4"].join(" ");
   const navStyle =
-    showDesktopNav && navHeight
-      ? { height: navHeight, maxHeight: navHeight }
-      : undefined;
+    navHeight != null ? { height: navHeight, maxHeight: navHeight } : undefined;
 
   const renderTopicCards = (
     topicCards: LessonPlanTopic["cards"] | undefined,
@@ -1123,6 +1152,7 @@ export default function Slider({
                       topicName={c.topicName}
                       onQuizComplete={(cardMeta, meta) => handleCardResult(cardMeta, meta)}
                       onVideoComplete={(cardMeta, meta) => handleCardResult(cardMeta, meta)}
+                      onVideoPlay={handleVideoPlay}
                       onRequestNext={next}
                       quizCompleted={completedCardIds.has(
                         toCardKey(c.sourceCardId ?? c.id),
@@ -1188,12 +1218,11 @@ export default function Slider({
       <nav
         className={[
           "hidden",
-          showDesktopNav ? "lg:flex" : "lg:hidden",
+          "lg:flex",
           "lg:w-1/3 lg:pl-4 bg-white dark:bg-neutral-900",
         ].join(" ")}
         style={navStyle}
         aria-labelledby="course-title-desktop"
-        aria-hidden={!showDesktopNav}
         data-tour-id="course-nav"
       >
         <div className="flex h-full w-full flex-col min-h-0">
