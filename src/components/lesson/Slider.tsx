@@ -119,6 +119,7 @@ export default function Slider({
   const cardWrappers = useRef(new Map<string, HTMLDivElement>());
   const completionTimeoutRef = useRef<number | null>(null);
   const skipScrollOnVideoRef = useRef(false);
+  const shouldRestoreProgressRef = useRef(true);
   const [navHeight, setNavHeight] = useState<number | null>(null);
   const { user, token, updateUser } = useAuth();
   const initialLocalProgress = useMemo(() => readLocalProgress(), []);
@@ -387,7 +388,12 @@ export default function Slider({
   useEffect(() => {
     setDisplayCards(cards);
     displayCardsRef.current = cards;
+    shouldRestoreProgressRef.current = true;
   }, [cards]);
+
+  useEffect(() => {
+    shouldRestoreProgressRef.current = true;
+  }, [lessonSlug]);
 
   useEffect(() => {
     if (!customizeOpen) return;
@@ -402,14 +408,33 @@ export default function Slider({
   }, [customizeOpen]);
 
   useEffect(() => {
+    if (!shouldRestoreProgressRef.current) return;
     if (displayCards.length === 0) return;
 
-    const firstIncompleteIndex = displayCards.findIndex((card) => {
-      const cardKey = toCardKey(card.id);
-      return !completedCardIds.has(cardKey);
-    });
+    let targetIndex = 0;
 
-    const targetIndex = firstIncompleteIndex === -1 ? 0 : firstIncompleteIndex;
+    const findLastCompletedIndex = () => {
+      for (let i = displayCards.length - 1; i >= 0; i--) {
+        const cardKey = toCardKey(displayCards[i].id);
+        if (completedCardIds.has(cardKey)) {
+          return i;
+        }
+      }
+      return -1;
+    };
+
+    const lastCompletedIndex = findLastCompletedIndex();
+    if (lastCompletedIndex >= 0) {
+      targetIndex = lastCompletedIndex;
+    } else {
+      const firstIncompleteIndex = displayCards.findIndex((card) => {
+        const cardKey = toCardKey(card.id);
+        return !completedCardIds.has(cardKey);
+      });
+      targetIndex = firstIncompleteIndex === -1 ? 0 : firstIncompleteIndex;
+    }
+
+    shouldRestoreProgressRef.current = false;
 
     setIndex((prev) => (prev === targetIndex ? prev : targetIndex));
 
@@ -456,9 +481,11 @@ export default function Slider({
       }
 
       if (nextCards.length === 0) {
+        shouldRestoreProgressRef.current = true;
         setDisplayCards(cards);
         displayCardsRef.current = cards;
       } else {
+        shouldRestoreProgressRef.current = true;
         setDisplayCards(nextCards);
         displayCardsRef.current = nextCards;
       }
@@ -471,6 +498,7 @@ export default function Slider({
   const handleCustomizeRevert = useCallback(() => {
     setSurveyAnswers(null);
     setPersonalizedPlan(null);
+    shouldRestoreProgressRef.current = true;
     setDisplayCards(cards);
     displayCardsRef.current = cards;
     setCustomizeOpen(false);
