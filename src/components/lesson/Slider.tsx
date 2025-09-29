@@ -119,7 +119,6 @@ export default function Slider({
   const cardWrappers = useRef(new Map<string, HTMLDivElement>());
   const completionTimeoutRef = useRef<number | null>(null);
   const [navHeight, setNavHeight] = useState<number | null>(null);
-  const lastScrollY = useRef(0);
   const { user, token, updateUser } = useAuth();
   const initialLocalProgress = useMemo(() => readLocalProgress(), []);
   const [localProgress, setLocalProgress] = useState<LocalProgress>(initialLocalProgress);
@@ -954,37 +953,7 @@ export default function Slider({
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    lastScrollY.current = window.scrollY;
-    const threshold = 8;
-
-    const handleScroll = () => {
-      if (tourOpen) {
-        setNavHiddenByScroll(false);
-        return;
-      }
-
-      const currentY = window.scrollY;
-      const delta = currentY - lastScrollY.current;
-      lastScrollY.current = currentY;
-
-      if (currentY <= 0) {
-        setNavHiddenByScroll(false);
-        return;
-      }
-
-      if (Math.abs(delta) < threshold) {
-        return;
-      }
-
-      if (delta > 0) {
-        setNavHiddenByScroll(true);
-      } else {
-        setNavHiddenByScroll(false);
-      }
-    };
-
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
+    setNavHiddenByScroll(false);
   }, [tourOpen]);
 
   useEffect(() => {
