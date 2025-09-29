@@ -33,10 +33,53 @@ export default function YouTubeVideo({
   onPlay,
 }: YouTubeVideoProps) {
   const [loaded, setLoaded] = useState(false);
+  const [pageOrigin, setPageOrigin] = useState<string | null>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const listenerId = useMemo(() => `${videoId}-${Math.random().toString(36).slice(2)}`, [videoId]);
   const playerOrigin = YOUTUBE_ORIGIN;
   const lastPlayerStateRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return undefined;
+    }
+
+    setPageOrigin(window.location.origin);
+
+    const connections: Array<{ href: string; rel: "preconnect" | "dns-prefetch" }> = [
+      { href: "https://www.youtube.com", rel: "preconnect" },
+      { href: "https://www.google.com", rel: "preconnect" },
+      { href: "https://s.ytimg.com", rel: "preconnect" },
+      { href: "https://i.ytimg.com", rel: "preconnect" },
+      { href: "https://i.ytimg.com", rel: "dns-prefetch" },
+    ];
+
+    const appendedLinks: HTMLLinkElement[] = [];
+
+    connections.forEach(({ href, rel }) => {
+      const existing = document.head.querySelector<HTMLLinkElement>(`link[rel="${rel}"][href="${href}"]`);
+      if (existing) {
+        return;
+      }
+
+      const link = document.createElement("link");
+      link.rel = rel;
+      link.href = href;
+      if (rel === "preconnect") {
+        link.crossOrigin = "";
+      }
+      document.head.appendChild(link);
+      appendedLinks.push(link);
+    });
+
+    return () => {
+      appendedLinks.forEach((link) => {
+        if (link.parentNode) {
+          link.parentNode.removeChild(link);
+        }
+      });
+    };
+  }, []);
 
   useEffect(() => {
     setLoaded(false);
@@ -126,8 +169,11 @@ export default function YouTubeVideo({
       rel: "0",
       playsinline: "1",
     });
+    if (pageOrigin) {
+      params.set("origin", pageOrigin);
+    }
     return `${playerOrigin}/embed/${videoId}?${params.toString()}`;
-  }, [playerOrigin, videoId]);
+  }, [pageOrigin, playerOrigin, videoId]);
 
   return (
     <div className="relative w-full">
@@ -146,6 +192,33 @@ export default function YouTubeVideo({
             allowFullScreen
             onLoad={() => setLoaded(true)}
           />
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <div
+              role="status"
+              aria-live="polite"
+              aria-hidden={loaded}
+              className={`flex items-center gap-3 rounded-full bg-slate-950/70 px-4 py-2 text-sm font-medium text-white transition-opacity duration-300 ${loaded ? "opacity-0" : "opacity-100"}`}
+            >
+              <svg
+                className="h-5 w-5 animate-spin text-emerald-400"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+              </svg>
+              <span>Loading video…</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
