@@ -33,7 +33,9 @@ export default function YouTubeVideo({
   onPlay,
 }: YouTubeVideoProps) {
   const [loaded, setLoaded] = useState(false);
-  const [pageOrigin, setPageOrigin] = useState<string | null>(null);
+  const [pageOrigin, setPageOrigin] = useState<string | null>(() =>
+    typeof window === "undefined" ? null : window.location.origin,
+  );
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const listenerId = useMemo(() => `${videoId}-${Math.random().toString(36).slice(2)}`, [videoId]);
   const playerOrigin = YOUTUBE_ORIGIN;
@@ -43,8 +45,6 @@ export default function YouTubeVideo({
     if (typeof window === "undefined") {
       return undefined;
     }
-
-    setPageOrigin(window.location.origin);
 
     const connections: Array<{ href: string; rel: "preconnect" | "dns-prefetch" }> = [
       { href: "https://www.youtube.com", rel: "preconnect" },
