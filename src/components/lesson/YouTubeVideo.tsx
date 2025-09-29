@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import VideoGhost from "./VideoGhost";
 
 interface YouTubeVideoProps {
   videoId: string;
@@ -132,11 +131,7 @@ export default function YouTubeVideo({
 
   return (
     <div className="relative w-full">
-      <div
-        className={`relative w-full overflow-hidden rounded-2xl transition-opacity duration-300 ${
-          loaded ? "opacity-100" : "opacity-0"
-        }`}
-      >
+      <div className="relative w-full overflow-hidden rounded-2xl">
         <div className="aspect-video w-full">
           <iframe
             ref={iframeRef}
@@ -153,11 +148,6 @@ export default function YouTubeVideo({
           />
         </div>
       </div>
-      {!loaded && (
-        <div className="absolute inset-0">
-          <VideoGhost />
-        </div>
-      )}
     </div>
   );
 }
