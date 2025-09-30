@@ -5,6 +5,7 @@ interface YouTubeVideoProps {
   title: string;
   onEnded?: () => void;
   onPlay?: () => void;
+  isActive?: boolean;
 }
 
 const YOUTUBE_ORIGIN = "https://www.youtube.com";
@@ -31,15 +32,52 @@ export default function YouTubeVideo({
   title,
   onEnded,
   onPlay,
+  isActive,
 }: YouTubeVideoProps) {
+  const [shouldLoad, setShouldLoad] = useState<boolean>(isActive ?? true);
   const [loaded, setLoaded] = useState(false);
-  const [pageOrigin, setPageOrigin] = useState<string | null>(() =>
+  const [pageOrigin] = useState<string | null>(() =>
     typeof window === "undefined" ? null : window.location.origin,
   );
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const listenerId = useMemo(() => `${videoId}-${Math.random().toString(36).slice(2)}`, [videoId]);
   const playerOrigin = YOUTUBE_ORIGIN;
   const lastPlayerStateRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (isActive) {
+      setShouldLoad(true);
+    }
+  }, [isActive]);
+
+  useEffect(() => {
+    if (shouldLoad || typeof window === "undefined") {
+      return undefined;
+    }
+
+    const node = containerRef.current;
+    if (!node) {
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setShouldLoad(true);
+          }
+        });
+      },
+      { rootMargin: "200px" },
+    );
+
+    observer.observe(node);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [shouldLoad]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -82,12 +120,15 @@ export default function YouTubeVideo({
   }, []);
 
   useEffect(() => {
+    if (!shouldLoad) {
+      return;
+    }
     setLoaded(false);
     lastPlayerStateRef.current = null;
-  }, [videoId]);
+  }, [shouldLoad, videoId]);
 
   useEffect(() => {
-    if (typeof window === "undefined") {
+    if (typeof window === "undefined" || !shouldLoad) {
       return undefined;
     }
     const iframe = iframeRef.current;
@@ -161,9 +202,12 @@ export default function YouTubeVideo({
       window.clearInterval(pollId);
       window.removeEventListener("message", handleMessage);
     };
-  }, [listenerId, loaded, onEnded, onPlay, playerOrigin]);
+  }, [listenerId, loaded, onEnded, onPlay, playerOrigin, shouldLoad]);
 
   const embedUrl = useMemo(() => {
+    if (!shouldLoad) {
+      return null;
+    }
     const params = new URLSearchParams({
       enablejsapi: "1",
       rel: "0",
@@ -173,12 +217,14 @@ export default function YouTubeVideo({
       params.set("origin", pageOrigin);
     }
     return `${playerOrigin}/embed/${videoId}?${params.toString()}`;
-  }, [pageOrigin, playerOrigin, videoId]);
+  }, [pageOrigin, playerOrigin, shouldLoad, videoId]);
+
+  const loadingMode = isActive === false ? "lazy" : "eager";
 
   const iframeTitle = title.trim() ? title : "YouTube video player";
 
   return (
-    <div className="relative w-full">
+    <div ref={containerRef} className="relative w-full">
       <div className="relative w-full overflow-hidden rounded-2xl">
         <div className="aspect-video w-full">
           <iframe
@@ -220,7 +266,7 @@ export default function YouTubeVideo({
               </svg>
               <span>Loading video…</span>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
