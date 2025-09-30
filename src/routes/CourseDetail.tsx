@@ -541,7 +541,7 @@ export default function CourseDetail() {
   );
 
   return (
-    <div className="w-full pb-24">
+    <div className="w-full">
       <div className="w-full overflow-hidden bg-[var(--bg-card)] shadow-[var(--shadow-soft)]">
         <div className="space-y-6 bg-[var(--bg-card)] px-4 py-10 sm:px-10">
           {/*<div className="relative overflow-hidden rounded-3xl border border-brand/25 bg-gradient-to-br from-white via-red-100/40 to-red-200/40 p-8 text-neutral-900 shadow-[0_35px_120px_rgba(239,68,68,0.18)] transition-colors duration-500 dark:border-brand/40 dark:from-neutral-950 dark:via-neutral-900 dark:to-neutral-900 dark:text-neutral-50">
