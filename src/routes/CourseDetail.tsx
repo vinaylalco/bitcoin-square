@@ -480,7 +480,7 @@ export default function CourseDetail() {
   const { slug = "" } = useParams();
   const { user, login } = useAuth();
   const locale = i18n.language?.toLowerCase().startsWith("es") ? "es" : "en";
-  const { data, isLoading, error, isFetching } = useLessonPlan(locale, slug);
+  const { data, isLoading, error } = useLessonPlan(locale, slug);
 
   if (!user) {
     return <CourseAccessGate onLogin={login} />;
@@ -580,11 +580,6 @@ export default function CourseDetail() {
           ) : (
             <p className="px-6 py-12 text-center text-sm font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">
               Lessons coming soon.
-            </p>
-          )}
-          {isFetching && (
-            <p className="text-center text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">
-              Updating course…
             </p>
           )}
         </div>
