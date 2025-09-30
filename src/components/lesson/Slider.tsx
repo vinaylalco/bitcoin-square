@@ -66,6 +66,7 @@ function createBezier(x1: number, y1: number, x2: number, y2: number) {
 
 const clampPoints = (value: number) => Math.max(0, value);
 const LESSON_TOUR_STORAGE_KEY = "lessonPlanTourSeen";
+const DESKTOP_BREAKPOINT = 1024;
 
 const getModuleId = (module: Module, moduleIndex: number) =>
   module?.id != null ? String(module.id) : `module-${moduleIndex}`;
@@ -662,6 +663,9 @@ export default function Slider({
 
   const scrollToColumnTop = useCallback(() => {
     if (typeof window === "undefined") return;
+    if (window.innerWidth >= DESKTOP_BREAKPOINT) {
+      return;
+    }
     const column = columnRef.current;
     if (!column) return;
     const rect = column.getBoundingClientRect();
@@ -869,7 +873,15 @@ export default function Slider({
     const delay = reduceMotion ? 0 : 400;
     setTimeout(() => {
       const el = document.getElementById(`card-title-${key}`);
-      el?.focus();
+      if (!el) return;
+      try {
+        el.focus({ preventScroll: true });
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          console.warn("Focus with preventScroll failed", error);
+        }
+        el.focus();
+      }
     }, delay);
   };
 
