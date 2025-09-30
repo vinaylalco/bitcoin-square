@@ -239,6 +239,7 @@ export default function YouTubeVideo({
             referrerPolicy="strict-origin-when-cross-origin"
             allowFullScreen
             onLoad={() => setLoaded(true)}
+            loading={loadingMode}
           />
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
             <div
