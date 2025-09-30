@@ -16,6 +16,7 @@ export default function Card({
   onVideoComplete,
   onVideoPlay,
   onRequestNext,
+  isActive,
   quizCompleted,
 }: {
   card: LessonCard;
@@ -25,6 +26,7 @@ export default function Card({
   onVideoComplete?: (card: LessonCard, meta?: QuizCompletionMeta) => void;
   onVideoPlay?: (card: LessonCard) => void;
   onRequestNext?: () => void;
+  isActive?: boolean;
   quizCompleted?: boolean;
 }) {
   const videoUrl = card.videoUrl;
@@ -145,6 +147,7 @@ export default function Card({
                 title={card.title}
                 onPlay={handleVideoStarted}
                 onEnded={handleVideoEnded}
+                isActive={isActive}
               />
             ) : (
               <div className="space-y-3">
