@@ -266,9 +266,9 @@ export default function YouTubeVideo({
               </svg>
               <span>Loading video…</span>
             </div>
-          )}
+          </div>
         </div>
       </div>
-    </div>
+    </div> 
   );
 }
