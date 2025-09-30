@@ -53,6 +53,7 @@
     color: var(--fg-default);
     min-height: 100vh;
     text-rendering: optimizeLegibility;
+    -webkit-overflow-scrolling: touch;
   }
 
   body::selection,
@@ -107,7 +108,28 @@
 
 /* Hide horizontal scrollbar (keeps swipe) */
 .no-scrollbar::-webkit-scrollbar { display: none; }
-.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@layer utilities {
+  .touch-momentum {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .min-h-mobile-fill {
+    min-height: 100vh;
+  }
+}
+
+@supports (min-height: 100dvh) {
+  @layer utilities {
+    .min-h-mobile-fill {
+      min-height: 100dvh;
+    }
+  }
+}
 
 /* Confetti */
 .confetti-piece {

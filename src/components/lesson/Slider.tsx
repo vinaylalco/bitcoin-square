@@ -1134,7 +1134,7 @@ export default function Slider({
         <div className="relative lg:flex-1 lg:min-h-0">
           <div
             ref={containerRef}
-            className="flex overflow-x-auto snap-x snap-mandatory lg:h-full"
+            className="flex overflow-x-auto touch-momentum snap-x snap-mandatory lg:h-full"
             data-tour-id="lesson-flow"
           >
             {displayCards.map((c) => {
@@ -1193,7 +1193,7 @@ export default function Slider({
             ref={drawerRef}
             role="dialog"
             aria-labelledby="course-title-mobile"
-            className={`lg:hidden absolute inset-0 z-10 bg-white dark:bg-neutral-900 overflow-y-auto p-4 ${
+            className={`lg:hidden absolute inset-0 z-10 bg-white dark:bg-neutral-900 overflow-y-auto touch-momentum p-4 ${
               reduceMotion ? "" : "transition duration-200 ease-out transform"
             } ${
               tocOpen
@@ -1238,7 +1238,7 @@ export default function Slider({
               {t("lesson.courseContent.label")}
             </p>
           </div>
-          <div className="mt-4 flex-1 overflow-y-auto pr-2 lg:min-h-0">
+          <div className="mt-4 flex-1 overflow-y-auto touch-momentum pr-2 lg:min-h-0">
             {tocContent}
           </div>
         </div>
