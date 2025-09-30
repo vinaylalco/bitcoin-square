@@ -33,7 +33,7 @@ export default function YouTubeVideo({
   onPlay,
 }: YouTubeVideoProps) {
   const [loaded, setLoaded] = useState(false);
-  const [pageOrigin, setPageOrigin] = useState<string | null>(() =>
+  const [pageOrigin] = useState<string | null>(() =>
     typeof window === "undefined" ? null : window.location.origin,
   );
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
