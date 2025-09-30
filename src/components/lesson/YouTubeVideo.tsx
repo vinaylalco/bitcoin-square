@@ -5,6 +5,7 @@ interface YouTubeVideoProps {
   title: string;
   onEnded?: () => void;
   onPlay?: () => void;
+  isActive?: boolean;
 }
 
 const YOUTUBE_ORIGIN = "https://www.youtube.com";
@@ -31,15 +32,52 @@ export default function YouTubeVideo({
   title,
   onEnded,
   onPlay,
+  isActive,
 }: YouTubeVideoProps) {
+  const [shouldLoad, setShouldLoad] = useState<boolean>(isActive ?? true);
   const [loaded, setLoaded] = useState(false);
   const [pageOrigin] = useState<string | null>(() =>
     typeof window === "undefined" ? null : window.location.origin,
   );
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const listenerId = useMemo(() => `${videoId}-${Math.random().toString(36).slice(2)}`, [videoId]);
   const playerOrigin = YOUTUBE_ORIGIN;
   const lastPlayerStateRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (isActive) {
+      setShouldLoad(true);
+    }
+  }, [isActive]);
+
+  useEffect(() => {
+    if (shouldLoad || typeof window === "undefined") {
+      return undefined;
+    }
+
+    const node = containerRef.current;
+    if (!node) {
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setShouldLoad(true);
+          }
+        });
+      },
+      { rootMargin: "200px" },
+    );
+
+    observer.observe(node);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [shouldLoad]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -82,12 +120,15 @@ export default function YouTubeVideo({
   }, []);
 
   useEffect(() => {
+    if (!shouldLoad) {
+      return;
+    }
     setLoaded(false);
     lastPlayerStateRef.current = null;
-  }, [videoId]);
+  }, [shouldLoad, videoId]);
 
   useEffect(() => {
-    if (typeof window === "undefined") {
+    if (typeof window === "undefined" || !shouldLoad) {
       return undefined;
     }
     const iframe = iframeRef.current;
@@ -161,9 +202,12 @@ export default function YouTubeVideo({
       window.clearInterval(pollId);
       window.removeEventListener("message", handleMessage);
     };
-  }, [listenerId, loaded, onEnded, onPlay, playerOrigin]);
+  }, [listenerId, loaded, onEnded, onPlay, playerOrigin, shouldLoad]);
 
   const embedUrl = useMemo(() => {
+    if (!shouldLoad) {
+      return null;
+    }
     const params = new URLSearchParams({
       enablejsapi: "1",
       rel: "0",
@@ -173,52 +217,63 @@ export default function YouTubeVideo({
       params.set("origin", pageOrigin);
     }
     return `${playerOrigin}/embed/${videoId}?${params.toString()}`;
-  }, [pageOrigin, playerOrigin, videoId]);
+  }, [pageOrigin, playerOrigin, shouldLoad, videoId]);
+
+  const loadingMode = isActive === false ? "lazy" : "eager";
 
   return (
-    <div className="relative w-full">
+    <div ref={containerRef} className="relative w-full">
       <div className="relative w-full overflow-hidden rounded-2xl">
         <div className="aspect-video w-full">
-          <iframe
-            ref={iframeRef}
-            className="h-full w-full"
-            width="560"
-            height="315"
-            src={embedUrl}
-            title="YouTube video player"
-            frameBorder="0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            referrerPolicy="strict-origin-when-cross-origin"
-            allowFullScreen
-            onLoad={() => setLoaded(true)}
-          />
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-            <div
-              role="status"
-              aria-live="polite"
-              aria-hidden={loaded}
-              className={`flex items-center gap-3 rounded-full bg-slate-950/70 px-4 py-2 text-sm font-medium text-white transition-opacity duration-300 ${loaded ? "opacity-0" : "opacity-100"}`}
-            >
-              <svg
-                className="h-5 w-5 animate-spin text-emerald-400"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-              </svg>
-              <span>Loading video…</span>
+          {shouldLoad && embedUrl ? (
+            <>
+              <iframe
+                ref={iframeRef}
+                className="h-full w-full"
+                width="560"
+                height="315"
+                src={embedUrl}
+                title="YouTube video player"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                referrerPolicy="strict-origin-when-cross-origin"
+                allowFullScreen
+                loading={loadingMode}
+                onLoad={() => setLoaded(true)}
+              />
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                <div
+                  role="status"
+                  aria-live="polite"
+                  aria-hidden={loaded}
+                  className={`flex items-center gap-3 rounded-full bg-slate-950/70 px-4 py-2 text-sm font-medium text-white transition-opacity duration-300 ${loaded ? "opacity-0" : "opacity-100"}`}
+                >
+                  <svg
+                    className="h-5 w-5 animate-spin text-emerald-400"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                  </svg>
+                  <span>Loading video…</span>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-neutral-200 text-sm font-medium text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
+              Video will load when visible
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

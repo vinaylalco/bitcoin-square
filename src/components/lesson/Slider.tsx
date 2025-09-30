@@ -1154,6 +1154,7 @@ export default function Slider({
                       onVideoComplete={(cardMeta, meta) => handleCardResult(cardMeta, meta)}
                       onVideoPlay={handleVideoPlay}
                       onRequestNext={next}
+                      isActive={isActive}
                       quizCompleted={completedCardIds.has(
                         toCardKey(c.sourceCardId ?? c.id),
                       )}
