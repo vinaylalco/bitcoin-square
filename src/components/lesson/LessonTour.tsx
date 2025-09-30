@@ -151,16 +151,6 @@ export default function LessonTour({
   }, [open, updateHighlight, updateContainerPadding, i18n.language]);
 
   useEffect(() => {
-    if (!open || typeof window === "undefined") return;
-    const isDesktop = window.innerWidth >= DESKTOP_BREAKPOINT;
-    const selector = resolveTargetSelector(activeStep?.target, isDesktop);
-    if (!selector) return;
-    const element = document.querySelector<HTMLElement>(selector);
-    if (!element || typeof element.scrollIntoView !== "function") return;
-    element.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, [activeStep?.target, open, i18n.language]);
-
-  useEffect(() => {
     if (!open) return;
     const handleResize = () => {
       updateHighlight();
