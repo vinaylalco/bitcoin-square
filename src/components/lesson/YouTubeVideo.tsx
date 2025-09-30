@@ -175,6 +175,8 @@ export default function YouTubeVideo({
     return `${playerOrigin}/embed/${videoId}?${params.toString()}`;
   }, [pageOrigin, playerOrigin, videoId]);
 
+  const iframeTitle = title.trim() ? title : "YouTube video player";
+
   return (
     <div className="relative w-full">
       <div className="relative w-full overflow-hidden rounded-2xl">
@@ -185,7 +187,7 @@ export default function YouTubeVideo({
             width="560"
             height="315"
             src={embedUrl}
-            title="YouTube video player"
+            title={iframeTitle}
             frameBorder="0"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             referrerPolicy="strict-origin-when-cross-origin"
