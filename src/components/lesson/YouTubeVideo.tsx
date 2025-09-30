@@ -221,57 +221,50 @@ export default function YouTubeVideo({
 
   const loadingMode = isActive === false ? "lazy" : "eager";
 
+  const iframeTitle = title.trim() ? title : "YouTube video player";
+
   return (
     <div ref={containerRef} className="relative w-full">
       <div className="relative w-full overflow-hidden rounded-2xl">
         <div className="aspect-video w-full">
-          {shouldLoad && embedUrl ? (
-            <>
-              <iframe
-                ref={iframeRef}
-                className="h-full w-full"
-                width="560"
-                height="315"
-                src={embedUrl}
-                title="YouTube video player"
-                frameBorder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                referrerPolicy="strict-origin-when-cross-origin"
-                allowFullScreen
-                loading={loadingMode}
-                onLoad={() => setLoaded(true)}
-              />
-              <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                <div
-                  role="status"
-                  aria-live="polite"
-                  aria-hidden={loaded}
-                  className={`flex items-center gap-3 rounded-full bg-slate-950/70 px-4 py-2 text-sm font-medium text-white transition-opacity duration-300 ${loaded ? "opacity-0" : "opacity-100"}`}
-                >
-                  <svg
-                    className="h-5 w-5 animate-spin text-emerald-400"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-                  </svg>
-                  <span>Loading video…</span>
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="flex h-full w-full items-center justify-center bg-neutral-200 text-sm font-medium text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
-              Video will load when visible
+          <iframe
+            ref={iframeRef}
+            className="h-full w-full"
+            width="560"
+            height="315"
+            src={embedUrl}
+            title={iframeTitle}
+            frameBorder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            referrerPolicy="strict-origin-when-cross-origin"
+            allowFullScreen
+            onLoad={() => setLoaded(true)}
+          />
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <div
+              role="status"
+              aria-live="polite"
+              aria-hidden={loaded}
+              className={`flex items-center gap-3 rounded-full bg-slate-950/70 px-4 py-2 text-sm font-medium text-white transition-opacity duration-300 ${loaded ? "opacity-0" : "opacity-100"}`}
+            >
+              <svg
+                className="h-5 w-5 animate-spin text-emerald-400"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+              </svg>
+              <span>Loading video…</span>
             </div>
           )}
         </div>
