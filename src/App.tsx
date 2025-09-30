@@ -85,7 +85,7 @@ export default function App() {
   });
 
   return (
-    <div className="min-h-screen bg-[var(--bg-app)] text-[var(--fg-default)] transition-colors duration-300">
+    <div className="min-h-screen min-h-mobile-fill bg-[var(--bg-app)] text-[var(--fg-default)] transition-colors duration-300">
       <header
         data-app-header
         className="sticky top-0 z-50 border-b border-[var(--border-subtle)] bg-[var(--bg-card)]/90 backdrop-blur"
@@ -195,7 +195,7 @@ export default function App() {
         aria-label={t("app.mobileMenu.ariaLabel")}
       >
         <FocusTrap active={open} onDeactivate={() => setOpen(false)} returnFocusRef={triggerRef}>
-          <div className="flex h-full flex-col overflow-y-auto">
+          <div className="flex h-full flex-col overflow-y-auto touch-momentum">
             <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-5 py-4">
               <span className="text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)] dark:text-white">
                 {t("app.mobileMenu.title")}

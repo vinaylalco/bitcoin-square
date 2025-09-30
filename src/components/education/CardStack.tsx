@@ -137,7 +137,7 @@ export default function CardStack({ lessons, onAdvance }: Props) {
       <div className="relative">
         <div
           ref={trackRef}
-          className="flex gap-4 overflow-x-auto snap-x snap-mandatory scroll-smooth no-scrollbar px-0 relative z-10"
+          className="flex gap-4 overflow-x-auto snap-x snap-mandatory scroll-smooth no-scrollbar touch-momentum px-0 relative z-10"
           style={{ scrollPadding: "0px" }}
         >
           {lessons.map((l) => (

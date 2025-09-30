@@ -151,7 +151,7 @@ export default function CustomizeDialog({
   }, [plan, t, i18n.language]);
 
   return (
-    <div className="fixed inset-0 z-[65] flex items-center justify-center overflow-y-auto px-4 py-8">
+    <div className="fixed inset-0 z-[65] flex items-center justify-center overflow-y-auto touch-momentum px-4 py-8">
       <div
         className="absolute inset-0 bg-neutral-900/60 backdrop-blur-sm"
         onClick={onClose}
@@ -171,7 +171,7 @@ export default function CustomizeDialog({
           <span className="sr-only">{t("lesson.customize.actions.close")}</span>
           <X className="h-5 w-5" aria-hidden="true" />
         </button>
-        <div className="flex-1 overflow-y-auto px-6 pb-6 pt-16 sm:px-8 sm:pb-8 sm:pt-20">
+        <div className="flex-1 overflow-y-auto touch-momentum px-6 pb-6 pt-16 sm:px-8 sm:pb-8 sm:pt-20">
           <div className="space-y-6">
             <div className="space-y-3 pr-10 sm:pr-12">
               <h2
