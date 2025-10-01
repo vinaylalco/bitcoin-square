@@ -10,17 +10,15 @@ describe("getLessonPlan", () => {
     const mock = {
       data: [
         {
-          slug: "education",
-          locale: "en",
-          LessonPlanJSON: { course: { id: "en", name: "English", modules: [] } },
-          localizations: [
-            {
-              locale: "es",
-              LessonPlanJSON: {
-                course: { id: "es", name: "Español", modules: [] },
-              },
+          id: 1,
+          attributes: {
+            documentId: "doc-1",
+            slug: "full-btc-course",
+            locales: {
+              en: { course: { id: "btc-full-course", name: "BTC Full Course", modules: [] } },
+              es: { course: { id: "btc-full-course", name: "Curso Completo BTC", modules: [] } },
             },
-          ],
+          },
         },
       ],
     };
@@ -34,19 +32,27 @@ describe("getLessonPlan", () => {
 
     process.env.NEXT_PUBLIC_STRAPI_URL = "http://test";
 
-    const lesson = await getLessonPlan("es", "education");
+    const lesson = await getLessonPlan("es", "btc-full-course");
     expect(fetchMock.mock.calls[0][0]).toContain("populate=%2A");
-    expect(lesson).toMatchObject({ title: "Español", modules: [], locale: "es" });
+    expect(lesson).toMatchObject({
+      title: "Curso Completo BTC",
+      modules: [],
+      locale: "es",
+      slug: "full-btc-course",
+    });
   });
 
-  it("falls back to en when translation missing", async () => {
+  it("falls back to english when translation missing", async () => {
     const mock = {
       data: [
         {
-          slug: "education",
-          locale: "en",
-          LessonPlanJSON: { course: { id: "en", name: "English", modules: [] } },
-          localizations: [],
+          id: 2,
+          attributes: {
+            slug: "btc-full-course",
+            locales: {
+              en: { course: { id: "btc-full-course", name: "BTC Full Course", modules: [] } },
+            },
+          },
         },
       ],
     };
@@ -57,7 +63,7 @@ describe("getLessonPlan", () => {
 
     process.env.NEXT_PUBLIC_STRAPI_URL = "http://test";
 
-    const lesson = await getLessonPlan("es", "education");
+    const lesson = await getLessonPlan("es", "btc-full-course");
     expect(lesson.locale).toBe("en");
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
@@ -66,15 +72,12 @@ describe("getLessonPlan", () => {
     const byIdMock = {
       data: [
         {
-          id: 1,
-          locale: "en",
-          title: "Course via ID",
-          LessonPlanJSON: {
-            title: "Course via ID",
-            topics: [],
-            course: { id: "c-101" },
+          id: 3,
+          attributes: {
+            locales: {
+              en: { course: { id: "c-101", name: "Course via ID", modules: [] } },
+            },
           },
-          localizations: [],
         },
       ],
     };
@@ -82,15 +85,12 @@ describe("getLessonPlan", () => {
     const byNameMock = {
       data: [
         {
-          id: 2,
-          locale: "en",
-          title: "Course via Name",
-          LessonPlanJSON: {
-            title: "Course via Name",
-            topics: [],
-            course: { name: "Course 101" },
+          id: 4,
+          attributes: {
+            locales: {
+              en: { course: { name: "Course 101", modules: [] } },
+            },
           },
-          localizations: [],
         },
       ],
     };
@@ -109,7 +109,7 @@ describe("getLessonPlan", () => {
     expect(byName).toMatchObject({ slug: "course-101" });
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    
+
   });
 });
 
@@ -118,8 +118,41 @@ describe("getLessonPlans", () => {
     vi.resetAllMocks();
   });
 
-  it("requests cover image population", async () => {
-    const mock = { data: [] };
+  it("maps lesson plans list for locale", async () => {
+    const mock = {
+      data: [
+        {
+          id: 1,
+          attributes: {
+            documentId: "doc-1",
+            locales: {
+              en: {
+                course: {
+                  id: "btc-full-course",
+                  name: "BTC Full Course",
+                  modules: [
+                    {
+                      id: "M1",
+                      name: "Module 1",
+                      topics: [
+                        {
+                          id: "T1",
+                          name: "Topic",
+                          cards: [
+                            { id: "C1", title: "Card 1" },
+                          ],
+                        },
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        },
+      ],
+    };
+
     const fetchMock = vi.spyOn(global, "fetch").mockResolvedValueOnce({
       ok: true,
       json: async () => mock,
@@ -127,12 +160,22 @@ describe("getLessonPlans", () => {
 
     process.env.NEXT_PUBLIC_STRAPI_URL = "http://test";
 
-    await getLessonPlans("en");
-    expect(fetchMock.mock.calls[0][0]).toContain(
-      "populate%5B0%5D=coverImage",
-    );
-    expect(fetchMock.mock.calls[0][0]).toContain(
-      "filters%5Blocale%5D%5B%24eq%5D=en",
-    );
+    const lessons = await getLessonPlans("en");
+    expect(fetchMock.mock.calls[0][0]).toContain("populate=%2A");
+    expect(lessons[0]).toMatchObject({
+      id: "doc-1",
+      slug: "btc-full-course",
+      title: "BTC Full Course",
+      modules: [
+        {
+          id: "M1",
+          topics: [
+            {
+              cards: [{ id: "C1", title: "Card 1" }],
+            },
+          ],
+        },
+      ],
+    });
   });
 });
