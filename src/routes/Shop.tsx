@@ -5,10 +5,11 @@ import ProductCard from "../components/shop/ProductCard";
 import { fetchProducts } from "../lib/strapi";
 
 export default function Shop() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const locale = i18n.language?.toLowerCase().startsWith("es") ? "es" : "en";
   const { data, isLoading, error } = useQuery({
-    queryKey: ["products"],
-    queryFn: () => fetchProducts(),
+    queryKey: ["products", locale],
+    queryFn: () => fetchProducts(1, 12, locale),
   });
   const description = t("shop.description");
 

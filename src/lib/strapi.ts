@@ -36,6 +36,76 @@ function toSlug(title?: string): string {
   );
 }
 
+function normalizeLocale(locale?: string | null): "en" | "es" {
+  const value = locale?.toLowerCase() ?? "";
+  return value.startsWith("es") ? "es" : "en";
+}
+
+function flattenEntry(entry: Record<string, any>): Record<string, any> {
+  if (!entry || typeof entry !== "object") return entry;
+  if ("attributes" in entry && entry.attributes && typeof entry.attributes === "object") {
+    const { attributes, ...rest } = entry as unknown as {
+      attributes: Record<string, any>;
+    } & Record<string, any>;
+    return { ...(rest as Record<string, any>), ...attributes };
+  }
+  return entry;
+}
+
+function extractLocalizations(entry: Record<string, any>): Record<string, any>[] {
+  const localizations = entry?.localizations;
+  if (!localizations) return [];
+  if (Array.isArray(localizations)) {
+    return localizations.map((loc) => flattenEntry(loc));
+  }
+  if (Array.isArray(localizations.data)) {
+    return localizations.data.map((loc) => flattenEntry(loc));
+  }
+  return [];
+}
+
+function uniqueLocalizations(
+  entries: Record<string, any>[],
+  excludeId?: number | string,
+): Record<string, any>[] {
+  const map = new Map<string, Record<string, any>>();
+  entries.forEach((item) => {
+    const flattened = flattenEntry(item);
+    if (!flattened) return;
+    if (excludeId != null && flattened.id === excludeId) return;
+    const locale = normalizeLocale(flattened.locale);
+    const key = `${flattened.documentId ?? ""}:${locale}`;
+    if (!map.has(key)) {
+      map.set(key, flattened);
+    }
+  });
+  return Array.from(map.values());
+}
+
+export function selectLocalizedEntry<T extends Record<string, any>>(
+  entry: T,
+  locale: string,
+  additional: Record<string, any>[] = [],
+): T {
+  const normalizedTarget = normalizeLocale(locale);
+  const flattened = flattenEntry(entry as Record<string, any>);
+  const allLocalizations = uniqueLocalizations(
+    [...extractLocalizations(flattened), ...additional],
+    flattened?.id,
+  );
+  const baseLocale = normalizeLocale(flattened?.locale);
+  const match =
+    normalizedTarget !== baseLocale
+      ? allLocalizations.find((loc) => normalizeLocale(loc.locale) === normalizedTarget)
+      : undefined;
+  const merged = match ? { ...flattened, ...match } : flattened;
+  return {
+    ...(merged as Record<string, any>),
+    locale: match?.locale ?? flattened?.locale ?? normalizedTarget,
+    localizations: allLocalizations,
+  } as T;
+}
+
 export async function getLessonPlans(locale: string): Promise<LessonPlan[]> {
   const params = new URLSearchParams();
   params.set("filters[locale][$eq]", locale);
@@ -125,22 +195,39 @@ export function resolveExternal(url?: string): string {
 export async function fetchProducts(
   page = 1,
   pageSize = 12,
+  locale = "en",
 ): Promise<Product[]> {
   const params = new URLSearchParams();
-  params.set("populate", "ProductImages");
+  params.append("populate[0]", "ProductImages");
+  params.append("populate[1]", "localizations");
+  params.append("populate[localizations][populate][0]", "ProductImages");
   params.set("pagination[page]", String(page));
   params.set("pagination[pageSize]", String(pageSize));
   const json = await strapiFetch(`/api/products?${params.toString()}`);
-  return json?.data || [];
+  const entries: any[] = json?.data || [];
+  return entries.map((entry) => selectLocalizedEntry(entry, locale));
 }
 
-export async function fetchProduct(documentId: string): Promise<Product | null> {
+export async function fetchProduct(
+  documentId: string,
+  locale = "en",
+): Promise<Product | null> {
   try {
     const params = new URLSearchParams();
     params.set("filters[documentId][$eq]", documentId);
-    params.set("populate", "ProductImages");
+    params.append("populate[0]", "ProductImages");
+    params.append("populate[1]", "localizations");
+    params.append("populate[localizations][populate][0]", "ProductImages");
     const json = await strapiFetch(`/api/products?${params.toString()}`);
-    return json?.data?.[0] || null;
+    const entries: any[] = json?.data || [];
+    if (!entries.length) return null;
+    const normalized = normalizeLocale(locale);
+    const flattenedEntries = entries.map((entry) => flattenEntry(entry));
+    const preferred =
+      flattenedEntries.find((entry) => normalizeLocale(entry.locale) === normalized) ||
+      flattenedEntries[0];
+    const remaining = flattenedEntries.filter((entry) => entry !== preferred);
+    return selectLocalizedEntry(preferred, normalized, remaining);
   } catch (err: any) {
     if ((err as Error).message === "Not Found") return null;
     throw err;

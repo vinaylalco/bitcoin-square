@@ -4,7 +4,7 @@ export type ProductImage = {
   alternativeText?: string | null;
 };
 
-export type Product = {
+export type ProductBase = {
   id: number;
   documentId: string;
   ProductName: string;
@@ -16,4 +16,14 @@ export type Product = {
   createdAt: string;
   updatedAt: string;
   publishedAt: string;
+};
+
+export type ProductLocalization = Partial<ProductBase> & {
+  locale?: string | null;
+  ProductImages?: ProductImage[];
+};
+
+export type Product = ProductBase & {
+  locale?: string | null;
+  localizations?: ProductLocalization[];
 };
