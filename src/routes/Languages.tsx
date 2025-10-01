@@ -1,10 +1,20 @@
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import LanguagesSkeleton from "../components/education/LanguagesSkeleton";
 import { useStrapiQuery } from "../hooks/useStrapiQuery";
 import type { Language } from "../types/strapi";
 
 export default function LanguagesPage() {
-  const { data, isLoading, error } = useStrapiQuery<{ data: Language[] }>("languages", "/api/languages");
+  const { i18n } = useTranslation();
+  const locale = (i18n.resolvedLanguage || i18n.language || "en").split("-")[0];
+
+  const params = new URLSearchParams();
+  params.set("locale", locale);
+
+  const { data, isLoading, error } = useStrapiQuery<{ data: Language[] }>(
+    "languages",
+    `/api/languages?${params.toString()}`,
+  );
   if (isLoading) return <LanguagesSkeleton />;
   if (error) return <p className="mx-auto max-w-3xl px-4 py-16 text-center text-brand">Failed to load languages.</p>;
   const languages = data?.data ?? [];

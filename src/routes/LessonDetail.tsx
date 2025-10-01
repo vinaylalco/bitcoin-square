@@ -1,11 +1,22 @@
 import { useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import LessonDetailSkeleton from "../components/education/LessonDetailSkeleton";
 import { useStrapiQuery } from "../hooks/useStrapiQuery";
 import type { Lesson } from "../types/strapi";
 
 export default function LessonDetailPage() {
   const { slug } = useParams();
-  const { data, isLoading, error } = useStrapiQuery<{ data: Lesson[] }>("lesson", `/api/lessons?filters[slug][$eq]=${slug}`);
+  const { i18n } = useTranslation();
+  const locale = (i18n.resolvedLanguage || i18n.language || "en").split("-")[0];
+
+  const params = new URLSearchParams();
+  params.set("filters[slug][$eq]", slug ?? "");
+  params.set("locale", locale);
+
+  const { data, isLoading, error } = useStrapiQuery<{ data: Lesson[] }>(
+    "lesson",
+    `/api/lessons?${params.toString()}`,
+  );
   if (isLoading) return <LessonDetailSkeleton />;
   if (error) return <p className="mx-auto max-w-3xl px-4 py-16 text-center text-brand">Failed to load lesson.</p>;
   const lesson = data?.data?.[0];

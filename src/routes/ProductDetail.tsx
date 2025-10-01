@@ -1,15 +1,18 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import ProductDetailSkeleton from "../components/shop/ProductDetailSkeleton";
 import { fetchProduct, resolveMedia, resolveExternal } from "../lib/strapi";
 
 export default function ProductDetail() {
   const { id: documentId } = useParams<{ id: string }>();
+  const { i18n } = useTranslation();
+  const locale = (i18n.resolvedLanguage || i18n.language || "en").split("-")[0];
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["product", documentId],
-    queryFn: () => fetchProduct(documentId as string),
+    queryKey: ["product", documentId, locale],
+    queryFn: () => fetchProduct(documentId as string, locale),
     enabled: !!documentId,
   });
 

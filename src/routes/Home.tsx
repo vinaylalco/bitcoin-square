@@ -1,12 +1,20 @@
+import { useTranslation } from "react-i18next";
 import { useStrapiQuery } from "../hooks/useStrapiQuery";
 import type { Home } from "../types/strapi";
 import HomeGhost from "../components/home/HomeGhost";
 import { cn } from "../utils/cn";
 
 export default function HomePage() {
+  const { i18n } = useTranslation();
+  const locale = (i18n.resolvedLanguage || i18n.language || "en").split("-")[0];
+
+  const params = new URLSearchParams();
+  params.set("populate[HomePageSection][populate]", "SectionImage");
+  params.set("locale", locale);
+
   const { data, isLoading, error } = useStrapiQuery<{ data: Home }>(
     "home",
-    "/api/home-page?populate[HomePageSection][populate]=SectionImage",
+    `/api/home-page?${params.toString()}`,
   );
 
   if (isLoading) return <HomeGhost />;
