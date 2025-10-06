@@ -555,15 +555,6 @@ export default function CourseDetail() {
     <div className="w-full">
       <section className="bg-[var(--bg-card)]">
         <div className="mx-auto max-w-6xl px-4 py-12 sm:px-10">
-          {data?.coverImage && (
-            <div className="mb-10 overflow-hidden rounded-3xl">
-              <img
-                src={data.coverImage}
-                alt={data?.title || "Course cover"}
-                className="h-60 w-full object-cover sm:h-72"
-              />
-            </div>
-          )}
           {data && data.locale !== locale && (
             <p className="max-w-xl text-xs font-medium uppercase tracking-[0.32em] text-[var(--fg-muted)]">
               {t("courses.localeFallback", {
