@@ -18,10 +18,12 @@ function navigateTo(url: string) {
 
 export default function CourseCard({ course }: Props) {
   const slug = course.slug || course.id;
-  const showPurchase = course.isPaid === true;
-  const priceLabel = course.price?.trim();
-  const purchaseLabel = course.purchaseLabel?.trim() || "Buy course";
+  const isPaid = course.isPaid === true;
+  const priceLabel = isPaid ? course.price?.trim() : undefined;
   const purchaseUrl = course.purchaseUrl?.trim();
+  const purchaseLabel = course.purchaseLabel?.trim() || "Buy course";
+  const showPurchaseButton = Boolean(isPaid && purchaseUrl);
+  const showPurchasePanel = Boolean(isPaid && (priceLabel || showPurchaseButton));
 
   return (
     <article className="relative">
@@ -57,25 +59,26 @@ export default function CourseCard({ course }: Props) {
           </div>
         </div>
       </Link>
-      {showPurchase && (
+      {showPurchasePanel && (
         <div className="pointer-events-none absolute right-6 top-6 z-10 w-full max-w-sm space-y-4 rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-app)] p-6 shadow-[var(--shadow-soft)]">
           {priceLabel && (
             <p className="pointer-events-none text-right text-xl font-semibold uppercase tracking-[0.28em] text-brand">
               {priceLabel}
             </p>
           )}
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              if (!purchaseUrl) return;
-              navigateTo(purchaseUrl);
-            }}
-            disabled={!purchaseUrl}
-            className="pointer-events-auto inline-flex w-full items-center justify-center rounded-full bg-brand px-5 py-3 text-xs font-semibold uppercase tracking-[0.32em] text-white shadow-[0_20px_45px_rgba(169,21,255,0.35)] transition hover:-translate-y-0.5 hover:shadow-[0_28px_60px_rgba(169,21,255,0.4)] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {purchaseLabel}
-          </button>
+          {showPurchaseButton && (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                if (!purchaseUrl) return;
+                navigateTo(purchaseUrl);
+              }}
+              className="pointer-events-auto inline-flex w-full items-center justify-center rounded-full bg-brand px-5 py-3 text-xs font-semibold uppercase tracking-[0.32em] text-white shadow-[0_20px_45px_rgba(169,21,255,0.35)] transition hover:-translate-y-0.5 hover:shadow-[0_28px_60px_rgba(169,21,255,0.4)]"
+            >
+              {purchaseLabel}
+            </button>
+          )}
         </div>
       )}
     </article>
