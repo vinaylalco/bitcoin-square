@@ -561,20 +561,21 @@ export default function CourseDetail() {
       <div className="w-full">
         <div className="w-full overflow-hidden bg-[var(--bg-card)] shadow-[var(--shadow-soft)]">
           <div className="space-y-6 bg-[var(--bg-card)] px-4 pt-10 pb-6 sm:px-10 sm:pb-8 lg:pb-6">
-          {cards.length > 0 ? (
-            <div className="overflow-hidden bg-[var(--bg-card)] shadow-[var(--shadow-soft)]">
-              <Slider
-                cards={cards}
-                modules={modules}
-                courseTitle={data?.title || "Education"}
-                lessonSlug={data?.slug || slug}
-              />
-            </div>
-          ) : (
-            <p className="px-6 py-12 text-center text-sm font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">
-              Lessons coming soon.
-            </p>
-          )}
+            {cards.length > 0 ? (
+              <div className="overflow-hidden bg-[var(--bg-card)] shadow-[var(--shadow-soft)]">
+                <Slider
+                  cards={cards}
+                  modules={modules}
+                  courseTitle={data?.title || "Education"}
+                  lessonSlug={data?.slug || slug}
+                />
+              </div>
+            ) : (
+              <p className="px-6 py-12 text-center text-sm font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">
+                Lessons coming soon.
+              </p>
+            )}
+          </div>
         </div>
       </div>
       {showFloatingPurchase && (
