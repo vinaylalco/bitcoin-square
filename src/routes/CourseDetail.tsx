@@ -6,6 +6,8 @@ import CourseDetailSkeleton from "../components/course/CourseDetailSkeleton";
 import { useLessonPlan } from "../hooks/useLessonPlan";
 import type { Card, LessonCard, Module, Topic } from "../types/lesson-plan";
 import { useAuth } from "../context/AuthContext";
+import BuyCourseButton from "../components/course/BuyCourseButton";
+import { formatCurrency } from "../utils/currency";
 
 type UnknownRecord = Record<string, unknown>;
 type RichCard = Card & UnknownRecord;
@@ -476,15 +478,12 @@ function buildLessonCard({
 }
 
 export default function CourseDetail() {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { slug = "" } = useParams();
   const { user, login } = useAuth();
   const locale = i18n.language?.toLowerCase().startsWith("es") ? "es" : "en";
   const { data, isLoading, error } = useLessonPlan(locale, slug);
-
-  if (!user) {
-    return <CourseAccessGate onLogin={login} />;
-  }
+  const isAuthenticated = Boolean(user);
 
   if (isLoading && !data) {
     return <CourseDetailSkeleton />;
@@ -499,6 +498,18 @@ export default function CourseDetail() {
 
   const effectiveLocale = data?.locale ?? locale;
   const rawModules = data?.modules ?? [];
+  const isPaidCourse = data?.isPaid ?? false;
+  const hasPrice = data?.price !== undefined && data?.price !== null;
+  const formattedPrice = hasPrice ? formatCurrency(data?.price) : "";
+  const priceLabel =
+    formattedPrice && formattedPrice.length > 0 ? formattedPrice : "Contact us";
+  const canPurchase = Boolean(
+    isPaidCourse &&
+      data?.stripePriceId &&
+      typeof data?.id === "number",
+  );
+  const showPurchaseCard = isPaidCourse;
+
   const modules = rawModules.map((module, moduleIndex) => {
     const moduleTopics = module.topics ?? [];
     const topicCount = moduleTopics.length;
@@ -542,45 +553,70 @@ export default function CourseDetail() {
 
   return (
     <div className="w-full">
-      <div className="w-full overflow-hidden bg-[var(--bg-card)] shadow-[var(--shadow-soft)]">
-        <div className="space-y-6 bg-[var(--bg-card)] px-4 pt-10 pb-6 sm:px-10 sm:pb-8 lg:pb-6">
-          {/*<div className="relative overflow-hidden rounded-3xl border border-brand/25 bg-gradient-to-br from-white via-red-100/40 to-red-200/40 p-8 text-neutral-900 shadow-[0_35px_120px_rgba(239,68,68,0.18)] transition-colors duration-500 dark:border-brand/40 dark:from-neutral-950 dark:via-neutral-900 dark:to-neutral-900 dark:text-neutral-50">
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(239,68,68,0.35),_transparent_60%)] opacity-70 transition-opacity duration-500" />
-            <div className="relative z-10 flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-              <div className="space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.42em] text-brand">Immersive Course</p>
-                <h1 className="text-3xl font-black uppercase tracking-[0.14em] sm:text-4xl">
-                  {data?.title || "Education"}
-                </h1>
-                {data && data.locale !== locale && (
-                  <p className="max-w-xl text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                    Translation unavailable for this language, showing English.
-                  </p>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-3 text-[0.65rem] font-semibold uppercase tracking-[0.32em] text-neutral-700 dark:text-neutral-200">
-                <span className="rounded-full border border-neutral-900/20 px-4 py-1 shadow-sm transition duration-300 dark:border-white/20">
-                  {modules.length} Modules
-                </span>
-                <span className="rounded-full border border-neutral-900/20 px-4 py-1 shadow-sm transition duration-300 dark:border-white/20">
-                  Guided Learning
-                </span>
-              </div>
+      <section className="bg-[var(--bg-card)]">
+        <div className="mx-auto max-w-6xl px-4 py-12 sm:px-10">
+          {data?.coverImage && (
+            <div className="mb-10 overflow-hidden rounded-3xl">
+              <img
+                src={data.coverImage}
+                alt={data?.title || "Course cover"}
+                className="h-60 w-full object-cover sm:h-72"
+              />
             </div>
-          </div>*/}
-          {cards.length > 0 ? (
-            <div className="overflow-hidden bg-[var(--bg-card)] shadow-[var(--shadow-soft)]">
+          )}
+          {data && data.locale !== locale && (
+            <p className="max-w-xl text-xs font-medium uppercase tracking-[0.32em] text-[var(--fg-muted)]">
+              {t("courses.localeFallback", {
+                defaultValue: "Showing default language for this course.",
+              })}
+            </p>
+          )}
+        </div>
+        {showPurchaseCard && (
+          <div className="fixed bottom-6 left-6 z-20 w-full max-w-sm space-y-4 rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-app)] p-6 shadow-[var(--shadow-soft)]">
+            <div className="space-y-1">
+              <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">
+                Price
+              </p>
+              <p className="text-3xl font-black tracking-[0.08em] text-[var(--fg-default)]">
+                {priceLabel}
+              </p>
+            </div>
+            {canPurchase ? (
+              <BuyCourseButton
+                lessonPlanId={data?.id}
+                stripePriceId={data?.stripePriceId}
+                className="w-full justify-center px-6 py-3 text-[0.65rem]"
+                label="Buy Course"
+              />
+            ) : (
+              <p className="text-xs font-medium text-[var(--fg-muted)]">
+                Checkout is currently unavailable for this course.
+              </p>
+            )}
+            <p className="text-xs leading-relaxed text-[var(--fg-muted)]">
+              Payments are processed securely via Stripe. You will be redirected to complete your purchase.
+            </p>
+          </div>
+        )}
+      </section>
+      <div className="w-full shadow-[var(--shadow-soft)]">
+        <div className="space-y-6 px-4 pt-10 pb-6 sm:px-10 sm:pb-8 lg:pb-6">
+          {isAuthenticated ? (
+            cards.length > 0 ? (
               <Slider
                 cards={cards}
                 modules={modules}
                 courseTitle={data?.title || "Education"}
                 lessonSlug={data?.slug || slug}
               />
-            </div>
+            ) : (
+              <p className="px-6 py-12 text-center text-sm font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">
+                Lessons coming soon.
+              </p>
+            )
           ) : (
-            <p className="px-6 py-12 text-center text-sm font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">
-              Lessons coming soon.
-            </p>
+            <CourseAccessGate onLogin={login} />
           )}
         </div>
       </div>

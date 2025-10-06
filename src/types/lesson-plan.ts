@@ -54,11 +54,16 @@ export interface Module {
 }
 
 export interface LessonPlan {
-  id?: string | number;
+  id?: number;
+  documentId?: string;
   title?: string;
   slug?: string;
   description?: string;
   coverImage?: string;
   modules: Module[];
   locale?: string;
+  price?: number;
+  stripeProductId?: string;
+  stripePriceId?: string;
+  isPaid?: boolean;
 }

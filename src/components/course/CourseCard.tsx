@@ -1,6 +1,8 @@
 import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
+import BuyCourseButton from "./BuyCourseButton";
 import type { LessonPlan } from "../../types/lesson-plan";
+import { formatCurrency } from "../../utils/currency";
 
 interface Props {
   course: LessonPlan;
@@ -8,7 +10,17 @@ interface Props {
 
 export default function CourseCard({ course }: Props) {
   const moduleCount = course.modules?.length ?? 0;
-  const slug = course.slug || course.id;
+  const slug = course.slug || (course.id != null ? String(course.id) : "");
+  const isPaid = course.isPaid ?? false;
+  const hasPrice = course.price !== undefined && course.price !== null;
+  const formattedPrice = hasPrice ? formatCurrency(course.price) : "";
+  const priceLabel =
+    formattedPrice && formattedPrice.length > 0
+      ? formattedPrice
+      : "Contact us";
+  const canPurchase = Boolean(
+    isPaid && course.stripePriceId && typeof course.id === "number",
+  );
   return (
     <Link
       to={`/education/${slug}`}
@@ -43,9 +55,30 @@ export default function CourseCard({ course }: Props) {
             </p>
           )}
         </div>
-        <div className="mt-auto inline-flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.32em] text-brand transition group-hover:translate-x-1">
-          View Course
-          <ArrowRight className="h-4 w-4" />
+        <div className="mt-auto space-y-4">
+          {isPaid && (
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">
+                {priceLabel}
+              </span>
+              {canPurchase ? (
+                <BuyCourseButton
+                  lessonPlanId={course.id}
+                  stripePriceId={course.stripePriceId}
+                  className="px-5 py-2 text-[0.55rem]"
+                  label="Buy Course"
+                />
+              ) : (
+                <span className="text-[0.55rem] font-semibold uppercase tracking-[0.32em] text-brand">
+                  Checkout unavailable
+                </span>
+              )}
+            </div>
+          )}
+          <div className="inline-flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.32em] text-brand transition group-hover:translate-x-1">
+            View Course
+            <ArrowRight className="h-4 w-4" />
+          </div>
         </div>
       </div>
     </Link>
