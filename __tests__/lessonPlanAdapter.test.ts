@@ -170,6 +170,7 @@ describe("getLessonPlans", () => {
 describe("createLessonPlanCheckoutSession", () => {
   afterEach(() => {
     vi.resetAllMocks();
+    delete process.env.NEXT_PUBLIC_SITE_URL;
   });
 
   it("posts to the Strapi numeric id endpoint", async () => {
@@ -179,6 +180,7 @@ describe("createLessonPlanCheckoutSession", () => {
     } as any);
 
     process.env.NEXT_PUBLIC_STRAPI_URL = "http://test";
+    process.env.NEXT_PUBLIC_SITE_URL = "https://frontend.test";
 
     const response = await createLessonPlanCheckoutSession(7, "price_123");
 
@@ -187,6 +189,12 @@ describe("createLessonPlanCheckoutSession", () => {
     );
     expect(fetchMock.mock.calls[0][1]).toMatchObject({
       method: "POST",
+    });
+    expect(JSON.parse(fetchMock.mock.calls[0][1]?.body as string)).toEqual({
+      priceId: "price_123",
+      stripePriceId: "price_123",
+      successUrl: "https://frontend.test/checkout/success",
+      cancelUrl: "https://frontend.test/checkout/cancel",
     });
     expect(response.id).toBe("sess_123");
   });

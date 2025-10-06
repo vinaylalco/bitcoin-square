@@ -12,6 +12,20 @@ const API =
   env.VITE_STRAPI_URL || env.NEXT_PUBLIC_STRAPI_URL || env.VITE_API_URL || "";
 const TOKEN = env.STRAPI_TOKEN || env.VITE_STRAPI_TOKEN;
 
+function getFrontendBaseUrl(): string {
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return window.location.origin;
+  }
+
+  return (
+    env.VITE_SITE_URL ||
+    env.NEXT_PUBLIC_SITE_URL ||
+    env.FRONTEND_URL ||
+    env.VITE_FRONTEND_URL ||
+    ""
+  );
+}
+
 function parseNumber(value: unknown): number | undefined {
   if (typeof value === "number" && Number.isFinite(value)) {
     return value;
@@ -197,9 +211,21 @@ export async function createLessonPlanCheckoutSession(
   }
 
   const path = `/api/lesson-plans/${lessonPlanId}/create-checkout-session`;
+  const frontendBaseUrl = getFrontendBaseUrl();
+  const payload: Record<string, unknown> = {
+    priceId,
+    stripePriceId: priceId,
+  };
+
+  if (frontendBaseUrl) {
+    const sanitizedBaseUrl = frontendBaseUrl.replace(/\/$/, "");
+    payload.successUrl = `${sanitizedBaseUrl}/checkout/success`;
+    payload.cancelUrl = `${sanitizedBaseUrl}/checkout/cancel`;
+  }
+
   const response = await strapiFetch(path, {
     method: "POST",
-    body: JSON.stringify({ priceId }),
+    body: JSON.stringify(payload),
   });
 
   if (!response || typeof response.id !== "string") {
