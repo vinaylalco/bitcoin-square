@@ -61,4 +61,8 @@ export interface LessonPlan {
   coverImage?: string;
   modules: Module[];
   locale?: string;
+  price?: number;
+  stripeProductId?: string;
+  stripePriceId?: string;
+  isPaid?: boolean;
 }

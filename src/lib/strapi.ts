@@ -12,6 +12,38 @@ const API =
   env.VITE_STRAPI_URL || env.NEXT_PUBLIC_STRAPI_URL || env.VITE_API_URL || "";
 const TOKEN = env.STRAPI_TOKEN || env.VITE_STRAPI_TOKEN;
 
+function parseNumber(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+
+  return undefined;
+}
+
+function coerceBoolean(value: unknown): boolean | undefined {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    if (value.toLowerCase() === "true") return true;
+    if (value.toLowerCase() === "false") return false;
+  }
+
+  if (typeof value === "number") {
+    return value === 1;
+  }
+
+  return undefined;
+}
+
 export async function strapiFetch(path: string, init: RequestInit = {}): Promise<any> {
   const url = `${API}${path}`;
   const headers: HeadersInit = {
@@ -48,6 +80,15 @@ export async function getLessonPlans(locale: string): Promise<LessonPlan[]> {
     const course = entry.LessonPlanJSON?.course || {};
     const title = course.name || entry.title;
     const slug = entry.slug || toSlug(title) || course.id || String(entry.id);
+    const price =
+      parseNumber(entry.price ?? course.price) ??
+      parseNumber(entry.Price ?? entry.price_usd);
+    const stripePriceId =
+      entry.stripePriceId || entry.stripe_price_id || course.stripePriceId;
+    const stripeProductId =
+      entry.stripeProductId || entry.stripe_product_id || course.stripeProductId;
+    const isPaid =
+      coerceBoolean(entry.isPaid ?? entry.is_paid ?? course.isPaid) ?? false;
     return {
       id: entry.documentId || entry.id,
       title,
@@ -56,6 +97,10 @@ export async function getLessonPlans(locale: string): Promise<LessonPlan[]> {
       coverImage: resolveMedia(entry.coverImage?.url),
       modules: course.modules || [],
       locale: entry.locale || locale,
+      price,
+      stripePriceId,
+      stripeProductId,
+      isPaid,
     } as LessonPlan;
   });
 }
@@ -105,7 +150,55 @@ export async function getLessonPlan(
   lesson.description = source?.description;
   lesson.coverImage = resolveMedia(source?.coverImage?.url);
   lesson.id = entry.documentId || entry.id;
+  lesson.price =
+    parseNumber(source?.price ?? entry.price ?? course.price) ??
+    parseNumber(entry.Price ?? entry.price_usd);
+  lesson.stripePriceId =
+    source?.stripePriceId ||
+    source?.stripe_price_id ||
+    entry.stripePriceId ||
+    entry.stripe_price_id ||
+    course.stripePriceId;
+  lesson.stripeProductId =
+    source?.stripeProductId ||
+    source?.stripe_product_id ||
+    entry.stripeProductId ||
+    entry.stripe_product_id ||
+    course.stripeProductId;
+  lesson.isPaid =
+    coerceBoolean(
+      source?.isPaid ??
+        source?.is_paid ??
+        entry.isPaid ??
+        entry.is_paid ??
+        course.isPaid,
+    ) ?? false;
   return lesson;
+}
+
+export async function createLessonPlanCheckoutSession(
+  lessonPlanId: string | number,
+  priceId: string,
+): Promise<{ id: string }> {
+  if (!lessonPlanId) {
+    throw new Error("Missing lesson plan identifier");
+  }
+
+  if (!priceId) {
+    throw new Error("Missing Stripe price identifier");
+  }
+
+  const path = `/api/lesson-plans/${lessonPlanId}/create-checkout-session`;
+  const response = await strapiFetch(path, {
+    method: "POST",
+    body: JSON.stringify({ priceId }),
+  });
+
+  if (!response || typeof response.id !== "string") {
+    throw new Error("Unexpected Stripe checkout session response");
+  }
+
+  return response;
 }
 
 // --- Products API ---

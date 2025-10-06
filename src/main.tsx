@@ -28,6 +28,8 @@ import ResetPassword from "./routes/ResetPassword";
 import Dashboard from "./routes/Dashboard";
 import { AuthProvider } from "./context/AuthContext";
 import NewsletterSubscribe from "./pages/NewsletterSubscribe";
+import CheckoutSuccess from "./routes/CheckoutSuccess";
+import CheckoutCancel from "./routes/CheckoutCancel";
 
 const router = createBrowserRouter([
   {
@@ -52,6 +54,8 @@ const router = createBrowserRouter([
       { path: "forgot-password", element: <ForgotPassword /> },
       { path: "reset-password", element: <ResetPassword /> },
       { path: "newsletter", element: <NewsletterSubscribe /> },
+      { path: "checkout/success", element: <CheckoutSuccess /> },
+      { path: "checkout/cancel", element: <CheckoutCancel /> },
     ],
   },
 ]);
