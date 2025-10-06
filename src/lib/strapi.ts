@@ -12,6 +12,104 @@ const API =
   env.VITE_STRAPI_URL || env.NEXT_PUBLIC_STRAPI_URL || env.VITE_API_URL || "";
 const TOKEN = env.STRAPI_TOKEN || env.VITE_STRAPI_TOKEN;
 
+function toTrimmedString(value: unknown): string {
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number") return String(value).trim();
+  if (typeof value === "boolean") return value ? "true" : "false";
+  return "";
+}
+
+function pickString(...values: unknown[]): string | undefined {
+  for (const value of values) {
+    if (value == null) continue;
+    const str = toTrimmedString(value);
+    if (str) return str;
+  }
+  return undefined;
+}
+
+function pickValue<T>(...values: T[]): T | undefined {
+  for (const value of values) {
+    if (value !== undefined && value !== null) {
+      return value;
+    }
+  }
+  return undefined;
+}
+
+function parseIsPaid(value: unknown): boolean | undefined {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  if (value == null) return undefined;
+  const normalized = toTrimmedString(value).toLowerCase();
+  if (!normalized) return undefined;
+  if (["true", "yes", "paid", "1"].includes(normalized)) return true;
+  if (["false", "no", "free", "complimentary", "not paid", "0"].includes(normalized)) return false;
+  return undefined;
+}
+
+function resolveCoursePurchaseUrl(url?: string): string | undefined {
+  if (!url) return undefined;
+  return resolveExternal(url);
+}
+
+function applyCourseMeta(target: LessonPlan, source: any) {
+  if (!source || typeof source !== "object") return;
+  const price = pickString(
+    source.price,
+    source.Price,
+    source.coursePrice,
+    source.CoursePrice,
+    source.cost,
+    source.Cost,
+  );
+  const purchaseLabel = pickString(
+    source.purchaseLabel,
+    source.PurchaseLabel,
+    source.buttonLabel,
+    source.ButtonLabel,
+    source.buyLabel,
+    source.BuyLabel,
+  );
+  const purchaseUrl = pickString(
+    source.purchaseUrl,
+    source.PurchaseUrl,
+    source.buttonLink,
+    source.ButtonLink,
+    source.buyUrl,
+    source.BuyUrl,
+    source.buyLink,
+    source.BuyLink,
+  );
+  const isPaidCandidate = pickValue(
+    source.isPaid,
+    source.ispaid,
+    source.IsPaid,
+    source.Ispaid,
+    source.paymentStatus,
+    source.PaymentStatus,
+    source.isComplimentary,
+    source.IsComplimentary,
+  );
+
+  if (price && !target.price) {
+    target.price = price;
+  }
+
+  if (purchaseLabel && !target.purchaseLabel) {
+    target.purchaseLabel = purchaseLabel;
+  }
+
+  if (purchaseUrl && !target.purchaseUrl) {
+    target.purchaseUrl = resolveCoursePurchaseUrl(purchaseUrl);
+  }
+
+  const parsedIsPaid = parseIsPaid(isPaidCandidate);
+  if (typeof parsedIsPaid === "boolean" && target.isPaid === undefined) {
+    target.isPaid = parsedIsPaid;
+  }
+}
+
 export async function strapiFetch(path: string, init: RequestInit = {}): Promise<any> {
   const url = `${API}${path}`;
   const headers: HeadersInit = {
@@ -48,7 +146,7 @@ export async function getLessonPlans(locale: string): Promise<LessonPlan[]> {
     const course = entry.LessonPlanJSON?.course || {};
     const title = course.name || entry.title;
     const slug = entry.slug || toSlug(title) || course.id || String(entry.id);
-    return {
+    const lessonPlan: LessonPlan = {
       id: entry.documentId || entry.id,
       title,
       slug,
@@ -56,7 +154,12 @@ export async function getLessonPlans(locale: string): Promise<LessonPlan[]> {
       coverImage: resolveMedia(entry.coverImage?.url),
       modules: course.modules || [],
       locale: entry.locale || locale,
-    } as LessonPlan;
+    };
+
+    applyCourseMeta(lessonPlan, entry);
+    applyCourseMeta(lessonPlan, course);
+
+    return lessonPlan;
   });
 }
 
@@ -105,6 +208,9 @@ export async function getLessonPlan(
   lesson.description = source?.description;
   lesson.coverImage = resolveMedia(source?.coverImage?.url);
   lesson.id = entry.documentId || entry.id;
+  applyCourseMeta(lesson, entry);
+  applyCourseMeta(lesson, source);
+  applyCourseMeta(lesson, course);
   return lesson;
 }
 

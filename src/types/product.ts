@@ -12,6 +12,7 @@ export type Product = {
   Price: string;
   ButtonLabel: string;
   ButtonLink: string;
+  PaymentStatus?: string | null;
   ProductImages: ProductImage[];
   createdAt: string;
   updatedAt: string;

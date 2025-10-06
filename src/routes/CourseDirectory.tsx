@@ -26,7 +26,6 @@ export default function CourseDirectory() {
   return (
     <div className="mx-auto max-w-6xl px-4 pb-20 pt-12 sm:px-6">
       <header className="space-y-4 text-center sm:text-left">
-        <p className="text-xs font-semibold uppercase tracking-[0.42em] text-brand">{t("courses.label")}</p>
         <h1 className="text-3xl font-black uppercase tracking-[0.16em] text-[var(--fg-default)] sm:text-4xl">
           {t("courses.title")}
         </h1>

@@ -1,11 +1,17 @@
-import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useParams, Link, useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import ProductDetailSkeleton from "../components/shop/ProductDetailSkeleton";
 import { fetchProduct, resolveMedia, resolveExternal } from "../lib/strapi";
+import { useAuth } from "../context/AuthContext";
+import { savePendingCheckout } from "../utils/pendingCheckout";
+import { formatProductPrice, isComplimentaryProduct } from "../utils/productAccess";
 
 export default function ProductDetail() {
   const { id: documentId } = useParams<{ id: string }>();
+  const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["product", documentId],
@@ -46,6 +52,33 @@ export default function ProductDetail() {
 
   const product = data;
   const images = product.ProductImages || [];
+  const checkoutUrl = useMemo(() => resolveExternal(product.ButtonLink), [product.ButtonLink]);
+  const complimentary = isComplimentaryProduct(product);
+  const canCheckout = Boolean(checkoutUrl) && !complimentary;
+  const priceLabel = formatProductPrice(product);
+
+  const startAuthFlow = (path: "/login" | "/register") => {
+    if (!canCheckout) return;
+    savePendingCheckout(checkoutUrl);
+    navigate(path, {
+      state: {
+        redirectTo: `${location.pathname}${location.search}`,
+        checkoutUrl,
+        intent: "checkout",
+      },
+    });
+  };
+
+  const handlePurchase = () => {
+    if (!canCheckout) return;
+    if (user) {
+      window.location.href = checkoutUrl;
+      return;
+    }
+    startAuthFlow("/login");
+  };
+
+  const handleCreateAccount = () => startAuthFlow("/register");
 
   const prev = () => setIndex((i) => (i - 1 + images.length) % images.length);
   const next = () => setIndex((i) => (i + 1) % images.length);
@@ -125,16 +158,41 @@ export default function ProductDetail() {
               <h2 className="text-3xl font-black uppercase tracking-[0.14em] text-[var(--fg-default)]">
                 {product.ProductName}
               </h2>
-              <p className="text-xl font-semibold text-brand">${product.Price}</p>
+              {priceLabel && <p className="text-xl font-semibold text-brand">{priceLabel}</p>}
             </div>
-            <a
-              href={resolveExternal(product.ButtonLink)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-brand via-brand/90 to-[#FFF582] px-6 py-3 text-sm font-semibold uppercase tracking-[0.32em] text-white shadow-[0_25px_55px_rgba(169,21,255,0.4)] transition hover:-translate-y-1 hover:shadow-[0_35px_70px_rgba(169,21,255,0.45)]"
-            >
-              {product.ButtonLabel || "Buy now"}
-            </a>
+            {canCheckout && (
+              <button
+                type="button"
+                onClick={handlePurchase}
+                className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-brand via-brand/90 to-[#FFF582] px-6 py-3 text-sm font-semibold uppercase tracking-[0.32em] text-white shadow-[0_25px_55px_rgba(169,21,255,0.4)] transition hover:-translate-y-1 hover:shadow-[0_35px_70px_rgba(169,21,255,0.45)]"
+              >
+                {user ? product.ButtonLabel || "Buy now" : "Log in to purchase"}
+              </button>
+            )}
+            {!user && canCheckout && (
+              <div className="rounded-3xl border border-brand/20 bg-[var(--bg-card)]/70 p-5 text-sm leading-relaxed text-[var(--fg-muted)]">
+                <p>
+                  Please log in or create an account before purchasing so we can associate your purchase with your
+                  account.
+                </p>
+                <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={() => startAuthFlow("/login")}
+                    className="inline-flex items-center justify-center rounded-full border border-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-brand transition hover:bg-brand hover:text-white"
+                  >
+                    Log in
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCreateAccount}
+                    className="inline-flex items-center justify-center rounded-full border border-[var(--border-subtle)] px-5 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand"
+                  >
+                    Create account
+                  </button>
+                </div>
+              </div>
+            )}
             <Link
               to="/shop"
               className="inline-flex items-center justify-center rounded-full border border-brand/40 px-6 py-3 text-sm font-semibold uppercase tracking-[0.32em] text-brand transition hover:border-brand hover:bg-brand hover:text-white"
