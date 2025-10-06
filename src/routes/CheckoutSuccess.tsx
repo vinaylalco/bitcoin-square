@@ -9,7 +9,7 @@ export default function CheckoutSuccess() {
           Thank you for your purchase!
         </h1>
         <p className="text-sm leading-relaxed text-[var(--fg-muted)]">
-          Your access to the course will be unlocked shortly. Check your email for a confirmation message with next steps.
+          Your access to the course will be unlocked shortly. Log in to your account to view your courses and start learning.
         </p>
       </div>
       <div className="space-y-3">
@@ -24,7 +24,7 @@ export default function CheckoutSuccess() {
         </Link>
       </div>
       <p className="text-xs leading-relaxed text-[var(--fg-muted)]">
-        If you have any questions, reach out to <a className="font-semibold text-brand" href="mailto:support@bitcoin-square.com">support@bitcoin-square.com</a>.
+        Need a refresher on the curriculum? Head back to the course directory any time.
       </p>
     </div>
   );
