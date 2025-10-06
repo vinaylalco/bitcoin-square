@@ -600,18 +600,16 @@ export default function CourseDetail() {
           </div>
         )}
       </section>
-      <div className="w-full overflow-hidden bg-[var(--bg-card)] shadow-[var(--shadow-soft)]">
-        <div className="space-y-6 bg-[var(--bg-card)] px-4 pt-10 pb-6 sm:px-10 sm:pb-8 lg:pb-6">
+      <div className="w-full shadow-[var(--shadow-soft)]">
+        <div className="space-y-6 px-4 pt-10 pb-6 sm:px-10 sm:pb-8 lg:pb-6">
           {isAuthenticated ? (
             cards.length > 0 ? (
-              <div className="overflow-hidden bg-[var(--bg-card)] shadow-[var(--shadow-soft)]">
-                <Slider
-                  cards={cards}
-                  modules={modules}
-                  courseTitle={data?.title || "Education"}
-                  lessonSlug={data?.slug || slug}
-                />
-              </div>
+              <Slider
+                cards={cards}
+                modules={modules}
+                courseTitle={data?.title || "Education"}
+                lessonSlug={data?.slug || slug}
+              />
             ) : (
               <p className="px-6 py-12 text-center text-sm font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">
                 Lessons coming soon.
