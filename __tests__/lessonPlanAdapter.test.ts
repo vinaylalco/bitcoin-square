@@ -193,6 +193,7 @@ describe("createLessonPlanCheckoutSession", () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1]?.body as string)).toEqual({
       priceId: "price_123",
       stripePriceId: "price_123",
+      price: "price_123",
       successUrl: "https://frontend.test/checkout/success",
       cancelUrl: "https://frontend.test/checkout/cancel",
     });

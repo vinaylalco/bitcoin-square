@@ -215,6 +215,11 @@ export async function createLessonPlanCheckoutSession(
   const payload: Record<string, unknown> = {
     priceId,
     stripePriceId: priceId,
+    // Some Strapi integrations expect the Stripe price identifier on the
+    // generic `price` key when constructing Checkout line items. Mirror it so
+    // the backend can forward the correct value instead of the numeric price
+    // amount, which triggers Stripe errors locally.
+    price: priceId,
   };
 
   if (frontendBaseUrl) {
