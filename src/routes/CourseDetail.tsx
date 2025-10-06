@@ -510,10 +510,16 @@ export default function CourseDetail() {
   const effectiveLocale = data?.locale ?? locale;
   const rawModules = data?.modules ?? [];
   const isPaidCourse = data?.isPaid === true;
-  const priceLabel = isPaidCourse ? data?.price?.trim() : undefined;
+  const rawPrice = data?.price?.trim();
+  const priceLabel =
+    isPaidCourse && rawPrice
+      ? rawPrice.startsWith("$")
+        ? rawPrice
+        : `$${rawPrice}`
+      : undefined;
   const purchaseUrl = data?.purchaseUrl?.trim();
   const purchaseLabel = data?.purchaseLabel?.trim() || "Buy course";
-  const showPurchaseButton = Boolean(isPaidCourse && purchaseUrl);
+  const showPurchaseButton = isPaidCourse;
   const showFloatingPurchase = Boolean(isPaidCourse && (priceLabel || showPurchaseButton));
   const modules = rawModules.map((module, moduleIndex) => {
     const moduleTopics = module.topics ?? [];

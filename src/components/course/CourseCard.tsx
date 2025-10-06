@@ -19,10 +19,16 @@ function navigateTo(url: string) {
 export default function CourseCard({ course }: Props) {
   const slug = course.slug || course.id;
   const isPaid = course.isPaid === true;
-  const priceLabel = isPaid ? course.price?.trim() : undefined;
+  const rawPrice = course.price?.trim();
+  const priceLabel =
+    isPaid && rawPrice
+      ? rawPrice.startsWith("$")
+        ? rawPrice
+        : `$${rawPrice}`
+      : undefined;
   const purchaseUrl = course.purchaseUrl?.trim();
   const purchaseLabel = course.purchaseLabel?.trim() || "Buy course";
-  const showPurchaseButton = Boolean(isPaid && purchaseUrl);
+  const showPurchaseButton = isPaid;
   const showPurchasePanel = Boolean(isPaid && (priceLabel || showPurchaseButton));
 
   return (
@@ -31,7 +37,7 @@ export default function CourseCard({ course }: Props) {
         to={`/education/${slug}`}
         className="group relative flex h-full flex-col overflow-hidden rounded-3xl border border-brand/30 bg-[var(--bg-card)] shadow-[var(--shadow-soft)] transition-all duration-300 hover:-translate-y-1 hover:border-brand hover:shadow-[0_45px_90px_rgba(169,21,255,0.35)]"
       >
-        {course.coverImage ? (
+        {course.coverImage && (
           <div className="relative overflow-hidden">
             <img
               src={course.coverImage}
@@ -40,10 +46,6 @@ export default function CourseCard({ course }: Props) {
               loading="lazy"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent opacity-60 transition duration-300 group-hover:opacity-80" />
-          </div>
-        ) : (
-          <div className="flex h-48 items-center justify-center border-b border-brand/20 bg-gradient-to-br from-brand/5 via-transparent to-transparent text-xs uppercase tracking-[0.38em] text-brand/70">
-            Visual coming soon
           </div>
         )}
         <div className="relative flex flex-1 flex-col gap-4 p-6">
