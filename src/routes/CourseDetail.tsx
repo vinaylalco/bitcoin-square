@@ -501,16 +501,14 @@ export default function CourseDetail() {
   const isPaidCourse = data?.isPaid ?? false;
   const hasPrice = data?.price !== undefined && data?.price !== null;
   const formattedPrice = hasPrice ? formatCurrency(data?.price) : "";
-  const priceLabel = isPaidCourse
-    ? formattedPrice && formattedPrice.length > 0
-      ? formattedPrice
-      : "Contact us"
-    : "Free";
+  const priceLabel =
+    formattedPrice && formattedPrice.length > 0 ? formattedPrice : "Contact us";
   const canPurchase = Boolean(
     isPaidCourse &&
       data?.stripePriceId &&
       typeof data?.id === "number",
   );
+  const showPurchaseCard = isPaidCourse;
 
   const modules = rawModules.map((module, moduleIndex) => {
     const moduleTopics = module.topics ?? [];
@@ -555,23 +553,22 @@ export default function CourseDetail() {
 
   return (
     <div className="w-full">
-      <section className="relative overflow-hidden bg-[var(--bg-card)]">
-        {data?.coverImage && (
-          <div className="absolute inset-0 -z-10 opacity-40">
-            <img
-              src={data.coverImage}
-              alt=""
-              className="h-full w-full object-cover"
-              aria-hidden
-            />
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(169,21,255,0.25),_transparent_55%)]" />
-          </div>
-        )}
-        <div className="relative mx-auto flex max-w-6xl flex-col gap-10 px-4 py-12 sm:px-10 lg:flex-row lg:items-start">
-          <div className="flex-1 space-y-6">
-            <div className="space-y-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.42em] text-brand">
-                {t("courses.label", { defaultValue: "Course" })}
+      <section className="bg-[var(--bg-card)]">
+        <div className="mx-auto max-w-6xl px-4 py-12 sm:px-10">
+          {data?.coverImage && (
+            <div className="mb-10 overflow-hidden rounded-3xl">
+              <img
+                src={data.coverImage}
+                alt={data?.title || "Course cover"}
+                className="h-60 w-full object-cover sm:h-72"
+              />
+            </div>
+          )}
+          <div className="flex flex-col gap-10 lg:flex-row lg:items-start">
+            <div className="flex-1 space-y-6">
+              <div className="space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.42em] text-brand">
+                  {t("courses.label", { defaultValue: "Course" })}
               </p>
               <h1 className="text-3xl font-black uppercase tracking-[0.14em] text-[var(--fg-default)] sm:text-4xl">
                 {data?.title || "Education"}
@@ -589,47 +586,44 @@ export default function CourseDetail() {
                 </p>
               )}
             </div>
-            <div className="flex flex-wrap gap-3 text-[0.65rem] font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">
-              <span className="rounded-full border border-[var(--border-subtle)] px-4 py-1">
-                {modules.length} {modules.length === 1 ? "Module" : "Modules"}
-              </span>
-              <span className="rounded-full border border-[var(--border-subtle)] px-4 py-1">
-                Self-paced
-              </span>
+              <div className="flex flex-wrap gap-3 text-[0.65rem] font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">
+                <span className="rounded-full border border-[var(--border-subtle)] px-4 py-1">
+                  {modules.length} {modules.length === 1 ? "Module" : "Modules"}
+                </span>
+                <span className="rounded-full border border-[var(--border-subtle)] px-4 py-1">
+                  Self-paced
+                </span>
+              </div>
             </div>
           </div>
-          <div className="w-full max-w-sm space-y-4 rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-app)] p-6 shadow-[var(--shadow-soft)]">
+        </div>
+        {showPurchaseCard && (
+          <div className="fixed bottom-6 left-6 z-20 w-full max-w-sm space-y-4 rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-app)] p-6 shadow-[var(--shadow-soft)]">
             <div className="space-y-1">
               <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">
-                {isPaidCourse ? "Price" : "Access"}
+                Price
               </p>
               <p className="text-3xl font-black tracking-[0.08em] text-[var(--fg-default)]">
                 {priceLabel}
               </p>
             </div>
-            {isPaidCourse ? (
-              canPurchase ? (
-                <BuyCourseButton
-                  lessonPlanId={data?.id}
-                  stripePriceId={data?.stripePriceId}
-                  className="w-full justify-center px-6 py-3 text-[0.65rem]"
-                  label="Buy Course"
-                />
-              ) : (
-                <p className="text-xs font-medium text-[var(--fg-muted)]">
-                  Checkout is currently unavailable for this course.
-                </p>
-              )
+            {canPurchase ? (
+              <BuyCourseButton
+                lessonPlanId={data?.id}
+                stripePriceId={data?.stripePriceId}
+                className="w-full justify-center px-6 py-3 text-[0.65rem]"
+                label="Buy Course"
+              />
             ) : (
               <p className="text-xs font-medium text-[var(--fg-muted)]">
-                This course is free to access with your account.
+                Checkout is currently unavailable for this course.
               </p>
             )}
             <p className="text-xs leading-relaxed text-[var(--fg-muted)]">
               Payments are processed securely via Stripe. You will be redirected to complete your purchase.
             </p>
           </div>
-        </div>
+        )}
       </section>
       <div className="w-full overflow-hidden bg-[var(--bg-card)] shadow-[var(--shadow-soft)]">
         <div className="space-y-6 bg-[var(--bg-card)] px-4 pt-10 pb-6 sm:px-10 sm:pb-8 lg:pb-6">
