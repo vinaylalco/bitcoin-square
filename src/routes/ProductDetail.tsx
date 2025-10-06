@@ -5,6 +5,7 @@ import ProductDetailSkeleton from "../components/shop/ProductDetailSkeleton";
 import { fetchProduct, resolveMedia, resolveExternal } from "../lib/strapi";
 import { useAuth } from "../context/AuthContext";
 import { savePendingCheckout } from "../utils/pendingCheckout";
+import { formatProductPrice, isComplimentaryProduct } from "../utils/productAccess";
 
 export default function ProductDetail() {
   const { id: documentId } = useParams<{ id: string }>();
@@ -52,7 +53,9 @@ export default function ProductDetail() {
   const product = data;
   const images = product.ProductImages || [];
   const checkoutUrl = useMemo(() => resolveExternal(product.ButtonLink), [product.ButtonLink]);
-  const canCheckout = Boolean(checkoutUrl);
+  const complimentary = isComplimentaryProduct(product);
+  const canCheckout = Boolean(checkoutUrl) && !complimentary;
+  const priceLabel = formatProductPrice(product);
 
   const startAuthFlow = (path: "/login" | "/register") => {
     if (!canCheckout) return;
@@ -155,16 +158,17 @@ export default function ProductDetail() {
               <h2 className="text-3xl font-black uppercase tracking-[0.14em] text-[var(--fg-default)]">
                 {product.ProductName}
               </h2>
-              <p className="text-xl font-semibold text-brand">${product.Price}</p>
+              {priceLabel && <p className="text-xl font-semibold text-brand">{priceLabel}</p>}
             </div>
-            <button
-              type="button"
-              onClick={handlePurchase}
-              disabled={!canCheckout}
-              className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-brand via-brand/90 to-[#FFF582] px-6 py-3 text-sm font-semibold uppercase tracking-[0.32em] text-white shadow-[0_25px_55px_rgba(169,21,255,0.4)] transition hover:-translate-y-1 hover:shadow-[0_35px_70px_rgba(169,21,255,0.45)] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {user ? product.ButtonLabel || "Buy now" : "Log in to purchase"}
-            </button>
+            {canCheckout && (
+              <button
+                type="button"
+                onClick={handlePurchase}
+                className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-brand via-brand/90 to-[#FFF582] px-6 py-3 text-sm font-semibold uppercase tracking-[0.32em] text-white shadow-[0_25px_55px_rgba(169,21,255,0.4)] transition hover:-translate-y-1 hover:shadow-[0_35px_70px_rgba(169,21,255,0.45)]"
+              >
+                {user ? product.ButtonLabel || "Buy now" : "Log in to purchase"}
+              </button>
+            )}
             {!user && canCheckout && (
               <div className="rounded-3xl border border-brand/20 bg-[var(--bg-card)]/70 p-5 text-sm leading-relaxed text-[var(--fg-muted)]">
                 <p>
