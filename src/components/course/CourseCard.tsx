@@ -10,7 +10,7 @@ interface Props {
 
 export default function CourseCard({ course }: Props) {
   const moduleCount = course.modules?.length ?? 0;
-  const slug = course.slug || course.id;
+  const slug = course.slug || (course.id != null ? String(course.id) : "");
   const isPaid = course.isPaid ?? false;
   const hasPrice = course.price !== undefined && course.price !== null;
   const formattedPrice = hasPrice ? formatCurrency(course.price) : "";
@@ -19,7 +19,9 @@ export default function CourseCard({ course }: Props) {
       ? formattedPrice
       : "Paid course"
     : "Free";
-  const canPurchase = Boolean(isPaid && course.stripePriceId && course.id);
+  const canPurchase = Boolean(
+    isPaid && course.stripePriceId && typeof course.id === "number",
+  );
   return (
     <Link
       to={`/education/${slug}`}

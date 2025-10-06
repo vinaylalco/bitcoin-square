@@ -79,7 +79,11 @@ export async function getLessonPlans(locale: string): Promise<LessonPlan[]> {
   return entries.map((entry) => {
     const course = entry.LessonPlanJSON?.course || {};
     const title = course.name || entry.title;
-    const slug = entry.slug || toSlug(title) || course.id || String(entry.id);
+    const slug =
+      entry.slug ||
+      toSlug(title) ||
+      (course.id != null ? String(course.id) : undefined) ||
+      String(entry.id);
     const price =
       parseNumber(entry.price ?? course.price) ??
       parseNumber(entry.Price ?? entry.price_usd);
@@ -90,7 +94,8 @@ export async function getLessonPlans(locale: string): Promise<LessonPlan[]> {
     const isPaid =
       coerceBoolean(entry.isPaid ?? entry.is_paid ?? course.isPaid) ?? false;
     return {
-      id: entry.documentId || entry.id,
+      id: entry.id,
+      documentId: entry.documentId,
       title,
       slug,
       description: entry.description,
@@ -143,13 +148,16 @@ export async function getLessonPlan(
   // lesson.slug = entry.slug || toSlug(lesson.title) || course.id || String(entry.id);
   lesson.slug =
     entry.slug ||
-    entry.LessonPlanJSON?.course?.id ||
+    (entry.LessonPlanJSON?.course?.id != null
+      ? String(entry.LessonPlanJSON?.course?.id)
+      : undefined) ||
     toSlug(entry.LessonPlanJSON?.course?.name) ||
     toSlug(entry.title) ||
     String(entry.id);
   lesson.description = source?.description;
   lesson.coverImage = resolveMedia(source?.coverImage?.url);
-  lesson.id = entry.documentId || entry.id;
+  lesson.id = entry.id;
+  lesson.documentId = entry.documentId;
   lesson.price =
     parseNumber(source?.price ?? entry.price ?? course.price) ??
     parseNumber(entry.Price ?? entry.price_usd);
@@ -177,10 +185,10 @@ export async function getLessonPlan(
 }
 
 export async function createLessonPlanCheckoutSession(
-  lessonPlanId: string | number,
+  lessonPlanId: number,
   priceId: string,
 ): Promise<{ id: string }> {
-  if (!lessonPlanId) {
+  if (!Number.isFinite(lessonPlanId)) {
     throw new Error("Missing lesson plan identifier");
   }
 

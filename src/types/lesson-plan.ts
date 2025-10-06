@@ -54,7 +54,8 @@ export interface Module {
 }
 
 export interface LessonPlan {
-  id?: string | number;
+  id?: number;
+  documentId?: string;
   title?: string;
   slug?: string;
   description?: string;

@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { getLessonPlan, getLessonPlans } from "../src/lib/strapi";
+import {
+  createLessonPlanCheckoutSession,
+  getLessonPlan,
+  getLessonPlans,
+} from "../src/lib/strapi";
 
 describe("getLessonPlan", () => {
   afterEach(() => {
@@ -35,7 +39,7 @@ describe("getLessonPlan", () => {
     process.env.NEXT_PUBLIC_STRAPI_URL = "http://test";
 
     const lesson = await getLessonPlan("es", "education");
-    expect(fetchMock.mock.calls[0][0]).toContain("populate=%2A");
+    expect(fetchMock.mock.calls[0][0]).toContain("populate=*");
     expect(lesson).toMatchObject({ title: "Español", modules: [], locale: "es" });
   });
 
@@ -134,5 +138,56 @@ describe("getLessonPlans", () => {
     expect(fetchMock.mock.calls[0][0]).toContain(
       "filters%5Blocale%5D%5B%24eq%5D=en",
     );
+  });
+
+  it("preserves numeric ids and documentIds separately", async () => {
+    const mock = {
+      data: [
+        {
+          id: 42,
+          documentId: "doc-123",
+          title: "Course",
+          locale: "en",
+          coverImage: { url: "/img.jpg" },
+          LessonPlanJSON: { course: { name: "Course" } },
+        },
+      ],
+    };
+
+    vi.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => mock,
+    } as any);
+
+    process.env.NEXT_PUBLIC_STRAPI_URL = "http://test";
+
+    const [lesson] = await getLessonPlans("en");
+    expect(lesson.id).toBe(42);
+    expect(lesson.documentId).toBe("doc-123");
+  });
+});
+
+describe("createLessonPlanCheckoutSession", () => {
+  afterEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it("posts to the Strapi numeric id endpoint", async () => {
+    const fetchMock = vi.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ id: "sess_123" }),
+    } as any);
+
+    process.env.NEXT_PUBLIC_STRAPI_URL = "http://test";
+
+    const response = await createLessonPlanCheckoutSession(7, "price_123");
+
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "/api/lesson-plans/7/create-checkout-session",
+    );
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({
+      method: "POST",
+    });
+    expect(response.id).toBe("sess_123");
   });
 });

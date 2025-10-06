@@ -3,7 +3,7 @@ import { useCreateCheckoutSession } from "../../hooks/useCreateCheckoutSession";
 import { getStripe } from "../../lib/stripeClient";
 
 interface BuyCourseButtonProps {
-  lessonPlanId?: string | number;
+  lessonPlanId?: number;
   stripePriceId?: string | null;
   label?: string;
   className?: string;
@@ -24,7 +24,7 @@ export default function BuyCourseButton({
     event.preventDefault();
     event.stopPropagation();
 
-    if (!lessonPlanId || !stripePriceId) {
+    if (typeof lessonPlanId !== "number" || !stripePriceId) {
       setError("This course is not currently available for purchase.");
       return;
     }
@@ -32,7 +32,7 @@ export default function BuyCourseButton({
     try {
       setError(null);
       const session = await mutateAsync({
-        lessonPlanId: String(lessonPlanId),
+        lessonPlanId,
         priceId: stripePriceId,
       });
 
@@ -51,7 +51,11 @@ export default function BuyCourseButton({
     }
   }
 
-  const isDisabled = disabled || isPending || !lessonPlanId || !stripePriceId;
+  const isDisabled =
+    disabled ||
+    isPending ||
+    typeof lessonPlanId !== "number" ||
+    !stripePriceId;
 
   return (
     <div className="flex flex-col gap-2">

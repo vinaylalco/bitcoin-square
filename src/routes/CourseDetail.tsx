@@ -506,7 +506,11 @@ export default function CourseDetail() {
       ? formattedPrice
       : "Contact us"
     : "Free";
-  const canPurchase = Boolean(isPaidCourse && data?.stripePriceId && data?.id);
+  const canPurchase = Boolean(
+    isPaidCourse &&
+      data?.stripePriceId &&
+      typeof data?.id === "number",
+  );
 
   const modules = rawModules.map((module, moduleIndex) => {
     const moduleTopics = module.topics ?? [];

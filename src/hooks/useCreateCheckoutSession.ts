@@ -2,7 +2,7 @@ import { useMutation } from "@tanstack/react-query";
 import { createLessonPlanCheckoutSession } from "../lib/strapi";
 
 interface CheckoutPayload {
-  lessonPlanId: string;
+  lessonPlanId: number;
   priceId: string;
 }
 
