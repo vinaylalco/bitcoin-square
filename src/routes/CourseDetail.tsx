@@ -564,38 +564,13 @@ export default function CourseDetail() {
               />
             </div>
           )}
-          <div className="flex flex-col gap-10 lg:flex-row lg:items-start">
-            <div className="flex-1 space-y-6">
-              <div className="space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.42em] text-brand">
-                  {t("courses.label", { defaultValue: "Course" })}
-              </p>
-              <h1 className="text-3xl font-black uppercase tracking-[0.14em] text-[var(--fg-default)] sm:text-4xl">
-                {data?.title || "Education"}
-              </h1>
-              {data?.description && (
-                <p className="max-w-2xl text-sm leading-relaxed text-[var(--fg-muted)]">
-                  {data.description}
-                </p>
-              )}
-              {data && data.locale !== locale && (
-                <p className="max-w-xl text-xs font-medium uppercase tracking-[0.32em] text-[var(--fg-muted)]">
-                  {t("courses.localeFallback", {
-                    defaultValue: "Showing default language for this course.",
-                  })}
-                </p>
-              )}
-            </div>
-              <div className="flex flex-wrap gap-3 text-[0.65rem] font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">
-                <span className="rounded-full border border-[var(--border-subtle)] px-4 py-1">
-                  {modules.length} {modules.length === 1 ? "Module" : "Modules"}
-                </span>
-                <span className="rounded-full border border-[var(--border-subtle)] px-4 py-1">
-                  Self-paced
-                </span>
-              </div>
-            </div>
-          </div>
+          {data && data.locale !== locale && (
+            <p className="max-w-xl text-xs font-medium uppercase tracking-[0.32em] text-[var(--fg-muted)]">
+              {t("courses.localeFallback", {
+                defaultValue: "Showing default language for this course.",
+              })}
+            </p>
+          )}
         </div>
         {showPurchaseCard && (
           <div className="fixed bottom-6 left-6 z-20 w-full max-w-sm space-y-4 rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-app)] p-6 shadow-[var(--shadow-soft)]">
