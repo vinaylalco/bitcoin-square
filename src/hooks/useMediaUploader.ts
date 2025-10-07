@@ -70,6 +70,19 @@ const uint8ToBase64 = (value: Uint8Array) => {
   return btoa(binary);
 };
 
+const base64ToArrayBuffer = (value: string) => {
+  const normalized = value.trim();
+  if (!normalized) {
+    throw new Error("Encryption key cannot be empty");
+  }
+  const binary = atob(normalized);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes.buffer;
+};
+
 const getMediaDimensions = async (blob: Blob, mimeType: string): Promise<MediaDimensions> => {
   if (typeof window === "undefined") return {};
 
@@ -141,10 +154,12 @@ const parseUploadUrl = (payload: unknown): string | null => {
   return null;
 };
 
+type UploadHost = "void.cat" | "nostr.build";
+
 const uploadToHost = async (
   blob: Blob,
   fileName: string,
-  host: "void.cat" | "nostr.build",
+  host: UploadHost,
   onProgress: (progress: number) => void,
 ) =>
   new Promise<{ url: string; raw: unknown }>((resolve, reject) => {
@@ -162,12 +177,12 @@ const uploadToHost = async (
     };
 
     xhr.onerror = () => {
-      reject(new Error("Failed to upload media to host"));
+      reject(new Error(`Failed to upload media to ${host}. Please check your connection and try again.`));
     };
 
     xhr.onload = () => {
       if (xhr.status < 200 || xhr.status >= 300) {
-        reject(new Error(`Upload failed with status ${xhr.status}`));
+        reject(new Error(`Upload to ${host} failed with status ${xhr.status}`));
         return;
       }
       try {
@@ -202,7 +217,11 @@ export const useMediaUploader = ({ room, pubkey, host = "void.cat" }: UseMediaUp
     roomId && isPrivate && roomId === CASUAL_ROOM_ID
       ? import.meta.env.VITE_CASUAL_ROOM_KEY ?? null
       : null;
-  const { key: roomKey, ensure } = useRoomKey({
+  const {
+    key: roomKey,
+    base64: roomKeyBase64,
+    ensure,
+  } = useRoomKey({
     roomId,
     isPrivate: Boolean(isPrivate),
     seedBase64,
@@ -322,8 +341,19 @@ export const useMediaUploader = ({ room, pubkey, host = "void.cat" }: UseMediaUp
 
         let exportedKey: ArrayBuffer | undefined;
         if (isPrivate && cryptoKey) {
-          assertCryptoAvailable();
-          exportedKey = await crypto.subtle.exportKey("raw", cryptoKey);
+          if (roomKeyBase64) {
+            exportedKey = base64ToArrayBuffer(roomKeyBase64);
+          } else {
+            assertCryptoAvailable();
+            try {
+              exportedKey = await crypto.subtle.exportKey("raw", cryptoKey);
+            } catch (exportError) {
+              console.warn("Failed to export room key for media encryption", exportError);
+              throw new Error(
+                "We couldn't prepare the encryption key for this upload. Please refresh and try again.",
+              );
+            }
+          }
         }
 
         const workerResult = await runWorker(file, {
@@ -359,9 +389,28 @@ export const useMediaUploader = ({ room, pubkey, host = "void.cat" }: UseMediaUp
         const originalBuffer = workerResult.originalBuffer ?? workerResult.buffer!;
         const originalBlob = new Blob([originalBuffer], { type: file.type || mimeType });
 
-        const uploadResult = await uploadToHost(payloadBlob, file.name, host, (value) => {
-          setProgress(Math.round(value * 100));
-        });
+        const hostOrder: UploadHost[] = host === "nostr.build" ? ["nostr.build", "void.cat"] : ["void.cat", "nostr.build"];
+        let uploadResult: { url: string; raw: unknown } | null = null;
+        let lastError: unknown = null;
+        for (const candidateHost of hostOrder) {
+          try {
+            const result = await uploadToHost(payloadBlob, file.name, candidateHost, (value) => {
+              setProgress(Math.round(value * 100));
+            });
+            uploadResult = result;
+            break;
+          } catch (attemptError) {
+            lastError = attemptError;
+            console.warn(`Upload to ${candidateHost} failed`, attemptError);
+            setProgress(0);
+          }
+        }
+
+        if (!uploadResult) {
+          throw (lastError instanceof Error
+            ? lastError
+            : new Error("We couldn't reach any media upload hosts. Please try again later."));
+        }
 
         const now = Math.floor(Date.now() / 1000);
         const dimensions =

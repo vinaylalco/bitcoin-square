@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { SimplePool, type Event, type EventTemplate, type Filter } from "nostr-tools";
+import { SimplePool, type Event, type EventTemplate, type Filter } from "../lib/nostrToolsShim";
 
 import {
   cacheMessage,
@@ -9,12 +9,15 @@ import {
 } from "../utils/chatCache";
 import { useNostrAccount } from "./useNostrAccount";
 import { publishWithPool, replicateWithPool } from "../lib/nostrPublish";
+import { decryptJson, encryptJson } from "../utils/aes";
+import { getConfiguredCasualRoomKey } from "../config/nostr";
+import { useRoomKey } from "./useRoomKey";
 
 const RELAYS = [
   "wss://relay.damus.io",
   "wss://nos.lol",
   "wss://relay.primal.net",
-  "wss://eden.nostr.land",
+  "wss://relay.nostr.band",
 ];
 
 const FAST_RELAY = RELAYS[0];
@@ -29,8 +32,13 @@ const MAX_BACKOFF = 30_000;
 export interface FeedAttachment {
   url: string;
   mimeType: string;
-  dimensions?: string;
   size?: number;
+  width?: number;
+  height?: number;
+  dimensions?: string;
+  digest?: string | null;
+  iv?: string | null;
+  eventId?: string | null;
 }
 
 export interface FeedPost {
@@ -49,6 +57,60 @@ export interface FeedPost {
 interface PublishResult {
   eventId: string;
 }
+
+export type PublishContext = {
+  type: "reply" | "quote";
+  post: FeedPost;
+};
+
+interface FeedPayload {
+  body: string;
+  attachments?: FeedAttachment[];
+}
+
+const normalizeAttachment = (attachment: Partial<FeedAttachment>): FeedAttachment | null => {
+  if (!attachment || typeof attachment.url !== "string" || attachment.url.trim().length === 0) {
+    return null;
+  }
+  const width = typeof attachment.width === "number" && Number.isFinite(attachment.width)
+    ? attachment.width
+    : undefined;
+  const height = typeof attachment.height === "number" && Number.isFinite(attachment.height)
+    ? attachment.height
+    : undefined;
+  const dimensions =
+    typeof attachment.dimensions === "string" && attachment.dimensions.trim().length > 0
+      ? attachment.dimensions.trim()
+      : width && height
+        ? `${width}x${height}`
+        : undefined;
+  return {
+    url: attachment.url,
+    mimeType:
+      typeof attachment.mimeType === "string" && attachment.mimeType.trim().length > 0
+        ? attachment.mimeType
+        : "application/octet-stream",
+    size:
+      typeof attachment.size === "number" && Number.isFinite(attachment.size)
+        ? attachment.size
+        : undefined,
+    width,
+    height,
+    dimensions,
+    digest:
+      typeof attachment.digest === "string" && attachment.digest.trim().length > 0
+        ? attachment.digest.trim()
+        : null,
+    iv:
+      typeof attachment.iv === "string" && attachment.iv.trim().length > 0
+        ? attachment.iv.trim()
+        : null,
+    eventId:
+      typeof attachment.eventId === "string" && attachment.eventId.trim().length > 0
+        ? attachment.eventId.trim()
+        : null,
+  };
+};
 
 const parseAttachments = (tags: string[][]): FeedAttachment[] => {
   const attachments: FeedAttachment[] = [];
@@ -71,11 +133,24 @@ const parseAttachments = (tags: string[][]): FeedAttachment[] => {
       current.mimeType = value;
     } else if (key === "dim") {
       current.dimensions = value;
+      const [w, h] = value.split("x");
+      const width = Number.parseInt(w ?? "", 10);
+      const height = Number.parseInt(h ?? "", 10);
+      if (!Number.isNaN(width)) {
+        current.width = width;
+      }
+      if (!Number.isNaN(height)) {
+        current.height = height;
+      }
     } else if (key === "size") {
       const parsed = Number.parseInt(value, 10);
       if (!Number.isNaN(parsed)) {
         current.size = parsed;
       }
+    } else if (key === "iv") {
+      current.iv = value;
+    } else if (key === "x") {
+      current.digest = value;
     }
   }
 
@@ -86,11 +161,12 @@ const parseAttachments = (tags: string[][]): FeedAttachment[] => {
   return attachments;
 };
 
-const eventToCached = (event: Event): CachedMessage => ({
+const eventToCached = (event: Event, payload?: FeedPayload): CachedMessage => ({
   id: event.id,
   roomId: FEED_ROOM_ID,
   pubkey: event.pubkey,
   content: event.content,
+  decrypted: payload ? JSON.stringify(payload) : undefined,
   created_at: event.created_at,
   kind: event.kind,
   tags: event.tags,
@@ -107,18 +183,41 @@ const cachedToEvent = (cached: CachedMessage): Event => ({
   sig: cached.sig ?? "",
 });
 
-const mapEventToPost = (event: Event, optimistic = false): FeedPost => ({
-  id: event.id,
-  pubkey: event.pubkey,
-  created_at: event.created_at,
-  content: event.content,
-  tags: event.tags ?? [],
-  attachments: parseAttachments(event.tags ?? []),
-  status: optimistic ? "pending" : "ok",
-  optimistic,
-  error: undefined,
-  event,
-});
+const extractAttachments = (payload: FeedPayload | string | undefined, tags: string[][]): FeedAttachment[] => {
+  if (payload && typeof payload !== "string" && Array.isArray(payload.attachments)) {
+    const normalized = payload.attachments
+      .map((attachment) => normalizeAttachment(attachment))
+      .filter((attachment): attachment is FeedAttachment => Boolean(attachment));
+    if (normalized.length > 0) {
+      return normalized;
+    }
+  }
+  return parseAttachments(tags);
+};
+
+const mapEventToPost = (
+  event: Event,
+  optimistic = false,
+  decrypted?: FeedPayload | string,
+): FeedPost => {
+  const payload: FeedPayload =
+    decrypted && typeof decrypted !== "string"
+      ? decrypted
+      : { body: typeof decrypted === "string" ? decrypted : event.content };
+  const attachments = extractAttachments(payload, event.tags ?? []);
+  return {
+    id: event.id,
+    pubkey: event.pubkey,
+    created_at: event.created_at,
+    content: payload.body,
+    tags: event.tags ?? [],
+    attachments,
+    status: optimistic ? "pending" : "ok",
+    optimistic,
+    error: undefined,
+    event,
+  };
+};
 
 const upsertPost = (posts: FeedPost[], incoming: FeedPost): FeedPost[] => {
   const existingIndex = posts.findIndex((post) => post.id === incoming.id);
@@ -219,9 +318,8 @@ export interface UseBitcoinSquareFeedReturn {
   posts: FeedPost[];
   ready: boolean;
   publishing: boolean;
-  publishStatus: (content: string) => Promise<PublishResult>;
+  publishStatus: (content: string, context?: PublishContext | null) => Promise<PublishResult>;
   likePost: (post: FeedPost) => Promise<void>;
-  repostPost: (post: FeedPost) => Promise<void>;
   loadMore: () => Promise<void>;
   loadingMore: boolean;
   hasMore: boolean;
@@ -245,8 +343,15 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
   const initialLoadRef = useRef(false);
 
   const { ready: accountReady, pubkey, signEvent } = useNostrAccount();
+  const envRoomKey = getConfiguredCasualRoomKey();
+  const {
+    hasKey: feedKeyAvailable,
+    loading: feedKeyLoading,
+    error: feedKeyError,
+    ensure: ensureFeedKey,
+  } = useRoomKey({ roomId: FEED_ROOM_ID, isPrivate: true, seedBase64: envRoomKey });
 
-  const ready = useMemo(() => accountReady && poolReady, [accountReady, poolReady]);
+  const ready = useMemo(() => accountReady && poolReady && feedKeyAvailable, [accountReady, feedKeyAvailable, poolReady]);
 
   const ensureOldestTimestamp = useCallback((nextPosts: FeedPost[]) => {
     if (nextPosts.length === 0) {
@@ -275,7 +380,29 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
         return;
       }
       const mapped = cached
-        .map((entry) => mapEventToPost(cachedToEvent(entry)))
+        .map((entry) => {
+          let payload: FeedPayload | string = entry.content;
+          if (entry.decrypted) {
+            try {
+              const parsed = JSON.parse(entry.decrypted) as FeedPayload;
+              if (parsed && typeof parsed.body === "string") {
+                payload = {
+                  body: parsed.body,
+                  attachments: Array.isArray(parsed.attachments)
+                    ? parsed.attachments.map((attachment) => normalizeAttachment(attachment)).filter(
+                        (attachment): attachment is FeedAttachment => Boolean(attachment),
+                      )
+                    : parseAttachments(entry.tags ?? []),
+                };
+              } else {
+                payload = entry.decrypted;
+              }
+            } catch {
+              payload = entry.decrypted;
+            }
+          }
+          return mapEventToPost(cachedToEvent(entry), false, payload);
+        })
         .sort((a, b) => b.created_at - a.created_at)
         .slice(0, MAX_POSTS);
       setPosts(mapped);
@@ -290,18 +417,65 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
     void hydrateFromCache();
   }, [hydrateFromCache]);
 
+  const decodeEventContent = useCallback(
+    async (event: Event): Promise<FeedPayload> => {
+      const fallback = { body: event.content, attachments: parseAttachments(event.tags ?? []) };
+      if (!feedKeyAvailable) {
+        return fallback;
+      }
+      try {
+        const payload = await decryptJson<FeedPayload>(FEED_ROOM_ID, event.content);
+        if (payload && typeof payload.body === "string") {
+          const attachments = Array.isArray(payload.attachments)
+            ? payload.attachments
+                .map((attachment) => normalizeAttachment(attachment))
+                .filter((attachment): attachment is FeedAttachment => Boolean(attachment))
+            : parseAttachments(event.tags ?? []);
+          return {
+            body: payload.body,
+            attachments,
+          };
+        }
+        if (typeof (payload as unknown) === "string") {
+          return { body: payload as unknown as string, attachments: parseAttachments(event.tags ?? []) };
+        }
+      } catch (decodeError) {
+        console.warn("Failed to decrypt feed event", decodeError);
+      }
+      return fallback;
+    },
+    [feedKeyAvailable],
+  );
+
+  useEffect(() => {
+    if (feedKeyError) {
+      setError(feedKeyError);
+    }
+  }, [feedKeyError]);
+
+  const processEvent = useCallback(
+    async (event: Event) => {
+      if (!hasFeedTag(event)) return;
+      const body = await decodeEventContent(event);
+      insertPost(mapEventToPost(event, false, body));
+      try {
+        await cacheMessage(eventToCached(event, body));
+      } catch (cacheError) {
+        console.warn("Unable to persist feed event", cacheError);
+      }
+    },
+    [decodeEventContent, insertPost],
+  );
+
   const handleEvent = useCallback(
     (event: Event) => {
-      if (!hasFeedTag(event)) return;
-      insertPost(mapEventToPost(event));
-      void cacheMessage(eventToCached(event)).catch((cacheError) =>
-        console.warn("Unable to persist feed event", cacheError),
-      );
+      void processEvent(event);
     },
-    [insertPost],
+    [processEvent],
   );
 
   const startSubscription = useCallback(() => {
+    if (!feedKeyAvailable) return;
     const pool = poolRef.current;
     if (!pool) return;
 
@@ -342,15 +516,31 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
     );
 
     subRef.current = subscription;
-  }, [handleEvent]);
+  }, [feedKeyAvailable, handleEvent]);
 
   useEffect(() => {
+    if (!feedKeyAvailable) return;
+
     const pool = new SimplePool();
     poolRef.current = pool;
-    setPoolReady(true);
-    startSubscription();
+    let cancelled = false;
+
+    pool
+      .waitUntilReady()
+      .then(() => {
+        if (cancelled) return;
+        setPoolReady(true);
+        startSubscription();
+      })
+      .catch((loadError) => {
+        if (cancelled) return;
+        const message = loadError instanceof Error ? loadError.message : String(loadError);
+        console.warn("Failed to initialize Nostr feed pool", loadError);
+        setError(message);
+      });
 
     return () => {
+      cancelled = true;
       subRef.current?.close();
       pool.close(RELAYS);
       poolRef.current = null;
@@ -359,7 +549,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
         clearTimeout(reconnectTimerRef.current);
       }
     };
-  }, [startSubscription]);
+  }, [feedKeyAvailable, setError, startSubscription]);
 
   const loadMore = useCallback(async () => {
     if (loadingMore || !hasMore) return;
@@ -388,16 +578,21 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
         return;
       }
       const limited = filtered.slice(0, LOAD_MORE_BATCH);
-      const mapped = limited.map((event) => mapEventToPost(event));
+      const decoded = await Promise.all(
+        limited.map(async (event) => {
+          const body = await decodeEventContent(event);
+          return { post: mapEventToPost(event, false, body), cached: eventToCached(event, body) };
+        }),
+      );
       setPosts((prev) => {
-        const merged = mapped.reduce((acc, post) => upsertPost(acc, post), prev);
+        const merged = decoded.reduce((acc, entry) => upsertPost(acc, entry.post), prev);
         ensureOldestTimestamp(merged);
         return merged;
       });
       setHasMore(filtered.length >= LOAD_MORE_BATCH);
       await cacheMessages(
         FEED_ROOM_ID,
-        limited.map(eventToCached),
+        decoded.map((entry) => entry.cached),
       );
     } catch (loadError) {
       console.warn("Failed to load additional feed events", loadError);
@@ -414,11 +609,20 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
   }, [loadMore, poolReady]);
 
   const publishStatus = useCallback(
-    async (content: string): Promise<PublishResult> => {
-      if (!content.trim()) {
+    async ({
+      content,
+      context,
+      attachments = [],
+    }: {
+      content: string;
+      context?: PublishContext | null;
+      attachments?: FeedAttachment[];
+    }): Promise<PublishResult> => {
+      const trimmed = content.trim();
+      if (!trimmed && attachments.length === 0) {
         throw new Error("Status update cannot be empty");
       }
-      if (content.length > 500) {
+      if (trimmed.length > 500) {
         throw new Error("Status updates are limited to 500 characters");
       }
       if (!signEvent) {
@@ -429,19 +633,63 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
         throw new Error("No relays available");
       }
 
+      await ensureFeedKey();
+
+      const tags: string[][] = [
+        ["t", FEED_TAG],
+        ["app", "BitcoinSquare"],
+        ["feed", FEED_TAG],
+      ];
+
+      if (context?.post) {
+        tags.push(["e", context.post.id]);
+        tags.push(["p", context.post.pubkey]);
+        if (context.type === "quote") {
+          tags.push(["q", context.post.id]);
+        } else {
+          tags.push(["reply", context.post.id]);
+        }
+      }
+
+      const normalizedAttachments = attachments
+        .map((attachment) => normalizeAttachment(attachment))
+        .filter((attachment): attachment is FeedAttachment => Boolean(attachment));
+
+      normalizedAttachments.forEach((attachment) => {
+        tags.push(["url", attachment.url]);
+        tags.push(["m", attachment.mimeType]);
+        if (attachment.size) {
+          tags.push(["size", String(attachment.size)]);
+        }
+        if (attachment.width && attachment.height) {
+          tags.push(["dim", `${attachment.width}x${attachment.height}`]);
+        } else if (attachment.dimensions) {
+          tags.push(["dim", attachment.dimensions]);
+        }
+        if (attachment.digest) {
+          tags.push(["x", attachment.digest]);
+        }
+        if (attachment.iv) {
+          tags.push(["iv", attachment.iv]);
+        }
+      });
+
+      const payload: FeedPayload = {
+        body: trimmed,
+        attachments: normalizedAttachments,
+      };
+
+      const encryptedContent = await encryptJson(FEED_ROOM_ID, payload);
+
       const template: EventTemplate = {
         kind: 1,
         created_at: Math.floor(Date.now() / 1000),
-        tags: [
-          ["t", FEED_TAG],
-          ["app", "BitcoinSquare"],
-          ["feed", FEED_TAG],
-        ],
-        content,
+        tags,
+        content: encryptedContent,
       };
 
       const event = await signEvent(template);
-      insertPost(mapEventToPost(event, true));
+      insertPost(mapEventToPost(event, true, payload));
       setError(null);
 
       try {
@@ -452,7 +700,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
           ensureOldestTimestamp(next);
           return next;
         });
-        await cacheMessage(eventToCached(event));
+        await cacheMessage(eventToCached(event, payload));
         if (RELAYS.length > 1) {
           void replicateWithPool(pool, RELAYS.slice(1), event);
         }
@@ -474,7 +722,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
         setPublishing(false);
       }
     },
-    [ensureOldestTimestamp, insertPost, signEvent],
+    [ensureFeedKey, ensureOldestTimestamp, insertPost, signEvent],
   );
 
   const likePost = useCallback(
@@ -507,43 +755,12 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
     [signEvent],
   );
 
-  const repostPost = useCallback(
-    async (post: FeedPost) => {
-      if (!signEvent) {
-        throw new Error("Your Nostr keys are not ready yet");
-      }
-      const pool = poolRef.current;
-      if (!pool) {
-        throw new Error("No relays available");
-      }
-      const template: EventTemplate = {
-        kind: 6,
-        created_at: Math.floor(Date.now() / 1000),
-        content: JSON.stringify(post.event),
-        tags: [
-          ["e", post.id],
-          ["p", post.pubkey],
-          ["t", FEED_TAG],
-          ["app", "BitcoinSquare"],
-          ["feed", FEED_TAG],
-        ],
-      };
-      const event = await signEvent(template);
-      await publishWithPool(pool, [FAST_RELAY], event);
-      if (RELAYS.length > 1) {
-        void replicateWithPool(pool, RELAYS.slice(1), event);
-      }
-    },
-    [signEvent],
-  );
-
   return {
     posts,
     ready,
     publishing,
     publishStatus,
     likePost,
-    repostPost,
     loadMore,
     loadingMore,
     hasMore,

@@ -22,6 +22,7 @@ import {
   generateNostrKeyPair,
 } from '../utils/nostr';
 import { fetchAccountNostrKeys } from '../api/nostrAccount';
+import { normalizeAvatarUrl, normalizeScreenName } from '../utils/profileDefaults';
 
 interface LessonCompletionMap {
   [slug: string]: string[];
@@ -36,8 +37,11 @@ export interface User {
   id: number;
   email: string;
   username?: string;
+  screenName?: string | null;
+  avatarUrl?: string | null;
   nostrPublicKey?: string;
   nostrEncryptedKey?: string;
+  lnWalletAddress?: string | null;
   points: number;
   lessonCompletions: LessonCompletionMap;
   studyStreak: number;
@@ -109,8 +113,22 @@ function normalizePreferences(raw: unknown): UserPreferences {
   return prefs;
 }
 
+function normalizeLightningAddress(value: unknown): string | null {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+  return null;
+}
+
 function normalizeUser(raw: any | null | undefined): User | null {
   if (!raw) return null;
+  const seedSource =
+    (typeof raw.nostrPublicKey === 'string' && raw.nostrPublicKey.trim().length > 0
+      ? raw.nostrPublicKey
+      : '') ||
+    (raw.id != null ? String(raw.id) : '') ||
+    (typeof raw.email === 'string' ? raw.email : '');
   const normalized: User = {
     ...raw,
     points: normalizePoints(raw.points),
@@ -118,6 +136,12 @@ function normalizeUser(raw: any | null | undefined): User | null {
     studyStreak: normalizeStudyStreak(raw.studyStreak),
     lastStudyDate: normalizeLastStudyDate(raw.lastStudyDate),
     preferences: normalizePreferences(raw.preferences),
+    lnWalletAddress: normalizeLightningAddress(raw.lnWalletAddress ?? raw.lightningAddress),
+    screenName: normalizeScreenName(raw.screenName ?? raw.displayName ?? raw.username, seedSource),
+    avatarUrl: normalizeAvatarUrl(
+      raw.avatarUrl ?? raw.profileImage ?? raw.image ?? raw.picture,
+      seedSource,
+    ),
   };
   if (!normalized.lessonCompletions) {
     normalized.lessonCompletions = {};

@@ -30,7 +30,8 @@ import { AuthProvider } from "./context/AuthContext";
 import NewsletterSubscribe from "./pages/NewsletterSubscribe";
 import CheckoutSuccess from "./routes/CheckoutSuccess";
 import CheckoutCancel from "./routes/CheckoutCancel";
-import NostrChat from "./routes/NostrChat";
+import Community from "./routes/Community";
+import Profile from "./routes/Profile";
 import { ProfileIdentityProvider } from "./context/ProfileIdentityContext";
 
 const router = createBrowserRouter([
@@ -58,7 +59,8 @@ const router = createBrowserRouter([
       { path: "newsletter", element: <NewsletterSubscribe /> },
       { path: "checkout/success", element: <CheckoutSuccess /> },
       { path: "checkout/cancel", element: <CheckoutCancel /> },
-      { path: "nostr", element: <NostrChat /> },
+      { path: "community", element: <Community /> },
+      { path: "profile/:pubkey", element: <Profile /> },
     ],
   },
 ]);

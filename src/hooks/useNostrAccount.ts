@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { finalizeEvent, getPublicKey, type Event, type EventTemplate } from "nostr-tools";
+import { useEffect, useMemo, useState } from "react";
+import { finalizeEvent, getPublicKey, type Event, type EventTemplate } from "../lib/nostrToolsShim";
 
 import { useAuth } from "../context/AuthContext";
 
@@ -27,52 +27,131 @@ export interface UseNostrAccountResult {
 export const useNostrAccount = (): UseNostrAccountResult => {
   const { user, nostrPrivKey, nostrKeyLoading } = useAuth();
 
-  return useMemo(() => {
-    if (nostrKeyLoading) {
-      return {
-        ready: false,
-        loading: true,
-        pubkey: user?.nostrPublicKey ?? null,
-        privkey: null,
-        error: null,
-        signEvent: null,
-      };
-    }
+  const [privkeyBytes, setPrivkeyBytes] = useState<Uint8Array | null>(null);
+  const [derivedPubkey, setDerivedPubkey] = useState<string | null>(null);
+  const [moduleError, setModuleError] = useState<string | null>(null);
+  const [moduleLoading, setModuleLoading] = useState(false);
 
+  useEffect(() => {
     if (!nostrPrivKey) {
-      return {
-        ready: false,
-        loading: false,
-        pubkey: user?.nostrPublicKey ?? null,
-        privkey: null,
-        error: null,
-        signEvent: null,
-      };
+      setPrivkeyBytes(null);
+      setDerivedPubkey(null);
+      setModuleError(null);
+      setModuleLoading(false);
+      return;
     }
 
     try {
-      const privkey = hexToBytes(nostrPrivKey);
-      const derivedPubkey = user?.nostrPublicKey ?? getPublicKey(privkey);
-      const signEvent = async (template: EventTemplate) => finalizeEvent(template, privkey);
-      return {
-        ready: true,
-        loading: false,
-        pubkey: derivedPubkey,
-        privkey,
-        error: null,
-        signEvent,
-      };
+      const parsed = hexToBytes(nostrPrivKey);
+      setPrivkeyBytes(parsed);
+      setModuleError(null);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.warn("Invalid nostr key material", error);
+      setPrivkeyBytes(null);
+      setDerivedPubkey(null);
+      setModuleError(message);
+      setModuleLoading(false);
+    }
+  }, [nostrPrivKey]);
+
+  useEffect(() => {
+    if (!privkeyBytes || user?.nostrPublicKey) {
+      setDerivedPubkey(null);
+      setModuleLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setModuleLoading(true);
+
+    (async () => {
+      try {
+        const pub = await getPublicKey(privkeyBytes);
+        if (!cancelled) {
+          setDerivedPubkey(pub);
+          setModuleError(null);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          const message = error instanceof Error ? error.message : String(error);
+          setModuleError(message);
+        }
+      } finally {
+        if (!cancelled) {
+          setModuleLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [privkeyBytes, user?.nostrPublicKey]);
+
+  return useMemo(() => {
+    if (nostrKeyLoading || moduleLoading) {
+      return {
+        ready: false,
+        loading: true,
+        pubkey: user?.nostrPublicKey ?? derivedPubkey,
+        privkey: privkeyBytes,
+        error: moduleError,
+        signEvent: null,
+      };
+    }
+
+    if (!privkeyBytes) {
       return {
         ready: false,
         loading: false,
         pubkey: user?.nostrPublicKey ?? null,
         privkey: null,
-        error: message,
+        error: moduleError,
         signEvent: null,
       };
     }
-  }, [nostrKeyLoading, nostrPrivKey, user?.nostrPublicKey]);
+
+    if (moduleError) {
+      return {
+        ready: false,
+        loading: false,
+        pubkey: user?.nostrPublicKey ?? derivedPubkey,
+        privkey: privkeyBytes,
+        error: moduleError,
+        signEvent: null,
+      };
+    }
+
+    const pubkey = user?.nostrPublicKey ?? derivedPubkey;
+
+    if (!pubkey) {
+      return {
+        ready: false,
+        loading: false,
+        pubkey: null,
+        privkey: privkeyBytes,
+        error: "Nostr tools are still loading",
+        signEvent: null,
+      };
+    }
+
+    const signEvent = async (template: EventTemplate): Promise<Event> => finalizeEvent(template, privkeyBytes);
+
+    return {
+      ready: true,
+      loading: false,
+      pubkey,
+      privkey: privkeyBytes,
+      error: null,
+      signEvent,
+    };
+  }, [
+    derivedPubkey,
+    moduleError,
+    moduleLoading,
+    nostrKeyLoading,
+    privkeyBytes,
+    user?.nostrPublicKey,
+  ]);
 };

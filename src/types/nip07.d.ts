@@ -1,4 +1,4 @@
-import type { EventTemplate } from "nostr-tools";
+import type { EventTemplate } from "../lib/nostrToolsShim";
 
 declare global {
   interface Window {
