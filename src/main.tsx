@@ -31,6 +31,7 @@ import NewsletterSubscribe from "./pages/NewsletterSubscribe";
 import CheckoutSuccess from "./routes/CheckoutSuccess";
 import CheckoutCancel from "./routes/CheckoutCancel";
 import NostrChat from "./routes/NostrChat";
+import { ProfileIdentityProvider } from "./context/ProfileIdentityContext";
 
 const router = createBrowserRouter([
   {
@@ -70,7 +71,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
       <AuthProvider>
         <ThemeProvider>
           <PreferencesProvider>
-            <RouterProvider router={router} />
+            <ProfileIdentityProvider>
+              <RouterProvider router={router} />
+            </ProfileIdentityProvider>
           </PreferencesProvider>
         </ThemeProvider>
       </AuthProvider>

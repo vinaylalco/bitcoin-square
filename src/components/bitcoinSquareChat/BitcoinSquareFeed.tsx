@@ -1,12 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { FeedPost } from "../../hooks/useBitcoinSquareFeed";
-
-interface ProfileSummary {
-  displayName: string;
-  avatarUrl: string;
-  profileUrl: string;
-}
+import { useProfileIdentity, shortenPubkey } from "../../context/ProfileIdentityContext";
+import ProfileCard from "../profile/ProfileCard";
 
 interface BitcoinSquareFeedProps {
   posts: FeedPost[];
@@ -19,8 +15,6 @@ interface BitcoinSquareFeedProps {
   loadingMore: boolean;
   hasMore: boolean;
   error: string | null;
-  resolveProfile: (pubkey: string) => ProfileSummary;
-  onOpenProfile: (pubkey: string) => void;
 }
 
 type ActiveFilter = { type: "tag" | "mention"; value: string } | null;
@@ -111,8 +105,6 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   loadingMore,
   hasMore,
   error,
-  resolveProfile,
-  onOpenProfile,
 }) => {
   const [content, setContent] = useState("");
   const [composerError, setComposerError] = useState<string | null>(null);
@@ -122,6 +114,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const relativeFormatter = useMemo(() => createRelativeFormatter(), []);
   const now = useRelativeNow();
+  const { requestProfile, resolveProfileSummary, openProfile } = useProfileIdentity();
 
   useEffect(() => {
     if (!hasMore) return;
@@ -146,6 +139,14 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       observer.disconnect();
     };
   }, [hasMore, loadMore, loadingMore]);
+
+  useEffect(() => {
+    const uniquePubkeys = new Set<string>();
+    posts.forEach((post) => uniquePubkeys.add(post.pubkey));
+    uniquePubkeys.forEach((pubkey) => {
+      requestProfile(pubkey).catch(() => undefined);
+    });
+  }, [posts, requestProfile]);
 
   const updatePending = useCallback((setter: React.Dispatch<React.SetStateAction<PendingMap>>, id: string, add: boolean) => {
     setter((prev) => {
@@ -329,7 +330,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
           </p>
         ) : (
           filteredPosts.map((post) => {
-            const profile = resolveProfile(post.pubkey);
+            const profile = resolveProfileSummary(post.pubkey);
             const isPendingLike = pendingLikes.has(post.id);
             const isPendingRepost = pendingReposts.has(post.id);
             const likeDisabled = !ready || isPendingLike;
@@ -342,27 +343,21 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
                 className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-5 shadow-sm transition hover:border-brand/60"
               >
                 <header className="flex flex-wrap items-start justify-between gap-4">
-                  <button
-                    type="button"
-                    onClick={() => onOpenProfile(post.pubkey)}
-                    className="flex items-start gap-4 text-left"
-                  >
-                    <img
-                      src={profile.avatarUrl}
-                      alt={profile.displayName}
-                      className="h-12 w-12 flex-shrink-0 rounded-full border border-[var(--border-subtle)] object-cover"
-                      loading="lazy"
-                    />
-                    <div className="space-y-1">
-                      <div className="flex flex-wrap items-center gap-3">
-                        <span className="text-sm font-semibold text-[var(--fg-default)]">{profile.displayName}</span>
-                        <span className="text-xs uppercase tracking-[0.18em] text-[var(--fg-muted)]">
-                          {formatRelativeTime(post.created_at)}
-                        </span>
-                      </div>
-                      <span className="text-xs text-[var(--fg-muted)]">{post.pubkey.slice(0, 8)}…{post.pubkey.slice(-8)}</span>
-                    </div>
-                  </button>
+                  <ProfileCard
+                    pubkey={post.pubkey}
+                    contentClassName="items-start"
+                    className="flex-1"
+                    subtitle={shortenPubkey(post.pubkey)}
+                    meta={
+                      <span className="text-xs uppercase tracking-[0.18em] text-[var(--fg-muted)]">
+                        {formatRelativeTime(post.created_at)}
+                      </span>
+                    }
+                    onClick={(event) => {
+                      event.preventDefault();
+                      openProfile(post.pubkey);
+                    }}
+                  />
                   <a
                     href={profile.profileUrl}
                     target="_blank"

@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import BitcoinSquareFeed from "../components/bitcoinSquareChat/BitcoinSquareFeed";
-import ProfileModal from "../components/bitcoinSquareChat/ProfileModal";
+import ProfileCard from "../components/profile/ProfileCard";
+import ProfileModal from "../components/profile/ProfileModal";
 import type { RoomDefinition } from "../components/RoomList";
 import { CASUAL_ROOM_ID, CASUAL_ROOM_NAME, useBitcoinSquareCasualChat } from "../hooks/useBitcoinSquareCasualChat";
 import type { CasualAttachmentMeta } from "../hooks/useBitcoinSquareCasualChat";
@@ -9,6 +10,7 @@ import { useMediaUploader, type MediaUploadResult, type UseMediaUploaderReturn }
 import { useBitcoinSquareFeed } from "../hooks/useBitcoinSquareFeed";
 import { decryptBinary } from "../utils/aes";
 import { getCachedMediaBlob, getCachedPreview, setCachedMediaBlob, setCachedPreview } from "../utils/mediaCache";
+import { useProfileIdentity, shortenPubkey } from "../context/ProfileIdentityContext";
 
 const CASUAL_ROOM: RoomDefinition = {
   id: CASUAL_ROOM_ID,
@@ -17,27 +19,9 @@ const CASUAL_ROOM: RoomDefinition = {
   hasLocalKey: true,
 };
 
-interface ProfileData {
-  displayName: string;
-  avatarUrl: string;
-  memberSince?: string | null;
-  totalPosts?: number | null;
-  rank?: string | null;
-}
-
-interface ProfileState {
-  status: "idle" | "loading" | "success" | "error";
-  data?: ProfileData;
-  error?: string;
-}
-
 type PendingAttachment = MediaUploadResult & { previewUrl?: string | null };
 
 type AttachmentStatus = "idle" | "loading" | "ready" | "error";
-
-const FALLBACK_AVATAR = (pubkey: string) => `https://www.gravatar.com/avatar/${pubkey}?d=identicon`;
-
-const shortenPubkey = (value: string) => `${value.slice(0, 8)}…${value.slice(-8)}`;
 
 const formatTimestamp = (unixSeconds: number) => {
   try {
@@ -47,20 +31,6 @@ const formatTimestamp = (unixSeconds: number) => {
     }).format(new Date(unixSeconds * 1000));
   } catch {
     return new Date(unixSeconds * 1000).toLocaleString();
-  }
-};
-
-const formatMemberSince = (input?: string | null) => {
-  if (!input) return "—";
-  const date = new Date(input);
-  if (Number.isNaN(date.getTime())) return "—";
-  try {
-    return new Intl.DateTimeFormat(undefined, {
-      year: "numeric",
-      month: "long",
-    }).format(date);
-  } catch {
-    return date.toLocaleDateString();
   }
 };
 
@@ -372,9 +342,6 @@ const NostrChat: React.FC = () => {
 
   const [activeView, setActiveView] = useState<"casual" | "feed">("casual");
   const listRef = useRef<HTMLDivElement | null>(null);
-  const fetchingProfiles = useRef(new Set<string>());
-  const [profiles, setProfiles] = useState<Record<string, ProfileState>>({});
-  const [activeProfile, setActiveProfile] = useState<string | null>(null);
   const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
   const {
     uploadFile,
@@ -385,6 +352,7 @@ const NostrChat: React.FC = () => {
     reset: resetUpload,
   } = useMediaUploader({ room: CASUAL_ROOM, pubkey });
   const [composerError, setComposerError] = useState<string | null>(null);
+  const { requestProfile, resolveProfileSummary } = useProfileIdentity();
 
   useEffect(() => {
     if (activeView !== "casual") return;
@@ -396,51 +364,13 @@ const NostrChat: React.FC = () => {
   }, [activeView, messages.length]);
 
   useEffect(() => {
-    const uniquePubkeys = Array.from(
-      new Set([
-        ...messages.map((message) => message.pubkey),
-        ...feedPosts.map((post) => post.pubkey),
-      ]),
-    );
-    uniquePubkeys.forEach((key) => {
-      if (profiles[key] || fetchingProfiles.current.has(key)) return;
-      fetchingProfiles.current.add(key);
-      setProfiles((prev) => ({ ...prev, [key]: { status: "loading" } }));
-      fetchBitcoinSquareProfile(key)
-        .then((data) => {
-          setProfiles((prev) => ({ ...prev, [key]: { status: "success", data } }));
-        })
-        .catch((error) => {
-          setProfiles((prev) => ({
-            ...prev,
-            [key]: {
-              status: "error",
-              error: error instanceof Error ? error.message : String(error),
-            },
-          }));
-        })
-        .finally(() => {
-          fetchingProfiles.current.delete(key);
-        });
+    const uniquePubkeys = new Set<string>();
+    messages.forEach((message) => uniquePubkeys.add(message.pubkey));
+    feedPosts.forEach((post) => uniquePubkeys.add(post.pubkey));
+    uniquePubkeys.forEach((pubkeyValue) => {
+      requestProfile(pubkeyValue).catch(() => undefined);
     });
-  }, [feedPosts, messages, profiles]);
-
-  const profileModalState = useMemo(() => {
-    if (!activeProfile) {
-      return { status: "idle" as const, profile: null, error: null };
-    }
-    const entry = profiles[activeProfile];
-    if (!entry) {
-      return { status: "loading" as const, profile: null, error: null };
-    }
-    if (entry.status === "error") {
-      return { status: "error" as const, profile: null, error: entry.error ?? "Unable to load profile" };
-    }
-    if (entry.status === "success") {
-      return { status: "success" as const, profile: entry.data ?? null, error: null };
-    }
-    return { status: entry.status, profile: null, error: null };
-  }, [activeProfile, profiles]);
+  }, [feedPosts, messages, requestProfile]);
 
   const handleUploadFile = useCallback(
     async (file: File) => {
@@ -520,22 +450,6 @@ const NostrChat: React.FC = () => {
     }
   }, [exportGroupKey]);
 
-  const selectedProfile = activeProfile ? profiles[activeProfile] : undefined;
-  const selectedData = selectedProfile?.data ?? null;
-
-  const resolveProfile = useCallback(
-    (key: string) => {
-      const entry = profiles[key];
-      const data = entry?.data;
-      return {
-        displayName: data?.displayName ?? shortenPubkey(key),
-        avatarUrl: data?.avatarUrl ?? FALLBACK_AVATAR(key),
-        profileUrl: `https://bitcoinsquare.io/profile/${key}`,
-      };
-    },
-    [profiles],
-  );
-
   const isCasualView = activeView === "casual";
 
   return (
@@ -613,10 +527,7 @@ const NostrChat: React.FC = () => {
           )}
 
           {messages.map((message) => {
-            const summary = resolveProfile(message.pubkey);
-            const avatar = summary.avatarUrl;
-            const displayName = summary.displayName;
-            const profileUrl = summary.profileUrl;
+            const summary = resolveProfileSummary(message.pubkey);
 
             return (
               <article
@@ -624,30 +535,20 @@ const NostrChat: React.FC = () => {
                 className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-5 shadow-sm transition hover:border-brand/60"
               >
                 <div className="flex items-start justify-between gap-4">
-                  <button
-                    type="button"
-                    onClick={() => setActiveProfile(message.pubkey)}
-                    className="flex flex-1 items-start gap-4 text-left"
-                  >
-                    <img
-                      src={avatar}
-                      alt={displayName}
-                      className="h-12 w-12 flex-shrink-0 rounded-full border border-[var(--border-subtle)] object-cover"
-                      loading="lazy"
-                    />
-                    <div className="space-y-1">
-                      <div className="flex flex-wrap items-center gap-3">
-                        <span className="text-sm font-semibold text-[var(--fg-default)]">{displayName}</span>
-                        <span className="text-xs uppercase tracking-[0.18em] text-[var(--fg-muted)]">
-                          {formatTimestamp(message.created_at)}
-                        </span>
-                      </div>
-                      <span className="text-xs text-[var(--fg-muted)]">{shortenPubkey(message.pubkey)}</span>
-                    </div>
-                  </button>
+                  <ProfileCard
+                    pubkey={message.pubkey}
+                    contentClassName="items-start"
+                    className="flex-1"
+                    subtitle={shortenPubkey(message.pubkey)}
+                    meta={
+                      <span className="text-xs uppercase tracking-[0.18em] text-[var(--fg-muted)]">
+                        {formatTimestamp(message.created_at)}
+                      </span>
+                    }
+                  />
 
                   <a
-                    href={profileUrl}
+                    href={summary.profileUrl}
                     target="_blank"
                     rel="noreferrer"
                     className="rounded-full border border-[var(--border-subtle)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand"
@@ -727,97 +628,13 @@ const NostrChat: React.FC = () => {
             loadingMore={feedLoadingMore}
             hasMore={feedHasMore}
             error={feedError}
-            resolveProfile={resolveProfile}
-            onOpenProfile={(pubkey) => setActiveProfile(pubkey)}
           />
         )}
       </main>
 
-      <ProfileModal
-        open={Boolean(activeProfile)}
-        onClose={() => setActiveProfile(null)}
-        pubkey={activeProfile}
-        profile={selectedData}
-        status={profileModalState.status === "idle" ? "loading" : profileModalState.status}
-        error={profileModalState.error ?? undefined}
-        fallbackAvatar={activeProfile ? FALLBACK_AVATAR(activeProfile) : undefined}
-        formatMemberSince={formatMemberSince}
-        shortenPubkey={shortenPubkey}
-      />
+      <ProfileModal />
     </div>
   );
 };
-
-async function fetchBitcoinSquareProfile(pubkey: string): Promise<ProfileData> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10000);
-
-  try {
-    const response = await fetch(`https://bitcoinsquare.io/api/users/${pubkey}`, {
-      signal: controller.signal,
-      headers: {
-        Accept: "application/json",
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Profile lookup failed (${response.status})`);
-    }
-
-    const payload = await response.json();
-    const data = (payload?.data ?? payload) as Record<string, unknown>;
-    const attributes = (data?.attributes ?? data) as Record<string, unknown>;
-
-    const displayName =
-      (attributes?.displayName as string | undefined) ??
-      (attributes?.display_name as string | undefined) ??
-      (attributes?.name as string | undefined) ??
-      (attributes?.username as string | undefined) ??
-      shortenPubkey(pubkey);
-
-    const avatarUrl =
-      (attributes?.avatarUrl as string | undefined) ??
-      (attributes?.avatar_url as string | undefined) ??
-      (attributes?.profile_picture as string | undefined) ??
-      (attributes?.picture as string | undefined) ??
-      FALLBACK_AVATAR(pubkey);
-
-    const memberSince =
-      (attributes?.memberSince as string | undefined) ??
-      (attributes?.member_since as string | undefined) ??
-      (attributes?.createdAt as string | undefined) ??
-      (attributes?.created_at as string | undefined) ??
-      (attributes?.joinedAt as string | undefined) ??
-      null;
-
-    const totalPosts =
-      (attributes?.totalPosts as number | undefined) ??
-      (attributes?.total_posts as number | undefined) ??
-      (attributes?.postCount as number | undefined) ??
-      (attributes?.post_count as number | undefined) ??
-      (attributes?.stats &&
-        typeof attributes.stats === "object" &&
-        (attributes.stats as Record<string, unknown>).posts
-          ? Number((attributes.stats as Record<string, unknown>).posts)
-          : undefined) ??
-      null;
-
-    const rank =
-      (attributes?.communityRank as string | undefined) ??
-      (attributes?.community_rank as string | undefined) ??
-      (attributes?.rank as string | undefined) ??
-      null;
-
-    return {
-      displayName,
-      avatarUrl,
-      memberSince,
-      totalPosts,
-      rank,
-    };
-  } finally {
-    clearTimeout(timeout);
-  }
-}
 
 export default NostrChat;
