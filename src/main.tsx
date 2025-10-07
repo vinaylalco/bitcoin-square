@@ -30,6 +30,7 @@ import { AuthProvider } from "./context/AuthContext";
 import NewsletterSubscribe from "./pages/NewsletterSubscribe";
 import CheckoutSuccess from "./routes/CheckoutSuccess";
 import CheckoutCancel from "./routes/CheckoutCancel";
+import NostrChat from "./routes/NostrChat";
 
 const router = createBrowserRouter([
   {
@@ -56,6 +57,7 @@ const router = createBrowserRouter([
       { path: "newsletter", element: <NewsletterSubscribe /> },
       { path: "checkout/success", element: <CheckoutSuccess /> },
       { path: "checkout/cancel", element: <CheckoutCancel /> },
+      { path: "nostr", element: <NostrChat /> },
     ],
   },
 ]);
@@ -75,3 +77,11 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     </QueryClientProvider>
   </React.StrictMode>
 );
+
+if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register("/nostr-sw.js")
+      .catch((error) => console.warn("Service worker registration failed", error));
+  });
+}
