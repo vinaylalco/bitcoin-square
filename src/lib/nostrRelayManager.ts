@@ -1,5 +1,4 @@
 import { SimplePool, type Event, type Filter } from "nostr-tools";
-import { relayInit } from "nostr-tools/relay";
 
 export type CacheMirror = {
   persistEvent?: (event: Event) => Promise<void> | void;
@@ -17,9 +16,11 @@ type QueueItem = {
   reject: (error: unknown) => void;
 };
 
+type RelayInstance = Awaited<ReturnType<SimplePool["ensureRelay"]>>;
+
 type RelayConnection = {
   url: string;
-  relay: ReturnType<typeof relayInit> | null;
+  relay: RelayInstance | null;
   status: "idle" | "connecting" | "connected";
   attempts: number;
   queue: QueueItem[];
@@ -158,9 +159,9 @@ export class NostrRelayManager {
   }
 
   private async connectRelay(connection: RelayConnection): Promise<void> {
-    const relay = relayInit(connection.url);
+    let relay: RelayInstance | null = null;
     try {
-      await relay.connect();
+      relay = await this.pool.ensureRelay(connection.url);
       connection.relay = relay;
       connection.status = "connected";
       connection.attempts = 0;
@@ -168,6 +169,7 @@ export class NostrRelayManager {
       relay.on?.("error", (err: unknown) => this.handleDisconnect(connection, err));
       await this.flushQueue(connection);
     } catch (error) {
+      relay?.close?.();
       this.handleDisconnect(connection, error);
     }
   }
