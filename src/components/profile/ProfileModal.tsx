@@ -153,6 +153,34 @@ const ProfileModal: React.FC = () => {
             </div>
           </dl>
 
+          {profile?.lightningAddress && (
+            <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-4 text-sm text-[var(--fg-default)]">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">
+                  Lightning address
+                </span>
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => navigator.clipboard.writeText(profile.lightningAddress || '').catch(() => undefined)}
+                    className="rounded-full border border-[var(--border-subtle)] px-3 py-1 font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand"
+                  >
+                    Copy
+                  </button>
+                  <a
+                    href={`lightning:${profile.lightningAddress}`}
+                    className="rounded-full border border-brand/40 px-3 py-1 font-semibold uppercase tracking-[0.18em] text-brand transition hover:border-brand"
+                  >
+                    Open wallet
+                  </a>
+                </div>
+              </div>
+              <code className="mt-3 block break-all rounded-xl bg-[var(--bg-card)]/60 px-3 py-2 text-xs text-[var(--fg-default)]">
+                {profile.lightningAddress}
+              </code>
+            </div>
+          )}
+
           <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"

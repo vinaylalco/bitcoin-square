@@ -5,7 +5,12 @@ import BitcoinSquareFeed from "../components/bitcoinSquareChat/BitcoinSquareFeed
 import ProfileCard from "../components/profile/ProfileCard";
 import ProfileModal from "../components/profile/ProfileModal";
 import type { RoomDefinition } from "../components/RoomList";
-import { CASUAL_ROOM_ID, CASUAL_ROOM_NAME, useBitcoinSquareCasualChat } from "../hooks/useBitcoinSquareCasualChat";
+import {
+  CASUAL_ROOM_ID,
+  CASUAL_ROOM_NAME,
+  useBitcoinSquareCasualChat,
+  type CasualChatMessage,
+} from "../hooks/useBitcoinSquareCasualChat";
 import type { CasualAttachmentMeta } from "../hooks/useBitcoinSquareCasualChat";
 import { useMediaUploader, type MediaUploadResult, type UseMediaUploaderReturn } from "../hooks/useMediaUploader";
 import { useBitcoinSquareFeed } from "../hooks/useBitcoinSquareFeed";
@@ -15,6 +20,7 @@ import { useProfileIdentity, shortenPubkey } from "../context/ProfileIdentityCon
 import { useAuth } from "../context/AuthContext";
 import { useNostrAccount } from "../hooks/useNostrAccount";
 import { setNostrClientSigner } from "../lib/nostrClient";
+import { Heart, MessageCircle, MessageSquareQuote, Zap } from "lucide-react";
 
 const CASUAL_ROOM: RoomDefinition = {
   id: CASUAL_ROOM_ID,
@@ -185,6 +191,7 @@ const Composer: React.FC<{
   uploadStatus: UseMediaUploaderReturn["status"];
   uploadProgress: number;
   uploadError: string | null;
+  draft?: string;
 }> = ({
   disabled,
   onSend,
@@ -194,6 +201,7 @@ const Composer: React.FC<{
   uploadStatus,
   uploadProgress,
   uploadError,
+  draft,
 }) => {
   const [value, setValue] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -201,6 +209,12 @@ const Composer: React.FC<{
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const remaining = 500 - value.length;
+
+  useEffect(() => {
+    if (typeof draft === "string") {
+      setValue(draft);
+    }
+  }, [draft]);
 
   const handleSubmit = useCallback(async () => {
     const trimmed = value.trim();
@@ -315,7 +329,7 @@ const Composer: React.FC<{
   );
 };
 
-const NostrChat: React.FC = () => {
+const Community: React.FC = () => {
   const {
     roomId,
     roomName,
@@ -335,7 +349,6 @@ const NostrChat: React.FC = () => {
     publishing: feedPublishing,
     publishStatus: publishFeedStatus,
     likePost: likeFeedPost,
-    repostPost: repostFeedPost,
     loadMore: loadMoreFeed,
     loadingMore: feedLoadingMore,
     hasMore: feedHasMore,
@@ -362,6 +375,7 @@ const NostrChat: React.FC = () => {
     reset: resetUpload,
   } = useMediaUploader({ room: CASUAL_ROOM, pubkey });
   const [composerError, setComposerError] = useState<string | null>(null);
+  const [composerDraft, setComposerDraft] = useState<string | undefined>(undefined);
   const { requestProfile, resolveProfileSummary } = useProfileIdentity();
 
   useEffect(() => {
@@ -480,6 +494,7 @@ const NostrChat: React.FC = () => {
     async (text: string) => {
       try {
         await handleSend(text);
+        setComposerDraft(undefined);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         setComposerError(message);
@@ -490,6 +505,51 @@ const NostrChat: React.FC = () => {
   );
 
   const isCasualView = activeView === "casual";
+
+  const handleReplyToMessage = useCallback(
+    (message: CasualChatMessage) => {
+      setComposerDraft(`@${shortenPubkey(message.pubkey)} `);
+    },
+    [shortenPubkey],
+  );
+
+  const handleQuoteMessage = useCallback((message: CasualChatMessage) => {
+    const quoted = message.markdown
+      .split(/\r?\n/)
+      .map((line) => `> ${line}`)
+      .join("\n");
+    setComposerDraft(`${quoted}\n\n`);
+  }, []);
+
+  const handleLikeMessage = useCallback(
+    async (message: CasualChatMessage) => {
+      try {
+        await sendMessage(`❤️ ${shortenPubkey(message.pubkey)}`);
+      } catch (reactionError) {
+        const messageText = reactionError instanceof Error ? reactionError.message : String(reactionError);
+        setComposerError(messageText);
+      }
+    },
+    [sendMessage, shortenPubkey],
+  );
+
+  const handleSendLightning = useCallback((address: string) => {
+    if (!address) return;
+    const target = address.startsWith("lightning:") ? address : `lightning:${address}`;
+    if (typeof window === "undefined") {
+      void navigator.clipboard?.writeText(address);
+      return;
+    }
+    try {
+      window.open(target, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      try {
+        void navigator.clipboard?.writeText(address);
+      } catch {
+        // ignore copy failures
+      }
+    }
+  }, []);
 
   return (
     <div className="flex h-full flex-col bg-[var(--bg-app)]">
@@ -604,6 +664,42 @@ const NostrChat: React.FC = () => {
                     {message.error ?? "We couldn't deliver this message."}
                   </p>
                 )}
+
+                <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-[var(--fg-muted)]">
+                  <button
+                    type="button"
+                    onClick={() => handleReplyToMessage(message)}
+                    disabled={!ready}
+                    className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] px-3 py-1 font-semibold uppercase tracking-[0.18em] transition hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <MessageCircle className="h-4 w-4" /> Reply
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleQuoteMessage(message)}
+                    disabled={!ready}
+                    className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] px-3 py-1 font-semibold uppercase tracking-[0.18em] transition hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <MessageSquareQuote className="h-4 w-4" /> Quote
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleLikeMessage(message)}
+                    disabled={!ready}
+                    className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] px-3 py-1 font-semibold uppercase tracking-[0.18em] transition hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <Heart className="h-4 w-4" /> Like
+                  </button>
+                  {summary.lightningAddress && (
+                    <button
+                      type="button"
+                      onClick={() => handleSendLightning(summary.lightningAddress!)}
+                      className="inline-flex items-center gap-2 rounded-full border border-brand/40 px-3 py-1 font-semibold uppercase tracking-[0.18em] text-brand transition hover:border-brand"
+                    >
+                      <Zap className="h-4 w-4" /> Send BTC
+                    </button>
+                  )}
+                </div>
               </article>
             );
           })}
@@ -641,6 +737,7 @@ const NostrChat: React.FC = () => {
                 uploadStatus={uploadStatus}
                 uploadProgress={uploadProgress}
                 uploadError={uploadError}
+                draft={composerDraft}
               />
             </div>
           </>
@@ -651,7 +748,6 @@ const NostrChat: React.FC = () => {
             publishing={feedPublishing}
             publishStatus={publishFeedStatus}
             likePost={likeFeedPost}
-            repostPost={repostFeedPost}
             loadMore={loadMoreFeed}
             loadingMore={feedLoadingMore}
             hasMore={feedHasMore}
@@ -665,4 +761,4 @@ const NostrChat: React.FC = () => {
   );
 };
 
-export default NostrChat;
+export default Community;

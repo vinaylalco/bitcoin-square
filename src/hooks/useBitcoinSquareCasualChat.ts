@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { EventTemplate } from "nostr-tools";
+import type { EventTemplate } from "../lib/nostrToolsShim";
 
 import { NostrRelayManager } from "../lib/nostrRelayManager";
 import { getConfiguredCasualRoomKey } from "../config/nostr";
@@ -16,7 +16,7 @@ const ROOM_TAG = `room:${ROOM_ID}`;
 const ROOM_NAME = "BitcoinSquare Casual Chat";
 
 const FAST_RELAY = "wss://relay.damus.io";
-const ADDITIONAL_RELAYS = ["wss://relay.primal.net", "wss://nos.lol", "wss://eden.nostr.land"];
+const ADDITIONAL_RELAYS = ["wss://relay.primal.net", "wss://nos.lol", "wss://relay.nostr.band"];
 
 const MAX_MESSAGES = 400;
 
