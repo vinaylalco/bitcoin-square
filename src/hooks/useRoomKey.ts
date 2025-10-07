@@ -6,11 +6,13 @@ import {
   getRoomCryptoKey,
   getRoomKeyBase64,
   hasRoomKey,
+  setRoomKeyFromBase64,
 } from "../utils/aes";
 
 export interface UseRoomKeyOptions {
   roomId: string | null;
   isPrivate: boolean;
+  seedBase64?: string | null;
 }
 
 export interface UseRoomKeyResult {
@@ -26,13 +28,14 @@ export interface UseRoomKeyResult {
 
 const cryptoUnavailableError = new Error("WebCrypto API is not available for room key operations");
 
-export const useRoomKey = ({ roomId, isPrivate }: UseRoomKeyOptions): UseRoomKeyResult => {
+export const useRoomKey = ({ roomId, isPrivate, seedBase64 }: UseRoomKeyOptions): UseRoomKeyResult => {
   const [key, setKey] = useState<CryptoKey | null>(null);
   const [base64, setBase64] = useState<string | null>(null);
   const [hasKeyState, setHasKeyState] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(true);
+  const seededValueRef = useRef<string | null>(null);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -98,6 +101,26 @@ export const useRoomKey = ({ roomId, isPrivate }: UseRoomKeyOptions): UseRoomKey
     });
   }, [loadKey]);
 
+  useEffect(() => {
+    if (!roomId || !isPrivate) return;
+    const seed = seedBase64?.trim();
+    if (!seed) return;
+    const seedKey = `${roomId}:${seed}`;
+    if (seededValueRef.current === seedKey) return;
+    seededValueRef.current = seedKey;
+    (async () => {
+      try {
+        await setRoomKeyFromBase64(roomId, seed);
+        await loadKey();
+      } catch (seedError) {
+        console.warn("Failed to seed room key from configuration", seedError);
+        if (mountedRef.current) {
+          setError(seedError instanceof Error ? seedError.message : String(seedError));
+        }
+      }
+    })();
+  }, [isPrivate, loadKey, roomId, seedBase64]);
+
   const ensureKey = useCallback(async () => {
     if (!roomId) {
       throw new Error("A room id is required to ensure a key");
@@ -155,4 +178,3 @@ export const assertCryptoAvailable = () => {
     throw cryptoUnavailableError;
   }
 };
-

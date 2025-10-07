@@ -4,6 +4,7 @@ import type { RoomDefinition } from "../components/RoomList";
 import { nostrClient } from "../lib/nostrClient";
 import { getCachedPreview, setCachedMediaBlob, setCachedPreview } from "../utils/mediaCache";
 import { assertCryptoAvailable, useRoomKey } from "./useRoomKey";
+import { CASUAL_ROOM_ID } from "./useBitcoinSquareCasualChat";
 
 type MediaUploaderStatus = "idle" | "uploading" | "success" | "error";
 
@@ -197,7 +198,15 @@ const buildCacheKey = (roomId: string, digest: string, isPrivate: boolean) =>
 export const useMediaUploader = ({ room, pubkey, host = "void.cat" }: UseMediaUploaderOptions): UseMediaUploaderReturn => {
   const roomId = room?.id ?? null;
   const isPrivate = room?.type === "private";
-  const { key: roomKey, ensure } = useRoomKey({ roomId, isPrivate: Boolean(isPrivate) });
+  const seedBase64 =
+    roomId && isPrivate && roomId === CASUAL_ROOM_ID
+      ? import.meta.env.VITE_CASUAL_ROOM_KEY ?? null
+      : null;
+  const { key: roomKey, ensure } = useRoomKey({
+    roomId,
+    isPrivate: Boolean(isPrivate),
+    seedBase64,
+  });
 
   const workerRef = useRef<Worker | null>(null);
 

@@ -23,8 +23,6 @@ interface ProcessMediaResponse {
   height?: number;
 }
 
-type ImageCompressionFn = (file: File, options?: Record<string, unknown>) => Promise<File>;
-
 const arrayBufferToHex = (buffer: ArrayBuffer) =>
   Array.from(new Uint8Array(buffer))
     .map((byte) => byte.toString(16).padStart(2, "0"))
@@ -32,20 +30,35 @@ const arrayBufferToHex = (buffer: ArrayBuffer) =>
 
 const blobToArrayBuffer = async (blob: Blob) => blob.arrayBuffer();
 
-const loadImageCompression = async (): Promise<ImageCompressionFn> => {
-  const module = (await import(
-    /* @vite-ignore */ "https://esm.sh/browser-image-compression@2.0.1?bundle"
-  )) as { default?: ImageCompressionFn } | ImageCompressionFn;
-
-  if (typeof module === "function") {
-    return module;
+const compressImage = async (file: File): Promise<Blob> => {
+  if (typeof createImageBitmap !== "function") {
+    return file;
   }
-
-  if (module && typeof module.default === "function") {
-    return module.default;
+  try {
+    const bitmap = await createImageBitmap(file);
+    const maxDimension = 1920;
+    const largestSide = Math.max(bitmap.width, bitmap.height);
+    if (largestSide <= maxDimension) {
+      return file;
+    }
+    const scale = maxDimension / largestSide;
+    const width = Math.max(1, Math.round(bitmap.width * scale));
+    const height = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = new OffscreenCanvas(width, height);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      return file;
+    }
+    ctx.drawImage(bitmap, 0, 0, width, height);
+    const blob = await canvas.convertToBlob({
+      type: file.type || "image/jpeg",
+      quality: 0.85,
+    });
+    return blob ?? file;
+  } catch (error) {
+    console.warn("Image compression failed", error);
+    return file;
   }
-
-  throw new Error("Failed to load browser-image-compression module");
 };
 
 const createPreview = async (blob: Blob): Promise<{ dataUrl: string; width: number; height: number } | null> => {
@@ -77,13 +90,7 @@ const processMedia = async (request: ProcessMediaRequest): Promise<ProcessMediaR
     const mimeType = request.file.type || "application/octet-stream";
 
     if (request.compress && mimeType.startsWith("image/")) {
-      const compression = await loadImageCompression();
-      workingFile = await compression(request.file, {
-        maxSizeMB: 8,
-        maxWidthOrHeight: 1920,
-        useWebWorker: true,
-        initialQuality: 0.85,
-      });
+      workingFile = await compressImage(request.file);
     }
 
     const buffer = await blobToArrayBuffer(workingFile);
@@ -91,7 +98,7 @@ const processMedia = async (request: ProcessMediaRequest): Promise<ProcessMediaR
     const digest = arrayBufferToHex(digestBuffer);
 
     let outputBuffer = buffer;
-    let outputMime = workingFile.type || mimeType;
+    let outputMime = (workingFile as File).type || mimeType;
     let iv: Uint8Array | undefined;
 
     if (request.encrypt?.key) {

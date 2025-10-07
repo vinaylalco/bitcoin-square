@@ -1,6 +1,6 @@
 import type { EventTemplate } from "nostr-tools";
 
-type KeyValModule = typeof import("idb-keyval");
+import { clear, createStore, del, set, values } from "./keyValueStore";
 
 export interface PendingEvent {
   id: string;
@@ -10,51 +10,26 @@ export interface PendingEvent {
   retries?: number;
 }
 
-let keyValPromise: Promise<KeyValModule> | null = null;
-let pendingStore: Awaited<ReturnType<KeyValModule["createStore"]>> | null = null;
-
-const loadKeyVal = async (): Promise<KeyValModule> => {
-  if (!keyValPromise) {
-    keyValPromise = import(
-      /* @vite-ignore */ "https://esm.sh/idb-keyval@6.3.1?bundle"
-    ) as Promise<KeyValModule>;
-  }
-  return keyValPromise;
-};
-
-const getPendingStore = async () => {
-  if (pendingStore) return pendingStore;
-  const { createStore } = await loadKeyVal();
-  pendingStore = createStore("nostr-chat", "pending-events");
-  return pendingStore;
-};
+const pendingStore = createStore("nostr-chat", "pending-events");
 
 export const queuePendingEvent = async (event: PendingEvent) => {
-  const { set } = await loadKeyVal();
-  const store = await getPendingStore();
-  await set(event.id, event, store);
+  await set(event.id, event, pendingStore);
   if (typeof window !== "undefined") {
     await registerBackgroundSync();
   }
 };
 
 export const getPendingEvents = async (): Promise<PendingEvent[]> => {
-  const { values } = await loadKeyVal();
-  const store = await getPendingStore();
-  const entries = await values<PendingEvent>(store);
+  const entries = await values<PendingEvent>(pendingStore);
   return entries.sort((a, b) => a.createdAt - b.createdAt);
 };
 
 export const removePendingEvent = async (id: string) => {
-  const { del } = await loadKeyVal();
-  const store = await getPendingStore();
-  await del(id, store);
+  await del(id, pendingStore);
 };
 
 export const clearPendingEvents = async () => {
-  const { clear } = await loadKeyVal();
-  const store = await getPendingStore();
-  await clear(store);
+  await clear(pendingStore);
 };
 
 export const flushPendingEvents = async (

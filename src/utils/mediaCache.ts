@@ -1,70 +1,33 @@
-interface LocalForageInstance {
-  getItem<T>(key: string): Promise<T | null>;
-  setItem<T>(key: string, value: T): Promise<T>;
-  removeItem(key: string): Promise<void>;
-}
+import { createStore, del, get, set } from "./keyValueStore";
 
-type LocalForageModule = {
-  createInstance(options: { name: string; storeName: string }): LocalForageInstance;
-};
-
-let localforagePromise: Promise<LocalForageModule> | null = null;
-let blobStore: LocalForageInstance | null = null;
-let previewStore: LocalForageInstance | null = null;
-
-const loadLocalForage = async (): Promise<LocalForageModule> => {
-  if (!localforagePromise) {
-    localforagePromise = import(
-      /* @vite-ignore */ "https://esm.sh/localforage@1.10.0?bundle"
-    ) as Promise<LocalForageModule>;
-  }
-  return localforagePromise;
-};
-
-const getBlobStore = async () => {
-  if (blobStore) return blobStore;
-  const { createInstance } = await loadLocalForage();
-  blobStore = createInstance({ name: "nostr-chat-media", storeName: "media-blobs" });
-  return blobStore;
-};
-
-const getPreviewStore = async () => {
-  if (previewStore) return previewStore;
-  const { createInstance } = await loadLocalForage();
-  previewStore = createInstance({ name: "nostr-chat-media", storeName: "media-previews" });
-  return previewStore;
-};
+const blobStore = createStore("nostr-chat-media", "media-blobs");
+const previewStore = createStore("nostr-chat-media", "media-previews");
 
 export const buildMediaCacheKey = (roomId: string, identifier: string) => `${roomId}|${identifier}`;
 
 export const getCachedMediaBlob = async (roomId: string, identifier: string) => {
-  const store = await getBlobStore();
   const key = buildMediaCacheKey(roomId, identifier);
-  return store.getItem<Blob>(key);
+  const result = await get<Blob>(key, blobStore);
+  return result ?? null;
 };
 
 export const setCachedMediaBlob = async (roomId: string, identifier: string, blob: Blob) => {
-  const store = await getBlobStore();
   const key = buildMediaCacheKey(roomId, identifier);
-  await store.setItem(key, blob);
+  await set(key, blob, blobStore);
 };
 
 export const getCachedPreview = async (roomId: string, identifier: string) => {
-  const store = await getPreviewStore();
   const key = buildMediaCacheKey(roomId, identifier);
-  return store.getItem<string>(key);
+  const result = await get<string>(key, previewStore);
+  return result ?? null;
 };
 
 export const setCachedPreview = async (roomId: string, identifier: string, dataUrl: string) => {
-  const store = await getPreviewStore();
   const key = buildMediaCacheKey(roomId, identifier);
-  await store.setItem(key, dataUrl);
+  await set(key, dataUrl, previewStore);
 };
 
 export const removeCachedMedia = async (roomId: string, identifier: string) => {
-  const blob = await getBlobStore();
-  const preview = await getPreviewStore();
   const key = buildMediaCacheKey(roomId, identifier);
-  await blob.removeItem(key);
-  await preview.removeItem(key);
+  await Promise.all([del(key, blobStore), del(key, previewStore)]);
 };

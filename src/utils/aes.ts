@@ -257,6 +257,18 @@ export const ensureRoomKey = async (roomId: string) => {
   }
 };
 
+export const setRoomKeyFromBase64 = async (roomId: string, base64Key: string) => {
+  const normalized = base64Key.trim();
+  if (!normalized) {
+    throw new Error("Room key cannot be empty");
+  }
+  const raw = base64ToArrayBuffer(normalized);
+  if (raw.byteLength !== KEY_LENGTH / 8) {
+    throw new Error("Room key must be a 256-bit AES key encoded in base64");
+  }
+  await persistRoomKey(roomId, normalized);
+};
+
 export const rotateRoomKey = async (roomId: string) => {
   await removeRoomKey(roomId);
   await generateAndStoreRoomKey(roomId);

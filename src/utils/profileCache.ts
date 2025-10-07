@@ -1,40 +1,16 @@
+import { createStore, get, set } from "./keyValueStore";
+
 export interface CachedProfileEntry<TProfile = unknown> {
   profile: TProfile;
   fetchedAt: number;
 }
 
-type KeyValModule = typeof import("idb-keyval");
-
 const SESSION_PREFIX = "bitcoin-square-profile:";
+const profileStore = createStore("bitcoin-square-profiles", "profiles");
 
-let keyValPromise: Promise<KeyValModule> | null = null;
-let profileStore: Awaited<ReturnType<KeyValModule["createStore"]>> | null = null;
-
-const loadKeyVal = async (): Promise<KeyValModule> => {
-  if (!keyValPromise) {
-    keyValPromise = import(
-      /* @vite-ignore */ "https://esm.sh/idb-keyval@6.3.1?bundle"
-    ) as Promise<KeyValModule>;
-  }
-  return keyValPromise;
-};
-
-const getProfileStore = async () => {
-  if (profileStore) return profileStore;
-  const { createStore } = await loadKeyVal();
-  profileStore = createStore("bitcoin-square-profiles", "profiles");
-  return profileStore;
-};
-
-const makeKey = (pubkey: string) => `profile:${pubkey}`;
-
-export const readPersistedProfile = async <TProfile extends { pubkey: string }>(
-  pubkey: string,
-): Promise<CachedProfileEntry<TProfile> | null> => {
+const readPersisted = async <TProfile>(key: string): Promise<CachedProfileEntry<TProfile> | null> => {
   try {
-    const { get } = await loadKeyVal();
-    const store = await getProfileStore();
-    const result = await get<CachedProfileEntry<TProfile>>(makeKey(pubkey), store);
+    const result = await get<CachedProfileEntry<TProfile>>(key, profileStore);
     return result ?? null;
   } catch (error) {
     console.warn("Failed to read profile cache", error);
@@ -42,18 +18,24 @@ export const readPersistedProfile = async <TProfile extends { pubkey: string }>(
   }
 };
 
-export const writePersistedProfile = async <TProfile extends { pubkey: string }>(
-  pubkey: string,
-  entry: CachedProfileEntry<TProfile>,
-) => {
+const writePersisted = async <TProfile>(key: string, entry: CachedProfileEntry<TProfile>) => {
   try {
-    const { set } = await loadKeyVal();
-    const store = await getProfileStore();
-    await set(makeKey(pubkey), entry, store);
+    await set(key, entry, profileStore);
   } catch (error) {
     console.warn("Failed to persist profile cache", error);
   }
 };
+
+const makeKey = (pubkey: string) => `profile:${pubkey}`;
+
+export const readPersistedProfile = async <TProfile extends { pubkey: string }>(
+  pubkey: string,
+): Promise<CachedProfileEntry<TProfile> | null> => readPersisted<TProfile>(makeKey(pubkey));
+
+export const writePersistedProfile = async <TProfile extends { pubkey: string }>(
+  pubkey: string,
+  entry: CachedProfileEntry<TProfile>,
+) => writePersisted(makeKey(pubkey), entry);
 
 export const readSessionProfile = <TProfile extends { pubkey: string }>(
   pubkey: string,

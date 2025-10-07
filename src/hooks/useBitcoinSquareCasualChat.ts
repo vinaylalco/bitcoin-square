@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Event, EventTemplate } from "nostr-tools";
+import type { EventTemplate } from "nostr-tools";
 
 import { NostrRelayManager } from "../lib/nostrRelayManager";
 import { cacheMessage, getCachedMessages, type CachedMessage } from "../utils/chatCache";
 import {
   decryptMessage,
   encryptMessage,
-  exportRoomKey,
-  importRoomKey,
 } from "../utils/aes";
 import { useRoomKey } from "./useRoomKey";
+import { useNostrAccount } from "./useNostrAccount";
 
 const ROOM_ID = "bitcoinsquare-casual";
 const ROOM_TAG = `room:${ROOM_ID}`;
@@ -62,8 +61,6 @@ export interface UseBitcoinSquareCasualChatResult {
   hasRoomKey: boolean;
   roomKeyError: string | null;
   error: string | null;
-  importGroupKey: (payload: string, senderPubkey?: string) => Promise<void>;
-  exportGroupKey: (recipientPubkey?: string) => Promise<string>;
 }
 
 const escapeHtml = (value: string) =>
@@ -161,7 +158,6 @@ const cachedToMessage = (cached: CachedMessage): CasualChatMessage | null => {
 
 export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult => {
   const [messages, setMessages] = useState<CasualChatMessage[]>([]);
-  const [pubkey, setPubkey] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const managerRef = useRef<NostrRelayManager | null>(null);
@@ -170,30 +166,23 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
   );
   const notificationsEnabledRef = useRef(false);
   const notificationGateRef = useRef(false);
+  const refreshedKeyRef = useRef(false);
+
+  const envRoomKey = import.meta.env.VITE_CASUAL_ROOM_KEY ?? null;
 
   const { hasKey, error: roomKeyError, refresh: refreshKey } = useRoomKey({
     roomId: ROOM_ID,
     isPrivate: true,
+    seedBase64: envRoomKey,
   });
 
+  const { ready: accountReady, pubkey, signEvent } = useNostrAccount();
+
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (!window.nostr) return;
-    let cancelled = false;
-    window.nostr
-      .getPublicKey()
-      .then((result) => {
-        if (!cancelled) {
-          setPubkey(result);
-        }
-      })
-      .catch((err) => {
-        console.warn("Failed to load pubkey", err);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    if (!envRoomKey) {
+      setError("Shared room key is not configured. Please contact BitcoinSquare support.");
+    }
+  }, [envRoomKey]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -304,7 +293,7 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
               notificationsEnabledRef.current &&
               notificationGateRef.current &&
               !visibilityRef.current &&
-              event.pubkey !== pubkey
+              event.pubkey !== (pubkey ?? "")
             ) {
               try {
                 new Notification("New casual chat message", {
@@ -337,11 +326,11 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
       if (trimmed.length > 500) {
         throw new Error("Messages are limited to 500 characters");
       }
-      if (!window.nostr) {
-        throw new Error("A NIP-07 signer is required to post");
+      if (!signEvent) {
+        throw new Error("Your Nostr keys are not ready yet");
       }
       if (!hasKey) {
-        throw new Error("Import the shared room key to send messages");
+        throw new Error("Room key is not available. Please contact support.");
       }
       const manager = managerRef.current;
       if (!manager) {
@@ -374,7 +363,7 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
         tags,
       };
 
-      const signed = await window.nostr.signEvent(template);
+      const signed = await signEvent(template);
       const optimisticMessage: CasualChatMessage = {
         id: signed.id,
         pubkey: signed.pubkey,
@@ -392,7 +381,7 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
 
       setError(null);
 
-      const { ack } = manager.publish(signed as Event);
+      const { ack } = manager.publish(signed);
 
       ack
         .then(() => {
@@ -434,28 +423,19 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
           setError(publishError instanceof Error ? publishError.message : String(publishError));
         });
     },
-    [hasKey],
+    [hasKey, signEvent],
   );
 
-  const importGroupKey = useCallback(async (payload: string, senderPubkey?: string) => {
-    await importRoomKey(ROOM_ID, payload, {
-      senderPubkey,
-      nip04: window.nostr?.nip04,
-    });
-    await refreshKey();
-  }, [refreshKey]);
-
-  const exportGroupKey = useCallback(
-    async (recipientPubkey?: string) =>
-      exportRoomKey(ROOM_ID, {
-        recipientPubkey,
-        senderPubkey: pubkey ?? undefined,
-        nip04: window.nostr?.nip04,
-      }),
-    [pubkey],
+  const ready = useMemo(
+    () => hasKey && Boolean(pubkey) && Boolean(managerRef.current) && accountReady,
+    [accountReady, hasKey, pubkey],
   );
 
-  const ready = useMemo(() => hasKey && Boolean(pubkey) && Boolean(managerRef.current), [hasKey, pubkey]);
+  useEffect(() => {
+    if (!hasKey || refreshedKeyRef.current) return;
+    refreshedKeyRef.current = true;
+    void refreshKey();
+  }, [hasKey, refreshKey]);
 
   return {
     roomId: ROOM_ID,
@@ -466,10 +446,8 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
     loading,
     ready,
     hasRoomKey: hasKey,
-    roomKeyError: roomKeyError,
+    roomKeyError,
     error,
-    importGroupKey,
-    exportGroupKey,
   };
 };
 

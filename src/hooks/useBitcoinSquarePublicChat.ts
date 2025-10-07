@@ -1,12 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  SimplePool,
-  finalizeEvent,
-  generateSecretKey,
-  getPublicKey,
-  type Event,
-  type EventTemplate,
-} from "nostr-tools";
+import { SimplePool, type Event, type EventTemplate } from "nostr-tools";
+
+import { useNostrAccount } from "./useNostrAccount";
 
 const RELAYS = [
   "wss://relay.damus.io",
@@ -19,41 +14,7 @@ const FOOTER_TEXT =
   "🟧 This is a note from the public chat room on BitcoinSquare.io — come join our private community for great Bitcoin-related tools and discussions.";
 
 const ROOM_TAG = "room:bitcoinsquare-public";
-const STORAGE_KEY = "bitcoin-square-public-chat-secret";
 const MAX_MESSAGES = 400;
-
-const toHex = (bytes: Uint8Array) =>
-  Array.from(bytes)
-    .map((value) => value.toString(16).padStart(2, "0"))
-    .join("");
-
-const fromHex = (hex: string) => {
-  const normalized = hex.trim().replace(/^0x/i, "");
-  if (normalized.length % 2 !== 0) {
-    throw new Error("Secret key hex is malformed");
-  }
-  const result = new Uint8Array(normalized.length / 2);
-  for (let i = 0; i < normalized.length; i += 2) {
-    result[i / 2] = parseInt(normalized.slice(i, i + 2), 16);
-  }
-  return result;
-};
-
-const ensureSecretKey = (): Uint8Array | null => {
-  if (typeof window === "undefined") return null;
-  try {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      return fromHex(stored);
-    }
-    const generated = generateSecretKey();
-    window.localStorage.setItem(STORAGE_KEY, toHex(generated));
-    return generated;
-  } catch (error) {
-    console.warn("Unable to access secret key storage", error);
-    return generateSecretKey();
-  }
-};
 
 const extractBody = (content: string) => {
   if (!content) return "";
@@ -127,28 +88,15 @@ const updateMessageStatus = (
   );
 
 export const useBitcoinSquarePublicChat = () => {
-  const [secretKey, setSecretKey] = useState<Uint8Array | null>(null);
-  const [pubkey, setPubkey] = useState<string | null>(null);
   const [messages, setMessages] = useState<PublicChatMessage[]>([]);
   const [poolReady, setPoolReady] = useState(false);
   const poolRef = useRef<SimplePool | null>(null);
+  const { ready: accountReady, pubkey, signEvent } = useNostrAccount();
 
   const ready = useMemo(
-    () => secretKey !== null && poolReady,
-    [secretKey, poolReady],
+    () => accountReady && poolReady,
+    [accountReady, poolReady],
   );
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const key = ensureSecretKey();
-    if (!key) return;
-    setSecretKey(key);
-    try {
-      setPubkey(getPublicKey(key));
-    } catch (error) {
-      console.warn("Failed to derive pubkey", error);
-    }
-  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -193,8 +141,8 @@ export const useBitcoinSquarePublicChat = () => {
       if (!message.trim()) {
         throw new Error("Message cannot be empty");
       }
-      if (!secretKey) {
-        throw new Error("Chat is not ready yet");
+      if (!signEvent) {
+        throw new Error("Your Nostr keys are not ready yet");
       }
       const pool = poolRef.current;
       if (!pool) {
@@ -214,7 +162,7 @@ export const useBitcoinSquarePublicChat = () => {
         content,
       };
 
-      const event = finalizeEvent(template, secretKey);
+      const event = await signEvent(template);
 
       setMessages((prev) =>
         upsertMessage(prev, {
@@ -258,7 +206,7 @@ export const useBitcoinSquarePublicChat = () => {
         throw error;
       }
     },
-    [secretKey],
+    [signEvent],
   );
 
   return {

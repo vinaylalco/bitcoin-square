@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Navigate } from "react-router-dom";
 
 import BitcoinSquareFeed from "../components/bitcoinSquareChat/BitcoinSquareFeed";
 import ProfileCard from "../components/profile/ProfileCard";
@@ -11,6 +12,9 @@ import { useBitcoinSquareFeed } from "../hooks/useBitcoinSquareFeed";
 import { decryptBinary } from "../utils/aes";
 import { getCachedMediaBlob, getCachedPreview, setCachedMediaBlob, setCachedPreview } from "../utils/mediaCache";
 import { useProfileIdentity, shortenPubkey } from "../context/ProfileIdentityContext";
+import { useAuth } from "../context/AuthContext";
+import { useNostrAccount } from "../hooks/useNostrAccount";
+import { setNostrClientSigner } from "../lib/nostrClient";
 
 const CASUAL_ROOM: RoomDefinition = {
   id: CASUAL_ROOM_ID,
@@ -243,7 +247,7 @@ const Composer: React.FC<{
         disabled={disabled || isSending}
         rows={3}
         maxLength={500}
-        placeholder={disabled ? "Connect your NIP-07 signer and import the room key" : "Share an update…"}
+        placeholder={disabled ? "Your BitcoinSquare keys must be ready before posting" : "Share an update…"}
         className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-4 py-3 text-sm leading-relaxed text-[var(--fg-default)] shadow-sm focus:border-brand focus:outline-none"
       />
 
@@ -323,8 +327,6 @@ const NostrChat: React.FC = () => {
     hasRoomKey,
     roomKeyError,
     error: sendError,
-    importGroupKey,
-    exportGroupKey,
   } = useBitcoinSquareCasualChat();
 
   const {
@@ -339,6 +341,12 @@ const NostrChat: React.FC = () => {
     hasMore: feedHasMore,
     error: feedError,
   } = useBitcoinSquareFeed();
+  const { user, nostrPrivKey } = useAuth();
+  const {
+    ready: accountReady,
+    signEvent: globalSignEvent,
+    pubkey: accountPubkey,
+  } = useNostrAccount();
 
   const [activeView, setActiveView] = useState<"casual" | "feed">("casual");
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -353,6 +361,37 @@ const NostrChat: React.FC = () => {
   } = useMediaUploader({ room: CASUAL_ROOM, pubkey });
   const [composerError, setComposerError] = useState<string | null>(null);
   const { requestProfile, resolveProfileSummary } = useProfileIdentity();
+
+  useEffect(() => {
+    if (accountReady && globalSignEvent) {
+      setNostrClientSigner(globalSignEvent, accountPubkey ?? null);
+    } else {
+      setNostrClientSigner(null);
+    }
+    return () => {
+      setNostrClientSigner(null);
+    };
+  }, [accountPubkey, accountReady, globalSignEvent]);
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!nostrPrivKey) {
+    return (
+      <div className="flex h-full items-center justify-center bg-[var(--bg-app)] px-6 py-12">
+        <div className="max-w-lg rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-8 text-center shadow-sm">
+          <h1 className="text-lg font-semibold uppercase tracking-[0.24em] text-[var(--fg-default)]">
+            Nostr keys required
+          </h1>
+          <p className="mt-4 text-sm leading-relaxed text-[var(--fg-muted)]">
+            Your BitcoinSquare account does not yet have Nostr keys configured. Please update your
+            account credentials or contact support so we can reissue your chat access.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   useEffect(() => {
     if (activeView !== "casual") return;
@@ -424,32 +463,6 @@ const NostrChat: React.FC = () => {
     [handleSend],
   );
 
-  const handleImportKey = useCallback(async () => {
-    const payload = window.prompt("Paste the shared group key payload");
-    if (!payload) return;
-    const sender = window.prompt(
-      "Enter the sender's pubkey (optional, used when the payload is NIP-04 encrypted)",
-    );
-    try {
-      await importGroupKey(payload.trim(), sender?.trim() ? sender.trim() : undefined);
-      window.alert("Room key imported successfully");
-    } catch (error) {
-      console.error("Failed to import group key", error);
-      window.alert("Failed to import key. Please verify the payload and try again.");
-    }
-  }, [importGroupKey]);
-
-  const handleExportKey = useCallback(async () => {
-    const recipient = window.prompt("Recipient pubkey (optional)") ?? undefined;
-    try {
-      const payload = await exportGroupKey(recipient?.trim() ? recipient.trim() : undefined);
-      window.prompt("Share this payload securely with new members", payload);
-    } catch (error) {
-      console.error("Failed to export group key", error);
-      window.alert("We couldn't export the key. Try again later.");
-    }
-  }, [exportGroupKey]);
-
   const isCasualView = activeView === "casual";
 
   return (
@@ -494,20 +507,7 @@ const NostrChat: React.FC = () => {
         {isCasualView ? (
           <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-[var(--fg-muted)]">
             <span>Room tag: #{`room:${roomId}`}</span>
-            <button
-              type="button"
-              onClick={handleImportKey}
-              className="rounded-full border border-[var(--border-subtle)] px-3 py-1 font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand"
-            >
-              Import key
-            </button>
-            <button
-              type="button"
-              onClick={handleExportKey}
-              className="rounded-full border border-[var(--border-subtle)] px-3 py-1 font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand"
-            >
-              Export key
-            </button>
+            <span>Room access is provisioned automatically for BitcoinSquare members.</span>
           </div>
         ) : (
           <p className="mt-3 text-xs text-[var(--fg-muted)]">
@@ -586,12 +586,14 @@ const NostrChat: React.FC = () => {
             <div className="border-t border-[var(--border-subtle)] bg-[var(--bg-card)] px-6 py-5">
               {!pubkey && (
                 <p className="mb-3 rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-4 text-sm text-[var(--fg-muted)]">
-                  Connect a NIP-07 compatible signer to send messages and upload media.
+                  We&apos;re still preparing your BitcoinSquare Nostr keys. Refresh the page or reach out to
+                  support if this message does not disappear.
                 </p>
               )}
               {!hasRoomKey && (
                 <p className="mb-3 rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-4 text-sm text-[var(--fg-muted)]">
-                  Import the shared room key to decrypt and send messages in this private space.
+                  The shared casual room key isn&apos;t available right now. Please contact the
+                  BitcoinSquare team to restore access.
                 </p>
               )}
               {roomKeyError && (

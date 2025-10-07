@@ -1,10 +1,20 @@
-import { SimplePool, type Event, type Filter, type EventTemplate } from "nostr-tools";
+import { SimplePool, type Event, type EventTemplate, type Filter } from "nostr-tools";
 
 const DEFAULT_RELAYS = [
   "wss://relay.damus.io",
   "wss://relay.primal.net",
   "wss://nos.lol",
 ];
+
+type Signer = (template: EventTemplate) => Promise<Event>;
+
+let activeSigner: Signer | null = null;
+let activePubkey: string | null = null;
+
+export const setNostrClientSigner = (signer: Signer | null, pubkey: string | null = null) => {
+  activeSigner = signer;
+  activePubkey = pubkey;
+};
 
 export type RoomSubscription = {
   close: () => void;
@@ -20,10 +30,10 @@ export class NostrClient {
   }
 
   async getPublicKey() {
-    if (!window.nostr) {
-      throw new Error("NIP-07 provider not available");
+    if (!activePubkey) {
+      throw new Error("Nostr account is not ready");
     }
-    return window.nostr.getPublicKey();
+    return activePubkey;
   }
 
   subscribeToRoom(roomId: string, handler: RoomEventHandler): RoomSubscription {
@@ -31,18 +41,22 @@ export class NostrClient {
       { kinds: [1], "#t": [`room:${roomId}`] },
       { kinds: [20001], "#t": [`room:${roomId}`] },
     ];
-    const sub = this.pool.sub(this.relays, filters);
-    sub.on("event", handler);
+    const subscription = this.pool.subscribeMany(this.relays, filters, {
+      onevent: handler,
+      onerror: (error) => {
+        console.warn("Relay subscription error", error);
+      },
+    });
     return {
-      close: () => sub.unsub(),
+      close: () => subscription.close(),
     };
   }
 
   async publish(template: EventTemplate) {
-    if (!window.nostr) {
-      throw new Error("NIP-07 provider not available");
+    if (!activeSigner) {
+      throw new Error("Nostr signer is not configured");
     }
-    const signed = await window.nostr.signEvent(template);
+    const signed = await activeSigner(template);
     await this.pool.publish(this.relays, signed);
     return signed;
   }

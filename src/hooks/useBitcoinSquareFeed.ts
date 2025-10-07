@@ -1,12 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  SimplePool,
-  finalizeEvent,
-  generateSecretKey,
-  getPublicKey,
-  type Event,
-  type EventTemplate,
-} from "nostr-tools";
+import { SimplePool, type Event, type EventTemplate, type Filter } from "nostr-tools";
 
 import {
   cacheMessage,
@@ -14,6 +7,7 @@ import {
   getCachedMessages,
   type CachedMessage,
 } from "../utils/chatCache";
+import { useNostrAccount } from "./useNostrAccount";
 
 const RELAYS = [
   "wss://relay.damus.io",
@@ -25,45 +19,11 @@ const RELAYS = [
 const FAST_RELAY = RELAYS[0];
 const FEED_ROOM_ID = "bitcoinsquare-feed";
 const FEED_TAG = "bitcoinsquare-feed";
-const STORAGE_KEY = "bitcoin-square-feed-secret";
 const MAX_POSTS = 500;
 const INITIAL_FETCH_LIMIT = 50;
 const LOAD_MORE_BATCH = 40;
 const BASE_BACKOFF = 1000;
 const MAX_BACKOFF = 30_000;
-
-const toHex = (bytes: Uint8Array) =>
-  Array.from(bytes)
-    .map((value) => value.toString(16).padStart(2, "0"))
-    .join("");
-
-const fromHex = (hex: string) => {
-  const normalized = hex.trim().replace(/^0x/i, "");
-  if (normalized.length % 2 !== 0) {
-    throw new Error("Secret key hex is malformed");
-  }
-  const result = new Uint8Array(normalized.length / 2);
-  for (let i = 0; i < normalized.length; i += 2) {
-    result[i / 2] = parseInt(normalized.slice(i, i + 2), 16);
-  }
-  return result;
-};
-
-const ensureSecretKey = (): Uint8Array | null => {
-  if (typeof window === "undefined") return null;
-  try {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      return fromHex(stored);
-    }
-    const generated = generateSecretKey();
-    window.localStorage.setItem(STORAGE_KEY, toHex(generated));
-    return generated;
-  } catch (error) {
-    console.warn("Unable to access secret key storage", error);
-    return generateSecretKey();
-  }
-};
 
 export interface FeedAttachment {
   url: string;
@@ -200,6 +160,43 @@ const updatePostStatus = (
 const hasFeedTag = (event: Event) =>
   event.tags?.some((tag) => tag[0] === "t" && tag[1] === FEED_TAG) ?? false;
 
+const listFromRelays = async (
+  pool: SimplePool,
+  relays: string[],
+  filters: Filter[],
+) => {
+  const settled = await Promise.allSettled(
+    relays.map(async (url) => {
+      try {
+        const relay = await pool.ensureRelay(url);
+        if (typeof relay.list !== "function") {
+          console.warn(`Relay ${url} does not support list()`);
+          return [];
+        }
+        const events = await relay.list(filters);
+        return events ?? [];
+      } catch (error) {
+        console.warn(`Failed to list events from ${url}`, error);
+        return [];
+      }
+    }),
+  );
+
+  const aggregated: Event[] = [];
+  for (const result of settled) {
+    if (result.status === "fulfilled") {
+      aggregated.push(...result.value);
+    }
+  }
+
+  const unique = new Map<string, Event>();
+  aggregated.forEach((event) => {
+    unique.set(event.id, event);
+  });
+
+  return Array.from(unique.values()).sort((a, b) => b.created_at - a.created_at);
+};
+
 export interface UseBitcoinSquareFeedReturn {
   posts: FeedPost[];
   ready: boolean;
@@ -216,8 +213,6 @@ export interface UseBitcoinSquareFeedReturn {
 
 export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
   const [posts, setPosts] = useState<FeedPost[]>([]);
-  const [secretKey, setSecretKey] = useState<Uint8Array | null>(null);
-  const [pubkey, setPubkey] = useState<string | null>(null);
   const [poolReady, setPoolReady] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -231,7 +226,9 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
   const oldestTimestampRef = useRef<number | null>(null);
   const initialLoadRef = useRef(false);
 
-  const ready = useMemo(() => secretKey !== null && poolReady, [secretKey, poolReady]);
+  const { ready: accountReady, pubkey, signEvent } = useNostrAccount();
+
+  const ready = useMemo(() => accountReady && poolReady, [accountReady, poolReady]);
 
   const ensureOldestTimestamp = useCallback((nextPosts: FeedPost[]) => {
     if (nextPosts.length === 0) {
@@ -274,18 +271,6 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
   useEffect(() => {
     void hydrateFromCache();
   }, [hydrateFromCache]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const key = ensureSecretKey();
-    if (!key) return;
-    setSecretKey(key);
-    try {
-      setPubkey(getPublicKey(key));
-    } catch (deriveError) {
-      console.warn("Failed to derive pubkey", deriveError);
-    }
-  }, []);
 
   const handleEvent = useCallback(
     (event: Event) => {
@@ -365,7 +350,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
     setLoadingMore(true);
     try {
       const until = oldestTimestampRef.current ? oldestTimestampRef.current - 1 : Math.floor(Date.now() / 1000);
-      const events = await pool.list(RELAYS, [
+      const events = await listFromRelays(pool, RELAYS, [
         {
           kinds: [1],
           "#t": [FEED_TAG],
@@ -380,20 +365,21 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
       }
       const filtered = events.filter(hasFeedTag);
       if (filtered.length === 0) {
-        setHasMore(events.length >= LOAD_MORE_BATCH);
+        setHasMore(false);
         setLoadingMore(false);
         return;
       }
-      const mapped = filtered.map((event) => mapEventToPost(event));
+      const limited = filtered.slice(0, LOAD_MORE_BATCH);
+      const mapped = limited.map((event) => mapEventToPost(event));
       setPosts((prev) => {
         const merged = mapped.reduce((acc, post) => upsertPost(acc, post), prev);
         ensureOldestTimestamp(merged);
         return merged;
       });
-      setHasMore(events.length >= LOAD_MORE_BATCH);
+      setHasMore(filtered.length >= LOAD_MORE_BATCH);
       await cacheMessages(
         FEED_ROOM_ID,
-        filtered.map(eventToCached),
+        limited.map(eventToCached),
       );
     } catch (loadError) {
       console.warn("Failed to load additional feed events", loadError);
@@ -417,8 +403,8 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
       if (content.length > 500) {
         throw new Error("Status updates are limited to 500 characters");
       }
-      if (!secretKey) {
-        throw new Error("A local signer is not ready yet");
+      if (!signEvent) {
+        throw new Error("Your Nostr keys are not ready yet");
       }
       const pool = poolRef.current;
       if (!pool) {
@@ -436,7 +422,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
         content,
       };
 
-      const event = finalizeEvent(template, secretKey);
+      const event = await signEvent(template);
       insertPost(mapEventToPost(event, true));
       setError(null);
 
@@ -470,13 +456,13 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
         setPublishing(false);
       }
     },
-    [ensureOldestTimestamp, insertPost, secretKey],
+    [ensureOldestTimestamp, insertPost, signEvent],
   );
 
   const likePost = useCallback(
     async (post: FeedPost) => {
-      if (!secretKey) {
-        throw new Error("A local signer is not ready yet");
+      if (!signEvent) {
+        throw new Error("Your Nostr keys are not ready yet");
       }
       const pool = poolRef.current;
       if (!pool) {
@@ -494,19 +480,19 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
           ["feed", FEED_TAG],
         ],
       };
-      const event = finalizeEvent(template, secretKey);
+      const event = await signEvent(template);
       await pool.publish([FAST_RELAY], event);
       if (RELAYS.length > 1) {
         void pool.publish(RELAYS.slice(1), event).catch(() => undefined);
       }
     },
-    [secretKey],
+    [signEvent],
   );
 
   const repostPost = useCallback(
     async (post: FeedPost) => {
-      if (!secretKey) {
-        throw new Error("A local signer is not ready yet");
+      if (!signEvent) {
+        throw new Error("Your Nostr keys are not ready yet");
       }
       const pool = poolRef.current;
       if (!pool) {
@@ -524,13 +510,13 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
           ["feed", FEED_TAG],
         ],
       };
-      const event = finalizeEvent(template, secretKey);
+      const event = await signEvent(template);
       await pool.publish([FAST_RELAY], event);
       if (RELAYS.length > 1) {
         void pool.publish(RELAYS.slice(1), event).catch(() => undefined);
       }
     },
-    [secretKey],
+    [signEvent],
   );
 
   return {
