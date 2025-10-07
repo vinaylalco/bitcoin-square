@@ -1,5 +1,7 @@
 import { SimplePool, type Event, type EventTemplate, type Filter } from "nostr-tools";
 
+import { publishWithPool } from "./nostrPublish";
+
 const DEFAULT_RELAYS = [
   "wss://relay.damus.io",
   "wss://relay.primal.net",
@@ -57,7 +59,7 @@ export class NostrClient {
       throw new Error("Nostr signer is not configured");
     }
     const signed = await activeSigner(template);
-    await this.pool.publish(this.relays, signed);
+    await publishWithPool(this.pool, this.relays, signed);
     return signed;
   }
 

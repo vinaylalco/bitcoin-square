@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SimplePool, type Event, type EventTemplate } from "nostr-tools";
 
 import { useNostrAccount } from "./useNostrAccount";
+import { publishWithPool } from "../lib/nostrPublish";
 
 const RELAYS = [
   "wss://relay.damus.io",
@@ -178,28 +179,19 @@ export const useBitcoinSquarePublicChat = () => {
       );
 
       try {
-        const publication = pool.publish(RELAYS, event);
-
-        publication.on("ok", () => {
-          setMessages((prev) =>
-            upsertMessage(prev, {
-              id: event.id,
-              pubkey: event.pubkey,
-              created_at: event.created_at,
-              rawContent: event.content,
-              body: message.trim(),
-              status: "ok",
-              optimistic: false,
-              retryPayload: undefined,
-            }),
-          );
-        });
-
-        publication.on("failed", (reason: string) => {
-          console.warn("Publish failed", reason);
-          setMessages((prev) => updateMessageStatus(prev, event.id, "failed"));
-        });
-
+        await publishWithPool(pool, RELAYS, event);
+        setMessages((prev) =>
+          upsertMessage(prev, {
+            id: event.id,
+            pubkey: event.pubkey,
+            created_at: event.created_at,
+            rawContent: event.content,
+            body: message.trim(),
+            status: "ok",
+            optimistic: false,
+            retryPayload: undefined,
+          }),
+        );
         return { eventId: event.id };
       } catch (error) {
         setMessages((prev) => updateMessageStatus(prev, event.id, "failed"));

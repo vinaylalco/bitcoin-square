@@ -8,6 +8,7 @@ import {
   type CachedMessage,
 } from "../utils/chatCache";
 import { useNostrAccount } from "./useNostrAccount";
+import { publishWithPool, replicateWithPool } from "../lib/nostrPublish";
 
 const RELAYS = [
   "wss://relay.damus.io",
@@ -164,38 +165,55 @@ const listFromRelays = async (
   pool: SimplePool,
   relays: string[],
   filters: Filter[],
-) => {
-  const settled = await Promise.allSettled(
-    relays.map(async (url) => {
-      try {
-        const relay = await pool.ensureRelay(url);
-        if (typeof relay.list !== "function") {
-          console.warn(`Relay ${url} does not support list()`);
-          return [];
-        }
-        const events = await relay.list(filters);
-        return events ?? [];
-      } catch (error) {
-        console.warn(`Failed to list events from ${url}`, error);
-        return [];
-      }
-    }),
-  );
-
-  const aggregated: Event[] = [];
-  for (const result of settled) {
-    if (result.status === "fulfilled") {
-      aggregated.push(...result.value);
+) =>
+  new Promise<Event[]>((resolve) => {
+    if (relays.length === 0) {
+      resolve([]);
+      return;
     }
-  }
 
-  const unique = new Map<string, Event>();
-  aggregated.forEach((event) => {
-    unique.set(event.id, event);
+    const events = new Map<string, Event>();
+    const pending = new Set(relays);
+    let finished = false;
+    let subscription: ReturnType<SimplePool["subscribeMany"]> | null = null;
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+      subscription?.close();
+      resolve(Array.from(events.values()).sort((a, b) => b.created_at - a.created_at));
+    };
+
+    subscription = pool.subscribeMany(relays, filters, {
+      onevent: (event: Event) => {
+        events.set(event.id, event);
+      },
+      oneose: (relay?: string) => {
+        if (relay) {
+          pending.delete(relay);
+        }
+        if (pending.size === 0) {
+          finish();
+        }
+      },
+      onerror: (_error, relay) => {
+        if (relay) {
+          pending.delete(relay);
+        }
+        if (pending.size === 0) {
+          finish();
+        }
+      },
+    });
+
+    timeout = setTimeout(() => {
+      finish();
+    }, 8000);
   });
-
-  return Array.from(unique.values()).sort((a, b) => b.created_at - a.created_at);
-};
 
 export interface UseBitcoinSquareFeedReturn {
   posts: FeedPost[];
@@ -428,7 +446,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
 
       try {
         setPublishing(true);
-        await pool.publish([FAST_RELAY], event);
+        await publishWithPool(pool, [FAST_RELAY], event);
         setPosts((prev) => {
           const next = updatePostStatus(prev, event.id, "ok");
           ensureOldestTimestamp(next);
@@ -436,7 +454,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
         });
         await cacheMessage(eventToCached(event));
         if (RELAYS.length > 1) {
-          void pool.publish(RELAYS.slice(1), event).catch(() => undefined);
+          void replicateWithPool(pool, RELAYS.slice(1), event);
         }
         return { eventId: event.id };
       } catch (publishError) {
@@ -481,9 +499,9 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
         ],
       };
       const event = await signEvent(template);
-      await pool.publish([FAST_RELAY], event);
+      await publishWithPool(pool, [FAST_RELAY], event);
       if (RELAYS.length > 1) {
-        void pool.publish(RELAYS.slice(1), event).catch(() => undefined);
+        void replicateWithPool(pool, RELAYS.slice(1), event);
       }
     },
     [signEvent],
@@ -511,9 +529,9 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
         ],
       };
       const event = await signEvent(template);
-      await pool.publish([FAST_RELAY], event);
+      await publishWithPool(pool, [FAST_RELAY], event);
       if (RELAYS.length > 1) {
-        void pool.publish(RELAYS.slice(1), event).catch(() => undefined);
+        void replicateWithPool(pool, RELAYS.slice(1), event);
       }
     },
     [signEvent],

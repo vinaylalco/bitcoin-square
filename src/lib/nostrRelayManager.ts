@@ -1,5 +1,7 @@
 import { SimplePool, type Event, type Filter } from "nostr-tools";
 
+import { publishWithRelay } from "./nostrPublish";
+
 export type CacheMirror = {
   persistEvent?: (event: Event) => Promise<void> | void;
   queryEvents?: (filter: Filter) => Promise<Event[]> | Event[];
@@ -190,7 +192,7 @@ export class NostrRelayManager {
       const item = connection.queue.shift();
       if (!item) break;
       try {
-        await connection.relay.publish(item.event);
+        await publishWithRelay(connection.relay, item.event);
         item.resolve();
       } catch (error) {
         item.reject(error);
