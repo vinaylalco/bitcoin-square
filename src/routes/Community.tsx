@@ -389,49 +389,61 @@ const Community: React.FC = () => {
     };
   }, [accountPubkey, accountReady, globalSignEvent]);
 
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
+  const renderContent = useCallback(() => {
+    if (!user) {
+      return <Navigate to="/login" replace />;
+    }
 
-  if (accountLoading) {
-    return (
-      <div className="flex h-full items-center justify-center bg-[var(--bg-app)] px-6 py-12">
-        <div className="max-w-lg rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-8 text-center shadow-sm">
-          <h1 className="text-lg font-semibold uppercase tracking-[0.24em] text-[var(--fg-default)]">
-            Loading account keys
-          </h1>
-          <p className="mt-4 text-sm leading-relaxed text-[var(--fg-muted)]">
-            We&apos;re securely retrieving your BitcoinSquare-issued Nostr credentials. This only takes a
-            moment.
-          </p>
+    if (accountLoading) {
+      return (
+        <div className="flex h-full items-center justify-center bg-[var(--bg-app)] px-6 py-12">
+          <div className="max-w-lg rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-8 text-center shadow-sm">
+            <h1 className="text-lg font-semibold uppercase tracking-[0.24em] text-[var(--fg-default)]">
+              Loading account keys
+            </h1>
+            <p className="mt-4 text-sm leading-relaxed text-[var(--fg-muted)]">
+              We&apos;re securely retrieving your BitcoinSquare-issued Nostr credentials. This only takes a
+              moment.
+            </p>
+          </div>
         </div>
-      </div>
-    );
-  }
+      );
+    }
 
-  if (!accountReady || !globalSignEvent || !accountPubkey) {
-    return (
-      <div className="flex h-full items-center justify-center bg-[var(--bg-app)] px-6 py-12">
-        <div className="max-w-lg rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-8 text-center shadow-sm">
-          <h1 className="text-lg font-semibold uppercase tracking-[0.24em] text-[var(--fg-default)]">
-            Unable to access keys
-          </h1>
-          <p className="mt-4 text-sm leading-relaxed text-[var(--fg-muted)]">
-            {accountError
-              ? accountError
-              : 'We couldn\'t load the Nostr keys linked to your BitcoinSquare account. If your dashboard shows active keys, try refreshing them below.'}
-          </p>
-          <button
-            type="button"
-            onClick={() => refreshNostrKeys().catch(() => undefined)}
-            className="mt-6 inline-flex items-center justify-center rounded-full bg-[var(--accent)] px-6 py-2 text-sm font-semibold text-white transition hover:brightness-110"
-          >
-            Retry key sync
-          </button>
+    if (!accountReady || !globalSignEvent || !accountPubkey) {
+      return (
+        <div className="flex h-full items-center justify-center bg-[var(--bg-app)] px-6 py-12">
+          <div className="max-w-lg rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-8 text-center shadow-sm">
+            <h1 className="text-lg font-semibold uppercase tracking-[0.24em] text-[var(--fg-default)]">
+              Unable to access keys
+            </h1>
+            <p className="mt-4 text-sm leading-relaxed text-[var(--fg-muted)]">
+              {accountError
+                ? accountError
+                : 'We couldn\'t load the Nostr keys linked to your BitcoinSquare account. If your dashboard shows active keys, try refreshing them below.'}
+            </p>
+            <button
+              type="button"
+              onClick={() => refreshNostrKeys().catch(() => undefined)}
+              className="mt-6 inline-flex items-center justify-center rounded-full bg-[var(--accent)] px-6 py-2 text-sm font-semibold text-white transition hover:brightness-110"
+            >
+              Retry key sync
+            </button>
+          </div>
         </div>
-      </div>
-    );
-  }
+      );
+    }
+
+    return null;
+  }, [
+    accountError,
+    accountLoading,
+    accountPubkey,
+    accountReady,
+    globalSignEvent,
+    refreshNostrKeys,
+    user,
+  ]);
 
   useEffect(() => {
     if (activeView !== "casual") return;
@@ -551,6 +563,12 @@ const Community: React.FC = () => {
     }
   }, []);
 
+
+  const gatingResult = renderContent();
+  if (gatingResult) {
+    return gatingResult;
+  }
+  
   return (
     <div className="flex h-full flex-col bg-[var(--bg-app)]">
       <header className="border-b border-[var(--border-subtle)] bg-[var(--bg-card)] px-6 py-5 shadow-sm">
