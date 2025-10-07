@@ -137,11 +137,6 @@ function normalizeUser(raw: any | null | undefined): User | null {
     lastStudyDate: normalizeLastStudyDate(raw.lastStudyDate),
     preferences: normalizePreferences(raw.preferences),
     lnWalletAddress: normalizeLightningAddress(raw.lnWalletAddress ?? raw.lightningAddress),
-    screenName: normalizeScreenName(raw.screenName ?? raw.displayName ?? raw.username, seedSource),
-    avatarUrl: normalizeAvatarUrl(
-      raw.avatarUrl ?? raw.profileImage ?? raw.image ?? raw.picture,
-      seedSource,
-    ),
   };
   if (!normalized.lessonCompletions) {
     normalized.lessonCompletions = {};
