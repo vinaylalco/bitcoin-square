@@ -11,7 +11,10 @@ import {
   register as apiRegister,
   resetPassword as apiReset,
 } from '../api/auth';
-import { strapiFetch } from '../api/strapi-client';
+import {
+  StrapiNetworkError,
+  strapiFetch,
+} from '../api/strapi-client';
 import { normalizeLessonCompletionList } from '../utils/localProgress';
 import {
   decryptPrivateKey,
@@ -192,6 +195,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setNostrKeyLoading(true);
     try {
       const response = await fetchAccountNostrKeys(user.id, token);
+      if (!response) {
+        return;
+      }
       if (response?.nostrPublicKey && response.nostrPublicKey !== user.nostrPublicKey) {
         updateUser((prev) => (prev ? { ...prev, nostrPublicKey: response.nostrPublicKey } : prev));
       }
@@ -213,7 +219,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
     } catch (error) {
-      console.warn('Failed to refresh nostr keys', error);
+      if (error instanceof StrapiNetworkError) {
+        console.info('Skipping nostr key refresh: Strapi API is unreachable.');
+      } else {
+        console.warn('Failed to refresh nostr keys', error);
+      }
     } finally {
       setNostrKeyLoading(false);
     }
