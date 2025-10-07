@@ -17,6 +17,7 @@ const hexToBytes = (hex: string): Uint8Array => {
 
 export interface UseNostrAccountResult {
   ready: boolean;
+  loading: boolean;
   pubkey: string | null;
   privkey: Uint8Array | null;
   error: string | null;
@@ -24,12 +25,24 @@ export interface UseNostrAccountResult {
 }
 
 export const useNostrAccount = (): UseNostrAccountResult => {
-  const { user, nostrPrivKey } = useAuth();
+  const { user, nostrPrivKey, nostrKeyLoading } = useAuth();
 
   return useMemo(() => {
+    if (nostrKeyLoading) {
+      return {
+        ready: false,
+        loading: true,
+        pubkey: user?.nostrPublicKey ?? null,
+        privkey: null,
+        error: null,
+        signEvent: null,
+      };
+    }
+
     if (!nostrPrivKey) {
       return {
         ready: false,
+        loading: false,
         pubkey: user?.nostrPublicKey ?? null,
         privkey: null,
         error: null,
@@ -43,6 +56,7 @@ export const useNostrAccount = (): UseNostrAccountResult => {
       const signEvent = async (template: EventTemplate) => finalizeEvent(template, privkey);
       return {
         ready: true,
+        loading: false,
         pubkey: derivedPubkey,
         privkey,
         error: null,
@@ -53,11 +67,12 @@ export const useNostrAccount = (): UseNostrAccountResult => {
       console.warn("Invalid nostr key material", error);
       return {
         ready: false,
+        loading: false,
         pubkey: user?.nostrPublicKey ?? null,
         privkey: null,
         error: message,
         signEvent: null,
       };
     }
-  }, [nostrPrivKey, user?.nostrPublicKey]);
+  }, [nostrKeyLoading, nostrPrivKey, user?.nostrPublicKey]);
 };
