@@ -11,3 +11,15 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+interface BitcoinSquareRuntimeConfig {
+  casualRoomKey?: string;
+}
+
+declare global {
+  interface Window {
+    __BITCOINSQUARE_CONFIG__?: BitcoinSquareRuntimeConfig;
+  }
+}
+
+export {};

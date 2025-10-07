@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { EventTemplate } from "nostr-tools";
 
 import { NostrRelayManager } from "../lib/nostrRelayManager";
+import { getConfiguredCasualRoomKey } from "../config/nostr";
 import { cacheMessage, getCachedMessages, type CachedMessage } from "../utils/chatCache";
 import {
   decryptMessage,
@@ -168,7 +169,7 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
   const notificationGateRef = useRef(false);
   const refreshedKeyRef = useRef(false);
 
-  const envRoomKey = import.meta.env.VITE_CASUAL_ROOM_KEY ?? null;
+  const envRoomKey = getConfiguredCasualRoomKey();
 
   const { hasKey, error: roomKeyError, refresh: refreshKey } = useRoomKey({
     roomId: ROOM_ID,
@@ -180,7 +181,9 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
 
   useEffect(() => {
     if (!envRoomKey) {
-      setError("Shared room key is not configured. Please contact BitcoinSquare support.");
+      setError(
+        "Shared room key is not configured. Set VITE_CASUAL_ROOM_KEY (base64 32-byte value) or define window.__BITCOINSQUARE_CONFIG__.casualRoomKey.",
+      );
     }
   }, [envRoomKey]);
 
