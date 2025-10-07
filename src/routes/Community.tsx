@@ -563,11 +563,12 @@ const Community: React.FC = () => {
     }
   }, []);
 
+
   const gatingResult = renderContent();
   if (gatingResult) {
     return gatingResult;
   }
-
+  
   return (
     <div className="flex h-full flex-col bg-[var(--bg-app)]">
       <header className="border-b border-[var(--border-subtle)] bg-[var(--bg-card)] px-6 py-5 shadow-sm">
