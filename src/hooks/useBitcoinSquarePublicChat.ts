@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { SimplePool, type Event, type EventTemplate } from "nostr-tools";
+import { SimplePool, type Event, type EventTemplate } from "../lib/nostrToolsShim";
 
 import { useNostrAccount } from "./useNostrAccount";
 import { publishWithPool } from "../lib/nostrPublish";
@@ -8,7 +8,7 @@ const RELAYS = [
   "wss://relay.damus.io",
   "wss://nos.lol",
   "wss://relay.primal.net",
-  "wss://eden.nostr.land",
+  "wss://relay.nostr.band",
 ];
 
 const FOOTER_TEXT =
@@ -101,36 +101,50 @@ export const useBitcoinSquarePublicChat = () => {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+
     const pool = new SimplePool();
     poolRef.current = pool;
-    setPoolReady(true);
+    let cancelled = false;
+    let subscription: ReturnType<SimplePool["subscribeMany"]> | null = null;
 
-    const since = Math.floor(Date.now() / 1000) - 60 * 60 * 24;
-    const subscription = pool.subscribeMany(
-      RELAYS,
-      [
-        {
-          kinds: [1],
-          "#t": [ROOM_TAG],
-          since,
-          limit: 200,
-        },
-      ],
-      {
-        onevent: (event) => {
-          if (!event.tags.some((tag) => tag[0] === "t" && tag[1] === ROOM_TAG)) {
-            return;
-          }
-          setMessages((prev) => upsertMessage(prev, mapEventToMessage(event)));
-        },
-        onerror: (err) => {
-          console.warn("Relay subscription error", err);
-        },
-      },
-    );
+    pool
+      .waitUntilReady()
+      .then(() => {
+        if (cancelled) return;
+        setPoolReady(true);
+
+        const since = Math.floor(Date.now() / 1000) - 60 * 60 * 24;
+        subscription = pool.subscribeMany(
+          RELAYS,
+          [
+            {
+              kinds: [1],
+              "#t": [ROOM_TAG],
+              since,
+              limit: 200,
+            },
+          ],
+          {
+            onevent: (event) => {
+              if (!event.tags.some((tag) => tag[0] === "t" && tag[1] === ROOM_TAG)) {
+                return;
+              }
+              setMessages((prev) => upsertMessage(prev, mapEventToMessage(event)));
+            },
+            onerror: (err) => {
+              console.warn("Relay subscription error", err);
+            },
+          },
+        );
+      })
+      .catch((loadError) => {
+        if (cancelled) return;
+        console.warn("Failed to initialise public chat pool", loadError);
+      });
 
     return () => {
-      subscription.close();
+      cancelled = true;
+      subscription?.close();
       pool.close(RELAYS);
       poolRef.current = null;
       setPoolReady(false);

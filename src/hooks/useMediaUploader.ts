@@ -70,6 +70,19 @@ const uint8ToBase64 = (value: Uint8Array) => {
   return btoa(binary);
 };
 
+const base64ToArrayBuffer = (value: string) => {
+  const normalized = value.trim();
+  if (!normalized) {
+    throw new Error("Encryption key cannot be empty");
+  }
+  const binary = atob(normalized);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes.buffer;
+};
+
 const getMediaDimensions = async (blob: Blob, mimeType: string): Promise<MediaDimensions> => {
   if (typeof window === "undefined") return {};
 
@@ -202,7 +215,11 @@ export const useMediaUploader = ({ room, pubkey, host = "void.cat" }: UseMediaUp
     roomId && isPrivate && roomId === CASUAL_ROOM_ID
       ? import.meta.env.VITE_CASUAL_ROOM_KEY ?? null
       : null;
-  const { key: roomKey, ensure } = useRoomKey({
+  const {
+    key: roomKey,
+    base64: roomKeyBase64,
+    ensure,
+  } = useRoomKey({
     roomId,
     isPrivate: Boolean(isPrivate),
     seedBase64,
@@ -322,8 +339,19 @@ export const useMediaUploader = ({ room, pubkey, host = "void.cat" }: UseMediaUp
 
         let exportedKey: ArrayBuffer | undefined;
         if (isPrivate && cryptoKey) {
-          assertCryptoAvailable();
-          exportedKey = await crypto.subtle.exportKey("raw", cryptoKey);
+          if (roomKeyBase64) {
+            exportedKey = base64ToArrayBuffer(roomKeyBase64);
+          } else {
+            assertCryptoAvailable();
+            try {
+              exportedKey = await crypto.subtle.exportKey("raw", cryptoKey);
+            } catch (exportError) {
+              console.warn("Failed to export room key for media encryption", exportError);
+              throw new Error(
+                "We couldn't prepare the encryption key for this upload. Please refresh and try again.",
+              );
+            }
+          }
         }
 
         const workerResult = await runWorker(file, {

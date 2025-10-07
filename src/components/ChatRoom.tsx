@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Event, EventTemplate } from "nostr-tools";
+import type { Event, EventTemplate } from "../lib/nostrToolsShim";
 
 import MessageInput from "./MessageInput";
 import type { RoomDefinition } from "./RoomList";
