@@ -154,10 +154,12 @@ const parseUploadUrl = (payload: unknown): string | null => {
   return null;
 };
 
+type UploadHost = "void.cat" | "nostr.build";
+
 const uploadToHost = async (
   blob: Blob,
   fileName: string,
-  host: "void.cat" | "nostr.build",
+  host: UploadHost,
   onProgress: (progress: number) => void,
 ) =>
   new Promise<{ url: string; raw: unknown }>((resolve, reject) => {
@@ -175,12 +177,12 @@ const uploadToHost = async (
     };
 
     xhr.onerror = () => {
-      reject(new Error("Failed to upload media to host"));
+      reject(new Error(`Failed to upload media to ${host}. Please check your connection and try again.`));
     };
 
     xhr.onload = () => {
       if (xhr.status < 200 || xhr.status >= 300) {
-        reject(new Error(`Upload failed with status ${xhr.status}`));
+        reject(new Error(`Upload to ${host} failed with status ${xhr.status}`));
         return;
       }
       try {
@@ -387,9 +389,28 @@ export const useMediaUploader = ({ room, pubkey, host = "void.cat" }: UseMediaUp
         const originalBuffer = workerResult.originalBuffer ?? workerResult.buffer!;
         const originalBlob = new Blob([originalBuffer], { type: file.type || mimeType });
 
-        const uploadResult = await uploadToHost(payloadBlob, file.name, host, (value) => {
-          setProgress(Math.round(value * 100));
-        });
+        const hostOrder: UploadHost[] = host === "nostr.build" ? ["nostr.build", "void.cat"] : ["void.cat", "nostr.build"];
+        let uploadResult: { url: string; raw: unknown } | null = null;
+        let lastError: unknown = null;
+        for (const candidateHost of hostOrder) {
+          try {
+            const result = await uploadToHost(payloadBlob, file.name, candidateHost, (value) => {
+              setProgress(Math.round(value * 100));
+            });
+            uploadResult = result;
+            break;
+          } catch (attemptError) {
+            lastError = attemptError;
+            console.warn(`Upload to ${candidateHost} failed`, attemptError);
+            setProgress(0);
+          }
+        }
+
+        if (!uploadResult) {
+          throw (lastError instanceof Error
+            ? lastError
+            : new Error("We couldn't reach any media upload hosts. Please try again later."));
+        }
 
         const now = Math.floor(Date.now() / 1000);
         const dimensions =

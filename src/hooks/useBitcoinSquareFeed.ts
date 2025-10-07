@@ -32,8 +32,13 @@ const MAX_BACKOFF = 30_000;
 export interface FeedAttachment {
   url: string;
   mimeType: string;
-  dimensions?: string;
   size?: number;
+  width?: number;
+  height?: number;
+  dimensions?: string;
+  digest?: string | null;
+  iv?: string | null;
+  eventId?: string | null;
 }
 
 export interface FeedPost {
@@ -83,11 +88,24 @@ const parseAttachments = (tags: string[][]): FeedAttachment[] => {
       current.mimeType = value;
     } else if (key === "dim") {
       current.dimensions = value;
+      const [w, h] = value.split("x");
+      const width = Number.parseInt(w ?? "", 10);
+      const height = Number.parseInt(h ?? "", 10);
+      if (!Number.isNaN(width)) {
+        current.width = width;
+      }
+      if (!Number.isNaN(height)) {
+        current.height = height;
+      }
     } else if (key === "size") {
       const parsed = Number.parseInt(value, 10);
       if (!Number.isNaN(parsed)) {
         current.size = parsed;
       }
+    } else if (key === "iv") {
+      current.iv = value;
+    } else if (key === "x") {
+      current.digest = value;
     }
   }
 
@@ -493,7 +511,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
       if (!content.trim()) {
         throw new Error("Status update cannot be empty");
       }
-      if (content.length > 500) {
+      if (trimmed.length > 500) {
         throw new Error("Status updates are limited to 500 characters");
       }
       if (!signEvent) {

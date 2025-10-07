@@ -81,7 +81,13 @@ const ProfileModal: React.FC = () => {
       <div className="w-full max-w-lg rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-2xl">
         <header className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-4">
-            <div className="h-20 w-20 overflow-hidden rounded-full border border-[var(--border-subtle)] bg-[var(--bg-muted)]">
+            <a
+              href={summary.profileUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="relative block h-20 w-20 overflow-hidden rounded-full border border-[var(--border-subtle)] bg-[var(--bg-muted)] shadow-lg transition hover:border-brand"
+              title={`Open ${summary.displayName}'s profile in a new tab`}
+            >
               <img
                 src={summary.avatarUrl}
                 alt={summary.displayName}
@@ -89,20 +95,13 @@ const ProfileModal: React.FC = () => {
                 onLoad={() => setAvatarLoaded(true)}
                 className={`h-full w-full object-cover transition-opacity duration-500 ${avatarLoaded ? "opacity-100" : "opacity-0"}`}
               />
-            </div>
+              <span className="sr-only">Open full profile</span>
+            </a>
             <div>
               <h2 className="text-2xl font-semibold text-[var(--fg-default)]">{summary.displayName}</h2>
               <p className="mt-1 text-xs uppercase tracking-[0.18em] text-[var(--fg-muted)]">
                 {shortenPubkey(activeProfile)}
               </p>
-              <a
-                href={summary.profileUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-brand transition hover:underline"
-              >
-                View on BitcoinSquare
-              </a>
             </div>
           </div>
           <button

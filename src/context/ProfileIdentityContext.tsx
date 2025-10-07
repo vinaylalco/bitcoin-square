@@ -15,10 +15,17 @@ import {
   writePersistedProfile,
   writeSessionProfile,
 } from "../utils/profileCache";
+import {
+  generateScreenName,
+  generateWarmAvatar,
+  normalizeAvatarUrl,
+  normalizeScreenName,
+} from "../utils/profileDefaults";
 
 export interface BitcoinSquareProfile {
   pubkey: string;
   displayName: string;
+  screenName?: string | null;
   avatarUrl: string;
   joined: string | null;
   totalPosts: number | null;
@@ -66,7 +73,7 @@ const ProfileIdentityContext = createContext<ProfileIdentityContextValue | null>
 
 const shorten = (value: string) => `${value.slice(0, 8)}…${value.slice(-8)}`;
 
-const fallbackAvatar = (pubkey: string) => `https://www.gravatar.com/avatar/${pubkey}?d=identicon`;
+const fallbackAvatar = (pubkey: string) => generateWarmAvatar(pubkey);
 
 const profileUrl = (pubkey: string) => `https://bitcoinsquare.io/profile/${pubkey}`;
 
@@ -79,10 +86,13 @@ const normalizeProfile = (pubkey: string, payload: Partial<BitcoinSquareProfile>
     : Array.isArray(payload.achievements)
       ? payload.achievements
       : [];
+  const seed = pubkey || "profile";
+  const displayName = normalizeScreenName(payload.screenName ?? payload.displayName, seed);
   return {
     pubkey,
-    displayName: payload.displayName ?? shorten(pubkey),
-    avatarUrl: payload.avatarUrl ?? fallbackAvatar(pubkey),
+    displayName,
+    screenName: payload.screenName ?? displayName,
+    avatarUrl: normalizeAvatarUrl(payload.avatarUrl, seed),
     joined: payload.joined ?? null,
     totalPosts:
       typeof payload.totalPosts === "number" && Number.isFinite(payload.totalPosts)
@@ -272,8 +282,9 @@ export const ProfileIdentityProvider: React.FC<React.PropsWithChildren> = ({ chi
     (pubkey: string): ProfileSummary => {
       const entry = profilesRef.current[pubkey];
       const data = entry?.data;
+      const fallbackName = generateScreenName(pubkey);
       return {
-        displayName: data?.displayName ?? shorten(pubkey),
+        displayName: data?.displayName ?? data?.screenName ?? fallbackName,
         avatarUrl: data?.avatarUrl ?? fallbackAvatar(pubkey),
         profileUrl: profileUrl(pubkey),
         lightningAddress: data?.lightningAddress ?? null,

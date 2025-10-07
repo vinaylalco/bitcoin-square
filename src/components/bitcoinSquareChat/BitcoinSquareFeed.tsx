@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import type { FeedPost, PublishContext } from "../../hooks/useBitcoinSquareFeed";
 import { useProfileIdentity, shortenPubkey } from "../../context/ProfileIdentityContext";
+import { CASUAL_ROOM_ID, CASUAL_ROOM_NAME } from "../../hooks/useBitcoinSquareCasualChat";
+import { useMediaUploader, type MediaUploadResult } from "../../hooks/useMediaUploader";
 import ProfileCard from "../profile/ProfileCard";
 import { Heart, MessageCircle, MessageSquareQuote, Plus, X, Zap } from "lucide-react";
 
@@ -15,6 +17,9 @@ interface BitcoinSquareFeedProps {
   loadingMore: boolean;
   hasMore: boolean;
   error: string | null;
+  onSendLightning: (address: string) => void;
+  canZap: boolean;
+  pubkey: string | null;
 }
 
 type ActiveFilter = { type: "tag" | "mention"; value: string } | null;
@@ -106,6 +111,9 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   loadingMore,
   hasMore,
   error,
+  onSendLightning,
+  canZap,
+  pubkey,
 }) => {
   const [content, setContent] = useState("");
   const [composerError, setComposerError] = useState<string | null>(null);
@@ -119,6 +127,13 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   const relativeFormatter = useMemo(() => createRelativeFormatter(), []);
   const now = useRelativeNow();
   const { requestProfile, resolveProfileSummary, openProfile } = useProfileIdentity();
+  const {
+    uploadFile: uploadMedia,
+    progress: uploadProgress,
+    status: uploadStatus,
+    error: uploadError,
+    reset: resetUpload,
+  } = useMediaUploader({ room: FEED_ROOM, pubkey });
 
   useEffect(() => {
     if (!hasMore) return;
@@ -204,18 +219,75 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     }
   }, [composerOpen]);
 
+  const openComposerDialog = useCallback(
+    (mode: ComposerMode, post?: FeedPost | null) => {
+      setComposerMode(mode);
+      setComposerTarget(post ?? null);
+      if (mode === "reply" && post) {
+        setContent(`@${shortenPubkey(post.pubkey)} `);
+      } else if (mode === "quote" && post) {
+        const quoted = post.content
+          .split(/\r?\n/)
+          .map((line) => `> ${line}`)
+          .join("\n");
+        setContent(`${quoted}\n\n`);
+      } else {
+        setContent("");
+      }
+      setComposerError(null);
+      setComposerOpen(true);
+    },
+    [shortenPubkey],
+  );
+
+  useEffect(() => {
+    if (!composerOpen) return;
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        resetComposer();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [composerOpen, resetComposer]);
+
+  useEffect(() => {
+    if (composerOpen && textareaRef.current) {
+      const textarea = textareaRef.current;
+      requestAnimationFrame(() => {
+        textarea.focus();
+        const length = textarea.value.length;
+        textarea.setSelectionRange(length, length);
+      });
+    }
+  }, [composerOpen]);
+
   const handleSubmit = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
+      if (!ready) return;
       const trimmed = content.trim();
-      if (!trimmed) {
-        setComposerError("Please share something before posting");
+      if (!trimmed && pendingMedia.length === 0) {
+        setComposerError("Add a message or attach an image to post");
         return;
       }
       if (trimmed.length > 500) {
         setComposerError("Status updates cannot exceed 500 characters");
         return;
       }
+
+      const attachments = pendingMedia.map((media) => ({
+        url: media.url,
+        mimeType: media.mimeType,
+        size: media.size,
+        width: media.width,
+        height: media.height,
+        digest: media.digest,
+        iv: media.iv ?? null,
+        eventId: media.eventId,
+      }));
+
       try {
         setComposerError(null);
         await publishStatus(
@@ -422,14 +494,6 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
                       openProfile(post.pubkey);
                     }}
                   />
-                  <a
-                    href={profile.profileUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="rounded-full border border-[var(--border-subtle)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand"
-                  >
-                    View profile
-                  </a>
                 </header>
 
                 <div className="mt-4 whitespace-pre-wrap break-words text-sm leading-relaxed text-[var(--fg-default)]">
@@ -462,7 +526,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
 
                 {statusLabel && <p className="mt-3 text-xs text-[var(--fg-muted)]">{statusLabel}</p>}
 
-                <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-[var(--fg-muted)]">
+                <div className="mt-4 flex flex-wrap items-center gap-2 text-[var(--fg-muted)]">
                   <button
                     type="button"
                     onClick={() => openComposerDialog("reply", post)}

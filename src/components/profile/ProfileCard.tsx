@@ -44,7 +44,14 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
 
   const content = (
     <div className={`flex w-full items-center gap-3 ${contentClassName}`}>
-      <div className={`flex-shrink-0 overflow-hidden rounded-full border border-[var(--border-subtle)] bg-[var(--bg-muted)] ${avatarSizeClass[size]}`}>
+      <a
+        href={summary.profileUrl}
+        target="_blank"
+        rel="noreferrer"
+        onClick={(event) => event.stopPropagation()}
+        className={`group/avatar relative flex-shrink-0 overflow-hidden rounded-full border border-[var(--border-subtle)] bg-[var(--bg-muted)] ${avatarSizeClass[size]} shadow-sm transition hover:border-brand`}
+        title={`View ${summary.displayName}'s profile`}
+      >
         <img
           src={summary.avatarUrl}
           alt={summary.displayName}
@@ -52,7 +59,8 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
           className={`h-full w-full object-cover transition-opacity duration-500 ${imageLoaded ? "opacity-100" : "opacity-0"}`}
           onLoad={() => setImageLoaded(true)}
         />
-      </div>
+        <span className="sr-only">View {summary.displayName}'s profile</span>
+      </a>
       <div className="flex min-w-0 flex-1 flex-col text-left">
         <span className="truncate text-sm font-semibold text-[var(--fg-default)]">{summary.displayName}</span>
         {subtitle && <span className="truncate text-xs text-[var(--fg-muted)]">{subtitle}</span>}
