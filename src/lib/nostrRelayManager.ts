@@ -100,12 +100,19 @@ export class NostrRelayManager {
     })();
 
     const relays = [this.fastRelay.url, ...this.slowRelays.keys()];
-    const sub = this.pool.sub(relays, [filter]);
-    sub.on("event", (event: Event) => {
-      void this.cacheMirror?.persistEvent?.(event);
-      onEvent(event);
+
+    const subscription = this.pool.subscribeMany(relays, [filter], {
+      onevent: (event: Event) => {
+        void this.cacheMirror?.persistEvent?.(event);
+        onEvent(event);
+      },
+      onerror: (error) => {
+        // eslint-disable-next-line no-console
+        console.warn("Relay subscription error", error);
+      },
     });
-    return { close: () => sub.unsub() };
+
+    return { close: () => subscription.close() };
   }
 
   onOptimisticEvent(listener: OptimisticListener): () => void {
