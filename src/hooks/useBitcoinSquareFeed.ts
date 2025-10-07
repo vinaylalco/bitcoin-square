@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { SimplePool, type Event, type EventTemplate, type Filter } from "nostr-tools";
+import { SimplePool, type Event, type EventTemplate, type Filter } from "../lib/nostrToolsShim";
 
 import {
   cacheMessage,
@@ -9,12 +9,15 @@ import {
 } from "../utils/chatCache";
 import { useNostrAccount } from "./useNostrAccount";
 import { publishWithPool, replicateWithPool } from "../lib/nostrPublish";
+import { decryptJson, encryptJson } from "../utils/aes";
+import { getConfiguredCasualRoomKey } from "../config/nostr";
+import { useRoomKey } from "./useRoomKey";
 
 const RELAYS = [
   "wss://relay.damus.io",
   "wss://nos.lol",
   "wss://relay.primal.net",
-  "wss://eden.nostr.land",
+  "wss://relay.nostr.band",
 ];
 
 const FAST_RELAY = RELAYS[0];
@@ -48,6 +51,15 @@ export interface FeedPost {
 
 interface PublishResult {
   eventId: string;
+}
+
+export type PublishContext = {
+  type: "reply" | "quote";
+  post: FeedPost;
+};
+
+interface FeedPayload {
+  body: string;
 }
 
 const parseAttachments = (tags: string[][]): FeedAttachment[] => {
@@ -86,11 +98,12 @@ const parseAttachments = (tags: string[][]): FeedAttachment[] => {
   return attachments;
 };
 
-const eventToCached = (event: Event): CachedMessage => ({
+const eventToCached = (event: Event, decrypted?: string): CachedMessage => ({
   id: event.id,
   roomId: FEED_ROOM_ID,
   pubkey: event.pubkey,
   content: event.content,
+  decrypted,
   created_at: event.created_at,
   kind: event.kind,
   tags: event.tags,
@@ -107,11 +120,11 @@ const cachedToEvent = (cached: CachedMessage): Event => ({
   sig: cached.sig ?? "",
 });
 
-const mapEventToPost = (event: Event, optimistic = false): FeedPost => ({
+const mapEventToPost = (event: Event, optimistic = false, decrypted?: string): FeedPost => ({
   id: event.id,
   pubkey: event.pubkey,
   created_at: event.created_at,
-  content: event.content,
+  content: decrypted ?? event.content,
   tags: event.tags ?? [],
   attachments: parseAttachments(event.tags ?? []),
   status: optimistic ? "pending" : "ok",
@@ -219,9 +232,8 @@ export interface UseBitcoinSquareFeedReturn {
   posts: FeedPost[];
   ready: boolean;
   publishing: boolean;
-  publishStatus: (content: string) => Promise<PublishResult>;
+  publishStatus: (content: string, context?: PublishContext | null) => Promise<PublishResult>;
   likePost: (post: FeedPost) => Promise<void>;
-  repostPost: (post: FeedPost) => Promise<void>;
   loadMore: () => Promise<void>;
   loadingMore: boolean;
   hasMore: boolean;
@@ -245,8 +257,15 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
   const initialLoadRef = useRef(false);
 
   const { ready: accountReady, pubkey, signEvent } = useNostrAccount();
+  const envRoomKey = getConfiguredCasualRoomKey();
+  const {
+    hasKey: feedKeyAvailable,
+    loading: feedKeyLoading,
+    error: feedKeyError,
+    ensure: ensureFeedKey,
+  } = useRoomKey({ roomId: FEED_ROOM_ID, isPrivate: true, seedBase64: envRoomKey });
 
-  const ready = useMemo(() => accountReady && poolReady, [accountReady, poolReady]);
+  const ready = useMemo(() => accountReady && poolReady && feedKeyAvailable, [accountReady, feedKeyAvailable, poolReady]);
 
   const ensureOldestTimestamp = useCallback((nextPosts: FeedPost[]) => {
     if (nextPosts.length === 0) {
@@ -275,7 +294,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
         return;
       }
       const mapped = cached
-        .map((entry) => mapEventToPost(cachedToEvent(entry)))
+        .map((entry) => mapEventToPost(cachedToEvent(entry), false, entry.decrypted ?? entry.content))
         .sort((a, b) => b.created_at - a.created_at)
         .slice(0, MAX_POSTS);
       setPosts(mapped);
@@ -290,18 +309,53 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
     void hydrateFromCache();
   }, [hydrateFromCache]);
 
+  const decodeEventContent = useCallback(async (event: Event) => {
+    if (!feedKeyAvailable) {
+      return event.content;
+    }
+    try {
+      const payload = await decryptJson<FeedPayload>(FEED_ROOM_ID, event.content);
+      if (payload && typeof payload.body === "string") {
+        return payload.body;
+      }
+      if (typeof (payload as unknown) === "string") {
+        return payload as unknown as string;
+      }
+    } catch (decodeError) {
+      console.warn("Failed to decrypt feed event", decodeError);
+    }
+    return event.content;
+  }, [feedKeyAvailable]);
+
+  useEffect(() => {
+    if (feedKeyError) {
+      setError(feedKeyError);
+    }
+  }, [feedKeyError]);
+
+  const processEvent = useCallback(
+    async (event: Event) => {
+      if (!hasFeedTag(event)) return;
+      const body = await decodeEventContent(event);
+      insertPost(mapEventToPost(event, false, body));
+      try {
+        await cacheMessage(eventToCached(event, body));
+      } catch (cacheError) {
+        console.warn("Unable to persist feed event", cacheError);
+      }
+    },
+    [decodeEventContent, insertPost],
+  );
+
   const handleEvent = useCallback(
     (event: Event) => {
-      if (!hasFeedTag(event)) return;
-      insertPost(mapEventToPost(event));
-      void cacheMessage(eventToCached(event)).catch((cacheError) =>
-        console.warn("Unable to persist feed event", cacheError),
-      );
+      void processEvent(event);
     },
-    [insertPost],
+    [processEvent],
   );
 
   const startSubscription = useCallback(() => {
+    if (!feedKeyAvailable) return;
     const pool = poolRef.current;
     if (!pool) return;
 
@@ -342,15 +396,31 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
     );
 
     subRef.current = subscription;
-  }, [handleEvent]);
+  }, [feedKeyAvailable, handleEvent]);
 
   useEffect(() => {
+    if (!feedKeyAvailable) return;
+
     const pool = new SimplePool();
     poolRef.current = pool;
-    setPoolReady(true);
-    startSubscription();
+    let cancelled = false;
+
+    pool
+      .waitUntilReady()
+      .then(() => {
+        if (cancelled) return;
+        setPoolReady(true);
+        startSubscription();
+      })
+      .catch((loadError) => {
+        if (cancelled) return;
+        const message = loadError instanceof Error ? loadError.message : String(loadError);
+        console.warn("Failed to initialize Nostr feed pool", loadError);
+        setError(message);
+      });
 
     return () => {
+      cancelled = true;
       subRef.current?.close();
       pool.close(RELAYS);
       poolRef.current = null;
@@ -359,7 +429,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
         clearTimeout(reconnectTimerRef.current);
       }
     };
-  }, [startSubscription]);
+  }, [feedKeyAvailable, setError, startSubscription]);
 
   const loadMore = useCallback(async () => {
     if (loadingMore || !hasMore) return;
@@ -388,16 +458,21 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
         return;
       }
       const limited = filtered.slice(0, LOAD_MORE_BATCH);
-      const mapped = limited.map((event) => mapEventToPost(event));
+      const decoded = await Promise.all(
+        limited.map(async (event) => {
+          const body = await decodeEventContent(event);
+          return { post: mapEventToPost(event, false, body), cached: eventToCached(event, body) };
+        }),
+      );
       setPosts((prev) => {
-        const merged = mapped.reduce((acc, post) => upsertPost(acc, post), prev);
+        const merged = decoded.reduce((acc, entry) => upsertPost(acc, entry.post), prev);
         ensureOldestTimestamp(merged);
         return merged;
       });
       setHasMore(filtered.length >= LOAD_MORE_BATCH);
       await cacheMessages(
         FEED_ROOM_ID,
-        limited.map(eventToCached),
+        decoded.map((entry) => entry.cached),
       );
     } catch (loadError) {
       console.warn("Failed to load additional feed events", loadError);
@@ -414,7 +489,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
   }, [loadMore, poolReady]);
 
   const publishStatus = useCallback(
-    async (content: string): Promise<PublishResult> => {
+    async (content: string, context?: PublishContext | null): Promise<PublishResult> => {
       if (!content.trim()) {
         throw new Error("Status update cannot be empty");
       }
@@ -429,19 +504,35 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
         throw new Error("No relays available");
       }
 
+      await ensureFeedKey();
+
+      const tags: string[][] = [
+        ["t", FEED_TAG],
+        ["app", "BitcoinSquare"],
+        ["feed", FEED_TAG],
+      ];
+
+      if (context?.post) {
+        tags.push(["e", context.post.id]);
+        tags.push(["p", context.post.pubkey]);
+        if (context.type === "quote") {
+          tags.push(["q", context.post.id]);
+        } else {
+          tags.push(["reply", context.post.id]);
+        }
+      }
+
+      const encryptedContent = await encryptJson(FEED_ROOM_ID, { body: content });
+
       const template: EventTemplate = {
         kind: 1,
         created_at: Math.floor(Date.now() / 1000),
-        tags: [
-          ["t", FEED_TAG],
-          ["app", "BitcoinSquare"],
-          ["feed", FEED_TAG],
-        ],
-        content,
+        tags,
+        content: encryptedContent,
       };
 
       const event = await signEvent(template);
-      insertPost(mapEventToPost(event, true));
+      insertPost(mapEventToPost(event, true, content));
       setError(null);
 
       try {
@@ -452,7 +543,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
           ensureOldestTimestamp(next);
           return next;
         });
-        await cacheMessage(eventToCached(event));
+        await cacheMessage(eventToCached(event, content));
         if (RELAYS.length > 1) {
           void replicateWithPool(pool, RELAYS.slice(1), event);
         }
@@ -474,7 +565,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
         setPublishing(false);
       }
     },
-    [ensureOldestTimestamp, insertPost, signEvent],
+    [ensureFeedKey, ensureOldestTimestamp, insertPost, signEvent],
   );
 
   const likePost = useCallback(
@@ -507,43 +598,12 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
     [signEvent],
   );
 
-  const repostPost = useCallback(
-    async (post: FeedPost) => {
-      if (!signEvent) {
-        throw new Error("Your Nostr keys are not ready yet");
-      }
-      const pool = poolRef.current;
-      if (!pool) {
-        throw new Error("No relays available");
-      }
-      const template: EventTemplate = {
-        kind: 6,
-        created_at: Math.floor(Date.now() / 1000),
-        content: JSON.stringify(post.event),
-        tags: [
-          ["e", post.id],
-          ["p", post.pubkey],
-          ["t", FEED_TAG],
-          ["app", "BitcoinSquare"],
-          ["feed", FEED_TAG],
-        ],
-      };
-      const event = await signEvent(template);
-      await publishWithPool(pool, [FAST_RELAY], event);
-      if (RELAYS.length > 1) {
-        void replicateWithPool(pool, RELAYS.slice(1), event);
-      }
-    },
-    [signEvent],
-  );
-
   return {
     posts,
     ready,
     publishing,
     publishStatus,
     likePost,
-    repostPost,
     loadMore,
     loadingMore,
     hasMore,

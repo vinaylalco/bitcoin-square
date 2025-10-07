@@ -38,6 +38,7 @@ export interface User {
   username?: string;
   nostrPublicKey?: string;
   nostrEncryptedKey?: string;
+  lnWalletAddress?: string | null;
   points: number;
   lessonCompletions: LessonCompletionMap;
   studyStreak: number;
@@ -109,6 +110,14 @@ function normalizePreferences(raw: unknown): UserPreferences {
   return prefs;
 }
 
+function normalizeLightningAddress(value: unknown): string | null {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+  return null;
+}
+
 function normalizeUser(raw: any | null | undefined): User | null {
   if (!raw) return null;
   const normalized: User = {
@@ -118,6 +127,7 @@ function normalizeUser(raw: any | null | undefined): User | null {
     studyStreak: normalizeStudyStreak(raw.studyStreak),
     lastStudyDate: normalizeLastStudyDate(raw.lastStudyDate),
     preferences: normalizePreferences(raw.preferences),
+    lnWalletAddress: normalizeLightningAddress(raw.lnWalletAddress ?? raw.lightningAddress),
   };
   if (!normalized.lessonCompletions) {
     normalized.lessonCompletions = {};

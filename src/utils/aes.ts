@@ -204,7 +204,7 @@ const removeRoomKey = async (roomId: string) => {
 const importKeyFromBase64 = async (base64Key: string) => {
   const cryptoInstance = getCrypto();
   const rawKey = base64ToArrayBuffer(base64Key);
-  return cryptoInstance.subtle.importKey("raw", rawKey, "AES-GCM", false, ["encrypt", "decrypt"]);
+  return cryptoInstance.subtle.importKey("raw", rawKey, "AES-GCM", true, ["encrypt", "decrypt"]);
 };
 
 const generateAndStoreRoomKey = async (roomId: string) => {

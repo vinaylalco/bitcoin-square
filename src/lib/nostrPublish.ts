@@ -1,4 +1,4 @@
-import type { Event } from "nostr-tools";
+import type { Event } from "./nostrToolsShim";
 
 type PublishEmitter = {
   on?: (event: string, callback: (value?: unknown) => void) => void;

@@ -1,16 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import type { FeedPost } from "../../hooks/useBitcoinSquareFeed";
+import type { FeedPost, PublishContext } from "../../hooks/useBitcoinSquareFeed";
 import { useProfileIdentity, shortenPubkey } from "../../context/ProfileIdentityContext";
 import ProfileCard from "../profile/ProfileCard";
+import { Heart, MessageCircle, MessageSquareQuote, Plus, X, Zap } from "lucide-react";
 
 interface BitcoinSquareFeedProps {
   posts: FeedPost[];
   ready: boolean;
   publishing: boolean;
-  publishStatus: (content: string) => Promise<{ eventId: string }>;
+  publishStatus: (content: string, context?: PublishContext | null) => Promise<{ eventId: string }>;
   likePost: (post: FeedPost) => Promise<void>;
-  repostPost: (post: FeedPost) => Promise<void>;
   loadMore: () => Promise<void>;
   loadingMore: boolean;
   hasMore: boolean;
@@ -20,6 +20,8 @@ interface BitcoinSquareFeedProps {
 type ActiveFilter = { type: "tag" | "mention"; value: string } | null;
 
 type PendingMap = Set<string>;
+
+type ComposerMode = "new" | "reply" | "quote";
 
 const createRelativeFormatter = () => {
   try {
@@ -100,7 +102,6 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   publishing,
   publishStatus,
   likePost,
-  repostPost,
   loadMore,
   loadingMore,
   hasMore,
@@ -108,10 +109,13 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
 }) => {
   const [content, setContent] = useState("");
   const [composerError, setComposerError] = useState<string | null>(null);
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [composerMode, setComposerMode] = useState<ComposerMode>("new");
+  const [composerTarget, setComposerTarget] = useState<FeedPost | null>(null);
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>(null);
   const [pendingLikes, setPendingLikes] = useState<PendingMap>(() => new Set());
-  const [pendingReposts, setPendingReposts] = useState<PendingMap>(() => new Set());
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const relativeFormatter = useMemo(() => createRelativeFormatter(), []);
   const now = useRelativeNow();
   const { requestProfile, resolveProfileSummary, openProfile } = useProfileIdentity();
@@ -148,17 +152,57 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     });
   }, [posts, requestProfile]);
 
-  const updatePending = useCallback((setter: React.Dispatch<React.SetStateAction<PendingMap>>, id: string, add: boolean) => {
-    setter((prev) => {
-      const next = new Set(prev);
-      if (add) {
-        next.add(id);
-      } else {
-        next.delete(id);
-      }
-      return next;
-    });
+  const resetComposer = useCallback(() => {
+    setComposerOpen(false);
+    setComposerTarget(null);
+    setComposerMode("new");
+    setContent("");
+    setComposerError(null);
   }, []);
+
+  const openComposerDialog = useCallback(
+    (mode: ComposerMode, post?: FeedPost | null) => {
+      setComposerMode(mode);
+      setComposerTarget(post ?? null);
+      if (mode === "reply" && post) {
+        setContent(`@${shortenPubkey(post.pubkey)} `);
+      } else if (mode === "quote" && post) {
+        const quoted = post.content
+          .split(/\r?\n/)
+          .map((line) => `> ${line}`)
+          .join("\n");
+        setContent(`${quoted}\n\n`);
+      } else {
+        setContent("");
+      }
+      setComposerError(null);
+      setComposerOpen(true);
+    },
+    [shortenPubkey],
+  );
+
+  useEffect(() => {
+    if (!composerOpen) return;
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        resetComposer();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [composerOpen, resetComposer]);
+
+  useEffect(() => {
+    if (composerOpen && textareaRef.current) {
+      const textarea = textareaRef.current;
+      requestAnimationFrame(() => {
+        textarea.focus();
+        const length = textarea.value.length;
+        textarea.setSelectionRange(length, length);
+      });
+    }
+  }, [composerOpen]);
 
   const handleSubmit = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
@@ -174,15 +218,20 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       }
       try {
         setComposerError(null);
-        await publishStatus(content);
-        setContent("");
+        await publishStatus(
+          content,
+          composerTarget ? { type: composerMode, post: composerTarget } : null,
+        );
+        resetComposer();
       } catch (publishError) {
         setComposerError(
-          publishError instanceof Error ? publishError.message : "We couldn't publish your status just yet.",
+          publishError instanceof Error
+            ? publishError.message
+            : "We couldn't publish your status just yet.",
         );
       }
     },
-    [content, publishStatus],
+    [composerMode, composerTarget, content, publishStatus, resetComposer],
   );
 
   const filteredPosts = useMemo(() => {
@@ -240,6 +289,18 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     [now, relativeFormatter],
   );
 
+  const updatePending = useCallback((setter: React.Dispatch<React.SetStateAction<PendingMap>>, id: string, add: boolean) => {
+    setter((prev) => {
+      const next = new Set(prev);
+      if (add) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
+      return next;
+    });
+  }, []);
+
   const handleLike = useCallback(
     async (post: FeedPost) => {
       updatePending(setPendingLikes, post.id, true);
@@ -254,60 +315,50 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     [likePost, updatePending],
   );
 
-  const handleRepost = useCallback(
-    async (post: FeedPost) => {
-      updatePending(setPendingReposts, post.id, true);
+  const handleSendSats = useCallback((address: string) => {
+    if (!address) return;
+    const target = address.startsWith("lightning:") ? address : `lightning:${address}`;
+    if (typeof window === "undefined") {
       try {
-        await repostPost(post);
-      } catch (repostError) {
-        console.warn("Unable to repost", repostError);
-      } finally {
-        updatePending(setPendingReposts, post.id, false);
+        void navigator.clipboard?.writeText(address);
+      } catch {
+        // ignore clipboard errors
       }
-    },
-    [repostPost, updatePending],
-  );
+      return;
+    }
+    try {
+      window.open(target, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      try {
+        void navigator.clipboard?.writeText(address);
+      } catch {
+        // ignore clipboard errors
+      }
+    }
+  }, []);
+
+  const composerTitle =
+    composerMode === "reply"
+      ? "Reply to note"
+      : composerMode === "quote"
+        ? "Quote note"
+        : "Create community post";
+
+  const submitLabel =
+    composerMode === "reply"
+      ? publishing
+        ? "Replying…"
+        : "Send reply"
+      : composerMode === "quote"
+        ? publishing
+          ? "Posting quote…"
+          : "Post quote"
+        : publishing
+          ? "Posting…"
+          : "Post update";
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
-      <section className="border-b border-[var(--border-subtle)] bg-[var(--bg-card)] px-6 py-5">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {!ready && (
-            <p className="rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-4 text-sm text-[var(--fg-muted)]">
-              We generate a local signing key automatically to publish updates. Once it is ready you can post to the feed instantly.
-            </p>
-          )}
-          <div className="space-y-2">
-            <label htmlFor="feed-status" className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">
-              Share an update with the BitcoinSquare community
-            </label>
-            <textarea
-              id="feed-status"
-              name="feed-status"
-              value={content}
-              onChange={(event) => setContent(event.target.value.slice(0, 500))}
-              className="min-h-[120px] w-full resize-y rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-4 text-sm text-[var(--fg-default)] shadow-inner focus:border-brand focus:outline-none"
-              placeholder="What’s happening in your corner of BitcoinSquare?"
-              disabled={!ready || publishing}
-            />
-            <div className="flex items-center justify-between text-xs text-[var(--fg-muted)]">
-              <span>{content.length}/500</span>
-              {composerError && <span className="text-red-500">{composerError}</span>}
-            </div>
-          </div>
-          <button
-            type="submit"
-            disabled={!ready || publishing}
-            className="rounded-full bg-brand px-6 py-2 text-sm font-semibold uppercase tracking-[0.24em] text-white transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:bg-brand/40"
-          >
-            {publishing ? "Posting…" : "Post update"}
-          </button>
-          {error && (
-            <p className="text-xs text-red-500">{error}</p>
-          )}
-        </form>
-      </section>
-
+    <div className="relative flex flex-1 flex-col overflow-hidden">
       {activeFilter && (
         <div className="border-b border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 px-6 py-3 text-xs text-[var(--fg-muted)]">
           <span>
@@ -323,7 +374,17 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         </div>
       )}
 
-      <div className="flex-1 space-y-4 overflow-y-auto px-6 py-6">
+      <div className="flex-1 space-y-4 overflow-y-auto px-6 py-6 pb-28">
+        {!ready && (
+          <div className="rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-4 text-sm text-[var(--fg-muted)]">
+            We generate a local signing key automatically to publish updates. Once it is ready you can post to the feed instantly.
+          </div>
+        )}
+
+        {error && !composerOpen && (
+          <p className="rounded-2xl border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-500">{error}</p>
+        )}
+
         {filteredPosts.length === 0 ? (
           <p className="text-sm text-[var(--fg-muted)]">
             No posts yet{activeFilter ? " for this filter." : "."} Be the first to share what you’re working on!
@@ -332,10 +393,13 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
           filteredPosts.map((post) => {
             const profile = resolveProfileSummary(post.pubkey);
             const isPendingLike = pendingLikes.has(post.id);
-            const isPendingRepost = pendingReposts.has(post.id);
             const likeDisabled = !ready || isPendingLike;
-            const repostDisabled = !ready || isPendingRepost;
-            const statusLabel = post.status === "pending" ? "Posting to relays…" : post.status === "failed" ? post.error ?? "Delivery failed." : null;
+            const statusLabel =
+              post.status === "pending"
+                ? "Posting to relays…"
+                : post.status === "failed"
+                  ? post.error ?? "Delivery failed."
+                  : null;
 
             return (
               <article
@@ -375,7 +439,10 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
                 {post.attachments.length > 0 && (
                   <div className="mt-4 space-y-3">
                     {post.attachments.map((attachment, index) => (
-                      <div key={`${post.id}-attachment-${index}`} className="overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60">
+                      <div
+                        key={`${post.id}-attachment-${index}`}
+                        className="overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60"
+                      >
                         {attachment.mimeType.startsWith("video/") ? (
                           <video src={attachment.url} controls className="max-h-80 w-full rounded-2xl" />
                         ) : (
@@ -398,20 +465,37 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
                 <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-[var(--fg-muted)]">
                   <button
                     type="button"
-                    onClick={() => handleLike(post)}
-                    disabled={likeDisabled}
-                    className="flex items-center gap-2 rounded-full border border-[var(--border-subtle)] px-3 py-1 font-semibold uppercase tracking-[0.18em] transition hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-60"
+                    onClick={() => openComposerDialog("reply", post)}
+                    disabled={!ready}
+                    className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] px-3 py-1 font-semibold uppercase tracking-[0.18em] transition hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {isPendingLike ? "Liking…" : "Like"}
+                    <MessageCircle className="h-4 w-4" /> Reply
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleRepost(post)}
-                    disabled={repostDisabled}
-                    className="flex items-center gap-2 rounded-full border border-[var(--border-subtle)] px-3 py-1 font-semibold uppercase tracking-[0.18em] transition hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-60"
+                    onClick={() => openComposerDialog("quote", post)}
+                    disabled={!ready}
+                    className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] px-3 py-1 font-semibold uppercase tracking-[0.18em] transition hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {isPendingRepost ? "Reposting…" : "Repost"}
+                    <MessageSquareQuote className="h-4 w-4" /> Quote
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => handleLike(post)}
+                    disabled={likeDisabled}
+                    className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] px-3 py-1 font-semibold uppercase tracking-[0.18em] transition hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <Heart className="h-4 w-4" /> {isPendingLike ? "Liking…" : "Like"}
+                  </button>
+                  {profile.lightningAddress && (
+                    <button
+                      type="button"
+                      onClick={() => handleSendSats(profile.lightningAddress!)}
+                      className="inline-flex items-center gap-2 rounded-full border border-brand/40 px-3 py-1 font-semibold uppercase tracking-[0.18em] text-brand transition hover:border-brand"
+                    >
+                      <Zap className="h-4 w-4" /> Send BTC
+                    </button>
+                  )}
                 </div>
               </article>
             );
@@ -419,13 +503,80 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         )}
 
         <div ref={sentinelRef} />
-        {loadingMore && (
-          <p className="text-center text-xs text-[var(--fg-muted)]">Loading more posts…</p>
-        )}
+        {loadingMore && <p className="text-center text-xs text-[var(--fg-muted)]">Loading more posts…</p>}
         {!hasMore && filteredPosts.length > 0 && (
           <p className="text-center text-xs text-[var(--fg-muted)]">You reached the end of the feed.</p>
         )}
       </div>
+
+      <button
+        type="button"
+        onClick={() => openComposerDialog("new")}
+        disabled={!ready}
+        className="fixed bottom-24 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-lg transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:bg-brand/40"
+        aria-label="Create a new community post"
+      >
+        <Plus className="h-6 w-6" />
+      </button>
+
+      {composerOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 px-4 py-8 sm:items-center">
+          <div className="absolute inset-0" onClick={resetComposer} aria-hidden="true" />
+          <div className="relative w-full max-w-xl rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-2xl">
+            <header className="flex items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold uppercase tracking-[0.18em] text-[var(--fg-default)]">{composerTitle}</h2>
+              <button
+                type="button"
+                onClick={resetComposer}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand"
+                aria-label="Close composer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </header>
+
+            {composerTarget && (
+              <div className="mt-4 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-4 text-xs text-[var(--fg-muted)]">
+                <p className="font-semibold text-[var(--fg-default)]">
+                  {composerMode === "reply" ? "Replying to" : "Quoting"} {shortenPubkey(composerTarget.pubkey)}
+                </p>
+                <p className="mt-2 line-clamp-3 whitespace-pre-line text-sm text-[var(--fg-muted)]">{composerTarget.content}</p>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+              <textarea
+                ref={textareaRef}
+                value={content}
+                onChange={(event) => setContent(event.target.value.slice(0, 500))}
+                className="min-h-[160px] w-full resize-y rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-4 text-sm text-[var(--fg-default)] shadow-inner focus:border-brand focus:outline-none"
+                placeholder={
+                  composerMode === "reply"
+                    ? "Share your thoughts…"
+                    : composerMode === "quote"
+                      ? "Add your perspective…"
+                      : "What’s happening in your corner of BitcoinSquare?"
+                }
+                disabled={!ready || publishing}
+              />
+              <div className="flex items-center justify-between text-xs text-[var(--fg-muted)]">
+                <span>{content.length}/500</span>
+                {composerError && <span className="text-red-500">{composerError}</span>}
+              </div>
+              <button
+                type="submit"
+                disabled={!ready || publishing}
+                className="w-full rounded-full bg-brand px-6 py-2 text-sm font-semibold uppercase tracking-[0.24em] text-white transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:bg-brand/40"
+              >
+                {submitLabel}
+              </button>
+              {error && (
+                <p className="text-center text-xs text-red-500">{error}</p>
+              )}
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

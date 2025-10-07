@@ -26,6 +26,7 @@ export interface BitcoinSquareProfile {
   rank: string | null;
   badges: string[];
   achievements?: string[];
+  lightningAddress: string | null;
 }
 
 export type ProfileStatus = "idle" | "loading" | "success" | "error";
@@ -41,6 +42,7 @@ export interface ProfileSummary {
   displayName: string;
   avatarUrl: string;
   profileUrl: string;
+  lightningAddress: string | null;
 }
 
 interface ProfileIdentityContextValue {
@@ -93,6 +95,10 @@ const normalizeProfile = (pubkey: string, payload: Partial<BitcoinSquareProfile>
     rank: payload.rank ?? null,
     badges,
     achievements: payload.achievements,
+    lightningAddress:
+      typeof payload.lightningAddress === "string" && payload.lightningAddress.trim().length > 0
+        ? payload.lightningAddress.trim()
+        : null,
   };
 };
 
@@ -270,6 +276,7 @@ export const ProfileIdentityProvider: React.FC<React.PropsWithChildren> = ({ chi
         displayName: data?.displayName ?? shorten(pubkey),
         avatarUrl: data?.avatarUrl ?? fallbackAvatar(pubkey),
         profileUrl: profileUrl(pubkey),
+        lightningAddress: data?.lightningAddress ?? null,
       };
     },
     [],

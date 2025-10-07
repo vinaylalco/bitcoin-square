@@ -1,11 +1,20 @@
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { Copy, Flame, Layers, LogOut, Sparkles, Trophy } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { updateLightningAddress } from '../api/account';
 
 export default function Dashboard() {
-  const { user, logout, nostrPrivKey } = useAuth();
+  const { user, logout, nostrPrivKey, token, updateUser } = useAuth();
   const nav = useNavigate();
+
+  const [lightningAddress, setLightningAddress] = useState(() => user?.lnWalletAddress ?? '');
+  const [lightningStatus, setLightningStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+  const [lightningError, setLightningError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLightningAddress(user?.lnWalletAddress ?? '');
+  }, [user?.lnWalletAddress]);
 
   if (!user) return <Navigate to="/login" replace />;
 
@@ -25,6 +34,37 @@ export default function Dashboard() {
     logout();
     nav('/');
   }
+
+  const handleLightningSubmit = useCallback(
+    async (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      if (!user || !token) return;
+
+      const trimmed = lightningAddress.trim();
+      setLightningStatus('saving');
+      setLightningError(null);
+
+      try {
+        const response = await updateLightningAddress(
+          user.id,
+          token,
+          trimmed.length > 0 ? trimmed : null,
+        );
+        const nextValue = response.lnWalletAddress ?? response.lightningAddress ?? (trimmed.length > 0 ? trimmed : null);
+        updateUser((prev) => (prev ? { ...prev, lnWalletAddress: nextValue ?? null } : prev));
+        setLightningStatus('success');
+        setLightningAddress(nextValue ?? '');
+      } catch (error) {
+        setLightningStatus('error');
+        setLightningError(
+          error instanceof Error ? error.message : 'Unable to update your Lightning address right now.',
+        );
+      }
+    },
+    [lightningAddress, token, updateUser, user],
+  );
+
+  const isLightningSaving = lightningStatus === 'saving';
 
   return (
     <div className="min-h-screen w-full bg-white text-neutral-900 transition-colors dark:bg-neutral-950 dark:text-neutral-100">
@@ -108,6 +148,48 @@ export default function Dashboard() {
                 <dd className="break-words text-base font-medium text-neutral-900 dark:text-neutral-100">{user.id}</dd>
               </div>
             </dl>
+
+            <form onSubmit={handleLightningSubmit} className="mt-6 space-y-3 rounded-2xl border border-neutral-200 bg-neutral-50 p-4 transition-colors dark:border-neutral-800 dark:bg-neutral-950/40">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <label htmlFor="lightning-address" className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">
+                  Lightning wallet address
+                </label>
+                {lightningStatus === 'success' && (
+                  <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-500">
+                    Saved
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-neutral-600 dark:text-neutral-300">
+                Add a Lightning address (for example, <code className="font-mono">name@provider.com</code>) so other members can send you sats directly from the community areas.
+              </p>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <input
+                  id="lightning-address"
+                  name="lightning-address"
+                  value={lightningAddress}
+                  onChange={(event) => {
+                    setLightningAddress(event.target.value);
+                    if (lightningStatus === 'success') {
+                      setLightningStatus('idle');
+                    }
+                  }}
+                  placeholder="you@lightningaddress.com"
+                  className="w-full flex-1 rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 transition focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+                  autoComplete="off"
+                />
+                <button
+                  type="submit"
+                  disabled={isLightningSaving || !token}
+                  className="inline-flex items-center justify-center rounded-full bg-brand px-5 py-2 text-sm font-semibold uppercase tracking-[0.3em] text-white transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:bg-brand/40"
+                >
+                  {isLightningSaving ? 'Saving…' : 'Save address'}
+                </button>
+              </div>
+              {lightningError && (
+                <p className="text-xs text-red-500">{lightningError}</p>
+              )}
+            </form>
           </div>
 
           <div className="flex flex-col gap-4 rounded-3xl border border-neutral-200 bg-white p-8 shadow-sm transition-colors dark:border-neutral-800 dark:bg-neutral-900">

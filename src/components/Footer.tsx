@@ -19,6 +19,9 @@ export default function Footer() {
           <NavLink to="/newsletter" className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }>
             {t("nav.newsletter")}
           </NavLink>
+          <NavLink to="/community" className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }>
+            {t("nav.community")}
+          </NavLink>
           <NavLink to="/shop" className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }>
             {t("nav.shop")}
           </NavLink>
