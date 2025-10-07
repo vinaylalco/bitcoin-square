@@ -1,4 +1,5 @@
-import { SimplePool, relayInit, type Event, type Filter } from "nostr-tools";
+import { SimplePool, type Event, type Filter } from "nostr-tools";
+import { relayInit } from "nostr-tools/relay";
 
 export type CacheMirror = {
   persistEvent?: (event: Event) => Promise<void> | void;
