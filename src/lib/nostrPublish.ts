@@ -7,12 +7,12 @@ type PublishEmitter = {
 
 type PublishResult = PublishEmitter | PromiseLike<unknown> | void;
 
-type PoolLike = {
-  publish: (relays: string[], event: Event) => PublishResult;
-};
-
 type RelayLike = {
   publish: (event: Event) => PublishResult;
+};
+
+type PoolLike = {
+  ensureRelay: (url: string) => Promise<RelayLike>;
 };
 
 const isPromiseLike = (value: unknown): value is PromiseLike<unknown> =>
@@ -75,13 +75,39 @@ export const awaitPublishResult = async (result: PublishResult): Promise<void> =
   await waitForEmitter(result);
 };
 
+const publishToRelay = async (
+  pool: PoolLike,
+  relayUrl: string,
+  event: Event,
+): Promise<void> => {
+  const relay = await pool.ensureRelay(relayUrl);
+  const publication = relay.publish(event);
+  await awaitPublishResult(publication);
+};
+
 export const publishWithPool = async (
   pool: PoolLike,
   relays: string[],
   event: Event,
 ): Promise<void> => {
-  const publication = pool.publish(relays, event);
-  await awaitPublishResult(publication);
+  if (relays.length === 0) {
+    throw new Error("No relays configured for publish");
+  }
+
+  const [primary, ...others] = relays;
+  await publishToRelay(pool, primary, event);
+
+  if (others.length === 0) {
+    return;
+  }
+
+  await Promise.all(
+    others.map((relayUrl) =>
+      publishToRelay(pool, relayUrl, event).catch((error) => {
+        console.warn(`Failed to publish to relay ${relayUrl}`, error);
+      }),
+    ),
+  );
 };
 
 export const publishWithRelay = async (relay: RelayLike, event: Event): Promise<void> => {
@@ -94,9 +120,11 @@ export const replicateWithPool = async (
   relays: string[],
   event: Event,
 ): Promise<void> => {
-  try {
-    await publishWithPool(pool, relays, event);
-  } catch (error) {
-    console.warn("Failed to replicate event", error);
-  }
+  await Promise.all(
+    relays.map((relayUrl) =>
+      publishToRelay(pool, relayUrl, event).catch((error) => {
+        console.warn(`Failed to replicate event to relay ${relayUrl}`, error);
+      }),
+    ),
+  );
 };
