@@ -33,6 +33,7 @@ import CheckoutCancel from "./routes/CheckoutCancel";
 import Community from "./routes/Community";
 import Profile from "./routes/Profile";
 import { ProfileIdentityProvider } from "./context/ProfileIdentityContext";
+import { DirectMessageProvider } from "./context/DirectMessageContext";
 
 const router = createBrowserRouter([
   {
@@ -74,7 +75,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <ThemeProvider>
           <PreferencesProvider>
             <ProfileIdentityProvider>
-              <RouterProvider router={router} />
+              <DirectMessageProvider>
+                <RouterProvider router={router} />
+              </DirectMessageProvider>
             </ProfileIdentityProvider>
           </PreferencesProvider>
         </ThemeProvider>

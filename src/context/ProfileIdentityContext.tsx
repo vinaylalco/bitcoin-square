@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, {
   createContext,
   useCallback,
@@ -22,6 +23,7 @@ import {
   normalizeAvatarUrl,
   normalizeScreenName,
 } from "../utils/profileDefaults";
+import { useAuth } from "./AuthContext";
 
 export interface BitcoinSquareProfile {
   pubkey: string;
@@ -35,6 +37,8 @@ export interface BitcoinSquareProfile {
   badges: string[];
   achievements?: string[];
   lightningAddress: string | null;
+  followers?: string[];
+  following?: string[];
 }
 
 export type ProfileStatus = "idle" | "loading" | "success" | "error";
@@ -65,6 +69,8 @@ interface ProfileIdentityContextValue {
   unfollow: (pubkey: string) => void;
   toggleFollow: (pubkey: string) => void;
   isFollowing: (pubkey: string) => boolean;
+  following: ReadonlySet<string>;
+  followersFor: (pubkey: string) => string[];
   startDirectMessage: (pubkey: string) => void;
   shortenPubkey: (pubkey: string) => string;
   fallbackAvatar: (pubkey: string) => string;
@@ -85,7 +91,7 @@ const isJsonFetchError = (error: unknown): error is JsonFetchError => error inst
 
 const handleJsonFetchError = (pubkey: string, error: JsonFetchError): JsonFetchError => {
   if (import.meta.env?.DEV) {
-    console.error("Profile fetch failed", {
+    console.warn("Profile fetch failed", {
       pubkey,
       status: error.status,
       reason: error.reason,
@@ -95,6 +101,63 @@ const handleJsonFetchError = (pubkey: string, error: JsonFetchError): JsonFetchE
   }
   return error;
 };
+
+class ProfileFetchError extends Error {
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message);
+    this.name = "ProfileFetchError";
+    if (options?.cause && "cause" in Error.prototype) {
+      try {
+        // @ts-expect-error cause assignment is supported in modern runtimes
+        this.cause = options.cause;
+      } catch {
+        /* noop */
+      }
+    }
+  }
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+const extractProfilePayload = (
+  pubkey: string,
+  payload: unknown,
+): Partial<BitcoinSquareProfile> => {
+  if (!isRecord(payload)) {
+    throw new ProfileFetchError(PROFILE_FALLBACK_MESSAGE, { cause: payload });
+  }
+
+  if ("error" in payload) {
+    const detail = payload.error;
+    const message =
+      typeof detail === "string"
+        ? detail
+        : isRecord(detail) && typeof detail.message === "string"
+          ? detail.message
+          : PROFILE_FALLBACK_MESSAGE;
+    throw new ProfileFetchError(message, { cause: detail });
+  }
+
+  const nested =
+    "profile" in payload && isRecord(payload.profile)
+      ? (payload.profile as Record<string, unknown>)
+      : payload;
+
+  if (!isRecord(nested)) {
+    throw new ProfileFetchError(PROFILE_FALLBACK_MESSAGE, { cause: nested });
+  }
+
+  const normalized: Partial<BitcoinSquareProfile> = { ...nested };
+
+  if (typeof normalized.pubkey !== "string" || normalized.pubkey.trim().length === 0) {
+    normalized.pubkey = pubkey;
+  }
+
+  return normalized;
+};
+
+const isNonEmptyString = (value: unknown): value is string => typeof value === "string" && value.trim().length > 0;
 
 const normalizeProfile = (pubkey: string, payload: Partial<BitcoinSquareProfile>): BitcoinSquareProfile => {
   const badges = Array.isArray(payload.badges)
@@ -125,29 +188,85 @@ const normalizeProfile = (pubkey: string, payload: Partial<BitcoinSquareProfile>
       typeof payload.lightningAddress === "string" && payload.lightningAddress.trim().length > 0
         ? payload.lightningAddress.trim()
         : null,
+    followers: Array.isArray(payload.followers)
+      ? payload.followers.filter(isNonEmptyString)
+      : [],
+    following: Array.isArray(payload.following)
+      ? payload.following.filter(isNonEmptyString)
+      : [],
   };
 };
 
-const loadFollowingFromStorage = (): Set<string> => {
+interface FollowStoragePayload {
+  following?: unknown;
+  followers?: unknown;
+}
+
+const loadFollowState = () => {
   if (typeof window === "undefined") {
-    return new Set();
+    return { following: [] as string[], followers: {} as Record<string, string[]> };
   }
   try {
     const raw = window.localStorage.getItem(FOLLOWING_STORAGE_KEY);
-    if (!raw) return new Set();
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return new Set();
-    return new Set(parsed.filter((value): value is string => typeof value === "string"));
+    if (!raw) {
+      return { following: [] as string[], followers: {} as Record<string, string[]> };
+    }
+    const parsed = JSON.parse(raw) as FollowStoragePayload | string[];
+    if (Array.isArray(parsed)) {
+      const following = parsed.filter(isNonEmptyString);
+      return { following, followers: {} };
+    }
+    if (!isRecord(parsed)) {
+      return { following: [] as string[], followers: {} as Record<string, string[]> };
+    }
+    const followingSource = Array.isArray(parsed.following)
+      ? parsed.following.filter(isNonEmptyString)
+      : [];
+    const followersPayload = isRecord(parsed.followers) ? (parsed.followers as Record<string, unknown>) : {};
+    const followers: Record<string, string[]> = {};
+    Object.entries(followersPayload).forEach(([key, value]) => {
+      if (!isNonEmptyString(key) || !Array.isArray(value)) {
+        return;
+      }
+      const normalized = value.filter(isNonEmptyString);
+      if (normalized.length > 0) {
+        followers[key] = normalized;
+      }
+    });
+    return { following: followingSource, followers };
   } catch (error) {
     console.warn("Failed to parse following list", error);
-    return new Set();
+    return { following: [] as string[], followers: {} as Record<string, string[]> };
   }
 };
 
-const persistFollowing = (following: Set<string>) => {
+const toSortedArray = (values: Iterable<string>) =>
+  Array.from(values)
+    .filter(isNonEmptyString)
+    .map((value) => value.trim())
+    .filter((value, index, array) => array.indexOf(value) === index)
+    .sort((a, b) => a.localeCompare(b));
+
+const persistFollowState = (following: Set<string>, followers: Map<string, Set<string>>) => {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(FOLLOWING_STORAGE_KEY, JSON.stringify(Array.from(following)));
+    const followerRecord: Record<string, string[]> = {};
+    followers.forEach((set, key) => {
+      if (!isNonEmptyString(key) || set.size === 0) {
+        return;
+      }
+      const sorted = toSortedArray(set);
+      if (sorted.length > 0) {
+        followerRecord[key] = sorted;
+      }
+    });
+    window.localStorage.setItem(
+      FOLLOWING_STORAGE_KEY,
+      JSON.stringify({
+        following: toSortedArray(following),
+        followers: followerRecord,
+      }),
+    );
   } catch (error) {
     console.warn("Unable to persist following list", error);
   }
@@ -157,15 +276,18 @@ export const PROFILE_FALLBACK_MESSAGE = "Profile unavailable. Try again later.";
 
 const fetchProfileFromApi = async (pubkey: string): Promise<BitcoinSquareProfile> => {
   try {
-    const json = await safeJsonFetch<Partial<BitcoinSquareProfile>>(
-      `https://bitcoinsquare.io/api/users/${pubkey}`
-    );
-    return normalizeProfile(pubkey, json);
+    const response = await safeJsonFetch<unknown>(`https://bitcoinsquare.io/api/users/${pubkey}`);
+    const payload = extractProfilePayload(pubkey, response);
+    return normalizeProfile(pubkey, payload);
   } catch (error) {
     if (isJsonFetchError(error)) {
-      throw handleJsonFetchError(pubkey, error);
+      const normalized = handleJsonFetchError(pubkey, error);
+      throw new ProfileFetchError(PROFILE_FALLBACK_MESSAGE, { cause: normalized });
     }
-    throw error;
+    if (error instanceof ProfileFetchError) {
+      throw error;
+    }
+    throw new ProfileFetchError(PROFILE_FALLBACK_MESSAGE, { cause: error });
   }
 };
 
@@ -185,19 +307,98 @@ export const formatMemberSince = (value?: string | null) => {
 };
 
 export const ProfileIdentityProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
+  const { user } = useAuth();
+  const viewerPubkey = user?.nostrPublicKey?.trim() || null;
   const [profiles, setProfiles] = useState<Record<string, ProfileEntry>>({});
   const [activeProfile, setActiveProfile] = useState<string | null>(null);
   const profilesRef = useRef(profiles);
   const inflight = useRef(new Map<string, Promise<BitcoinSquareProfile | null>>() );
-  const [following, setFollowing] = useState<Set<string>>(() => loadFollowingFromStorage());
+  const initialFollowStateRef = useRef(loadFollowState());
+  const [following, setFollowing] = useState<Set<string>>(
+    () => new Set(initialFollowStateRef.current.following.map((value) => value.trim()).filter(isNonEmptyString)),
+  );
+  const [followersMap, setFollowersMap] = useState<Map<string, Set<string>>>(() => {
+    const map = new Map<string, Set<string>>();
+    Object.entries(initialFollowStateRef.current.followers).forEach(([key, list]) => {
+      if (!isNonEmptyString(key)) return;
+      const normalized = list.filter(isNonEmptyString);
+      if (normalized.length > 0) {
+        map.set(key, new Set(normalized));
+      }
+    });
+    return map;
+  });
 
   useEffect(() => {
     profilesRef.current = profiles;
   }, [profiles]);
 
   useEffect(() => {
-    persistFollowing(following);
-  }, [following]);
+    persistFollowState(following, followersMap);
+  }, [following, followersMap]);
+
+  const mutateProfileData = useCallback(
+    (pubkey: string, updater: (profile: BitcoinSquareProfile) => BitcoinSquareProfile | null) => {
+      setProfiles((prev) => {
+        const entry = prev[pubkey];
+        if (!entry?.data) {
+          return prev;
+        }
+        const updatedProfile = updater(entry.data);
+        if (!updatedProfile) {
+          return prev;
+        }
+        if (updatedProfile === entry.data) {
+          return prev;
+        }
+        return {
+          ...prev,
+          [pubkey]: {
+            ...entry,
+            data: updatedProfile,
+          },
+        };
+      });
+    },
+    [],
+  );
+
+  const syncViewerFollowing = useCallback(
+    (nextFollowing: Set<string>) => {
+      if (!viewerPubkey) return;
+      mutateProfileData(viewerPubkey, (profile) => {
+        const nextList = toSortedArray(nextFollowing);
+        const currentList = Array.isArray(profile.following) ? toSortedArray(profile.following) : [];
+        const sameLength = nextList.length === currentList.length;
+        if (sameLength && nextList.every((value, index) => value === currentList[index])) {
+          return profile;
+        }
+        return {
+          ...profile,
+          following: nextList,
+        };
+      });
+    },
+    [mutateProfileData, viewerPubkey],
+  );
+
+  const syncTargetFollowers = useCallback(
+    (targetPubkey: string, followers: Set<string>) => {
+      mutateProfileData(targetPubkey, (profile) => {
+        const nextFollowers = toSortedArray(followers);
+        const currentFollowers = Array.isArray(profile.followers) ? toSortedArray(profile.followers) : [];
+        const sameLength = nextFollowers.length === currentFollowers.length;
+        if (sameLength && nextFollowers.every((value, index) => value === currentFollowers[index])) {
+          return profile;
+        }
+        return {
+          ...profile,
+          followers: nextFollowers,
+        };
+      });
+    },
+    [mutateProfileData],
+  );
 
   const updateProfileEntry = useCallback((pubkey: string, updater: (entry: ProfileEntry | undefined) => ProfileEntry) => {
     setProfiles((prev) => {
@@ -277,8 +478,14 @@ export const ProfileIdentityProvider: React.FC<React.PropsWithChildren> = ({ chi
           await writePersistedProfile(pubkey, record);
           return profile;
         } catch (error) {
-          if (import.meta.env?.DEV && !isJsonFetchError(error)) {
-            console.error("Profile fetch failed", {
+          const message =
+            error instanceof ProfileFetchError
+              ? error.message
+              : error instanceof Error
+                ? error.message
+                : PROFILE_FALLBACK_MESSAGE;
+          if (import.meta.env?.DEV) {
+            console.warn("Profile fetch failed", {
               pubkey,
               error,
             });
@@ -286,10 +493,10 @@ export const ProfileIdentityProvider: React.FC<React.PropsWithChildren> = ({ chi
           updateProfileEntry(pubkey, (entry) => ({
             status: "error",
             data: entry?.data ?? null,
-            error: PROFILE_FALLBACK_MESSAGE,
+            error: message ?? PROFILE_FALLBACK_MESSAGE,
             fetchedAt: Date.now(),
           }));
-          throw error;
+          return null;
         } finally {
           inflight.current.delete(pubkey);
         }
@@ -322,50 +529,97 @@ export const ProfileIdentityProvider: React.FC<React.PropsWithChildren> = ({ chi
   );
 
   const follow = useCallback((pubkey: string) => {
+    if (!isNonEmptyString(pubkey)) {
+      return;
+    }
+    const normalized = pubkey.trim();
+    if (viewerPubkey && normalized === viewerPubkey) {
+      return;
+    }
     setFollowing((prev) => {
-      if (prev.has(pubkey)) return prev;
+      if (prev.has(normalized)) return prev;
       const next = new Set(prev);
-      next.add(pubkey);
+      next.add(normalized);
+      syncViewerFollowing(next);
       return next;
     });
-  }, []);
+    if (viewerPubkey) {
+      setFollowersMap((prev) => {
+        const existing = prev.get(normalized);
+        if (existing?.has(viewerPubkey)) {
+          return prev;
+        }
+        const next = new Map(prev);
+        const followerSet = new Set(existing ?? []);
+        followerSet.add(viewerPubkey);
+        next.set(normalized, followerSet);
+        syncTargetFollowers(normalized, followerSet);
+        return next;
+      });
+    }
+  }, [syncTargetFollowers, syncViewerFollowing, viewerPubkey]);
 
   const unfollow = useCallback((pubkey: string) => {
+    if (!isNonEmptyString(pubkey)) {
+      return;
+    }
+    const normalized = pubkey.trim();
     setFollowing((prev) => {
-      if (!prev.has(pubkey)) return prev;
+      if (!prev.has(normalized)) return prev;
       const next = new Set(prev);
-      next.delete(pubkey);
+      next.delete(normalized);
+      syncViewerFollowing(next);
       return next;
     });
-  }, []);
+    if (viewerPubkey) {
+      setFollowersMap((prev) => {
+        const existing = prev.get(normalized);
+        if (!existing?.has(viewerPubkey)) {
+          return prev;
+        }
+        const next = new Map(prev);
+        const followerSet = new Set(existing);
+        followerSet.delete(viewerPubkey);
+        if (followerSet.size === 0) {
+          next.delete(normalized);
+        } else {
+          next.set(normalized, followerSet);
+        }
+        syncTargetFollowers(normalized, followerSet);
+        return next;
+      });
+    }
+  }, [syncTargetFollowers, syncViewerFollowing, viewerPubkey]);
 
   const toggleFollow = useCallback(
     (pubkey: string) => {
-      setFollowing((prev) => {
-        const next = new Set(prev);
-        if (next.has(pubkey)) {
-          next.delete(pubkey);
-        } else {
-          next.add(pubkey);
-        }
-        return next;
-      });
+      if (!isNonEmptyString(pubkey)) {
+        return;
+      }
+      if (following.has(pubkey)) {
+        unfollow(pubkey);
+      } else {
+        follow(pubkey);
+      }
     },
-    [],
+    [follow, following, unfollow],
   );
 
   const isFollowing = useCallback((pubkey: string) => following.has(pubkey), [following]);
 
+  const followersFor = useCallback(
+    (pubkey: string) => {
+      const entry = followersMap.get(pubkey);
+      if (!entry) return [];
+      return toSortedArray(entry);
+    },
+    [followersMap],
+  );
+
   const startDirectMessage = useCallback((pubkey: string) => {
     if (typeof window === "undefined") return;
-    const event = new CustomEvent("nostr:dm", { detail: { pubkey } });
-    window.dispatchEvent(event);
-    const nostrUri = `nostr:dm/${pubkey}`;
-    try {
-      window.open(nostrUri, "_blank");
-    } catch (error) {
-      console.warn("Unable to open DM link", error);
-    }
+    const detail = { pubkey };
+    window.dispatchEvent(new CustomEvent("bitcoinsquare:open-dm", { detail }));
   }, []);
 
   const openProfile = useCallback((pubkey: string) => {
@@ -415,6 +669,8 @@ export const ProfileIdentityProvider: React.FC<React.PropsWithChildren> = ({ chi
       unfollow,
       toggleFollow,
       isFollowing,
+      following,
+      followersFor,
       startDirectMessage,
       shortenPubkey: shorten,
       fallbackAvatar,
@@ -431,6 +687,8 @@ export const ProfileIdentityProvider: React.FC<React.PropsWithChildren> = ({ chi
       unfollow,
       toggleFollow,
       isFollowing,
+      following,
+      followersFor,
       startDirectMessage,
     ],
   );

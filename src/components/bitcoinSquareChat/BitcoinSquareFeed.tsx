@@ -883,6 +883,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
           ) : (
             filteredPosts.map((post) => {
             const profile = resolveProfileSummary(post.pubkey);
+            const isSelfPost = post.pubkey === pubkey;
             const isPendingLike = pendingLikes.has(post.id);
             const likeDisabled = !ready || isPendingLike;
             const statusLabel =
@@ -895,10 +896,12 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
             const isExpanded = expandedPosts.has(post.id);
             const displayContent = isExpanded || !longPost ? post.content : getCollapsedContent(post.content);
             const zapKey = `feed:${post.id}`;
-            const zapEndpoint = detectZapEndpoint({
-              lightningAddress: profile.lightningAddress,
-              tags: post.tags,
-            });
+            const zapEndpoint = isSelfPost
+              ? null
+              : detectZapEndpoint({
+                  lightningAddress: profile.lightningAddress,
+                  tags: post.tags,
+                });
             const baseZapCount = zapCounts[zapKey] ?? countZapReferences(post.tags);
             const zapPending = pendingZaps.has(zapKey);
             const displayZapCount = Math.max(0, baseZapCount + (zapPending ? 1 : 0));

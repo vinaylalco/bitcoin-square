@@ -71,6 +71,14 @@ const ProfileModalBody: React.FC<ProfileModalBodyProps> = ({
   const totalPosts = profile?.totalPosts != null ? profile.totalPosts.toLocaleString() : "—";
   const reputation = profile?.reputationScore != null ? profile.reputationScore.toLocaleString() : "—";
   const rank = profile?.rank ?? "—";
+  const followerCount = Array.isArray(profile?.followers)
+    ? profile?.followers?.length ?? 0
+    : null;
+  const followingCount = Array.isArray(profile?.following)
+    ? profile?.following?.length ?? 0
+    : null;
+  const followerLabel = followerCount != null ? followerCount.toLocaleString() : "—";
+  const followingLabel = followingCount != null ? followingCount.toLocaleString() : "—";
 
   const badges = useMemo(() => {
     if (!profile) return [] as string[];
@@ -178,6 +186,14 @@ const ProfileModalBody: React.FC<ProfileModalBodyProps> = ({
                   <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">Community rank</dt>
                   <dd className="mt-1 text-sm font-medium text-[var(--fg-default)]">{rank}</dd>
                 </div>
+                <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-3">
+                  <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">Followers</dt>
+                  <dd className="mt-1 text-sm font-medium text-[var(--fg-default)]">{followerLabel}</dd>
+                </div>
+                <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-3">
+                  <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">Following</dt>
+                  <dd className="mt-1 text-sm font-medium text-[var(--fg-default)]">{followingLabel}</dd>
+                </div>
               </dl>
 
               {profile?.lightningAddress && (
@@ -212,13 +228,14 @@ const ProfileModalBody: React.FC<ProfileModalBodyProps> = ({
                 <button
                   type="button"
                   onClick={onFollow}
+                  aria-pressed={following}
                   className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition ${
                     following
                       ? "border-brand bg-brand/10 text-brand hover:bg-brand/20"
                       : "border-[var(--border-subtle)] text-[var(--fg-default)] hover:border-brand hover:text-brand"
                   }`}
                 >
-                  {following ? "Following" : "Follow"}
+                  {following ? "Unfollow" : "Follow"}
                 </button>
                 <button
                   type="button"
@@ -330,7 +347,10 @@ const ProfileModalPortal: React.FC = () => {
         onClose={closeProfile}
         onRefresh={() => refresh().catch(() => undefined)}
         onFollow={() => toggleFollow(activeProfile)}
-        onMessage={() => startDirectMessage(activeProfile)}
+        onMessage={() => {
+          startDirectMessage(activeProfile);
+          closeProfile();
+        }}
         summary={summary}
         shortenPubkey={shortenPubkey}
         activeProfile={activeProfile}
