@@ -6,18 +6,26 @@ export interface UpdateLightningAddressResponse {
   username?: string;
   lnWalletAddress?: string | null;
   lightningAddress?: string | null;
+  screenName?: string | null;
+  avatarUrl?: string | null;
 }
 
-export async function updateLightningAddress(
+export interface UpdateProfileSettingsPayload {
+  lnWalletAddress?: string | null;
+  screenName?: string | null;
+  avatarUrl?: string | null;
+}
+
+export async function updateProfileSettings(
   userId: number,
   jwt: string,
-  lightningAddress: string | null,
+  payload: UpdateProfileSettingsPayload,
 ): Promise<UpdateLightningAddressResponse> {
   return strapiFetch<UpdateLightningAddressResponse>(`/api/users/${userId}`, {
     method: 'PUT',
     headers: {
       Authorization: `Bearer ${jwt}`,
     },
-    body: JSON.stringify({ lnWalletAddress: lightningAddress }),
+    body: JSON.stringify(payload),
   });
 }

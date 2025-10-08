@@ -210,7 +210,7 @@ const createWorker = () =>
 const buildCacheKey = (roomId: string, digest: string, isPrivate: boolean) =>
   `${roomId}:${isPrivate ? "1" : "0"}:${digest}`;
 
-export const useMediaUploader = ({ room, pubkey, host = "void.cat" }: UseMediaUploaderOptions): UseMediaUploaderReturn => {
+export const useMediaUploader = ({ room, pubkey, host = "nostr.build" }: UseMediaUploaderOptions): UseMediaUploaderReturn => {
   const roomId = room?.id ?? null;
   const isPrivate = room?.type === "private";
   const seedBase64 =

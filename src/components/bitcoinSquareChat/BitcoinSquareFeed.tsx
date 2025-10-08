@@ -5,13 +5,29 @@ import { useProfileIdentity, shortenPubkey } from "../../context/ProfileIdentity
 import { CASUAL_ROOM_ID, CASUAL_ROOM_NAME } from "../../hooks/useBitcoinSquareCasualChat";
 import { useMediaUploader, type MediaUploadResult } from "../../hooks/useMediaUploader";
 import ProfileCard from "../profile/ProfileCard";
-import { Heart, MessageCircle, MessageSquareQuote, Plus, X, Zap } from "lucide-react";
+import type { RoomDefinition } from "../RoomList";
+import {
+  Heart,
+  Image as ImageIcon,
+  Loader2,
+  MessageCircle,
+  MessageSquareQuote,
+  Plus,
+  X,
+  Zap,
+} from "lucide-react";
 
 interface BitcoinSquareFeedProps {
   posts: FeedPost[];
   ready: boolean;
   publishing: boolean;
-  publishStatus: (content: string, context?: PublishContext | null) => Promise<{ eventId: string }>;
+  publishStatus: (
+    input: {
+      content: string;
+      context?: PublishContext | null;
+      attachments?: FeedPost["attachments"];
+    },
+  ) => Promise<{ eventId: string }>;
   likePost: (post: FeedPost) => Promise<void>;
   loadMore: () => Promise<void>;
   loadingMore: boolean;
@@ -124,16 +140,28 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   const [pendingLikes, setPendingLikes] = useState<PendingMap>(() => new Set());
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [pendingMedia, setPendingMedia] = useState<MediaUploadResult[]>([]);
   const relativeFormatter = useMemo(() => createRelativeFormatter(), []);
   const now = useRelativeNow();
   const { requestProfile, resolveProfileSummary, openProfile } = useProfileIdentity();
+  const feedRoom = useMemo<RoomDefinition>(
+    () => ({
+      id: CASUAL_ROOM_ID,
+      name: CASUAL_ROOM_NAME,
+      type: "private",
+      hasLocalKey: true,
+    }),
+    [],
+  );
+
   const {
     uploadFile: uploadMedia,
     progress: uploadProgress,
     status: uploadStatus,
     error: uploadError,
     reset: resetUpload,
-  } = useMediaUploader({ room: FEED_ROOM, pubkey });
+  } = useMediaUploader({ room: feedRoom, pubkey });
 
   useEffect(() => {
     if (!hasMore) return;
@@ -173,51 +201,49 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     setComposerMode("new");
     setContent("");
     setComposerError(null);
+    setPendingMedia([]);
+    resetUpload();
+  }, [resetUpload]);
+
+  const triggerFilePicker = useCallback(() => {
+    fileInputRef.current?.click();
   }, []);
 
-  const openComposerDialog = useCallback(
-    (mode: ComposerMode, post?: FeedPost | null) => {
-      setComposerMode(mode);
-      setComposerTarget(post ?? null);
-      if (mode === "reply" && post) {
-        setContent(`@${shortenPubkey(post.pubkey)} `);
-      } else if (mode === "quote" && post) {
-        const quoted = post.content
-          .split(/\r?\n/)
-          .map((line) => `> ${line}`)
-          .join("\n");
-        setContent(`${quoted}\n\n`);
-      } else {
-        setContent("");
+  const handleMediaUpload = useCallback(
+    async (file: File) => {
+      try {
+        const result = await uploadMedia(file);
+        setPendingMedia((prev) => [...prev, result]);
+        setComposerError(null);
+      } catch (mediaError) {
+        const message = mediaError instanceof Error ? mediaError.message : String(mediaError);
+        setComposerError(message);
+        throw mediaError;
+      } finally {
+        resetUpload();
       }
-      setComposerError(null);
-      setComposerOpen(true);
     },
-    [shortenPubkey],
+    [resetUpload, uploadMedia],
   );
 
-  useEffect(() => {
-    if (!composerOpen) return;
-    const handler = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        resetComposer();
+  const handleFileChange = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      try {
+        await handleMediaUpload(file);
+      } catch {
+        // handled in handleMediaUpload
+      } finally {
+        event.target.value = "";
       }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [composerOpen, resetComposer]);
+    },
+    [handleMediaUpload],
+  );
 
-  useEffect(() => {
-    if (composerOpen && textareaRef.current) {
-      const textarea = textareaRef.current;
-      requestAnimationFrame(() => {
-        textarea.focus();
-        const length = textarea.value.length;
-        textarea.setSelectionRange(length, length);
-      });
-    }
-  }, [composerOpen]);
+  const handleRemoveMedia = useCallback((cacheKey: string) => {
+    setPendingMedia((prev) => prev.filter((item) => item.cacheKey !== cacheKey));
+  }, []);
 
   const openComposerDialog = useCallback(
     (mode: ComposerMode, post?: FeedPost | null) => {
@@ -290,10 +316,11 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
 
       try {
         setComposerError(null);
-        await publishStatus(
-          content,
-          composerTarget ? { type: composerMode, post: composerTarget } : null,
-        );
+        await publishStatus({
+          content: trimmed,
+          context: composerTarget ? { type: composerMode, post: composerTarget } : undefined,
+          attachments,
+        });
         resetComposer();
       } catch (publishError) {
         setComposerError(
@@ -303,7 +330,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         );
       }
     },
-    [composerMode, composerTarget, content, publishStatus, resetComposer],
+    [composerMode, composerTarget, content, pendingMedia, publishStatus, ready, resetComposer],
   );
 
   const filteredPosts = useMemo(() => {
@@ -386,28 +413,6 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     },
     [likePost, updatePending],
   );
-
-  const handleSendSats = useCallback((address: string) => {
-    if (!address) return;
-    const target = address.startsWith("lightning:") ? address : `lightning:${address}`;
-    if (typeof window === "undefined") {
-      try {
-        void navigator.clipboard?.writeText(address);
-      } catch {
-        // ignore clipboard errors
-      }
-      return;
-    }
-    try {
-      window.open(target, "_blank", "noopener,noreferrer");
-    } catch (error) {
-      try {
-        void navigator.clipboard?.writeText(address);
-      } catch {
-        // ignore clipboard errors
-      }
-    }
-  }, []);
 
   const composerTitle =
     composerMode === "reply"
@@ -502,25 +507,32 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
 
                 {post.attachments.length > 0 && (
                   <div className="mt-4 space-y-3">
-                    {post.attachments.map((attachment, index) => (
-                      <div
-                        key={`${post.id}-attachment-${index}`}
-                        className="overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60"
-                      >
-                        {attachment.mimeType.startsWith("video/") ? (
-                          <video src={attachment.url} controls className="max-h-80 w-full rounded-2xl" />
-                        ) : (
-                          <img src={attachment.url} alt="Feed attachment" className="w-full object-contain" loading="lazy" />
-                        )}
-                        {(attachment.dimensions || attachment.size) && (
-                          <p className="px-3 py-2 text-xs text-[var(--fg-muted)]">
-                            {attachment.dimensions && <span>{attachment.dimensions}</span>}
-                            {attachment.dimensions && attachment.size && <span className="mx-1">•</span>}
-                            {attachment.size && <span>{(attachment.size / 1024).toFixed(1)} KB</span>}
-                          </p>
-                        )}
-                      </div>
-                    ))}
+                    {post.attachments.map((attachment, index) => {
+                      const metaParts: string[] = [];
+                      if (attachment.width && attachment.height) {
+                        metaParts.push(`${attachment.width}x${attachment.height}`);
+                      } else if (attachment.dimensions) {
+                        metaParts.push(attachment.dimensions);
+                      }
+                      if (attachment.size) {
+                        metaParts.push(`${(attachment.size / 1024).toFixed(1)} KB`);
+                      }
+                      return (
+                        <div
+                          key={`${post.id}-attachment-${index}`}
+                          className="overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60"
+                        >
+                          {attachment.mimeType.startsWith("video/") ? (
+                            <video src={attachment.url} controls className="max-h-80 w-full rounded-2xl" />
+                          ) : (
+                            <img src={attachment.url} alt="Feed attachment" className="w-full object-contain" loading="lazy" />
+                          )}
+                          {metaParts.length > 0 && (
+                            <p className="px-3 py-2 text-xs text-[var(--fg-muted)]">{metaParts.join(" • ")}</p>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
 
@@ -531,33 +543,53 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
                     type="button"
                     onClick={() => openComposerDialog("reply", post)}
                     disabled={!ready}
-                    className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] px-3 py-1 font-semibold uppercase tracking-[0.18em] transition hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-60"
+                    title="Reply to this post"
                   >
-                    <MessageCircle className="h-4 w-4" /> Reply
+                    <MessageCircle className="h-4 w-4" />
+                    <span className="sr-only">Reply</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => openComposerDialog("quote", post)}
                     disabled={!ready}
-                    className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] px-3 py-1 font-semibold uppercase tracking-[0.18em] transition hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-60"
+                    title="Quote this post"
                   >
-                    <MessageSquareQuote className="h-4 w-4" /> Quote
+                    <MessageSquareQuote className="h-4 w-4" />
+                    <span className="sr-only">Quote</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => handleLike(post)}
                     disabled={likeDisabled}
-                    className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] px-3 py-1 font-semibold uppercase tracking-[0.18em] transition hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-60"
+                    className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition ${
+                      isPendingLike
+                        ? "border-brand text-brand"
+                        : "border-[var(--border-subtle)] text-[var(--fg-muted)] hover:border-brand hover:text-brand"
+                    } disabled:cursor-not-allowed disabled:opacity-60`}
+                    title={isPendingLike ? "Sending like…" : "Like this post"}
                   >
-                    <Heart className="h-4 w-4" /> {isPendingLike ? "Liking…" : "Like"}
+                    {isPendingLike ? <Loader2 className="h-4 w-4 animate-spin" /> : <Heart className="h-4 w-4" />}
+                    <span className="sr-only">Like</span>
                   </button>
                   {profile.lightningAddress && (
                     <button
                       type="button"
-                      onClick={() => handleSendSats(profile.lightningAddress!)}
-                      className="inline-flex items-center gap-2 rounded-full border border-brand/40 px-3 py-1 font-semibold uppercase tracking-[0.18em] text-brand transition hover:border-brand"
+                      onClick={() => onSendLightning(profile.lightningAddress!)}
+                      className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition ${
+                        canZap
+                          ? "border-brand/40 text-brand hover:border-brand"
+                          : "border-dashed border-[var(--border-subtle)] text-[var(--fg-muted)] hover:border-brand/40"
+                      }`}
+                      title={
+                        canZap
+                          ? "Send sats via Lightning"
+                          : "Add your Lightning address on the dashboard to zap"
+                      }
                     >
-                      <Zap className="h-4 w-4" /> Send BTC
+                      <Zap className="h-4 w-4" />
+                      <span className="sr-only">Send sats</span>
                     </button>
                   )}
                 </div>
@@ -623,10 +655,50 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
                 }
                 disabled={!ready || publishing}
               />
-              <div className="flex items-center justify-between text-xs text-[var(--fg-muted)]">
+              {pendingMedia.length > 0 && (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {pendingMedia.map((media) => (
+                    <div
+                      key={media.cacheKey}
+                      className="relative overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60"
+                    >
+                      <img
+                        src={media.previewUrl ?? media.url}
+                        alt="Selected attachment"
+                        className="h-40 w-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveMedia(media.cacheKey)}
+                        className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur transition hover:bg-brand"
+                        aria-label="Remove attachment"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-[var(--fg-muted)]">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={triggerFilePicker}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand"
+                    disabled={!ready || publishing || uploadStatus === "uploading"}
+                    title="Attach media"
+                  >
+                    {uploadStatus === "uploading" ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
+                    <span className="sr-only">Attach media</span>
+                  </button>
+                  {uploadStatus === "uploading" && (
+                    <span>Uploading… {uploadProgress}%</span>
+                  )}
+                  {uploadError && <span className="text-red-500">{uploadError}</span>}
+                </div>
                 <span>{content.length}/500</span>
-                {composerError && <span className="text-red-500">{composerError}</span>}
               </div>
+              {composerError && <p className="text-xs text-red-500">{composerError}</p>}
               <button
                 type="submit"
                 disabled={!ready || publishing}
@@ -637,6 +709,13 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
               {error && (
                 <p className="text-center text-xs text-red-500">{error}</p>
               )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*,video/*"
+                className="hidden"
+                onChange={handleFileChange}
+              />
             </form>
           </div>
         </div>

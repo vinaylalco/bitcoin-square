@@ -44,6 +44,14 @@ const formatTimestamp = (unixSeconds: number) => {
   }
 };
 
+const formatLastSeenLabel = (unixSeconds: number) => {
+  const diffSeconds = Math.max(0, Math.floor(Date.now() / 1000) - unixSeconds);
+  if (diffSeconds < 60) return "Active now";
+  if (diffSeconds < 3600) return `Active ${Math.floor(diffSeconds / 60)}m ago`;
+  if (diffSeconds < 86_400) return `Active ${Math.floor(diffSeconds / 3600)}h ago`;
+  return `Active ${Math.floor(diffSeconds / 86_400)}d ago`;
+};
+
 const base64ToUint8Array = (value: string) => {
   const binary = atob(value);
   const bytes = new Uint8Array(binary.length);
@@ -332,13 +340,10 @@ const Composer: React.FC<{
 const Community: React.FC = () => {
   const {
     roomId,
-    roomName,
     messages,
     sendMessage,
     pubkey,
-    loading,
     ready,
-    hasRoomKey,
     roomKeyError,
     error: sendError,
   } = useBitcoinSquareCasualChat();
@@ -353,6 +358,7 @@ const Community: React.FC = () => {
     loadingMore: feedLoadingMore,
     hasMore: feedHasMore,
     error: feedError,
+    pubkey: feedPubkey,
   } = useBitcoinSquareFeed();
   const { user, refreshNostrKeys } = useAuth();
   const {
@@ -376,7 +382,8 @@ const Community: React.FC = () => {
   } = useMediaUploader({ room: CASUAL_ROOM, pubkey });
   const [composerError, setComposerError] = useState<string | null>(null);
   const [composerDraft, setComposerDraft] = useState<string | undefined>(undefined);
-  const { requestProfile, resolveProfileSummary } = useProfileIdentity();
+  const [walletPromptOpen, setWalletPromptOpen] = useState(false);
+  const { requestProfile, resolveProfileSummary, openProfile } = useProfileIdentity();
 
   useEffect(() => {
     if (accountReady && globalSignEvent) {
@@ -463,6 +470,40 @@ const Community: React.FC = () => {
     });
   }, [feedPosts, messages, requestProfile]);
 
+  useEffect(() => {
+    if (!walletPromptOpen) return;
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setWalletPromptOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [walletPromptOpen]);
+
+  const onlineMembers = useMemo(() => {
+    const now = Math.floor(Date.now() / 1000);
+    const recencyWindow = 60 * 60 * 6;
+    const seen = new Map<string, number>();
+    messages.forEach((message) => {
+      if (now - message.created_at <= recencyWindow) {
+        seen.set(message.pubkey, Math.max(seen.get(message.pubkey) ?? 0, message.created_at));
+      }
+    });
+    feedPosts.forEach((post) => {
+      if (now - post.created_at <= recencyWindow) {
+        seen.set(post.pubkey, Math.max(seen.get(post.pubkey) ?? 0, post.created_at));
+      }
+    });
+    if (pubkey) {
+      seen.set(pubkey, now);
+    }
+    return Array.from(seen.entries())
+      .map(([pubkeyValue, lastSeen]) => ({ pubkey: pubkeyValue, lastSeen }))
+      .sort((a, b) => b.lastSeen - a.lastSeen)
+      .slice(0, 24);
+  }, [feedPosts, messages, pubkey]);
+
   const handleUploadFile = useCallback(
     async (file: File) => {
       const result = await uploadFile(file);
@@ -545,234 +586,292 @@ const Community: React.FC = () => {
     [sendMessage, shortenPubkey],
   );
 
-  const handleSendLightning = useCallback((address: string) => {
-    if (!address) return;
-    const target = address.startsWith("lightning:") ? address : `lightning:${address}`;
-    if (typeof window === "undefined") {
-      void navigator.clipboard?.writeText(address);
-      return;
-    }
-    try {
-      window.open(target, "_blank", "noopener,noreferrer");
-    } catch (error) {
-      try {
-        void navigator.clipboard?.writeText(address);
-      } catch {
-        // ignore copy failures
+  const handleSendLightning = useCallback(
+    (address: string) => {
+      if (!address) return;
+      if (!user?.lnWalletAddress) {
+        setWalletPromptOpen(true);
+        return;
       }
-    }
-  }, []);
-
+      const target = address.startsWith("lightning:") ? address : `lightning:${address}`;
+      if (typeof window === "undefined") {
+        void navigator.clipboard?.writeText(address);
+        return;
+      }
+      try {
+        window.open(target, "_blank", "noopener,noreferrer");
+      } catch (error) {
+        try {
+          void navigator.clipboard?.writeText(address);
+        } catch {
+          // ignore copy failures
+        }
+      }
+    },
+    [user?.lnWalletAddress],
+  );
 
   const gatingResult = renderContent();
   if (gatingResult) {
     return gatingResult;
   }
-  
+
   return (
-    <div className="flex h-full flex-col bg-[var(--bg-app)]">
-      <header className="border-b border-[var(--border-subtle)] bg-[var(--bg-card)] px-6 py-5 shadow-sm">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-xl font-semibold uppercase tracking-[0.24em] text-[var(--fg-default)]">
-              {isCasualView ? roomName : "BitcoinSquare Feed"}
-            </h1>
-            <p className="mt-2 max-w-3xl text-sm text-[var(--fg-muted)]">
-              {isCasualView
-                ? "A cozy, encrypted hangout for BitcoinSquare members. Messages are limited to 500 characters, support emojis and Markdown, and every upload is encrypted end-to-end before it hits the relay."
-                : "Catch the latest public updates from the BitcoinSquare community. Posts come directly from Nostr relays with the #bitcoinsquare-feed tag."}
-            </p>
+    <div className="relative flex min-h-screen w-full overflow-hidden bg-gradient-to-br from-amber-50 via-white to-rose-50 dark:from-neutral-950 dark:via-neutral-950 dark:to-neutral-900">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.25),transparent_55%),radial-gradient(circle_at_bottom_right,rgba(244,114,182,0.2),transparent_45%)] dark:bg-[radial-gradient(circle_at_top_left,rgba(96,165,250,0.12),transparent_55%),radial-gradient(circle_at_bottom_right,rgba(244,114,182,0.15),transparent_45%)]" />
+      <div className="relative z-0 flex min-h-screen w-full">
+        <aside className="hidden w-80 flex-col border-r border-white/40 bg-white/30 px-5 py-8 shadow-sm backdrop-blur lg:flex dark:border-neutral-800 dark:bg-neutral-900/60">
+          <h2 className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)]">Active members</h2>
+          <div className="mt-6 space-y-3 overflow-y-auto pr-1">
+            {onlineMembers.length === 0 ? (
+              <p className="rounded-2xl bg-white/60 p-4 text-xs text-[var(--fg-muted)] shadow-sm dark:bg-neutral-900/50">
+                We&apos;ll show members here as they join the conversation.
+              </p>
+            ) : (
+              onlineMembers.map(({ pubkey: memberKey, lastSeen }) => {
+                const memberSummary = resolveProfileSummary(memberKey);
+                return (
+                  <button
+                    key={memberKey}
+                    type="button"
+                    onClick={() => openProfile(memberKey)}
+                    className="flex w-full items-center gap-3 rounded-2xl border border-white/60 bg-white/80 px-3 py-2 text-left shadow-sm transition hover:border-brand hover:text-brand dark:border-neutral-800 dark:bg-neutral-900/70"
+                  >
+                    <img
+                      src={memberSummary.avatarUrl}
+                      alt={memberSummary.displayName}
+                      className="h-9 w-9 rounded-full border border-white/80 object-cover shadow-sm"
+                    />
+                    <div className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate text-sm font-semibold text-[var(--fg-default)]">{memberSummary.displayName}</span>
+                      <span className="truncate text-[10px] uppercase tracking-[0.24em] text-[var(--fg-muted)]">
+                        {formatLastSeenLabel(memberKey === pubkey ? Math.floor(Date.now() / 1000) : lastSeen)}
+                      </span>
+                    </div>
+                    {memberSummary.lightningAddress && <Zap className="h-4 w-4 text-brand" />}
+                  </button>
+                );
+              })
+            )}
           </div>
-          <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em]">
-            <button
-              type="button"
-              onClick={() => setActiveView("casual")}
-              className={`rounded-full border px-3 py-1 transition ${
-                isCasualView
-                  ? "border-brand bg-brand/10 text-brand"
-                  : "border-[var(--border-subtle)] text-[var(--fg-muted)] hover:border-brand hover:text-brand"
-              }`}
-            >
-              Casual Chat
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveView("feed")}
-              className={`rounded-full border px-3 py-1 transition ${
-                !isCasualView
-                  ? "border-brand bg-brand/10 text-brand"
-                  : "border-[var(--border-subtle)] text-[var(--fg-muted)] hover:border-brand hover:text-brand"
-              }`}
-            >
-              Community Feed
-            </button>
+        </aside>
+        <div className="flex min-h-screen flex-1 flex-col">
+          <header className="flex items-center justify-center border-b border-[var(--border-subtle)] bg-[var(--bg-card)] px-6 py-5 shadow-sm">
+            <div className="inline-flex items-center gap-2 rounded-full bg-[var(--bg-app)]/70 p-1 shadow-sm">
+              <button
+                type="button"
+                onClick={() => setActiveView("casual")}
+                className={`rounded-full px-5 py-2 text-xs font-semibold uppercase tracking-[0.24em] transition ${
+                  isCasualView ? "bg-brand text-white shadow" : "text-[var(--fg-muted)] hover:text-brand"
+                }`}
+              >
+                Casual Chat
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveView("feed")}
+                className={`rounded-full px-5 py-2 text-xs font-semibold uppercase tracking-[0.24em] transition ${
+                  !isCasualView ? "bg-brand text-white shadow" : "text-[var(--fg-muted)] hover:text-brand"
+                }`}
+              >
+                Community Feed
+              </button>
+            </div>
+          </header>
+          <main className="relative flex flex-1 flex-col overflow-hidden">
+            {isCasualView ? (
+              <>
+                <div ref={listRef} className="flex-1 overflow-y-auto px-4 pb-56 pt-6 sm:px-8">
+                  {messages.map((message) => {
+                    const summary = resolveProfileSummary(message.pubkey);
+                    const isSelf = message.pubkey === pubkey;
+                    const bubbleBase = isSelf
+                      ? "bg-brand text-white shadow-xl"
+                      : "bg-white/85 text-[var(--fg-default)] shadow-sm dark:bg-neutral-900/70";
+                    const timestampColor = isSelf ? "text-white/80" : "text-[var(--fg-muted)]";
+                    return (
+                      <div key={message.id} className={`flex w-full ${isSelf ? "justify-end" : "justify-start"} py-2`}>
+                        <div className={`flex max-w-[min(80%,32rem)] items-end gap-3 ${isSelf ? "flex-row-reverse" : ""}`}>
+                          <button
+                            type="button"
+                            onClick={() => openProfile(message.pubkey)}
+                            className="group flex-shrink-0"
+                          >
+                            <img
+                              src={summary.avatarUrl}
+                              alt={summary.displayName}
+                              className="h-10 w-10 rounded-full border border-white/80 object-cover shadow-sm transition group-hover:ring-2 group-hover:ring-brand dark:border-neutral-700"
+                            />
+                            <span className="sr-only">Open profile</span>
+                          </button>
+                          <div className={`space-y-3 rounded-3xl px-4 py-3 backdrop-blur ${bubbleBase}`}>
+                            <div className="flex items-center justify-between gap-3 text-[10px] uppercase tracking-[0.24em]">
+                              <span className={`font-semibold ${isSelf ? "text-white" : "text-[var(--fg-default)]"}`}>
+                                {summary.displayName}
+                              </span>
+                              <span className={timestampColor}>{formatTimestamp(message.created_at)}</span>
+                            </div>
+                            <div
+                              className={`prose prose-sm max-w-none whitespace-pre-wrap break-words ${
+                                isSelf ? "prose-invert" : "text-[var(--fg-default)]"
+                              } prose-a:text-brand`}
+                              dangerouslySetInnerHTML={{ __html: message.html }}
+                            />
+                            {message.attachments.length > 0 && (
+                              <div className="space-y-3">
+                                {message.attachments.map((attachment) => (
+                                  <div
+                                    key={`${message.id}-${attachment.digest ?? attachment.url}`}
+                                    className="overflow-hidden rounded-2xl border border-white/40 bg-black/10"
+                                  >
+                                    <AttachmentPreview attachment={attachment} />
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            <div className={`flex items-center gap-2 ${isSelf ? "justify-end" : ""}`}>
+                              <button
+                                type="button"
+                                onClick={() => handleReplyToMessage(message)}
+                                disabled={!ready}
+                                className={`inline-flex h-8 w-8 items-center justify-center rounded-full border ${
+                                  isSelf
+                                    ? "border-white/60 text-white"
+                                    : "border-white/70 text-[var(--fg-muted)] hover:border-brand hover:text-brand"
+                                } disabled:cursor-not-allowed disabled:opacity-60`}
+                                title="Reply"
+                              >
+                                <MessageCircle className="h-4 w-4" />
+                                <span className="sr-only">Reply</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleQuoteMessage(message)}
+                                disabled={!ready}
+                                className={`inline-flex h-8 w-8 items-center justify-center rounded-full border ${
+                                  isSelf
+                                    ? "border-white/60 text-white"
+                                    : "border-white/70 text-[var(--fg-muted)] hover:border-brand hover:text-brand"
+                                } disabled:cursor-not-allowed disabled:opacity-60`}
+                                title="Quote"
+                              >
+                                <MessageSquareQuote className="h-4 w-4" />
+                                <span className="sr-only">Quote</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleLikeMessage(message)}
+                                disabled={!ready}
+                                className={`inline-flex h-8 w-8 items-center justify-center rounded-full border ${
+                                  isSelf
+                                    ? "border-white/60 text-white hover:border-white"
+                                    : "border-white/70 text-[var(--fg-muted)] hover:border-brand hover:text-brand"
+                                } disabled:cursor-not-allowed disabled:opacity-60`}
+                                title="Send a like"
+                              >
+                                <Heart className="h-4 w-4" />
+                                <span className="sr-only">Like</span>
+                              </button>
+                              {summary.lightningAddress && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleSendLightning(summary.lightningAddress!)}
+                                  className={`inline-flex h-8 w-8 items-center justify-center rounded-full border ${
+                                    user?.lnWalletAddress
+                                      ? "border-brand/40 text-white hover:border-brand dark:text-brand"
+                                      : "border-dashed border-white/60 text-white/80 dark:text-[var(--fg-muted)]"
+                                  }`}
+                                  title={
+                                    user?.lnWalletAddress
+                                      ? "Send sats via Lightning"
+                                      : "Add your Lightning address to zap from here"
+                                  }
+                                >
+                                  <Zap className="h-4 w-4" />
+                                  <span className="sr-only">Send sats</span>
+                                </button>
+                              )}
+                            </div>
+                            {message.status === "pending" && (
+                              <p className={`text-[10px] uppercase tracking-[0.24em] ${timestampColor}`}>Sending…</p>
+                            )}
+                            {message.status === "failed" && (
+                              <p className="text-[10px] uppercase tracking-[0.24em] text-red-200 dark:text-red-400">
+                                {message.error ?? "We couldn't deliver this message."}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="pointer-events-none fixed bottom-0 left-0 right-0 z-30 px-4 pb-6 pt-3 sm:px-8">
+                  <div className="pointer-events-auto mx-auto w-full max-w-3xl rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)]/95 px-4 py-4 shadow-xl backdrop-blur">
+                    {roomKeyError && <p className="mb-3 text-sm text-red-500">{roomKeyError}</p>}
+                    {sendError && <p className="mb-3 text-sm text-red-500">{sendError}</p>}
+                    {composerError && <p className="mb-3 text-sm text-red-500">{composerError}</p>}
+                    <Composer
+                      disabled={!ready}
+                      onSend={handleComposerSend}
+                      onUploadFile={handleUploadFile}
+                      pendingAttachments={pendingAttachments}
+                      onRemoveAttachment={handleRemoveAttachment}
+                      uploadStatus={uploadStatus}
+                      uploadProgress={uploadProgress}
+                      uploadError={uploadError}
+                      draft={composerDraft}
+                    />
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="flex h-full flex-1 overflow-hidden">
+                <BitcoinSquareFeed
+                  posts={feedPosts}
+                  ready={feedReady}
+                  publishing={feedPublishing}
+                  publishStatus={publishFeedStatus}
+                  likePost={likeFeedPost}
+                  loadMore={loadMoreFeed}
+                  loadingMore={feedLoadingMore}
+                  hasMore={feedHasMore}
+                  error={feedError}
+                  onSendLightning={handleSendLightning}
+                  canZap={Boolean(user?.lnWalletAddress)}
+                  pubkey={feedPubkey}
+                />
+              </div>
+            )}
+          </main>
+        </div>
+      </div>
+
+      {walletPromptOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-8">
+          <div className="w-full max-w-md rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 text-center shadow-2xl">
+            <h2 className="text-lg font-semibold text-[var(--fg-default)]">Connect your Lightning wallet</h2>
+            <p className="mt-3 text-sm text-[var(--fg-muted)]">
+              Add a Lightning address on your dashboard so you can zap other members instantly.
+            </p>
+            <div className="mt-6 flex flex-wrap justify-center gap-3">
+              <a
+                href="/dashboard"
+                className="inline-flex items-center justify-center rounded-full bg-brand px-5 py-2 text-sm font-semibold uppercase tracking-[0.24em] text-white transition hover:bg-brand/90"
+              >
+                Open dashboard
+              </a>
+              <button
+                type="button"
+                onClick={() => setWalletPromptOpen(false)}
+                className="inline-flex items-center justify-center rounded-full border border-[var(--border-subtle)] px-5 py-2 text-sm font-semibold uppercase tracking-[0.24em] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
-        {isCasualView ? (
-          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-[var(--fg-muted)]">
-            <span>Room tag: #{`room:${roomId}`}</span>
-            <span>Room access is provisioned automatically for BitcoinSquare members.</span>
-          </div>
-        ) : (
-          <p className="mt-3 text-xs text-[var(--fg-muted)]">
-            Streaming public notes tagged #bitcoinsquare-feed with optimistic delivery and offline caching.
-          </p>
-        )}
-      </header>
-
-      <main className="flex flex-1 flex-col overflow-hidden">
-        {isCasualView ? (
-          <>
-            <div ref={listRef} className="flex-1 space-y-4 overflow-y-auto px-6 py-6">
-          {loading && <p className="text-sm text-[var(--fg-muted)]">Loading recent messages…</p>}
-
-          {!loading && messages.length === 0 && (
-            <p className="text-sm text-[var(--fg-muted)]">No messages yet. Be the first to say hello!</p>
-          )}
-
-          {messages.map((message) => {
-            const summary = resolveProfileSummary(message.pubkey);
-
-            return (
-              <article
-                key={message.id}
-                className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-5 shadow-sm transition hover:border-brand/60"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <ProfileCard
-                    pubkey={message.pubkey}
-                    contentClassName="items-start"
-                    className="flex-1"
-                    subtitle={shortenPubkey(message.pubkey)}
-                    meta={
-                      <span className="text-xs uppercase tracking-[0.18em] text-[var(--fg-muted)]">
-                        {formatTimestamp(message.created_at)}
-                      </span>
-                    }
-                  />
-
-                  <a
-                    href={summary.profileUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="rounded-full border border-[var(--border-subtle)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand"
-                  >
-                    View profile
-                  </a>
-                </div>
-
-                <div
-                  className="prose prose-invert mt-4 max-w-none whitespace-pre-wrap text-sm leading-relaxed text-[var(--fg-default)] prose-a:text-brand prose-blockquote:border-brand/40"
-                  dangerouslySetInnerHTML={{ __html: message.html }}
-                />
-
-                {message.attachments.length > 0 && (
-                  <div className="mt-4 space-y-3">
-                    {message.attachments.map((attachment) => (
-                      <AttachmentPreview key={`${message.id}-${attachment.digest}`} attachment={attachment} />
-                    ))}
-                  </div>
-                )}
-
-                {message.status === "pending" && (
-                  <p className="mt-3 text-xs text-brand">Sending to relays…</p>
-                )}
-                {message.status === "failed" && (
-                  <p className="mt-3 text-xs text-red-500">
-                    {message.error ?? "We couldn't deliver this message."}
-                  </p>
-                )}
-
-                <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-[var(--fg-muted)]">
-                  <button
-                    type="button"
-                    onClick={() => handleReplyToMessage(message)}
-                    disabled={!ready}
-                    className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] px-3 py-1 font-semibold uppercase tracking-[0.18em] transition hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <MessageCircle className="h-4 w-4" /> Reply
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleQuoteMessage(message)}
-                    disabled={!ready}
-                    className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] px-3 py-1 font-semibold uppercase tracking-[0.18em] transition hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <MessageSquareQuote className="h-4 w-4" /> Quote
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleLikeMessage(message)}
-                    disabled={!ready}
-                    className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] px-3 py-1 font-semibold uppercase tracking-[0.18em] transition hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <Heart className="h-4 w-4" /> Like
-                  </button>
-                  {summary.lightningAddress && (
-                    <button
-                      type="button"
-                      onClick={() => handleSendLightning(summary.lightningAddress!)}
-                      className="inline-flex items-center gap-2 rounded-full border border-brand/40 px-3 py-1 font-semibold uppercase tracking-[0.18em] text-brand transition hover:border-brand"
-                    >
-                      <Zap className="h-4 w-4" /> Send BTC
-                    </button>
-                  )}
-                </div>
-              </article>
-            );
-          })}
-            </div>
-
-            <div className="border-t border-[var(--border-subtle)] bg-[var(--bg-card)] px-6 py-5">
-              {!pubkey && (
-                <p className="mb-3 rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-4 text-sm text-[var(--fg-muted)]">
-                  We&apos;re still preparing your BitcoinSquare Nostr keys. Refresh the page or reach out to
-                  support if this message does not disappear.
-                </p>
-              )}
-              {!hasRoomKey && (
-                <p className="mb-3 rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-4 text-sm text-[var(--fg-muted)]">
-                  The shared casual room key isn&apos;t available right now. Please contact the
-                  BitcoinSquare team to restore access.
-                </p>
-              )}
-              {roomKeyError && (
-                <p className="mb-3 text-sm text-red-500">{roomKeyError}</p>
-              )}
-              {sendError && (
-                <p className="mb-3 text-sm text-red-500">{sendError}</p>
-              )}
-              {composerError && (
-                <p className="mb-3 text-sm text-red-500">{composerError}</p>
-              )}
-
-              <Composer
-                disabled={!ready}
-                onSend={handleComposerSend}
-                onUploadFile={handleUploadFile}
-                pendingAttachments={pendingAttachments}
-                onRemoveAttachment={handleRemoveAttachment}
-                uploadStatus={uploadStatus}
-                uploadProgress={uploadProgress}
-                uploadError={uploadError}
-                draft={composerDraft}
-              />
-            </div>
-          </>
-        ) : (
-          <BitcoinSquareFeed
-            posts={feedPosts}
-            ready={feedReady}
-            publishing={feedPublishing}
-            publishStatus={publishFeedStatus}
-            likePost={likeFeedPost}
-            loadMore={loadMoreFeed}
-            loadingMore={feedLoadingMore}
-            hasMore={feedHasMore}
-            error={feedError}
-          />
-        )}
-      </main>
+      )}
 
       <ProfileModal />
     </div>
