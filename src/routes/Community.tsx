@@ -59,6 +59,11 @@ const MOBILE_VIEW_TABS: ViewTab[] = [
   { key: "members", label: "Members", icon: Users },
 ];
 
+const MOBILE_VIEW_TABS: ViewTab[] = [
+  ...DESKTOP_VIEW_TABS,
+  { key: "members", label: "Members", icon: Users },
+];
+
 const CASUAL_ROOM: RoomDefinition = {
   id: CASUAL_ROOM_ID,
   name: CASUAL_ROOM_NAME,
