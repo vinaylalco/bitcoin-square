@@ -11,7 +11,7 @@ export interface JsonFetchInit extends RequestInit {
   immutableHeaders?: boolean;
 }
 
-const JSON_MIME_PATTERN = /application\/json/i;
+const normalizeMime = (value: string | null) => (value ?? "").toLowerCase();
 
 export class JsonFetchError extends Error {
   readonly status: number;
@@ -96,9 +96,9 @@ export async function safeJsonFetch<T>(input: RequestInfo | URL, init?: JsonFetc
   }
 
   const text = await response.text();
-  const contentType = baseErrorInfo.contentType;
-  const isExpectedType =
-    expected === "application/json" ? JSON_MIME_PATTERN.test(contentType ?? "") : contentType?.startsWith(expected);
+  const contentType = normalizeMime(baseErrorInfo.contentType);
+  const expectedPrefix = expected.toLowerCase();
+  const isExpectedType = contentType.startsWith(expectedPrefix);
 
   if (!isExpectedType) {
     throw new JsonFetchError({
