@@ -908,6 +908,15 @@ const Community: React.FC = () => {
     setVirtualVersion((value) => value + 1);
   }, []);
 
+  const scrollToBottom = useCallback(
+    (behavior: ScrollBehavior = "auto") => {
+      const node = listRef.current;
+      if (!node) return;
+      node.scrollTo({ top: node.scrollHeight, behavior });
+    },
+    [],
+  );
+
   const scheduleScrollState = useCallback(() => {
     if (typeof window === "undefined") {
       computeScrollState();
