@@ -83,7 +83,7 @@ const CACHE_TTL = 1000 * 60 * 15; // 15 minutes
 
 const isJsonFetchError = (error: unknown): error is JsonFetchError => error instanceof JsonFetchError;
 
-const handleJsonFetchError = (pubkey: string, error: JsonFetchError): never => {
+const handleJsonFetchError = (pubkey: string, error: JsonFetchError): JsonFetchError => {
   if (import.meta.env?.DEV) {
     console.error("Profile fetch failed", {
       pubkey,
@@ -93,10 +93,7 @@ const handleJsonFetchError = (pubkey: string, error: JsonFetchError): never => {
       snippet: error.bodySnippet,
     });
   }
-  if (error.reason === "unexpected-content-type") {
-    throw new Error(PROFILE_FALLBACK_MESSAGE);
-  }
-  throw error;
+  return error;
 };
 
 const normalizeProfile = (pubkey: string, payload: Partial<BitcoinSquareProfile>): BitcoinSquareProfile => {
@@ -156,7 +153,7 @@ const persistFollowing = (following: Set<string>) => {
   }
 };
 
-const PROFILE_FALLBACK_MESSAGE = "Profile unavailable. Try again.";
+export const PROFILE_FALLBACK_MESSAGE = "Profile unavailable. Try again later.";
 
 const fetchProfileFromApi = async (pubkey: string): Promise<BitcoinSquareProfile> => {
   try {
@@ -166,7 +163,7 @@ const fetchProfileFromApi = async (pubkey: string): Promise<BitcoinSquareProfile
     return normalizeProfile(pubkey, json);
   } catch (error) {
     if (isJsonFetchError(error)) {
-      return handleJsonFetchError(pubkey, error);
+      throw handleJsonFetchError(pubkey, error);
     }
     throw error;
   }
@@ -280,11 +277,16 @@ export const ProfileIdentityProvider: React.FC<React.PropsWithChildren> = ({ chi
           await writePersistedProfile(pubkey, record);
           return profile;
         } catch (error) {
-          const message = error instanceof Error ? error.message : "Unable to load profile";
+          if (import.meta.env?.DEV && !isJsonFetchError(error)) {
+            console.error("Profile fetch failed", {
+              pubkey,
+              error,
+            });
+          }
           updateProfileEntry(pubkey, (entry) => ({
             status: "error",
             data: entry?.data ?? null,
-            error: message,
+            error: PROFILE_FALLBACK_MESSAGE,
             fetchedAt: Date.now(),
           }));
           throw error;
@@ -373,6 +375,32 @@ export const ProfileIdentityProvider: React.FC<React.PropsWithChildren> = ({ chi
   const closeProfile = useCallback(() => {
     setActiveProfile(null);
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const handleOpen = (event: Event) => {
+      const detail = (event as CustomEvent<{ pubkey?: string | null }>).detail;
+      const pubkeyValue = detail?.pubkey;
+      if (typeof pubkeyValue === "string" && pubkeyValue.trim().length > 0) {
+        openProfile(pubkeyValue);
+      }
+    };
+
+    const handleClose = () => {
+      closeProfile();
+    };
+
+    window.addEventListener("bitcoinsquare:open-profile", handleOpen as EventListener);
+    window.addEventListener("bitcoinsquare:close-profile", handleClose);
+
+    return () => {
+      window.removeEventListener("bitcoinsquare:open-profile", handleOpen as EventListener);
+      window.removeEventListener("bitcoinsquare:close-profile", handleClose);
+    };
+  }, [closeProfile, openProfile]);
 
   const contextValue = useMemo<ProfileIdentityContextValue>(
     () => ({

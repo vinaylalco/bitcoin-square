@@ -17,6 +17,7 @@ import { useSwipe } from "./hooks/useSwipe";
 import { useTheme } from "./context/ThemeContext";
 import { useAuth } from "./context/AuthContext";
 import Footer from "./components/Footer";
+import ProfileModalPortal from "./components/profile/ProfileModal";
 import { cn } from "./utils/cn";
 
 export default function App() {
@@ -373,6 +374,7 @@ export default function App() {
         <Outlet />
         {!hideFooterOnPage && <Footer />}
       </main>
+      <ProfileModalPortal />
     </div>
   );
 }
