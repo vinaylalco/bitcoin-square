@@ -20,7 +20,9 @@ import type { ProfileSummary } from "../context/ProfileIdentityContext";
 import { useAuth } from "../context/AuthContext";
 import { useNostrAccount } from "../hooks/useNostrAccount";
 import { setNostrClientSigner } from "../lib/nostrClient";
-import { ArrowDown, Heart, Loader2, MessageCircle, MessageSquareQuote, Newspaper, X, Zap } from "lucide-react";
+import { useTheme } from "../context/ThemeContext";
+import type { LucideIcon } from "lucide-react";
+import { ArrowDown, ChevronDown, Heart, Loader2, MessageCircle, MessageSquareQuote, Newspaper, X, Zap } from "lucide-react";
 import ZapDialog from "../components/bitcoinSquareChat/ZapDialog";
 import {
   countZapReferences,
@@ -30,6 +32,13 @@ import {
   type LnurlPayResponse,
   type ZapEndpoint,
 } from "../utils/zap";
+
+type ActiveView = "casual" | "feed";
+
+const VIEW_TABS: Array<{ key: ActiveView; label: string; icon: LucideIcon }> = [
+  { key: "casual", label: "Casual Chat", icon: MessageCircle },
+  { key: "feed", label: "Community Feed", icon: Newspaper },
+];
 
 const CASUAL_ROOM: RoomDefinition = {
   id: CASUAL_ROOM_ID,
@@ -55,6 +64,13 @@ interface AuthorAccent {
   shadow: string;
   dot: string;
 }
+
+const ACTIVE_MEMBER_WINDOW_SECONDS = 60;
+const CHAT_CHARACTER_LIMIT = 500;
+const LIGHT_BACKGROUND_TEXTURE =
+  "radial-gradient(circle at top, rgba(148,163,184,0.16), transparent 60%), radial-gradient(circle at bottom right, rgba(129,140,248,0.12), transparent 55%)";
+const DARK_BACKGROUND_TEXTURE =
+  "radial-gradient(circle at top, rgba(59,130,246,0.16), transparent 55%), radial-gradient(circle at bottom right, rgba(16,185,129,0.14), transparent 50%)";
 
 const formatTimestamp = (unixSeconds: number) => {
   try {
@@ -98,7 +114,7 @@ const computeAuthorAccent = (pubkey: string): AuthorAccent => {
 
 const formatLastSeenLabel = (unixSeconds: number) => {
   const diffSeconds = Math.max(0, Math.floor(Date.now() / 1000) - unixSeconds);
-  if (diffSeconds < 60) return "Active now";
+  if (diffSeconds < ACTIVE_MEMBER_WINDOW_SECONDS) return "Active now";
   if (diffSeconds < 3600) return `Active ${Math.floor(diffSeconds / 60)}m ago`;
   if (diffSeconds < 86_400) return `Active ${Math.floor(diffSeconds / 3600)}h ago`;
   return `Active ${Math.floor(diffSeconds / 86_400)}d ago`;
@@ -352,7 +368,13 @@ const Composer: React.FC<{
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const typingEmitRef = useRef(0);
 
-  const remaining = 500 - value.length;
+  const characterCount = value.length;
+  const characterStatusClass =
+    characterCount >= CHAT_CHARACTER_LIMIT
+      ? "text-red-500"
+      : characterCount > CHAT_CHARACTER_LIMIT - 40
+        ? "text-brand"
+        : "text-[var(--fg-muted)]";
 
   useEffect(() => {
     if (typeof draft === "string") {
@@ -447,22 +469,24 @@ const Composer: React.FC<{
         onKeyDown={handleKeyDown}
         disabled={disabled || isSending}
         rows={3}
-        maxLength={500}
+        maxLength={CHAT_CHARACTER_LIMIT}
         placeholder={disabled ? "Your BitcoinSquare keys must be ready before posting" : "Share an update…"}
-        className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-4 py-3 text-sm leading-relaxed text-[var(--fg-default)] shadow-sm focus:border-brand focus:outline-none"
+        className="w-full resize-none rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-4 py-3 text-sm leading-relaxed text-[var(--fg-default)] shadow-sm focus:border-brand focus:outline-none"
       />
 
-      <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-[var(--fg-muted)]">
-        <span>{remaining} characters remaining</span>
+      <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={disabled || uploadStatus === "uploading"}
+          className="rounded-full border border-[var(--border-subtle)] px-3 py-1 font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {uploadStatus === "uploading" ? `Uploading… ${uploadProgress}%` : "Add media"}
+        </button>
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={disabled || uploadStatus === "uploading"}
-            className="rounded-full border border-[var(--border-subtle)] px-3 py-1 font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {uploadStatus === "uploading" ? `Uploading… ${uploadProgress}%` : "Add media"}
-          </button>
+          <span className={`font-semibold ${characterStatusClass}`} aria-live="polite">
+            {`${characterCount} / ${CHAT_CHARACTER_LIMIT}`}
+          </span>
           <button
             type="button"
             onClick={() => void handleSubmit()}
@@ -517,6 +541,7 @@ const Composer: React.FC<{
 };
 
 const Community: React.FC = () => {
+  const { theme } = useTheme();
   const {
     roomId,
     messages,
@@ -553,7 +578,8 @@ const Community: React.FC = () => {
   const hasLightningWallet = Boolean(user?.lnWalletAddress);
   const canZap = hasLightningWallet && accountReady && Boolean(globalSignEvent);
 
-  const [activeView, setActiveView] = useState<"casual" | "feed">("casual");
+  const [activeView, setActiveView] = useState<ActiveView>("casual");
+  const [mobileMembersOpen, setMobileMembersOpen] = useState(false);
   const listRef = useRef<HTMLDivElement | null>(null);
   const scrollUpdateFrameRef = useRef<number | null>(null);
   const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
@@ -585,6 +611,10 @@ const Community: React.FC = () => {
   const resizeObserversRef = useRef(new Map<string, ResizeObserver>());
   const [virtualVersion, setVirtualVersion] = useState(0);
   const { requestProfile, resolveProfileSummary, openProfile } = useProfileIdentity();
+  const backgroundTexture = useMemo(
+    () => (theme === "dark" ? DARK_BACKGROUND_TEXTURE : LIGHT_BACKGROUND_TEXTURE),
+    [theme],
+  );
 
   const setPendingZap = useCallback((key: string, pending: boolean) => {
     setPendingZaps((prev) => {
@@ -1060,6 +1090,110 @@ const Community: React.FC = () => {
     return currentMember ? [currentMember, ...others] : others;
   }, [activeView, casualMemberActivity, feedMemberActivity, pubkey, resolveProfileSummary]);
 
+  const { activeMembers, inactiveMembers } = useMemo(() => {
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    const active: MemberListEntry[] = [];
+    const inactive: MemberListEntry[] = [];
+
+    contextMembers.forEach((member) => {
+      if (member.isCurrentUser) {
+        active.push(member);
+        return;
+      }
+
+      const lastSeen = member.lastSeen ?? 0;
+      if (lastSeen > 0 && nowSeconds - lastSeen < ACTIVE_MEMBER_WINDOW_SECONDS) {
+        active.push(member);
+      } else {
+        inactive.push(member);
+      }
+    });
+
+    return { activeMembers: active, inactiveMembers: inactive };
+  }, [contextMembers]);
+
+  const renderMemberRow = (member: MemberListEntry) => {
+    const lastSeenLabel = member.isCurrentUser
+      ? "Active now"
+      : member.lastSeen > 0
+        ? formatLastSeenLabel(member.lastSeen)
+        : "No activity yet";
+    const profileZapKey = `profile:${member.pubkey}`;
+    const profileZapEndpoint = detectZapEndpoint({
+      lightningAddress: member.summary.lightningAddress,
+    });
+    const profileZapCount = zapCounts[profileZapKey] ?? 0;
+    const profileZapPending = pendingZaps.has(profileZapKey);
+    const profileZapDisplayCount = Math.max(
+      0,
+      profileZapCount + (profileZapPending ? 1 : 0),
+    );
+    const profileZapTitle = !profileZapEndpoint
+      ? "Zaps unavailable"
+      : profileZapPending
+        ? "Sending zap…"
+        : canZap
+          ? `Zap ${member.summary.displayName}`
+          : "Add your Lightning address to zap";
+
+    return (
+      <div
+        key={member.pubkey}
+        className="flex w-full items-center gap-3 rounded-2xl border border-white/60 bg-white/80 px-3 py-2 text-left shadow-sm transition hover:border-brand hover:text-brand focus-within:ring-2 focus-within:ring-brand/60 dark:border-neutral-800 dark:bg-neutral-900/70"
+      >
+        <button
+          type="button"
+          onClick={() => openProfile(member.pubkey)}
+          className="flex flex-1 items-center gap-3 rounded-2xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+        >
+          <img
+            src={member.summary.avatarUrl}
+            alt={member.summary.displayName}
+            className="h-10 w-10 rounded-full border border-white/80 object-cover shadow-sm"
+          />
+          <div className="flex min-w-0 flex-1 flex-col text-left">
+            <span className="truncate text-sm font-semibold text-[var(--fg-default)]">
+              {member.summary.displayName}
+              {member.isCurrentUser ? " (You)" : ""}
+            </span>
+            <span className="truncate text-[10px] uppercase tracking-[0.24em] text-[var(--fg-muted)]">
+              {lastSeenLabel}
+            </span>
+          </div>
+        </button>
+        {profileZapEndpoint && (
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => handleMemberZap(member.pubkey, member.summary, profileZapEndpoint)}
+              disabled={profileZapPending}
+              className={`inline-flex h-8 w-8 items-center justify-center rounded-full border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
+                profileZapPending
+                  ? "border-brand text-brand"
+                  : canZap
+                    ? "border-brand/40 text-brand hover:border-brand"
+                    : "border-dashed border-[var(--border-subtle)] text-[var(--fg-muted)]"
+              } disabled:cursor-not-allowed disabled:opacity-60`}
+              title={profileZapTitle}
+            >
+              {profileZapPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Zap className="h-4 w-4" />
+              )}
+              <span className="sr-only">Zap {member.summary.displayName}</span>
+            </button>
+            {profileZapDisplayCount > 0 && (
+              <span className="text-[10px] font-semibold text-brand">
+                {profileZapDisplayCount.toLocaleString()}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   useEffect(() => {
     const entries = new Map<string, number>();
     feedPosts.forEach((post) => {
@@ -1151,7 +1285,61 @@ const Community: React.FC = () => {
     [typingPubkeys, pubkey, resolveProfileSummary],
   );
   const membersHeading = isCasualView ? "Casual Chat members" : "Community Feed members";
+  const memberListContent =
+    contextMembers.length === 0 ? (
+      <p className="rounded-2xl bg-[var(--bg-card)]/70 p-4 text-xs text-[var(--fg-muted)] shadow-sm">
+        We&apos;ll show members here as soon as there&apos;s activity.
+      </p>
+    ) : (
+      <div className="space-y-6">
+        <div className="space-y-3">{activeMembers.map((member) => renderMemberRow(member))}</div>
+        <div>
+          <h3 className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[var(--fg-muted)]">
+            Non-active Members
+          </h3>
+          {inactiveMembers.length === 0 ? (
+            <p className="mt-3 rounded-2xl bg-[var(--bg-card)]/70 p-4 text-xs text-[var(--fg-muted)] shadow-sm">
+              Everyone&apos;s active right now.
+            </p>
+          ) : (
+            <div className="mt-3 space-y-3">{inactiveMembers.map((member) => renderMemberRow(member))}</div>
+          )}
+        </div>
+      </div>
+    );
+  const renderTabButton = (tab: (typeof VIEW_TABS)[number], variant: "mobile" | "desktop") => {
+    const Icon = tab.icon;
+    const isActive = activeView === tab.key;
+    const tabId = `community-tab-${tab.key}`;
+    const panelId = `community-panel-${tab.key}`;
+    const layoutClass = variant === "mobile" ? "min-w-[10rem] shrink-0 snap-start" : "w-full";
+    const baseClasses =
+      "flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 sm:text-sm";
+    const paletteClasses = isActive
+      ? "border-brand bg-brand/10 text-brand shadow-sm"
+      : "border-transparent text-[var(--fg-muted)] hover:border-brand hover:text-brand";
+    return (
+      <button
+        key={tab.key}
+        type="button"
+        id={tabId}
+        role="tab"
+        aria-selected={isActive}
+        aria-controls={panelId}
+        tabIndex={isActive ? 0 : -1}
+        onClick={() => {
+          setActiveView(tab.key);
+          setMobileMembersOpen(false);
+        }}
+        className={`${baseClasses} ${layoutClass} ${paletteClasses}`}
+      >
+        <Icon className="h-4 w-4" aria-hidden="true" />
+        <span>{tab.label}</span>
+      </button>
+    );
+  };
   const totalSize = useMemo(() => {
+    void virtualVersion;
     let total = 0;
     messages.forEach((message) => {
       total += rowHeightsRef.current.get(message.id) ?? estimatedRowHeight;
@@ -1159,6 +1347,7 @@ const Community: React.FC = () => {
     return total;
   }, [messages, virtualVersion]);
   const virtualItems = useMemo(() => {
+    void virtualVersion;
     if (!isCasualView) return [];
     const node = listRef.current;
     const scrollTop = node?.scrollTop ?? 0;
@@ -1228,15 +1417,6 @@ const Community: React.FC = () => {
     setPendingAttachments((prev) => prev.filter((item) => item.cacheKey !== cacheKey));
   }, []);
 
-  const scrollToBottom = useCallback(
-    (behavior: ScrollBehavior = "auto") => {
-      const node = listRef.current;
-      if (!node) return;
-      node.scrollTo({ top: node.scrollHeight, behavior });
-    },
-    [],
-  );
-
   const handleSend = useCallback(
     async (text: string, options?: { quoteId?: string | null; quotePubkey?: string | null }) => {
       const attachments: CasualAttachmentMeta[] = pendingAttachments.map((attachment) => ({
@@ -1274,11 +1454,7 @@ const Community: React.FC = () => {
   );
 
   const handleQuoteMessage = useCallback((message: CasualChatMessage) => {
-    const quoted = message.markdown
-      .split(/\r?\n/)
-      .map((line) => `> ${line}`)
-      .join("\n");
-    setComposerDraft(`${quoted}\n\n`);
+    setComposerDraft("");
     const summary = resolveProfileSummary(message.pubkey);
     setQuoteContext({
       id: message.id,
@@ -1354,7 +1530,7 @@ const Community: React.FC = () => {
         setComposerError(messageText);
       }
     },
-    [sendMessage, shortenPubkey],
+    [sendMessage],
   );
 
   const registerRow = useCallback(
@@ -1427,142 +1603,68 @@ const Community: React.FC = () => {
   );
 
   return (
-    <div className="relative flex min-h-screen w-full overflow-hidden bg-gradient-to-br from-amber-50 via-white to-rose-50 dark:from-neutral-950 dark:via-neutral-950 dark:to-neutral-900">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.25),transparent_55%),radial-gradient(circle_at_bottom_right,rgba(244,114,182,0.2),transparent_45%)] dark:bg-[radial-gradient(circle_at_top_left,rgba(96,165,250,0.12),transparent_55%),radial-gradient(circle_at_bottom_right,rgba(244,114,182,0.15),transparent_45%)]" />
+    <div className="relative flex min-h-screen w-full overflow-hidden bg-[var(--bg-app)] transition-colors">
+      <div
+        className="pointer-events-none absolute inset-0 transition-[background-image] duration-300"
+        style={{ backgroundImage: backgroundTexture }}
+        aria-hidden="true"
+      />
       <div className="relative z-0 flex min-h-screen w-full flex-col lg:flex-row">
-        <aside className="flex w-full flex-col border-b border-white/40 bg-white/30 px-5 py-6 shadow-sm backdrop-blur dark:border-neutral-800 dark:bg-neutral-900/60 lg:w-80 lg:border-b-0 lg:border-r lg:py-8">
+        <aside className="hidden w-80 flex-col border-r border-[var(--border-subtle)] bg-[var(--bg-card)]/70 px-5 py-8 backdrop-blur lg:flex">
           <nav
             aria-label="Community navigation"
-            className="grid grid-cols-2 gap-2 lg:flex lg:flex-col lg:space-y-2"
+            role="tablist"
+            className="flex flex-col gap-2"
           >
-            <button
-              type="button"
-              onClick={() => setActiveView("casual")}
-              className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 sm:text-sm ${
-                isCasualView
-                  ? "border-brand bg-brand/10 text-brand shadow-sm"
-                  : "border-transparent text-[var(--fg-muted)] hover:border-brand hover:text-brand"
-              }`}
-              aria-current={isCasualView ? "page" : undefined}
-            >
-              <MessageCircle className="h-4 w-4" aria-hidden="true" />
-              <span>Casual Chat</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveView("feed")}
-              className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 sm:text-sm ${
-                !isCasualView
-                  ? "border-brand bg-brand/10 text-brand shadow-sm"
-                  : "border-transparent text-[var(--fg-muted)] hover:border-brand hover:text-brand"
-              }`}
-              aria-current={!isCasualView ? "page" : undefined}
-            >
-              <Newspaper className="h-4 w-4" aria-hidden="true" />
-              <span>Community Feed</span>
-            </button>
+            {VIEW_TABS.map((tab) => renderTabButton(tab, "desktop"))}
           </nav>
-          <div className="mt-6 flex-1 lg:mt-8">
+          <div className="mt-8 flex-1">
             <h2 className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)]">{membersHeading}</h2>
-            <div className="mt-5 space-y-3 overflow-y-auto pr-1 lg:max-h-[calc(100vh-12rem)]">
-              {contextMembers.length === 0 ? (
-                <p className="rounded-2xl bg-white/60 p-4 text-xs text-[var(--fg-muted)] shadow-sm dark:bg-neutral-900/50">
-                  We&apos;ll show members here as soon as there&apos;s activity.
-                </p>
-              ) : (
-                contextMembers.map((member) => {
-                  const lastSeenLabel = member.isCurrentUser
-                    ? "Active now"
-                    : member.lastSeen > 0
-                      ? formatLastSeenLabel(member.lastSeen)
-                      : "No activity yet";
-                  const profileZapKey = `profile:${member.pubkey}`;
-                  const profileZapEndpoint = detectZapEndpoint({
-                    lightningAddress: member.summary.lightningAddress,
-                  });
-                  const profileZapCount = zapCounts[profileZapKey] ?? 0;
-                  const profileZapPending = pendingZaps.has(profileZapKey);
-                  const profileZapDisplayCount = Math.max(
-                    0,
-                    profileZapCount + (profileZapPending ? 1 : 0),
-                  );
-                  const profileZapTitle = !profileZapEndpoint
-                    ? "Zaps unavailable"
-                    : profileZapPending
-                      ? "Sending zap…"
-                      : canZap
-                        ? `Zap ${member.summary.displayName}`
-                        : "Add your Lightning address to zap";
-
-                  return (
-                    <div
-                      key={member.pubkey}
-                      className="flex w-full items-center gap-3 rounded-2xl border border-white/60 bg-white/80 px-3 py-2 text-left shadow-sm transition hover:border-brand hover:text-brand focus-within:ring-2 focus-within:ring-brand/60 dark:border-neutral-800 dark:bg-neutral-900/70"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => openProfile(member.pubkey)}
-                        className="flex flex-1 items-center gap-3 rounded-2xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
-                      >
-                        <img
-                          src={member.summary.avatarUrl}
-                          alt={member.summary.displayName}
-                          className="h-10 w-10 rounded-full border border-white/80 object-cover shadow-sm"
-                        />
-                        <div className="flex min-w-0 flex-1 flex-col text-left">
-                          <span className="truncate text-sm font-semibold text-[var(--fg-default)]">
-                            {member.summary.displayName}
-                            {member.isCurrentUser ? " (You)" : ""}
-                          </span>
-                          <span className="truncate text-[10px] uppercase tracking-[0.24em] text-[var(--fg-muted)]">
-                            {lastSeenLabel}
-                          </span>
-                        </div>
-                      </button>
-                      {profileZapEndpoint && (
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => handleMemberZap(member.pubkey, member.summary, profileZapEndpoint)}
-                            disabled={profileZapPending}
-                            className={`inline-flex h-8 w-8 items-center justify-center rounded-full border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
-                              profileZapPending
-                                ? "border-brand text-brand"
-                                : canZap
-                                  ? "border-brand/40 text-brand hover:border-brand"
-                                  : "border-dashed border-[var(--border-subtle)] text-[var(--fg-muted)]"
-                            } disabled:cursor-not-allowed disabled:opacity-60`}
-                            title={profileZapTitle}
-                          >
-                            {profileZapPending ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Zap className="h-4 w-4" />
-                            )}
-                            <span className="sr-only">Zap {member.summary.displayName}</span>
-                          </button>
-                          {profileZapDisplayCount > 0 && (
-                            <span className="text-[10px] font-semibold text-brand">
-                              {profileZapDisplayCount.toLocaleString()}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })
+            <div className="mt-5 flex-1 overflow-y-auto pr-1 lg:max-h-[calc(100vh-12rem)]">{memberListContent}</div>
+          </div>
+        </aside>
+        <div className="flex flex-1 min-h-0 flex-col">
+          <div className="border-b border-[var(--border-subtle)] bg-[var(--bg-card)]/80 px-5 py-4 backdrop-blur lg:hidden">
+            <nav
+              aria-label="Community navigation"
+              role="tablist"
+              className="-mx-5 flex snap-x snap-mandatory gap-2 overflow-x-auto px-5 pb-2 text-sm scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              style={{ WebkitOverflowScrolling: "touch" }}
+            >
+              {VIEW_TABS.map((tab) => renderTabButton(tab, "mobile"))}
+            </nav>
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={() => setMobileMembersOpen((open) => !open)}
+                className="flex w-full items-center justify-between rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)]/70 px-4 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+                aria-expanded={mobileMembersOpen}
+              >
+                <span>{membersHeading}</span>
+                <ChevronDown
+                  className={`h-4 w-4 transition-transform ${mobileMembersOpen ? "rotate-180 text-brand" : "text-[var(--fg-muted)]"}`}
+                  aria-hidden="true"
+                />
+              </button>
+              {mobileMembersOpen && (
+                <div className="mt-3 max-h-[min(60vh,26rem)] overflow-y-auto pr-1">{memberListContent}</div>
               )}
             </div>
           </div>
-        </aside>
-        <div className="flex min-h-screen flex-1 flex-col">
-          <main className="relative flex flex-1 flex-col overflow-hidden">
+          <main className="relative flex flex-1 min-h-0 flex-col">
             {isCasualView ? (
-              <>
+              <section
+                id="community-panel-casual"
+                role="tabpanel"
+                aria-labelledby="community-tab-casual"
+                className="relative flex flex-1 min-h-0 flex-col"
+              >
                 {stickyDateLabel && (
-                  <div className="pointer-events-none absolute left-0 right-0 top-24 z-20 flex justify-center sm:top-20">
-                    <div className="inline-flex items-center gap-2 rounded-full bg-[var(--bg-card)]/90 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)] shadow-sm backdrop-blur">
-                      {stickyDateLabel}
+                  <div className="pointer-events-none absolute left-0 right-0 top-24 z-20 px-4 sm:top-20">
+                    <div className="mx-auto max-w-3xl">
+                      <div className="w-full rounded-full bg-[var(--bg-card)]/90 px-4 py-1 text-center text-[10px] font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)] shadow-sm backdrop-blur sm:w-fit">
+                        {stickyDateLabel}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1573,15 +1675,15 @@ const Community: React.FC = () => {
                       setNewMessageAnchor(null);
                       scrollToBottom("smooth");
                     }}
-                    className="pointer-events-auto absolute bottom-40 right-6 z-30 inline-flex items-center gap-2 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-brand sm:right-10"
+                    className="pointer-events-auto absolute right-6 z-30 inline-flex items-center gap-2 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-brand bottom-[calc(7.5rem+env(safe-area-inset-bottom,0px))] sm:bottom-40 sm:right-10"
                   >
                     <ArrowDown className="h-4 w-4" aria-hidden />
                     Jump to bottom
                   </button>
                 )}
                 <ErrorBoundary fallback={chatListFallback}>
-                  <div ref={listRef} className="relative flex-1 overflow-y-auto">
-                    <div className="px-4 pb-56 pt-6 sm:px-8">
+                  <div ref={listRef} className="relative flex-1 overflow-y-auto overscroll-y-contain">
+                    <div className="px-4 pb-[calc(8rem+env(safe-area-inset-bottom,0px))] pt-6 sm:px-8 sm:pb-32">
                       <div
                         style={{ height: `${totalSize}px`, position: "relative" }}
                       >
@@ -1643,8 +1745,8 @@ const Community: React.FC = () => {
                               className="pb-4"
                             >
                               {showDateDivider && (
-                                <div className="mb-4 flex justify-center">
-                                  <div className="inline-flex items-center gap-2 rounded-full bg-[var(--bg-card)]/90 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)] shadow-sm backdrop-blur">
+                                <div className="mb-4">
+                                  <div className="mx-auto w-full rounded-full bg-[var(--bg-card)]/90 px-4 py-1 text-center text-[10px] font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)] shadow-sm backdrop-blur sm:w-fit">
                                     {formatDateLabel(message.created_at)}
                                   </div>
                                 </div>
@@ -1835,18 +1937,18 @@ const Community: React.FC = () => {
                     </div>
                   </div>
                 </ErrorBoundary>
-                <div className="pointer-events-none fixed bottom-0 left-0 right-0 z-30 px-4 pb-6 pt-3 sm:px-8">
-                  {typingSummaries.length > 0 && (
-                    <div className="pointer-events-none mb-3 flex justify-center">
-                      <div className="inline-flex items-center gap-2 rounded-full bg-[var(--bg-card)]/90 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-[var(--fg-muted)] shadow-sm backdrop-blur">
-                        {`${typingSummaries.map((entry) => entry.displayName).join(", ")} typing…`}
+                <div className="border-t border-[var(--border-subtle)] bg-[var(--bg-card)]/95 px-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pt-4 backdrop-blur sm:px-8">
+                  <div className="mx-auto w-full max-w-3xl space-y-3">
+                    {typingSummaries.length > 0 && (
+                      <div className="flex justify-center">
+                        <div className="inline-flex items-center gap-2 rounded-full bg-[var(--bg-card)] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-[var(--fg-muted)]">
+                          {`${typingSummaries.map((entry) => entry.displayName).join(", ")} typing…`}`
+                        </div>
                       </div>
-                    </div>
-                  )}
-                  <div className="pointer-events-auto mx-auto w-full max-w-3xl rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)]/95 px-4 py-4 shadow-xl backdrop-blur">
-                    {roomKeyError && <p className="mb-3 text-sm text-red-500">{roomKeyError}</p>}
-                    {sendError && <p className="mb-3 text-sm text-red-500">{sendError}</p>}
-                    {composerError && <p className="mb-3 text-sm text-red-500">{composerError}</p>}
+                    )}
+                    {roomKeyError && <p className="text-sm text-red-500">{roomKeyError}</p>}
+                    {sendError && <p className="text-sm text-red-500">{sendError}</p>}
+                    {composerError && <p className="text-sm text-red-500">{composerError}</p>}
                     <Composer
                       disabled={!ready}
                       onSend={handleComposerSend}
@@ -1864,29 +1966,36 @@ const Community: React.FC = () => {
                     />
                   </div>
                 </div>
-              </>
+              </section>
               ) : (
-                <ErrorBoundary fallback={feedFallback}>
-                  <div className="flex h-full flex-1 overflow-hidden">
-                    <BitcoinSquareFeed
-                      posts={feedPosts}
-                      ready={feedReady}
-                      publishing={feedPublishing}
-                      publishStatus={publishFeedStatus}
-                      likePost={likeFeedPost}
-                      loadMore={loadMoreFeed}
-                      loadingMore={feedLoadingMore}
-                      hasMore={feedHasMore}
-                      error={feedError}
-                      canZap={canZap}
-                      pubkey={feedPubkey}
-                      initialLoading={feedInitialLoading}
-                      onZapRequest={handleFeedZapRequest}
-                      zapCounts={zapCounts}
-                      pendingZaps={pendingZaps}
-                    />
-                  </div>
-                </ErrorBoundary>
+                <section
+                  id="community-panel-feed"
+                  role="tabpanel"
+                  aria-labelledby="community-tab-feed"
+                  className="flex flex-1 min-h-0"
+                >
+                  <ErrorBoundary fallback={feedFallback}>
+                    <div className="flex h-full flex-1 min-h-0 overflow-hidden">
+                      <BitcoinSquareFeed
+                        posts={feedPosts}
+                        ready={feedReady}
+                        publishing={feedPublishing}
+                        publishStatus={publishFeedStatus}
+                        likePost={likeFeedPost}
+                        loadMore={loadMoreFeed}
+                        loadingMore={feedLoadingMore}
+                        hasMore={feedHasMore}
+                        error={feedError}
+                        canZap={canZap}
+                        pubkey={feedPubkey}
+                        initialLoading={feedInitialLoading}
+                        onZapRequest={handleFeedZapRequest}
+                        zapCounts={zapCounts}
+                        pendingZaps={pendingZaps}
+                      />
+                    </div>
+                  </ErrorBoundary>
+                </section>
             )}
           </main>
         </div>

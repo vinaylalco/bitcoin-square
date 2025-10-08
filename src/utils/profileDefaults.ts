@@ -66,10 +66,14 @@ export const generateScreenName = (seed: string): string => {
   return `${adjective}${noun}${numeric}`;
 };
 
+const FALLBACK_AVATAR_COLORS = ["F97316", "F59E0B", "FB923C", "FBBF24", "FB7185"] as const;
+const FALLBACK_AVATAR_STYLE = "avataaars";
+
 export const generateWarmAvatar = (seed: string, size = 256): string => {
   const normalized = seed && seed.trim().length > 0 ? seed.trim() : Math.random().toString(36).slice(2);
   const encodedSeed = encodeURIComponent(normalized);
-  return `https://source.boringavatars.com/beam/${size}/${encodedSeed}?colors=F97316,F59E0B,FB923C,FBBF24,FB7185`;
+  const backgroundColors = FALLBACK_AVATAR_COLORS.join(",");
+  return `https://api.dicebear.com/7.x/${FALLBACK_AVATAR_STYLE}/svg?seed=${encodedSeed}&size=${size}&backgroundColor=${backgroundColors}`;
 };
 
 export const normalizeScreenName = (value: unknown, fallbackSeed: string): string => {
