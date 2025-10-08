@@ -151,6 +151,32 @@ const buildPostSnippet = (content: string) => {
   return `${condensed.slice(0, 217)}…`;
 };
 
+const extractPostReference = (
+  tags: string[][],
+): { type: "quote" | "reply"; id: string } | null => {
+  for (const tag of tags) {
+    if (Array.isArray(tag) && tag[0] === "q" && typeof tag[1] === "string" && tag[1].trim().length > 0) {
+      return { type: "quote", id: tag[1] };
+    }
+  }
+  for (const tag of tags) {
+    if (
+      Array.isArray(tag) &&
+      tag[0] === "reply" &&
+      typeof tag[1] === "string" &&
+      tag[1].trim().length > 0
+    ) {
+      return { type: "reply", id: tag[1] };
+    }
+  }
+  for (const tag of tags) {
+    if (Array.isArray(tag) && tag[0] === "e" && typeof tag[1] === "string" && tag[1].trim().length > 0) {
+      return { type: "reply", id: tag[1] };
+    }
+  }
+  return null;
+};
+
 const formatAbsoluteTimestamp = (unixSeconds: number | null | undefined) => {
   if (!unixSeconds) {
     return null;
@@ -232,6 +258,9 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   const latestKnownPostRef = useRef<string | null>(null);
   const persistedComposerTargetIdRef = useRef<string | null>(null);
   const [pendingMedia, setPendingMedia] = useState<MediaUploadResult[]>([]);
+  const postRefs = useRef(new Map<string, HTMLDivElement>());
+  const highlightTimerRef = useRef<number | null>(null);
+  const [highlightedPostId, setHighlightedPostId] = useState<string | null>(null);
   const relativeFormatter = useMemo(() => createRelativeFormatter(), []);
   const now = useRelativeNow();
   const { requestProfile, resolveProfileSummary, openProfile } = useProfileIdentity();
@@ -242,7 +271,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       type: "private",
       hasLocalKey: true,
     }),
-    [setComposerMode, setComposerTarget, setContent, setComposerError, setComposerOpen],
+    [],
   );
 
   const {
@@ -337,7 +366,14 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
 
   useEffect(() => {
     const uniquePubkeys = new Set<string>();
-    posts.forEach((post) => uniquePubkeys.add(post.pubkey));
+    posts.forEach((post) => {
+      uniquePubkeys.add(post.pubkey);
+      post.tags.forEach((tag) => {
+        if (Array.isArray(tag) && tag[0] === "p" && typeof tag[1] === "string" && tag[1].trim().length > 0) {
+          uniquePubkeys.add(tag[1]);
+        }
+      });
+    });
     uniquePubkeys.forEach((pubkey) => {
       requestProfile(pubkey).catch(() => undefined);
     });
@@ -438,6 +474,15 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     }
   }, [composerOpen]);
 
+  useEffect(
+    () => () => {
+      if (highlightTimerRef.current) {
+        window.clearTimeout(highlightTimerRef.current);
+      }
+    },
+    [],
+  );
+
   const handleSubmit = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
@@ -522,6 +567,14 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     }
   }, [activeFilter, posts, pubkey]);
 
+  const postsById = useMemo(() => {
+    const map = new Map<string, FeedPost>();
+    posts.forEach((post) => {
+      map.set(post.id, post);
+    });
+    return map;
+  }, [posts]);
+
   const filterLabel = useMemo(() => {
     if (!activeFilter) return null;
     switch (activeFilter.type) {
@@ -577,6 +630,43 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       return next;
     });
   }, []);
+
+  const registerPost = useCallback(
+    (id: string) => (node: HTMLDivElement | null) => {
+      if (!node) {
+        postRefs.current.delete(id);
+        return;
+      }
+      postRefs.current.set(id, node);
+    },
+    [],
+  );
+
+  const focusPost = useCallback(
+    (id: string) => {
+      const container = scrollContainerRef.current;
+      const node = postRefs.current.get(id);
+      if (!container || !node) {
+        return;
+      }
+      const containerRect = container.getBoundingClientRect();
+      const nodeRect = node.getBoundingClientRect();
+      const targetScrollTop =
+        nodeRect.top - containerRect.top + container.scrollTop - container.clientHeight / 2 + node.offsetHeight / 2;
+      container.scrollTo({ top: Math.max(0, targetScrollTop), behavior: "smooth" });
+      setHighlightedPostId(id);
+      if (typeof window !== "undefined") {
+        if (highlightTimerRef.current) {
+          window.clearTimeout(highlightTimerRef.current);
+        }
+        highlightTimerRef.current = window.setTimeout(() => {
+          setHighlightedPostId((current) => (current === id ? null : current));
+          highlightTimerRef.current = null;
+        }, 2000);
+      }
+    },
+    [setHighlightedPostId],
+  );
 
   const handleJumpToNewPosts = useCallback(() => {
     if (scrollContainerRef.current) {
@@ -715,6 +805,16 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     ? formatAbsoluteTimestamp(composerTarget.created_at)
     : null;
   const composerPreviewSnippet = composerTarget ? buildPostSnippet(composerTarget.content) : "";
+  const composerTargetSummary = composerTarget ? resolveProfileSummary(composerTarget.pubkey) : null;
+  const composerReferenceLabel =
+    composerMode === "quote" ? "Quoting" : composerMode === "reply" ? "Replying to" : "Referencing";
+
+  const handleComposerReferenceClick = useCallback(() => {
+    if (!composerTarget) {
+      return;
+    }
+    focusPost(composerTarget.id);
+  }, [composerTarget, focusPost]);
 
   return (
     <div className="relative flex flex-1 flex-col overflow-hidden">
@@ -821,11 +921,32 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
                 snippet: buildPostSnippet(post.content),
               });
             };
+            const reference = extractPostReference(post.tags);
+            const referencedId = reference?.id ?? null;
+            const referencedPost = referencedId ? postsById.get(referencedId) : undefined;
+            const referencedPubkeyTag = post.tags.find(
+              (tag) => Array.isArray(tag) && tag[0] === "p" && typeof tag[1] === "string" && tag[1].trim().length > 0,
+            );
+            const referencedPubkey =
+              referencedPost?.pubkey ??
+              (referencedPubkeyTag && typeof referencedPubkeyTag[1] === "string"
+                ? referencedPubkeyTag[1]
+                : null);
+            const referenceSummary = referencedPubkey ? resolveProfileSummary(referencedPubkey) : null;
+            const referenceSnippet =
+              referencedPost?.content && referencedPost.content.trim().length > 0
+                ? buildPostSnippet(referencedPost.content)
+                : "Referenced post";
+            const referenceTimestamp =
+              referencedPost?.created_at ? formatAbsoluteTimestamp(referencedPost.created_at) : null;
 
             return (
               <article
                 key={post.id}
-                className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-5 shadow-sm transition hover:border-brand/60"
+                ref={registerPost(post.id)}
+                className={`rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-5 shadow-sm transition hover:border-brand/60 ${
+                  highlightedPostId === post.id ? "ring-2 ring-brand/60" : ""
+                }`}
               >
                 <header className="flex flex-wrap items-start justify-between gap-4">
                   <ProfileCard
@@ -844,6 +965,23 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
                     }}
                   />
                 </header>
+
+                {reference && referencedId && (
+                  <button
+                    type="button"
+                    onClick={() => focusPost(referencedId)}
+                    className="mt-4 w-full rounded-2xl border border-brand/30 bg-brand/10 px-4 py-3 text-left text-xs text-brand transition hover:border-brand/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+                  >
+                    <p className="font-semibold uppercase tracking-[0.24em] text-brand/80">
+                      {reference.type === "quote" ? "Quoted post" : "Replying to"}{" "}
+                      {referenceSummary?.displayName ?? (referencedPubkey ? shortenPubkey(referencedPubkey) : "Community member")}
+                    </p>
+                    <p className="mt-1 line-clamp-3 text-[11px] font-medium text-brand/90">{referenceSnippet}</p>
+                    {referenceTimestamp && (
+                      <p className="mt-2 text-[10px] uppercase tracking-[0.3em] text-brand/60">{referenceTimestamp}</p>
+                    )}
+                  </button>
+                )}
 
                 <div className="mt-4 whitespace-pre-wrap break-words text-sm leading-relaxed text-[var(--fg-default)]">
                   {renderContent(displayContent, handleTagClick, handleMentionClick)}
@@ -1039,28 +1177,35 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
             </header>
 
             {composerTarget && (
-              <div className="mt-4 flex items-start justify-between gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-4 text-xs text-[var(--fg-muted)]">
-                <div className="flex-1">
-                  <p className="font-semibold uppercase tracking-[0.18em] text-[var(--fg-default)]">
-                    {composerMode === "reply" ? "Replying to" : "Quoting"} {shortenPubkey(composerTarget.pubkey)}
-                  </p>
-                  <p className="mt-2 line-clamp-3 text-sm text-[var(--fg-muted)]">
-                    {composerPreviewSnippet || "Referenced post"}
-                  </p>
-                  {composerTimestampLabel && (
-                    <p className="mt-2 text-[10px] uppercase tracking-[0.24em] text-[var(--fg-muted)]">
-                      {composerTimestampLabel}
+              <div className="mt-4 rounded-2xl border border-brand/40 bg-brand/10 px-4 py-3 text-xs text-brand shadow-sm">
+                <div className="flex items-start gap-3">
+                  <button
+                    type="button"
+                    onClick={handleComposerReferenceClick}
+                    className="flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+                  >
+                    <p className="font-semibold uppercase tracking-[0.24em] text-brand/80">
+                      {composerReferenceLabel}{" "}
+                      {composerTargetSummary?.displayName ?? shortenPubkey(composerTarget.pubkey)}
                     </p>
-                  )}
+                    <p className="mt-1 line-clamp-3 text-[11px] font-medium text-brand/90">
+                      {composerPreviewSnippet || "Referenced post"}
+                    </p>
+                    {composerTimestampLabel && (
+                      <p className="mt-2 text-[10px] uppercase tracking-[0.3em] text-brand/60">
+                        {composerTimestampLabel}
+                      </p>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={clearComposerTarget}
+                    className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-brand/40 text-brand transition hover:bg-brand hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+                    aria-label="Remove referenced post"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={clearComposerTarget}
-                  className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
-                  aria-label="Remove referenced post"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
               </div>
             )}
 
