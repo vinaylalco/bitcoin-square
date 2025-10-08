@@ -1,4 +1,4 @@
-import { SimplePool, type Event, type EventTemplate, type Filter } from "nostr-tools";
+import { SimplePool, type Event, type EventTemplate, type Filter } from "./nostrToolsShim";
 
 import { publishWithPool } from "./nostrPublish";
 
