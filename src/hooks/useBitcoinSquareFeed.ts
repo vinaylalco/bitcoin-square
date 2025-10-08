@@ -28,6 +28,8 @@ const INITIAL_FETCH_LIMIT = 50;
 const LOAD_MORE_BATCH = 40;
 const BASE_BACKOFF = 1000;
 const MAX_BACKOFF = 30_000;
+const RETRY_BASE_DELAY = 2000;
+const MAX_PUBLISH_ATTEMPTS = 5;
 
 export interface FeedAttachment {
   url: string;
@@ -325,6 +327,7 @@ export interface UseBitcoinSquareFeedReturn {
   hasMore: boolean;
   error: string | null;
   pubkey: string | null;
+  initialLoading: boolean;
 }
 
 export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
@@ -334,6 +337,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
   const [error, setError] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
 
   const poolRef = useRef<SimplePool | null>(null);
   const subRef = useRef<ReturnType<SimplePool["subscribeMany"]> | null>(null);
@@ -341,6 +345,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
   const backoffRef = useRef(BASE_BACKOFF);
   const oldestTimestampRef = useRef<number | null>(null);
   const initialLoadRef = useRef(false);
+  const retryTimersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 
   const { ready: accountReady, pubkey, signEvent } = useNostrAccount();
   const envRoomKey = getConfiguredCasualRoomKey();
@@ -377,6 +382,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
       const cached = await getCachedMessages(FEED_ROOM_ID, INITIAL_FETCH_LIMIT);
       if (cached.length === 0) {
         setHasMore(true);
+        setInitialLoading(true);
         return;
       }
       const mapped = cached
@@ -408,6 +414,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
       setPosts(mapped);
       ensureOldestTimestamp(mapped);
       setHasMore(cached.length >= INITIAL_FETCH_LIMIT);
+      setInitialLoading(false);
     } catch (cacheError) {
       console.warn("Failed to hydrate feed cache", cacheError);
     }
@@ -552,9 +559,19 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
   }, [feedKeyAvailable, setError, startSubscription]);
 
   const loadMore = useCallback(async () => {
-    if (loadingMore || !hasMore) return;
+    if (loadingMore || !hasMore) {
+      if (!hasMore) {
+        setInitialLoading(false);
+      }
+      return;
+    }
     const pool = poolRef.current;
     if (!pool) return;
+    const isInitialLoad = !initialLoadRef.current;
+    if (isInitialLoad) {
+      initialLoadRef.current = true;
+      setInitialLoading(true);
+    }
     setLoadingMore(true);
     try {
       const until = oldestTimestampRef.current ? oldestTimestampRef.current - 1 : Math.floor(Date.now() / 1000);
@@ -598,15 +615,82 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
       console.warn("Failed to load additional feed events", loadError);
     } finally {
       setLoadingMore(false);
+      if (isInitialLoad) {
+        setInitialLoading(false);
+      }
     }
   }, [ensureOldestTimestamp, hasMore, loadingMore]);
 
   useEffect(() => {
     if (initialLoadRef.current) return;
     if (!poolReady) return;
-    initialLoadRef.current = true;
     void loadMore();
   }, [loadMore, poolReady]);
+
+  const stopRetryTimer = useCallback((id: string) => {
+    const existing = retryTimersRef.current.get(id);
+    if (existing) {
+      clearTimeout(existing);
+      retryTimersRef.current.delete(id);
+    }
+  }, []);
+
+  const attemptPublish = useCallback(
+    async (event: Event, payload: FeedPayload, attempt = 0): Promise<void> => {
+      const pool = poolRef.current;
+      if (!pool) {
+        setPosts((prev) => {
+          const next = updatePostStatus(prev, event.id, "failed", "No relays available");
+          ensureOldestTimestamp(next);
+          return next;
+        });
+        setError("No relays available");
+        stopRetryTimer(event.id);
+        return;
+      }
+
+      try {
+        await publishWithPool(pool, [FAST_RELAY], event);
+        setPosts((prev) => {
+          const next = updatePostStatus(prev, event.id, "ok");
+          ensureOldestTimestamp(next);
+          return next;
+        });
+        await cacheMessage(eventToCached(event, payload));
+        if (RELAYS.length > 1) {
+          void replicateWithPool(pool, RELAYS.slice(1), event);
+        }
+        stopRetryTimer(event.id);
+      } catch (publishError) {
+        const message = publishError instanceof Error ? publishError.message : String(publishError);
+        const nextAttempt = attempt + 1;
+        if (nextAttempt >= MAX_PUBLISH_ATTEMPTS) {
+          setPosts((prev) => {
+            const next = updatePostStatus(prev, event.id, "failed", message);
+            ensureOldestTimestamp(next);
+            return next;
+          });
+          setError(message);
+          stopRetryTimer(event.id);
+          return;
+        }
+
+        setPosts((prev) => {
+          const next = updatePostStatus(prev, event.id, "pending", message);
+          ensureOldestTimestamp(next);
+          return next;
+        });
+
+        const delay = Math.min(RETRY_BASE_DELAY * 2 ** attempt, MAX_BACKOFF);
+        const timer = setTimeout(() => {
+          retryTimersRef.current.delete(event.id);
+          void attemptPublish(event, payload, nextAttempt);
+        }, delay);
+        retryTimersRef.current.set(event.id, timer);
+      }
+    },
+    [ensureOldestTimestamp, setError, stopRetryTimer],
+  );
 
   const publishStatus = useCallback(
     async ({
@@ -618,112 +702,101 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
       context?: PublishContext | null;
       attachments?: FeedAttachment[];
     }): Promise<PublishResult> => {
+      setPublishing(true);
       const trimmed = content.trim();
       if (!trimmed && attachments.length === 0) {
+        setPublishing(false);
         throw new Error("Status update cannot be empty");
       }
       if (trimmed.length > 500) {
+        setPublishing(false);
         throw new Error("Status updates are limited to 500 characters");
       }
       if (!signEvent) {
+        setPublishing(false);
         throw new Error("Your Nostr keys are not ready yet");
       }
       const pool = poolRef.current;
       if (!pool) {
+        setPublishing(false);
         throw new Error("No relays available");
       }
 
-      await ensureFeedKey();
-
-      const tags: string[][] = [
-        ["t", FEED_TAG],
-        ["app", "BitcoinSquare"],
-        ["feed", FEED_TAG],
-      ];
-
-      if (context?.post) {
-        tags.push(["e", context.post.id]);
-        tags.push(["p", context.post.pubkey]);
-        if (context.type === "quote") {
-          tags.push(["q", context.post.id]);
-        } else {
-          tags.push(["reply", context.post.id]);
-        }
-      }
-
-      const normalizedAttachments = attachments
-        .map((attachment) => normalizeAttachment(attachment))
-        .filter((attachment): attachment is FeedAttachment => Boolean(attachment));
-
-      normalizedAttachments.forEach((attachment) => {
-        tags.push(["url", attachment.url]);
-        tags.push(["m", attachment.mimeType]);
-        if (attachment.size) {
-          tags.push(["size", String(attachment.size)]);
-        }
-        if (attachment.width && attachment.height) {
-          tags.push(["dim", `${attachment.width}x${attachment.height}`]);
-        } else if (attachment.dimensions) {
-          tags.push(["dim", attachment.dimensions]);
-        }
-        if (attachment.digest) {
-          tags.push(["x", attachment.digest]);
-        }
-        if (attachment.iv) {
-          tags.push(["iv", attachment.iv]);
-        }
-      });
-
-      const payload: FeedPayload = {
-        body: trimmed,
-        attachments: normalizedAttachments,
-      };
-
-      const encryptedContent = await encryptJson(FEED_ROOM_ID, payload);
-
-      const template: EventTemplate = {
-        kind: 1,
-        created_at: Math.floor(Date.now() / 1000),
-        tags,
-        content: encryptedContent,
-      };
-
-      const event = await signEvent(template);
-      insertPost(mapEventToPost(event, true, payload));
-      setError(null);
-
       try {
-        setPublishing(true);
-        await publishWithPool(pool, [FAST_RELAY], event);
-        setPosts((prev) => {
-          const next = updatePostStatus(prev, event.id, "ok");
-          ensureOldestTimestamp(next);
-          return next;
-        });
-        await cacheMessage(eventToCached(event, payload));
-        if (RELAYS.length > 1) {
-          void replicateWithPool(pool, RELAYS.slice(1), event);
+        await ensureFeedKey();
+
+        const tags: string[][] = [
+          ["t", FEED_TAG],
+          ["app", "BitcoinSquare"],
+          ["feed", FEED_TAG],
+        ];
+
+        if (context?.post) {
+          tags.push(["e", context.post.id]);
+          tags.push(["p", context.post.pubkey]);
+          if (context.type === "quote") {
+            tags.push(["q", context.post.id]);
+          } else {
+            tags.push(["reply", context.post.id]);
+          }
         }
-        return { eventId: event.id };
-      } catch (publishError) {
-        setPosts((prev) => {
-          const next = updatePostStatus(
-            prev,
-            event.id,
-            "failed",
-            publishError instanceof Error ? publishError.message : String(publishError),
-          );
-          ensureOldestTimestamp(next);
-          return next;
+
+        const normalizedAttachments = attachments
+          .map((attachment) => normalizeAttachment(attachment))
+          .filter((attachment): attachment is FeedAttachment => Boolean(attachment));
+
+        normalizedAttachments.forEach((attachment) => {
+          tags.push(["url", attachment.url]);
+          tags.push(["m", attachment.mimeType]);
+          if (attachment.size) {
+            tags.push(["size", String(attachment.size)]);
+          }
+          if (attachment.width && attachment.height) {
+            tags.push(["dim", `${attachment.width}x${attachment.height}`]);
+          } else if (attachment.dimensions) {
+            tags.push(["dim", attachment.dimensions]);
+          }
+          if (attachment.digest) {
+            tags.push(["x", attachment.digest]);
+          }
+          if (attachment.iv) {
+            tags.push(["iv", attachment.iv]);
+          }
         });
-        setError(publishError instanceof Error ? publishError.message : String(publishError));
-        throw publishError;
+
+        const payload: FeedPayload = {
+          body: trimmed,
+          attachments: normalizedAttachments,
+        };
+
+        const encryptedContent = await encryptJson(FEED_ROOM_ID, payload);
+
+        const template: EventTemplate = {
+          kind: 1,
+          created_at: Math.floor(Date.now() / 1000),
+          tags,
+          content: encryptedContent,
+        };
+
+        const event = await signEvent(template);
+        insertPost(mapEventToPost(event, true, payload));
+        setError(null);
+
+        void attemptPublish(event, payload, 0);
+        return { eventId: event.id };
       } finally {
         setPublishing(false);
       }
     },
-    [ensureFeedKey, ensureOldestTimestamp, insertPost, signEvent],
+    [attemptPublish, ensureFeedKey, ensureOldestTimestamp, insertPost, signEvent],
   );
+
+  useEffect(() => () => {
+    retryTimersRef.current.forEach((timer) => {
+      clearTimeout(timer);
+    });
+    retryTimersRef.current.clear();
+  }, []);
 
   const likePost = useCallback(
     async (post: FeedPost) => {
@@ -766,5 +839,6 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
     hasMore,
     error,
     pubkey,
+    initialLoading,
   };
 };

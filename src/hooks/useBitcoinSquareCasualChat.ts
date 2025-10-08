@@ -19,6 +19,8 @@ const FAST_RELAY = "wss://relay.damus.io";
 const ADDITIONAL_RELAYS = ["wss://relay.primal.net", "wss://nos.lol", "wss://relay.nostr.band"];
 
 const MAX_MESSAGES = 400;
+const TYPING_TIMEOUT_MS = 6000;
+const TYPING_THROTTLE_MS = 2000;
 
 interface CasualAttachmentMeta {
   eventId: string;
@@ -49,19 +51,27 @@ export interface CasualChatMessage {
   status: "pending" | "ok" | "failed";
   optimistic: boolean;
   error?: string;
+  quoteId?: string;
+  quotePubkey?: string;
 }
 
 export interface UseBitcoinSquareCasualChatResult {
   roomId: string;
   roomName: string;
   messages: CasualChatMessage[];
-  sendMessage: (body: string, attachments?: CasualAttachmentMeta[]) => Promise<void>;
+  sendMessage: (
+    body: string,
+    attachments?: CasualAttachmentMeta[],
+    options?: { quoteId?: string | null; quotePubkey?: string | null },
+  ) => Promise<void>;
   pubkey: string | null;
   loading: boolean;
   ready: boolean;
   hasRoomKey: boolean;
   roomKeyError: string | null;
   error: string | null;
+  typingPubkeys: string[];
+  sendTyping: () => Promise<void>;
 }
 
 const escapeHtml = (value: string) =>
@@ -142,6 +152,12 @@ const cachedToMessage = (cached: CachedMessage): CasualChatMessage | null => {
   const payload = parsePayload(cached.decrypted);
   const body = payload.body.trim();
   const html = markdownToHtml(body);
+  const quoteTag =
+    cached.tags?.find((tag) => tag[0] === "e" && tag[3] === "reply") ??
+    cached.tags?.find((tag) => tag[0] === "q");
+  const quoteId = quoteTag && typeof quoteTag[1] === "string" ? quoteTag[1] : undefined;
+  const quotePubkeyTag = cached.tags?.find((tag) => tag[0] === "p");
+  const quotePubkey = quotePubkeyTag && typeof quotePubkeyTag[1] === "string" ? quotePubkeyTag[1] : undefined;
 
   return {
     id: cached.id,
@@ -154,6 +170,8 @@ const cachedToMessage = (cached: CachedMessage): CasualChatMessage | null => {
     tags: cached.tags ?? [],
     status: "ok",
     optimistic: false,
+    quoteId,
+    quotePubkey,
   };
 };
 
@@ -161,6 +179,7 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
   const [messages, setMessages] = useState<CasualChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [typingUsers, setTypingUsers] = useState<Record<string, number>>({});
   const managerRef = useRef<NostrRelayManager | null>(null);
   const visibilityRef = useRef(
     typeof document === "undefined" ? true : document.visibilityState === "visible",
@@ -168,6 +187,7 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
   const notificationsEnabledRef = useRef(false);
   const notificationGateRef = useRef(false);
   const refreshedKeyRef = useRef(false);
+  const typingThrottleRef = useRef(0);
 
   const envRoomKey = getConfiguredCasualRoomKey();
 
@@ -262,6 +282,13 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
             const body = payload.body.trim();
             const html = markdownToHtml(body);
             const attachments = payload.attachments ?? [];
+            const quoteTag =
+              event.tags?.find((tag) => tag[0] === "e" && tag[3] === "reply") ??
+              event.tags?.find((tag) => tag[0] === "q");
+            const quoteId = quoteTag && typeof quoteTag[1] === "string" ? quoteTag[1] : undefined;
+            const quotePubkeyTag = event.tags?.find((tag) => tag[0] === "p");
+            const quotePubkey =
+              quotePubkeyTag && typeof quotePubkeyTag[1] === "string" ? quotePubkeyTag[1] : undefined;
 
             const message: CasualChatMessage = {
               id: event.id,
@@ -274,6 +301,8 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
               tags: event.tags ?? [],
               status: "ok",
               optimistic: false,
+              quoteId,
+              quotePubkey,
             };
 
             setMessages((prev) => upsertMessage(prev, message));
@@ -313,15 +342,54 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
       },
     );
 
+    const typingSubscription = manager.subscribe(
+      {
+        kinds: [20001],
+        "#t": [ROOM_TAG],
+      },
+      (event) => {
+        if (!event.tags?.some((tag) => tag[0] === "typing")) return;
+        setTypingUsers((prev) => ({ ...prev, [event.pubkey]: Date.now() + TYPING_TIMEOUT_MS }));
+      },
+    );
+
     return () => {
       subscription.close();
+      typingSubscription.close();
       manager.close();
       managerRef.current = null;
     };
   }, [pubkey]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const interval = window.setInterval(() => {
+      setTypingUsers((prev) => {
+        const now = Date.now();
+        let changed = false;
+        const next: Record<string, number> = {};
+        Object.entries(prev).forEach(([key, expires]) => {
+          if (expires > now) {
+            next[key] = expires;
+          } else {
+            changed = true;
+          }
+        });
+        if (!changed && Object.keys(prev).length === Object.keys(next).length) {
+          return prev;
+        }
+        return next;
+      });
+    }, 2000);
+    return () => window.clearInterval(interval);
+  }, []);
+
   const sendMessage = useCallback(
-    async (body: string, attachments: CasualAttachmentMeta[] = []) => {
+    async (
+      body: string,
+      attachments: CasualAttachmentMeta[] = [],
+      options?: { quoteId?: string | null },
+    ) => {
       const trimmed = body.trim();
       if (!trimmed) {
         throw new Error("Message cannot be empty");
@@ -349,9 +417,14 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
       const content = await encryptMessage(ROOM_ID, plaintext);
 
       const created_at = Math.floor(Date.now() / 1000);
-      const tags: string[][] = [
-        ["t", ROOM_TAG],
-      ];
+      const tags: string[][] = [["t", ROOM_TAG]];
+
+      if (options?.quoteId) {
+        tags.push(["e", options.quoteId, "", "reply"]);
+      }
+      if (options?.quotePubkey) {
+        tags.push(["p", options.quotePubkey]);
+      }
 
       attachments.forEach((attachment) => {
         tags.push(["e", attachment.eventId, "", "media"]);
@@ -378,6 +451,8 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
         tags: signed.tags ?? tags,
         status: "pending",
         optimistic: true,
+        quoteId: options?.quoteId ?? undefined,
+        quotePubkey: options?.quotePubkey ?? undefined,
       };
 
       setMessages((prev) => upsertMessage(prev, optimisticMessage));
@@ -434,6 +509,34 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
     [accountReady, hasKey, pubkey],
   );
 
+  const typingPubkeys = useMemo(
+    () =>
+      Object.entries(typingUsers)
+        .filter(([, expires]) => expires > Date.now())
+        .map(([key]) => key),
+    [typingUsers],
+  );
+
+  const sendTyping = useCallback(async () => {
+    if (!signEvent) return;
+    if (!managerRef.current) return;
+    const now = Date.now();
+    if (now - typingThrottleRef.current < TYPING_THROTTLE_MS) return;
+    typingThrottleRef.current = now;
+    try {
+      const template: EventTemplate = {
+        kind: 20001,
+        created_at: Math.floor(now / 1000),
+        content: "typing",
+        tags: [["t", ROOM_TAG], ["typing", "1"]],
+      };
+      const signed = await signEvent(template);
+      managerRef.current.publish(signed);
+    } catch (typingError) {
+      console.warn("Failed to publish typing event", typingError);
+    }
+  }, [signEvent]);
+
   useEffect(() => {
     if (!hasKey || refreshedKeyRef.current) return;
     refreshedKeyRef.current = true;
@@ -451,6 +554,8 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
     hasRoomKey: hasKey,
     roomKeyError,
     error,
+    typingPubkeys,
+    sendTyping,
   };
 };
 

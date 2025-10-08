@@ -2,9 +2,11 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import type { FeedPost, PublishContext } from "../../hooks/useBitcoinSquareFeed";
 import { useProfileIdentity, shortenPubkey } from "../../context/ProfileIdentityContext";
+import type { ProfileSummary } from "../../context/ProfileIdentityContext";
 import { CASUAL_ROOM_ID, CASUAL_ROOM_NAME } from "../../hooks/useBitcoinSquareCasualChat";
 import { useMediaUploader, type MediaUploadResult } from "../../hooks/useMediaUploader";
 import ProfileCard from "../profile/ProfileCard";
+import ErrorBoundary from "../ErrorBoundary";
 import type { RoomDefinition } from "../RoomList";
 import {
   Heart,
@@ -16,6 +18,13 @@ import {
   X,
   Zap,
 } from "lucide-react";
+import {
+  createFeedActionHandlers,
+  createOpenComposerDialog,
+  type ComposerMode,
+  type PendingMap,
+} from "./feedActions";
+import { countZapReferences, detectZapEndpoint, type ZapEndpoint } from "../../utils/zap";
 
 interface BitcoinSquareFeedProps {
   posts: FeedPost[];
@@ -33,16 +42,37 @@ interface BitcoinSquareFeedProps {
   loadingMore: boolean;
   hasMore: boolean;
   error: string | null;
-  onSendLightning: (address: string) => void;
   canZap: boolean;
   pubkey: string | null;
+  initialLoading: boolean;
+  onZapRequest: (request: FeedZapRequest) => void;
+  zapCounts: Record<string, number>;
+  pendingZaps: Set<string>;
 }
 
-type ActiveFilter = { type: "tag" | "mention"; value: string } | null;
+export interface FeedZapRequest {
+  key: string;
+  endpoint: ZapEndpoint;
+  authorPubkey: string;
+  noteId: string;
+  relays: string[];
+  summary: ProfileSummary;
+  snippet: string;
+}
 
-type PendingMap = Set<string>;
+type ActiveFilter =
+  | { type: "tag"; value: string }
+  | { type: "mention"; value: string }
+  | { type: "media" }
+  | { type: "mentions" }
+  | { type: "mine" }
+  | null;
 
-type ComposerMode = "new" | "reply" | "quote";
+type QuickFilterType = "media" | "mentions" | "mine";
+
+const LONG_POST_CHAR_THRESHOLD = 320;
+const LONG_POST_LINE_THRESHOLD = 6;
+const COMPOSER_STORAGE_KEY = "bitcoinsquare-feed-composer-state";
 
 const createRelativeFormatter = () => {
   try {
@@ -102,6 +132,43 @@ const tokenizeLine = (
     return token;
   });
 
+const isLongPost = (content: string) =>
+  content.length > LONG_POST_CHAR_THRESHOLD || content.split(/\n/).length > LONG_POST_LINE_THRESHOLD;
+
+const getCollapsedContent = (content: string) => {
+  if (!isLongPost(content)) {
+    return content;
+  }
+  const truncated = content.slice(0, LONG_POST_CHAR_THRESHOLD).trimEnd();
+  return `${truncated}${truncated.length < content.length ? "…" : ""}`;
+};
+
+const buildPostSnippet = (content: string) => {
+  const condensed = content.replace(/\s+/g, " ").trim();
+  if (condensed.length <= 220) {
+    return condensed;
+  }
+  return `${condensed.slice(0, 217)}…`;
+};
+
+const extractRelaysFromTags = (tags: string[][]): string[] => {
+  const relays = new Set<string>();
+  tags.forEach((tag) => {
+    if (!Array.isArray(tag) || tag.length === 0) return;
+    if (tag[0] === "relays") {
+      tag.slice(1).forEach((value) => {
+        if (typeof value === "string" && value.trim().length > 0) {
+          relays.add(value);
+        }
+      });
+    }
+    if (tag[0] === "relay" && typeof tag[1] === "string" && tag[1].trim().length > 0) {
+      relays.add(tag[1]);
+    }
+  });
+  return Array.from(relays);
+};
+
 const renderContent = (
   content: string,
   onTagClick: (tag: string) => void,
@@ -127,9 +194,12 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   loadingMore,
   hasMore,
   error,
-  onSendLightning,
   canZap,
   pubkey,
+  initialLoading,
+  onZapRequest,
+  zapCounts,
+  pendingZaps,
 }) => {
   const [content, setContent] = useState("");
   const [composerError, setComposerError] = useState<string | null>(null);
@@ -138,9 +208,15 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   const [composerTarget, setComposerTarget] = useState<FeedPost | null>(null);
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>(null);
   const [pendingLikes, setPendingLikes] = useState<PendingMap>(() => new Set());
+  const [expandedPosts, setExpandedPosts] = useState<Set<string>>(() => new Set());
+  const [showNewPostsToast, setShowNewPostsToast] = useState(false);
+  const [isAtTop, setIsAtTop] = useState(true);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const latestKnownPostRef = useRef<string | null>(null);
+  const persistedComposerTargetIdRef = useRef<string | null>(null);
   const [pendingMedia, setPendingMedia] = useState<MediaUploadResult[]>([]);
   const relativeFormatter = useMemo(() => createRelativeFormatter(), []);
   const now = useRelativeNow();
@@ -162,6 +238,64 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     error: uploadError,
     reset: resetUpload,
   } = useMediaUploader({ room: feedRoom, pubkey });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const stored = window.localStorage.getItem(COMPOSER_STORAGE_KEY);
+      if (!stored) return;
+      const parsed = JSON.parse(stored) as {
+        content?: string;
+        open?: boolean;
+        mode?: ComposerMode;
+        targetId?: string | null;
+      };
+      if (typeof parsed.content === "string") {
+        setContent(parsed.content.slice(0, 500));
+      }
+      if (parsed.open) {
+        setComposerOpen(true);
+      }
+      if (parsed.mode === "reply" || parsed.mode === "quote") {
+        setComposerMode(parsed.mode);
+      }
+      if (parsed.targetId) {
+        persistedComposerTargetIdRef.current = parsed.targetId;
+      }
+    } catch (storageError) {
+      console.warn("Failed to restore composer draft", storageError);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!persistedComposerTargetIdRef.current) return;
+    const targetId = persistedComposerTargetIdRef.current;
+    const target = posts.find((post) => post.id === targetId);
+    if (target) {
+      setComposerTarget(target);
+      persistedComposerTargetIdRef.current = null;
+      return;
+    }
+    if (posts.length > 0) {
+      setComposerMode("new");
+      persistedComposerTargetIdRef.current = null;
+    }
+  }, [posts]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const payload = {
+      content,
+      open: composerOpen,
+      mode: composerMode,
+      targetId: composerTarget?.id ?? null,
+    };
+    if (!payload.content && !payload.open && !payload.targetId && payload.mode === "new") {
+      window.localStorage.removeItem(COMPOSER_STORAGE_KEY);
+      return;
+    }
+    window.localStorage.setItem(COMPOSER_STORAGE_KEY, JSON.stringify(payload));
+  }, [composerMode, composerOpen, composerTarget, content]);
 
   useEffect(() => {
     if (!hasMore) return;
@@ -202,6 +336,10 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     setContent("");
     setComposerError(null);
     setPendingMedia([]);
+    persistedComposerTargetIdRef.current = null;
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(COMPOSER_STORAGE_KEY);
+    }
     resetUpload();
   }, [resetUpload]);
 
@@ -245,24 +383,16 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     setPendingMedia((prev) => prev.filter((item) => item.cacheKey !== cacheKey));
   }, []);
 
-  const openComposerDialog = useCallback(
-    (mode: ComposerMode, post?: FeedPost | null) => {
-      setComposerMode(mode);
-      setComposerTarget(post ?? null);
-      if (mode === "reply" && post) {
-        setContent(`@${shortenPubkey(post.pubkey)} `);
-      } else if (mode === "quote" && post) {
-        const quoted = post.content
-          .split(/\r?\n/)
-          .map((line) => `> ${line}`)
-          .join("\n");
-        setContent(`${quoted}\n\n`);
-      } else {
-        setContent("");
-      }
-      setComposerError(null);
-      setComposerOpen(true);
-    },
+  const openComposerDialog = useMemo(
+    () =>
+      createOpenComposerDialog({
+        setComposerMode,
+        setComposerTarget,
+        setContent,
+        setComposerError,
+        setComposerOpen,
+        shortenPubkey,
+      }),
     [shortenPubkey],
   );
 
@@ -335,22 +465,153 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
 
   const filteredPosts = useMemo(() => {
     if (!activeFilter) return posts;
-    if (activeFilter.type === "tag") {
-      const target = activeFilter.value.toLowerCase();
-      return posts.filter((post) =>
-        post.tags.some((tag) => tag[0] === "t" && tag[1]?.toLowerCase() === target) ||
-        post.content.toLowerCase().includes(`#${target}`),
-      );
+    switch (activeFilter.type) {
+      case "tag": {
+        const target = activeFilter.value.toLowerCase();
+        return posts.filter((post) =>
+          post.tags.some((tag) => tag[0] === "t" && tag[1]?.toLowerCase() === target) ||
+          post.content.toLowerCase().includes(`#${target}`),
+        );
+      }
+      case "mention": {
+        const target = activeFilter.value.toLowerCase();
+        return posts.filter((post) =>
+          post.pubkey.toLowerCase() === target ||
+          post.tags.some((tag) => tag[0] === "p" && tag[1]?.toLowerCase() === target) ||
+          post.content.toLowerCase().includes(`@${target}`),
+        );
+      }
+      case "media":
+        return posts.filter((post) => post.attachments.length > 0);
+      case "mine": {
+        if (!pubkey) return [];
+        const current = pubkey.toLowerCase();
+        return posts.filter((post) => post.pubkey.toLowerCase() === current);
+      }
+      case "mentions": {
+        if (!pubkey) return [];
+        const current = pubkey.toLowerCase();
+        return posts.filter((post) => {
+          const content = post.content.toLowerCase();
+          const directMention = content.includes(`@${current}`);
+          const tagMention = post.tags.some((tag) => tag[0] === "p" && tag[1]?.toLowerCase() === current);
+          return directMention || tagMention;
+        });
+      }
+      default:
+        return posts;
     }
-    const target = activeFilter.value.toLowerCase();
-    return posts.filter((post) =>
-      post.pubkey.toLowerCase() === target ||
-      post.tags.some((tag) => tag[0] === "p" && tag[1]?.toLowerCase() === target) ||
-      post.content.toLowerCase().includes(`@${target}`),
-    );
-  }, [activeFilter, posts]);
+  }, [activeFilter, posts, pubkey]);
+
+  const filterLabel = useMemo(() => {
+    if (!activeFilter) return null;
+    switch (activeFilter.type) {
+      case "tag":
+        return `Filtering by #${activeFilter.value}`;
+      case "mention":
+        return `Filtering by @${activeFilter.value}`;
+      case "media":
+        return "Showing posts with media attachments";
+      case "mine":
+        return "Showing only your posts";
+      case "mentions":
+        return "Showing posts that mention you";
+      default:
+        return null;
+    }
+  }, [activeFilter]);
 
   const clearFilter = useCallback(() => setActiveFilter(null), []);
+
+  const setQuickFilter = useCallback((type: QuickFilterType) => {
+    setActiveFilter((prev) => {
+      if (prev?.type === type) {
+        return null;
+      }
+      if (type === "media") {
+        return { type: "media" };
+      }
+      if (type === "mine") {
+        return { type: "mine" };
+      }
+      return { type: "mentions" };
+    });
+  }, []);
+
+  const quickFilterOptions = useMemo(
+    () => [
+      { type: "media" as const, label: "Media" },
+      { type: "mentions" as const, label: "Mentions", disabled: !pubkey },
+      { type: "mine" as const, label: "My posts", disabled: !pubkey },
+    ],
+    [pubkey],
+  );
+
+  const toggleExpanded = useCallback((id: string) => {
+    setExpandedPosts((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleJumpToNewPosts = useCallback(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({ top: 0, behavior: "smooth" });
+    }
+    if (filteredPosts[0]) {
+      latestKnownPostRef.current = filteredPosts[0].id;
+    }
+    setShowNewPostsToast(false);
+  }, [filteredPosts]);
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const handleScroll = () => {
+      const nearTop = container.scrollTop <= 48;
+      setIsAtTop(nearTop);
+      if (nearTop && filteredPosts[0]) {
+        latestKnownPostRef.current = filteredPosts[0].id;
+        setShowNewPostsToast(false);
+      }
+    };
+    handleScroll();
+    container.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      container.removeEventListener("scroll", handleScroll);
+    };
+  }, [filteredPosts]);
+
+  useEffect(() => {
+    if (filteredPosts.length === 0) {
+      latestKnownPostRef.current = null;
+      setShowNewPostsToast(false);
+      return;
+    }
+    const newestId = filteredPosts[0].id;
+    if (!latestKnownPostRef.current) {
+      latestKnownPostRef.current = newestId;
+      return;
+    }
+    if (latestKnownPostRef.current !== newestId) {
+      if (isAtTop) {
+        latestKnownPostRef.current = newestId;
+        setShowNewPostsToast(false);
+      } else {
+        latestKnownPostRef.current = newestId;
+        setShowNewPostsToast(true);
+      }
+    }
+  }, [filteredPosts, isAtTop]);
+
+  useEffect(() => {
+    setShowNewPostsToast(false);
+  }, [activeFilter]);
 
   const handleTagClick = useCallback((tag: string) => {
     setActiveFilter({ type: "tag", value: tag.toLowerCase() });
@@ -400,18 +661,15 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     });
   }, []);
 
-  const handleLike = useCallback(
-    async (post: FeedPost) => {
-      updatePending(setPendingLikes, post.id, true);
-      try {
-        await likePost(post);
-      } catch (reactionError) {
-        console.warn("Unable to react to post", reactionError);
-      } finally {
-        updatePending(setPendingLikes, post.id, false);
-      }
-    },
-    [likePost, updatePending],
+  const { handlePost, handleReply, handleQuote, handleLike } = useMemo(
+    () =>
+      createFeedActionHandlers({
+        openComposerDialog,
+        likePost,
+        updatePending,
+        setPendingLikes,
+      }),
+    [likePost, openComposerDialog, updatePending],
   );
 
   const composerTitle =
@@ -436,38 +694,70 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
 
   return (
     <div className="relative flex flex-1 flex-col overflow-hidden">
-      {activeFilter && (
+      {activeFilter && filterLabel && (
         <div className="border-b border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 px-6 py-3 text-xs text-[var(--fg-muted)]">
-          <span>
-            Filtering by {activeFilter.type === "tag" ? `#${activeFilter.value}` : `@${activeFilter.value}`}
-          </span>
+          <span>{filterLabel}</span>
           <button
             type="button"
             onClick={clearFilter}
-            className="ml-3 rounded-full border border-[var(--border-subtle)] px-3 py-1 font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand"
+            className="ml-3 rounded-full border border-[var(--border-subtle)] px-3 py-1 font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
           >
             Clear filter
           </button>
         </div>
       )}
 
-      <div className="flex-1 space-y-4 overflow-y-auto px-6 py-6 pb-28">
-        {!ready && (
-          <div className="rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-4 text-sm text-[var(--fg-muted)]">
-            We generate a local signing key automatically to publish updates. Once it is ready you can post to the feed instantly.
-          </div>
-        )}
+      <div className="border-b border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 px-6 py-3">
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">Quick filters:</span>
+          {quickFilterOptions.map(({ type, label, disabled }) => {
+            const isActive = activeFilter?.type === type;
+            return (
+              <button
+                key={type}
+                type="button"
+                onClick={() => setQuickFilter(type)}
+                disabled={disabled}
+                className={`rounded-full border px-3 py-1 font-medium transition disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
+                  isActive
+                    ? "border-brand bg-brand/10 text-brand"
+                    : "border-[var(--border-subtle)] text-[var(--fg-muted)] hover:border-brand hover:text-brand"
+                } ${disabled ? "opacity-50" : ""}`}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
-        {error && !composerOpen && (
-          <p className="rounded-2xl border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-500">{error}</p>
-        )}
+      <div
+        ref={scrollContainerRef}
+        className="flex-1 space-y-4 overflow-y-auto px-6 py-6 pb-28"
+      >
+        <ErrorBoundary
+          fallback={
+            <div className="rounded-2xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-500">
+              We couldn&apos;t render the community feed right now. Please refresh the page.
+            </div>
+          }
+        >
+          {!ready && (
+            <div className="rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-4 text-sm text-[var(--fg-muted)]">
+              We generate a local signing key automatically to publish updates. Once it is ready you can post to the feed instantly.
+            </div>
+          )}
 
-        {filteredPosts.length === 0 ? (
-          <p className="text-sm text-[var(--fg-muted)]">
-            No posts yet{activeFilter ? " for this filter." : "."} Be the first to share what you’re working on!
-          </p>
-        ) : (
-          filteredPosts.map((post) => {
+          {error && !composerOpen && (
+            <p className="rounded-2xl border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-500">{error}</p>
+          )}
+
+          {initialLoading && posts.length === 0 ? null : filteredPosts.length === 0 ? (
+            <p className="text-sm text-[var(--fg-muted)]">
+              No posts yet{activeFilter ? " for this filter." : "."} Be the first to share what you’re working on!
+            </p>
+          ) : (
+            filteredPosts.map((post) => {
             const profile = resolveProfileSummary(post.pubkey);
             const isPendingLike = pendingLikes.has(post.id);
             const likeDisabled = !ready || isPendingLike;
@@ -477,6 +767,36 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
                 : post.status === "failed"
                   ? post.error ?? "Delivery failed."
                   : null;
+            const longPost = isLongPost(post.content);
+            const isExpanded = expandedPosts.has(post.id);
+            const displayContent = isExpanded || !longPost ? post.content : getCollapsedContent(post.content);
+            const zapKey = `feed:${post.id}`;
+            const zapEndpoint = detectZapEndpoint({
+              lightningAddress: profile.lightningAddress,
+              tags: post.tags,
+            });
+            const baseZapCount = zapCounts[zapKey] ?? countZapReferences(post.tags);
+            const zapPending = pendingZaps.has(zapKey);
+            const displayZapCount = Math.max(0, baseZapCount + (zapPending ? 1 : 0));
+            const zapTitle = !zapEndpoint
+              ? "Zaps unavailable"
+              : zapPending
+                ? "Sending zap…"
+                : canZap
+                  ? "Zap this post"
+                  : "Add your Lightning address on the dashboard to zap";
+            const handleZap = () => {
+              if (!zapEndpoint) return;
+              onZapRequest({
+                key: zapKey,
+                endpoint: zapEndpoint,
+                authorPubkey: post.pubkey,
+                noteId: post.id,
+                relays: extractRelaysFromTags(post.tags),
+                summary: profile,
+                snippet: buildPostSnippet(post.content),
+              });
+            };
 
             return (
               <article
@@ -502,8 +822,18 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
                 </header>
 
                 <div className="mt-4 whitespace-pre-wrap break-words text-sm leading-relaxed text-[var(--fg-default)]">
-                  {renderContent(post.content, handleTagClick, handleMentionClick)}
+                  {renderContent(displayContent, handleTagClick, handleMentionClick)}
                 </div>
+
+                {longPost && (
+                  <button
+                    type="button"
+                    onClick={() => toggleExpanded(post.id)}
+                    className="mt-2 text-xs font-semibold uppercase tracking-[0.18em] text-brand transition hover:text-brand/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+                  >
+                    {isExpanded ? "Show less" : "Show more"}
+                  </button>
+                )}
 
                 {post.attachments.length > 0 && (
                   <div className="mt-4 space-y-3">
@@ -541,9 +871,9 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
                 <div className="mt-4 flex flex-wrap items-center gap-2 text-[var(--fg-muted)]">
                   <button
                     type="button"
-                    onClick={() => openComposerDialog("reply", post)}
+                    onClick={() => handleReply(post)}
                     disabled={!ready}
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 disabled:cursor-not-allowed disabled:opacity-60"
                     title="Reply to this post"
                   >
                     <MessageCircle className="h-4 w-4" />
@@ -551,9 +881,9 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
                   </button>
                   <button
                     type="button"
-                    onClick={() => openComposerDialog("quote", post)}
+                    onClick={() => handleQuote(post)}
                     disabled={!ready}
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 disabled:cursor-not-allowed disabled:opacity-60"
                     title="Quote this post"
                   >
                     <MessageSquareQuote className="h-4 w-4" />
@@ -563,7 +893,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
                     type="button"
                     onClick={() => handleLike(post)}
                     disabled={likeDisabled}
-                    className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition ${
+                    className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
                       isPendingLike
                         ? "border-brand text-brand"
                         : "border-[var(--border-subtle)] text-[var(--fg-muted)] hover:border-brand hover:text-brand"
@@ -573,24 +903,30 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
                     {isPendingLike ? <Loader2 className="h-4 w-4 animate-spin" /> : <Heart className="h-4 w-4" />}
                     <span className="sr-only">Like</span>
                   </button>
-                  {profile.lightningAddress && (
-                    <button
-                      type="button"
-                      onClick={() => onSendLightning(profile.lightningAddress!)}
-                      className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition ${
-                        canZap
-                          ? "border-brand/40 text-brand hover:border-brand"
-                          : "border-dashed border-[var(--border-subtle)] text-[var(--fg-muted)] hover:border-brand/40"
-                      }`}
-                      title={
-                        canZap
-                          ? "Send sats via Lightning"
-                          : "Add your Lightning address on the dashboard to zap"
-                      }
-                    >
-                      <Zap className="h-4 w-4" />
-                      <span className="sr-only">Send sats</span>
-                    </button>
+                  {zapEndpoint && (
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={handleZap}
+                        disabled={zapPending}
+                        className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
+                          zapPending
+                            ? "border-brand text-brand"
+                            : canZap
+                              ? "border-brand/40 text-brand hover:border-brand"
+                              : "border-dashed border-[var(--border-subtle)] text-[var(--fg-muted)] hover:border-brand/40"
+                        } disabled:cursor-not-allowed disabled:opacity-60`}
+                        title={zapTitle}
+                      >
+                        {zapPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+                        <span className="sr-only">Zap {profile.displayName}</span>
+                      </button>
+                      {displayZapCount > 0 && (
+                        <span className="ml-1 text-xs font-semibold text-brand">
+                          {displayZapCount.toLocaleString()}
+                        </span>
+                      )}
+                    </div>
                   )}
                 </div>
               </article>
@@ -598,18 +934,65 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
           })
         )}
 
+        {initialLoading && posts.length === 0 && (
+          <div className="space-y-4">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div
+                key={`feed-skeleton-${index}`}
+                className="animate-pulse rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-5 shadow-sm"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="h-12 w-12 rounded-full bg-[var(--bg-muted)]" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-3 w-1/3 rounded-full bg-[var(--bg-muted)]" />
+                    <div className="h-2 w-1/2 rounded-full bg-[var(--bg-muted)]" />
+                  </div>
+                </div>
+                <div className="mt-4 space-y-2">
+                  <div className="h-2 w-full rounded-full bg-[var(--bg-muted)]" />
+                  <div className="h-2 w-4/5 rounded-full bg-[var(--bg-muted)]" />
+                  <div className="h-2 w-3/5 rounded-full bg-[var(--bg-muted)]" />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {loadingMore && (
+          <div className="space-y-4">
+            {Array.from({ length: 2 }).map((_, index) => (
+              <div
+                key={`feed-loading-${index}`}
+                className="animate-pulse rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 shadow-sm"
+              >
+                <div className="h-3 w-2/3 rounded-full bg-[var(--bg-muted)]" />
+                <div className="mt-2 h-2 w-full rounded-full bg-[var(--bg-muted)]" />
+              </div>
+            ))}
+          </div>
+        )}
         <div ref={sentinelRef} />
-        {loadingMore && <p className="text-center text-xs text-[var(--fg-muted)]">Loading more posts…</p>}
         {!hasMore && filteredPosts.length > 0 && (
           <p className="text-center text-xs text-[var(--fg-muted)]">You reached the end of the feed.</p>
         )}
+        </ErrorBoundary>
       </div>
+
+      {showNewPostsToast && (
+        <button
+          type="button"
+          onClick={handleJumpToNewPosts}
+          className="fixed bottom-36 left-1/2 z-40 -translate-x-1/2 rounded-full bg-[var(--bg-card)] px-5 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-brand shadow-lg ring-1 ring-brand/40 transition hover:bg-brand/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+        >
+          New posts available — Jump
+        </button>
+      )}
 
       <button
         type="button"
-        onClick={() => openComposerDialog("new")}
+        onClick={handlePost}
         disabled={!ready}
-        className="fixed bottom-24 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-lg transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:bg-brand/40"
+        className="fixed bottom-24 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-lg transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-brand disabled:cursor-not-allowed disabled:bg-brand/40"
         aria-label="Create a new community post"
       >
         <Plus className="h-6 w-6" />
@@ -624,7 +1007,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
               <button
                 type="button"
                 onClick={resetComposer}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
                 aria-label="Close composer"
               >
                 <X className="h-4 w-4" />
@@ -670,7 +1053,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
                       <button
                         type="button"
                         onClick={() => handleRemoveMedia(media.cacheKey)}
-                        className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur transition hover:bg-brand"
+                        className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur transition hover:bg-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
                         aria-label="Remove attachment"
                       >
                         <X className="h-4 w-4" />
@@ -684,7 +1067,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
                   <button
                     type="button"
                     onClick={triggerFilePicker}
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
                     disabled={!ready || publishing || uploadStatus === "uploading"}
                     title="Attach media"
                   >

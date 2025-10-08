@@ -1,9 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate } from "react-router-dom";
 
-import BitcoinSquareFeed from "../components/bitcoinSquareChat/BitcoinSquareFeed";
-import ProfileCard from "../components/profile/ProfileCard";
-import ProfileModal from "../components/profile/ProfileModal";
+import BitcoinSquareFeed, { type FeedZapRequest } from "../components/bitcoinSquareChat/BitcoinSquareFeed";
+import ErrorBoundary from "../components/ErrorBoundary";
 import type { RoomDefinition } from "../components/RoomList";
 import {
   CASUAL_ROOM_ID,
@@ -17,10 +16,20 @@ import { useBitcoinSquareFeed } from "../hooks/useBitcoinSquareFeed";
 import { decryptBinary } from "../utils/aes";
 import { getCachedMediaBlob, getCachedPreview, setCachedMediaBlob, setCachedPreview } from "../utils/mediaCache";
 import { useProfileIdentity, shortenPubkey } from "../context/ProfileIdentityContext";
+import type { ProfileSummary } from "../context/ProfileIdentityContext";
 import { useAuth } from "../context/AuthContext";
 import { useNostrAccount } from "../hooks/useNostrAccount";
 import { setNostrClientSigner } from "../lib/nostrClient";
-import { Heart, MessageCircle, MessageSquareQuote, Newspaper, Zap } from "lucide-react";
+import { ArrowDown, Heart, Loader2, MessageCircle, MessageSquareQuote, Newspaper, X, Zap } from "lucide-react";
+import ZapDialog from "../components/bitcoinSquareChat/ZapDialog";
+import {
+  countZapReferences,
+  detectZapEndpoint,
+  fetchLnurlDetails,
+  requestZapInvoice,
+  type LnurlPayResponse,
+  type ZapEndpoint,
+} from "../utils/zap";
 
 const CASUAL_ROOM: RoomDefinition = {
   id: CASUAL_ROOM_ID,
@@ -33,6 +42,20 @@ type PendingAttachment = MediaUploadResult & { previewUrl?: string | null };
 
 type AttachmentStatus = "idle" | "loading" | "ready" | "error";
 
+interface QuoteContextState {
+  id: string;
+  pubkey: string;
+  createdAt: number;
+  displayName: string;
+  snippet: string;
+}
+
+interface AuthorAccent {
+  border: string;
+  shadow: string;
+  dot: string;
+}
+
 const formatTimestamp = (unixSeconds: number) => {
   try {
     return new Intl.DateTimeFormat(undefined, {
@@ -44,6 +67,35 @@ const formatTimestamp = (unixSeconds: number) => {
   }
 };
 
+const formatDateLabel = (unixSeconds: number) => {
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: "full",
+    }).format(new Date(unixSeconds * 1000));
+  } catch {
+    return new Date(unixSeconds * 1000).toDateString();
+  }
+};
+
+const buildQuoteSnippet = (markdown: string) => {
+  const condensed = markdown.replace(/\s+/g, " ").trim();
+  if (condensed.length <= 140) return condensed;
+  return `${condensed.slice(0, 137)}…`;
+};
+
+const computeAuthorAccent = (pubkey: string): AuthorAccent => {
+  let hash = 0;
+  for (let i = 0; i < pubkey.length; i += 1) {
+    hash = (hash * 31 + pubkey.charCodeAt(i)) % 360;
+  }
+  const hue = hash;
+  return {
+    border: `hsla(${hue}, 75%, 65%, 0.8)`,
+    shadow: `hsla(${hue}, 70%, 45%, 0.25)`,
+    dot: `hsla(${hue}, 85%, 55%, 1)`,
+  };
+};
+
 const formatLastSeenLabel = (unixSeconds: number) => {
   const diffSeconds = Math.max(0, Math.floor(Date.now() / 1000) - unixSeconds);
   if (diffSeconds < 60) return "Active now";
@@ -51,6 +103,81 @@ const formatLastSeenLabel = (unixSeconds: number) => {
   if (diffSeconds < 86_400) return `Active ${Math.floor(diffSeconds / 3600)}h ago`;
   return `Active ${Math.floor(diffSeconds / 86_400)}d ago`;
 };
+
+const collectMemberActivity = <T extends { pubkey: string; created_at: number }>(items: T[]) => {
+  const seen = new Map<string, number>();
+  items.forEach((item) => {
+    if (!item?.pubkey) return;
+    const timestamp =
+      typeof item.created_at === "number" && Number.isFinite(item.created_at)
+        ? Math.max(0, Math.floor(item.created_at))
+        : 0;
+    const previous = seen.get(item.pubkey) ?? 0;
+    seen.set(item.pubkey, Math.max(previous, timestamp));
+  });
+  return seen;
+};
+
+interface MemberListEntry {
+  pubkey: string;
+  lastSeen: number;
+  summary: ProfileSummary;
+  isCurrentUser: boolean;
+}
+
+const extractRelaysFromTags = (tags?: string[][] | null): string[] => {
+  if (!tags) return [];
+  const relays = new Set<string>();
+  tags.forEach((tag) => {
+    if (!Array.isArray(tag) || tag.length === 0) return;
+    if (tag[0] === "relays") {
+      tag.slice(1).forEach((value) => {
+        if (typeof value === "string" && value.trim().length > 0) {
+          relays.add(value);
+        }
+      });
+    }
+    if (tag[0] === "relay" && typeof tag[1] === "string" && tag[1].trim().length > 0) {
+      relays.add(tag[1]);
+    }
+  });
+  return Array.from(relays);
+};
+
+interface CommunityZapTarget {
+  key: string;
+  context: "feed" | "chat" | "profile";
+  endpoint: ZapEndpoint;
+  authorPubkey: string;
+  noteId?: string | null;
+  relays?: string[];
+  summary: ProfileSummary;
+  snippet?: string | null;
+}
+
+interface ZapDialogState {
+  open: boolean;
+  target: CommunityZapTarget | null;
+  stage: "select" | "paying" | "invoice" | "success" | "error";
+  lnurl: LnurlPayResponse | null;
+  lnurlLoading: boolean;
+  invoice: string | null;
+  amountSats?: number;
+  error: string | null;
+  weblnTried: boolean;
+}
+
+const createInitialZapState = (): ZapDialogState => ({
+  open: false,
+  target: null,
+  stage: "select",
+  lnurl: null,
+  lnurlLoading: false,
+  invoice: null,
+  amountSats: undefined,
+  error: null,
+  weblnTried: false,
+});
 
 const base64ToUint8Array = (value: string) => {
   const binary = atob(value);
@@ -200,6 +327,10 @@ const Composer: React.FC<{
   uploadProgress: number;
   uploadError: string | null;
   draft?: string;
+  onTyping?: () => void;
+  quoteContext?: QuoteContextState | null;
+  onClearQuote?: () => void;
+  onJumpToQuote?: (messageId: string) => void;
 }> = ({
   disabled,
   onSend,
@@ -210,11 +341,16 @@ const Composer: React.FC<{
   uploadProgress,
   uploadError,
   draft,
+  onTyping,
+  quoteContext,
+  onClearQuote,
+  onJumpToQuote,
 }) => {
   const [value, setValue] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const typingEmitRef = useRef(0);
 
   const remaining = 500 - value.length;
 
@@ -223,6 +359,14 @@ const Composer: React.FC<{
       setValue(draft);
     }
   }, [draft]);
+
+  const emitTyping = useCallback(() => {
+    if (!onTyping) return;
+    const now = Date.now();
+    if (now - typingEmitRef.current < 400) return;
+    typingEmitRef.current = now;
+    onTyping();
+  }, [onTyping]);
 
   const handleSubmit = useCallback(async () => {
     const trimmed = value.trim();
@@ -241,10 +385,16 @@ const Composer: React.FC<{
   }, [disabled, isSending, onSend, value]);
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    emitTyping();
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       void handleSubmit();
     }
+  };
+
+  const handleChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setValue(event.target.value);
+    emitTyping();
   };
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -262,9 +412,38 @@ const Composer: React.FC<{
 
   return (
     <div className="space-y-3">
+      {quoteContext && (
+        <div className="flex items-start justify-between rounded-2xl border border-brand/40 bg-brand/10 px-3 py-2 text-xs text-brand shadow-sm">
+          <button
+            type="button"
+            onClick={() => quoteContext && onJumpToQuote?.(quoteContext.id)}
+            className="flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+          >
+            <p className="font-semibold uppercase tracking-[0.24em] text-brand/80">
+              Quoting {quoteContext.displayName}
+            </p>
+            <p className="mt-1 text-[11px] font-medium text-brand/90">
+              {quoteContext.snippet || "Quoted message"}
+            </p>
+            <p className="mt-2 text-[9px] uppercase tracking-[0.3em] text-brand/60">
+              {formatTimestamp(quoteContext.createdAt)}
+            </p>
+          </button>
+          {onClearQuote && (
+            <button
+              type="button"
+              onClick={onClearQuote}
+              className="ml-3 inline-flex h-6 w-6 items-center justify-center rounded-full border border-brand/40 text-brand transition hover:bg-brand hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+            >
+              <X className="h-3 w-3" aria-hidden />
+              <span className="sr-only">Remove quote</span>
+            </button>
+          )}
+        </div>
+      )}
       <textarea
         value={value}
-        onChange={(event) => setValue(event.target.value)}
+        onChange={handleChange}
         onKeyDown={handleKeyDown}
         disabled={disabled || isSending}
         rows={3}
@@ -346,6 +525,8 @@ const Community: React.FC = () => {
     ready,
     roomKeyError,
     error: sendError,
+    typingPubkeys,
+    sendTyping,
   } = useBitcoinSquareCasualChat();
 
   const {
@@ -359,6 +540,7 @@ const Community: React.FC = () => {
     hasMore: feedHasMore,
     error: feedError,
     pubkey: feedPubkey,
+    initialLoading: feedInitialLoading,
   } = useBitcoinSquareFeed();
   const { user, refreshNostrKeys } = useAuth();
   const {
@@ -368,9 +550,12 @@ const Community: React.FC = () => {
     pubkey: accountPubkey,
     error: accountError,
   } = useNostrAccount();
+  const hasLightningWallet = Boolean(user?.lnWalletAddress);
+  const canZap = hasLightningWallet && accountReady && Boolean(globalSignEvent);
 
   const [activeView, setActiveView] = useState<"casual" | "feed">("casual");
   const listRef = useRef<HTMLDivElement | null>(null);
+  const scrollUpdateFrameRef = useRef<number | null>(null);
   const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
   const {
     uploadFile,
@@ -383,7 +568,251 @@ const Community: React.FC = () => {
   const [composerError, setComposerError] = useState<string | null>(null);
   const [composerDraft, setComposerDraft] = useState<string | undefined>(undefined);
   const [walletPromptOpen, setWalletPromptOpen] = useState(false);
+  const [quoteContext, setQuoteContext] = useState<QuoteContextState | null>(null);
+  const [isAtBottom, setIsAtBottom] = useState(true);
+  const [newMessageAnchor, setNewMessageAnchor] = useState<string | null>(null);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const [zapCounts, setZapCounts] = useState<Record<string, number>>({});
+  const [pendingZaps, setPendingZaps] = useState<Set<string>>(() => new Set());
+  const [zapState, setZapState] = useState<ZapDialogState>(() => createInitialZapState());
+  const messageRefs = useRef(new Map<string, HTMLDivElement>());
+  const highlightTimerRef = useRef<number | null>(null);
+  const pendingHighlightRef = useRef<string | null>(null);
+  const previousMessageIdsRef = useRef<string[]>([]);
+  const initialScrollDoneRef = useRef(false);
+  const estimatedRowHeight = 220;
+  const rowHeightsRef = useRef(new Map<string, number>());
+  const resizeObserversRef = useRef(new Map<string, ResizeObserver>());
+  const [virtualVersion, setVirtualVersion] = useState(0);
   const { requestProfile, resolveProfileSummary, openProfile } = useProfileIdentity();
+
+  const setPendingZap = useCallback((key: string, pending: boolean) => {
+    setPendingZaps((prev) => {
+      const has = prev.has(key);
+      if ((pending && has) || (!pending && !has)) {
+        return prev;
+      }
+      const next = new Set(prev);
+      if (pending) {
+        next.add(key);
+      } else {
+        next.delete(key);
+      }
+      return next;
+    });
+  }, []);
+
+  const adjustZapCount = useCallback((key: string, delta: number) => {
+    setZapCounts((prev) => {
+      const current = prev[key] ?? 0;
+      const nextValue = Math.max(0, current + delta);
+      if (nextValue === current) {
+        return prev;
+      }
+      return { ...prev, [key]: nextValue };
+    });
+  }, []);
+
+  const handleOpenZap = useCallback(
+    (target: CommunityZapTarget) => {
+      if (!hasLightningWallet) {
+        setWalletPromptOpen(true);
+        return;
+      }
+
+      if (!globalSignEvent || !accountReady) {
+        setZapState({
+          ...createInitialZapState(),
+          open: true,
+          target,
+          stage: "error",
+          error:
+            "We need your Nostr signer ready to send zaps. Refresh your keys from the dashboard and try again.",
+        });
+        return;
+      }
+
+      setZapState({
+        ...createInitialZapState(),
+        open: true,
+        target,
+        stage: target.endpoint.type === "lnurl" ? "select" : "invoice",
+        lnurlLoading: target.endpoint.type === "lnurl",
+        invoice: target.endpoint.type === "bolt11" ? target.endpoint.invoice : null,
+      });
+    },
+    [accountReady, globalSignEvent, hasLightningWallet],
+  );
+
+  useEffect(() => {
+    if (!zapState.open || !zapState.target) {
+      return;
+    }
+    if (zapState.target.endpoint.type !== "lnurl") {
+      return;
+    }
+    if (zapState.lnurlLoading || zapState.lnurl) {
+      return;
+    }
+
+    let cancelled = false;
+    setZapState((prev) => ({ ...prev, lnurlLoading: true }));
+
+    (async () => {
+      try {
+        const details = await fetchLnurlDetails(zapState.target!.endpoint.url);
+        if (cancelled) return;
+        setZapState((prev) => ({ ...prev, lnurl: details, lnurlLoading: false }));
+      } catch (error) {
+        if (cancelled) return;
+        if (import.meta.env?.DEV) {
+          console.error("Zap details fetch failed", error);
+        }
+        const message = error instanceof Error ? error.message : "Unable to load zap details.";
+        setZapState((prev) => ({ ...prev, stage: "error", lnurlLoading: false, error: message }));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [zapState.open, zapState.target, zapState.lnurl, zapState.lnurlLoading]);
+
+  const handleSubmitZap = useCallback(
+    (amount: number, comment?: string) => {
+      if (!zapState.target) {
+        return;
+      }
+
+      const target = zapState.target;
+      const lnurlDetails = zapState.lnurl;
+
+      setZapState((prev) => ({
+        ...prev,
+        stage: "paying",
+        amountSats: amount,
+        error: null,
+        invoice: null,
+        weblnTried: false,
+      }));
+      setPendingZap(target.key, true);
+
+      (async () => {
+        try {
+          if (target.endpoint.type === "lnurl") {
+            if (!lnurlDetails) {
+              throw new Error("Zap details are still loading. Please wait a moment.");
+            }
+            const response = await requestZapInvoice({
+              details: lnurlDetails,
+              amountMsat: Math.round(amount * 1000),
+              targetPubkey: target.authorPubkey,
+              noteId: target.noteId ?? null,
+              relays: target.relays,
+              comment,
+              signEvent: globalSignEvent,
+              lnurlRaw: target.endpoint.raw,
+              logger: import.meta.env?.DEV ? console : undefined,
+            });
+            const invoice = response.pr;
+            if (typeof window !== "undefined" && window.webln) {
+              try {
+                await window.webln.enable();
+                await window.webln.sendPayment(invoice);
+                adjustZapCount(target.key, 1);
+                setPendingZap(target.key, false);
+                setZapState((prev) => ({ ...prev, stage: "success", invoice, weblnTried: true }));
+                return;
+              } catch (weblnError) {
+                if (import.meta.env?.DEV) {
+                  console.warn("WebLN payment failed", weblnError);
+                }
+                setZapState((prev) => ({ ...prev, stage: "invoice", invoice, weblnTried: true }));
+              }
+            } else {
+              setZapState((prev) => ({ ...prev, stage: "invoice", invoice, weblnTried: false }));
+            }
+            setPendingZap(target.key, false);
+          } else {
+            setZapState((prev) => ({
+              ...prev,
+              stage: "invoice",
+              invoice: target.endpoint.invoice,
+              amountSats: amount,
+            }));
+            setPendingZap(target.key, false);
+          }
+        } catch (error) {
+          if (import.meta.env?.DEV) {
+            console.error("Zap submission failed", error);
+          }
+          const message = error instanceof Error ? error.message : "Zap failed. Try again later.";
+          setZapState((prev) => ({ ...prev, stage: "error", error: message }));
+          setPendingZap(target.key, false);
+        }
+      })();
+    },
+    [adjustZapCount, globalSignEvent, setPendingZap, zapState.lnurl, zapState.target],
+  );
+
+  const handleZapRetry = useCallback(() => {
+    setZapState((prev) => {
+      if (!prev.target) {
+        return prev;
+      }
+      return {
+        ...prev,
+        stage: prev.target.endpoint.type === "lnurl" ? "select" : "invoice",
+        error: null,
+        weblnTried: false,
+      };
+    });
+  }, []);
+
+  const handleZapMarkPaid = useCallback(() => {
+    if (!zapState.target) {
+      return;
+    }
+    adjustZapCount(zapState.target.key, 1);
+    setPendingZap(zapState.target.key, false);
+    setZapState((prev) => ({ ...prev, stage: "success" }));
+  }, [adjustZapCount, setPendingZap, zapState.target]);
+
+  const handleZapClose = useCallback(() => {
+    if (zapState.target) {
+      setPendingZap(zapState.target.key, false);
+    }
+    setZapState(createInitialZapState());
+  }, [setPendingZap, zapState.target]);
+
+  const handleFeedZapRequest = useCallback(
+    (request: FeedZapRequest) => {
+      handleOpenZap({
+        key: request.key,
+        context: "feed",
+        endpoint: request.endpoint,
+        authorPubkey: request.authorPubkey,
+        noteId: request.noteId,
+        relays: request.relays,
+        summary: request.summary,
+        snippet: request.snippet,
+      });
+    },
+    [handleOpenZap],
+  );
+
+  const handleMemberZap = useCallback(
+    (pubkeyValue: string, summary: ProfileSummary, endpoint: ZapEndpoint) => {
+      handleOpenZap({
+        key: `profile:${pubkeyValue}`,
+        context: "profile",
+        endpoint,
+        authorPubkey: pubkeyValue,
+        summary,
+      });
+    },
+    [handleOpenZap],
+  );
 
   useEffect(() => {
     if (accountReady && globalSignEvent) {
@@ -453,22 +882,118 @@ const Community: React.FC = () => {
   ]);
 
   useEffect(() => {
-    if (activeView !== "casual") return;
-    if (!listRef.current) return;
-    listRef.current.scrollTo({
-      top: listRef.current.scrollHeight,
-      behavior: "smooth",
-    });
-  }, [activeView, messages.length]);
-
-  useEffect(() => {
     const uniquePubkeys = new Set<string>();
-    messages.forEach((message) => uniquePubkeys.add(message.pubkey));
+    messages.forEach((message) => {
+      uniquePubkeys.add(message.pubkey);
+      if (message.quotePubkey) {
+        uniquePubkeys.add(message.quotePubkey);
+      }
+    });
     feedPosts.forEach((post) => uniquePubkeys.add(post.pubkey));
+    typingPubkeys.forEach((key) => uniquePubkeys.add(key));
     uniquePubkeys.forEach((pubkeyValue) => {
       requestProfile(pubkeyValue).catch(() => undefined);
     });
-  }, [feedPosts, messages, requestProfile]);
+  }, [feedPosts, messages, requestProfile, typingPubkeys]);
+
+  const computeScrollState = useCallback(() => {
+    const node = listRef.current;
+    if (!node) return;
+    const threshold = 80;
+    const atBottom = node.scrollHeight - (node.scrollTop + node.clientHeight) < threshold;
+    setIsAtBottom(atBottom);
+    if (atBottom) {
+      setNewMessageAnchor((current) => (current ? null : current));
+    }
+    setVirtualVersion((value) => value + 1);
+  }, []);
+
+  const scheduleScrollState = useCallback(() => {
+    if (typeof window === "undefined") {
+      computeScrollState();
+      return;
+    }
+    if (scrollUpdateFrameRef.current !== null) {
+      return;
+    }
+    scrollUpdateFrameRef.current = window.requestAnimationFrame(() => {
+      scrollUpdateFrameRef.current = null;
+      computeScrollState();
+    });
+  }, [computeScrollState]);
+
+  useEffect(
+    () => () => {
+      if (typeof window !== "undefined" && scrollUpdateFrameRef.current !== null) {
+        window.cancelAnimationFrame(scrollUpdateFrameRef.current);
+        scrollUpdateFrameRef.current = null;
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const node = listRef.current;
+    if (!node) return;
+    const handle = () => scheduleScrollState();
+    node.addEventListener("scroll", handle);
+    computeScrollState();
+    return () => node.removeEventListener("scroll", handle);
+  }, [activeView, computeScrollState, scheduleScrollState]);
+
+  useEffect(() => {
+    if (activeView !== "casual") {
+      previousMessageIdsRef.current = messages.map((message) => message.id);
+      initialScrollDoneRef.current = false;
+      return;
+    }
+    const prevIds = previousMessageIdsRef.current;
+    const nextIds = messages.map((message) => message.id);
+    const prevSet = new Set(prevIds);
+    const newIds = nextIds.filter((id) => !prevSet.has(id));
+
+    if (!initialScrollDoneRef.current && messages.length > 0) {
+      initialScrollDoneRef.current = true;
+      scrollToBottom("auto");
+      computeScrollState();
+    } else if (newIds.length > 0) {
+      if (isAtBottom) {
+        scrollToBottom("smooth");
+        setNewMessageAnchor(null);
+      } else {
+        setNewMessageAnchor((current) => current ?? newIds[0]);
+      }
+    }
+
+    previousMessageIdsRef.current = nextIds;
+  }, [activeView, computeScrollState, isAtBottom, messages, scrollToBottom]);
+
+  useEffect(() => {
+    setVirtualVersion((value) => value + 1);
+  }, [messages.length]);
+
+  useEffect(() => {
+    const activeIds = new Set(messages.map((message) => message.id));
+    rowHeightsRef.current.forEach((_, key) => {
+      if (!activeIds.has(key)) {
+        rowHeightsRef.current.delete(key);
+      }
+    });
+  }, [messages]);
+
+  useEffect(() => {
+    if (activeView === "casual") {
+      if (typeof window === "undefined") {
+        scrollToBottom("auto");
+        computeScrollState();
+        return;
+      }
+      window.requestAnimationFrame(() => {
+        scrollToBottom("auto");
+        computeScrollState();
+      });
+    }
+  }, [activeView, computeScrollState, scrollToBottom]);
 
   useEffect(() => {
     if (!walletPromptOpen) return;
@@ -481,28 +1006,198 @@ const Community: React.FC = () => {
     return () => window.removeEventListener("keydown", handler);
   }, [walletPromptOpen]);
 
-  const onlineMembers = useMemo(() => {
+  const casualMemberActivity = useMemo(() => collectMemberActivity(messages), [messages]);
+  const feedMemberActivity = useMemo(() => collectMemberActivity(feedPosts), [feedPosts]);
+
+  const contextMembers = useMemo<MemberListEntry[]>(() => {
     const now = Math.floor(Date.now() / 1000);
-    const recencyWindow = 60 * 60 * 6;
-    const seen = new Map<string, number>();
-    messages.forEach((message) => {
-      if (now - message.created_at <= recencyWindow) {
-        seen.set(message.pubkey, Math.max(seen.get(message.pubkey) ?? 0, message.created_at));
-      }
-    });
-    feedPosts.forEach((post) => {
-      if (now - post.created_at <= recencyWindow) {
-        seen.set(post.pubkey, Math.max(seen.get(post.pubkey) ?? 0, post.created_at));
-      }
-    });
+    const source = activeView === "casual" ? casualMemberActivity : feedMemberActivity;
+    const merged = new Map(source);
+
     if (pubkey) {
-      seen.set(pubkey, now);
+      const currentTimestamp = Math.max(merged.get(pubkey) ?? 0, now);
+      merged.set(pubkey, currentTimestamp);
     }
-    return Array.from(seen.entries())
-      .map(([pubkeyValue, lastSeen]) => ({ pubkey: pubkeyValue, lastSeen }))
-      .sort((a, b) => b.lastSeen - a.lastSeen)
-      .slice(0, 24);
-  }, [feedPosts, messages, pubkey]);
+
+    const entries: MemberListEntry[] = Array.from(merged.entries()).map(([memberKey, lastSeen]) => ({
+      pubkey: memberKey,
+      lastSeen,
+      summary: resolveProfileSummary(memberKey),
+      isCurrentUser: memberKey === pubkey,
+    }));
+
+    let currentMember: MemberListEntry | null = null;
+    const others: MemberListEntry[] = [];
+
+    entries.forEach((entry) => {
+      if (entry.isCurrentUser) {
+        currentMember = entry;
+      } else {
+        others.push(entry);
+      }
+    });
+
+    others.sort((a, b) => {
+      const diff = (b.lastSeen ?? 0) - (a.lastSeen ?? 0);
+      if (diff !== 0) {
+        return diff;
+      }
+      return a.summary.displayName.localeCompare(b.summary.displayName, undefined, {
+        sensitivity: "base",
+        numeric: true,
+      });
+    });
+
+    return currentMember ? [currentMember, ...others] : others;
+  }, [activeView, casualMemberActivity, feedMemberActivity, pubkey, resolveProfileSummary]);
+
+  useEffect(() => {
+    const entries = new Map<string, number>();
+    feedPosts.forEach((post) => {
+      entries.set(`feed:${post.id}`, countZapReferences(post.tags));
+    });
+    messages.forEach((message) => {
+      entries.set(`chat:${message.id}`, 0);
+    });
+    contextMembers.forEach((member) => {
+      entries.set(`profile:${member.pubkey}`, 0);
+    });
+
+    setZapCounts((prev) => {
+      let changed = false;
+      const next: Record<string, number> = {};
+      entries.forEach((base, key) => {
+        const current = prev[key];
+        const value = current === undefined ? base : Math.max(current, base);
+        if (value !== current) {
+          changed = true;
+        }
+        if (current === undefined) {
+          changed = true;
+        }
+        next[key] = value;
+      });
+      if (Object.keys(prev).length !== entries.size) {
+        changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [feedPosts, messages, contextMembers]);
+
+  useEffect(() => {
+    const validKeys = new Set<string>();
+    feedPosts.forEach((post) => validKeys.add(`feed:${post.id}`));
+    messages.forEach((message) => validKeys.add(`chat:${message.id}`));
+    contextMembers.forEach((member) => validKeys.add(`profile:${member.pubkey}`));
+
+    setPendingZaps((prev) => {
+      let changed = false;
+      const next = new Set<string>();
+      prev.forEach((key) => {
+        if (validKeys.has(key)) {
+          next.add(key);
+        } else {
+          changed = true;
+        }
+      });
+      if (!changed && next.size === prev.size) {
+        return prev;
+      }
+      return next;
+    });
+  }, [feedPosts, messages, contextMembers]);
+
+  const isCasualView = activeView === "casual";
+  const authorAccents = useMemo(() => {
+    const map = new Map<string, AuthorAccent>();
+    messages.forEach((message) => {
+      if (!map.has(message.pubkey)) {
+        map.set(message.pubkey, computeAuthorAccent(message.pubkey));
+      }
+      if (message.quotePubkey && !map.has(message.quotePubkey)) {
+        map.set(message.quotePubkey, computeAuthorAccent(message.quotePubkey));
+      }
+    });
+    return map;
+  }, [messages]);
+  const messagesById = useMemo(() => {
+    const map = new Map<string, CasualChatMessage>();
+    messages.forEach((message) => {
+      map.set(message.id, message);
+    });
+    return map;
+  }, [messages]);
+  const messageIndexMap = useMemo(() => {
+    const map = new Map<string, number>();
+    messages.forEach((message, index) => {
+      map.set(message.id, index);
+    });
+    return map;
+  }, [messages]);
+  const typingSummaries = useMemo(
+    () =>
+      typingPubkeys
+        .filter((key) => key !== pubkey)
+        .map((key) => resolveProfileSummary(key)),
+    [typingPubkeys, pubkey, resolveProfileSummary],
+  );
+  const membersHeading = isCasualView ? "Casual Chat members" : "Community Feed members";
+  const totalSize = useMemo(() => {
+    let total = 0;
+    messages.forEach((message) => {
+      total += rowHeightsRef.current.get(message.id) ?? estimatedRowHeight;
+    });
+    return total;
+  }, [messages, virtualVersion]);
+  const virtualItems = useMemo(() => {
+    if (!isCasualView) return [];
+    const node = listRef.current;
+    const scrollTop = node?.scrollTop ?? 0;
+    const viewportHeight = node?.clientHeight ?? 0;
+    const overscan = 6;
+
+    const offsets: number[] = [];
+    let runningOffset = 0;
+    messages.forEach((message) => {
+      offsets.push(runningOffset);
+      runningOffset += rowHeightsRef.current.get(message.id) ?? estimatedRowHeight;
+    });
+
+    let startIndex = 0;
+    for (let i = 0; i < messages.length; i += 1) {
+      const height = rowHeightsRef.current.get(messages[i].id) ?? estimatedRowHeight;
+      if (offsets[i] + height > scrollTop) {
+        startIndex = Math.max(0, i - overscan);
+        break;
+      }
+      if (i === messages.length - 1) {
+        startIndex = Math.max(0, i - overscan);
+      }
+    }
+
+    let endIndex = startIndex;
+    for (let i = startIndex; i < messages.length; i += 1) {
+      const height = rowHeightsRef.current.get(messages[i].id) ?? estimatedRowHeight;
+      const start = offsets[i];
+      const end = start + height;
+      endIndex = i;
+      if (end > scrollTop + viewportHeight) {
+        endIndex = Math.min(messages.length - 1, i + overscan);
+        break;
+      }
+    }
+
+    const items = [];
+    for (let i = startIndex; i <= endIndex && i < messages.length; i += 1) {
+      items.push({ index: i, start: offsets[i] });
+    }
+    return items;
+  }, [estimatedRowHeight, isCasualView, messages, virtualVersion]);
+  const stickyDateLabel =
+    isCasualView && virtualItems.length > 0
+      ? formatDateLabel(messages[virtualItems[0].index]?.created_at ?? 0)
+      : null;
+  const showJumpToBottom = isCasualView && !isAtBottom && messages.length > 0;
 
   const handleUploadFile = useCallback(
     async (file: File) => {
@@ -524,8 +1219,17 @@ const Community: React.FC = () => {
     setPendingAttachments((prev) => prev.filter((item) => item.cacheKey !== cacheKey));
   }, []);
 
+  const scrollToBottom = useCallback(
+    (behavior: ScrollBehavior = "auto") => {
+      const node = listRef.current;
+      if (!node) return;
+      node.scrollTo({ top: node.scrollHeight, behavior });
+    },
+    [],
+  );
+
   const handleSend = useCallback(
-    async (text: string) => {
+    async (text: string, options?: { quoteId?: string | null; quotePubkey?: string | null }) => {
       const attachments: CasualAttachmentMeta[] = pendingAttachments.map((attachment) => ({
         eventId: attachment.eventId,
         url: attachment.url,
@@ -536,7 +1240,7 @@ const Community: React.FC = () => {
         digest: attachment.digest,
         iv: attachment.iv,
       }));
-      await sendMessage(text, attachments);
+      await sendMessage(text, attachments, options);
       setPendingAttachments([]);
       setComposerError(null);
     },
@@ -546,24 +1250,18 @@ const Community: React.FC = () => {
   const handleComposerSend = useCallback(
     async (text: string) => {
       try {
-        await handleSend(text);
+        const quoteId = quoteContext?.id ?? null;
+        const quotePubkey = quoteContext?.pubkey ?? null;
+        await handleSend(text, { quoteId, quotePubkey });
         setComposerDraft(undefined);
+        setQuoteContext(null);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         setComposerError(message);
         throw error;
       }
     },
-    [handleSend],
-  );
-
-  const isCasualView = activeView === "casual";
-
-  const handleReplyToMessage = useCallback(
-    (message: CasualChatMessage) => {
-      setComposerDraft(`@${shortenPubkey(message.pubkey)} `);
-    },
-    [shortenPubkey],
+    [handleSend, quoteContext],
   );
 
   const handleQuoteMessage = useCallback((message: CasualChatMessage) => {
@@ -572,7 +1270,71 @@ const Community: React.FC = () => {
       .map((line) => `> ${line}`)
       .join("\n");
     setComposerDraft(`${quoted}\n\n`);
+    const summary = resolveProfileSummary(message.pubkey);
+    setQuoteContext({
+      id: message.id,
+      pubkey: message.pubkey,
+      createdAt: message.created_at,
+      displayName: summary.displayName,
+      snippet: buildQuoteSnippet(message.markdown),
+    });
+  }, [resolveProfileSummary]);
+
+  const startHighlight = useCallback((messageId: string) => {
+    if (highlightTimerRef.current) {
+      window.clearTimeout(highlightTimerRef.current);
+    }
+    setHighlightedMessageId(messageId);
+    if (typeof window !== "undefined") {
+      highlightTimerRef.current = window.setTimeout(() => {
+        setHighlightedMessageId(null);
+        highlightTimerRef.current = null;
+      }, 2000);
+    }
   }, []);
+
+  useEffect(
+    () => () => {
+      if (highlightTimerRef.current) {
+        window.clearTimeout(highlightTimerRef.current);
+      }
+    },
+    [],
+  );
+
+  useEffect(
+    () => () => {
+      resizeObserversRef.current.forEach((observer) => observer.disconnect());
+      resizeObserversRef.current.clear();
+    },
+    [],
+  );
+
+  const handleScrollToMessage = useCallback(
+    (messageId: string) => {
+      const index = messageIndexMap.get(messageId);
+      if (index === undefined) return;
+      const node = messageRefs.current.get(messageId);
+      if (node) {
+        node.scrollIntoView({ behavior: "smooth", block: "center" });
+        startHighlight(messageId);
+        return;
+      }
+      const container = listRef.current;
+      if (!container) return;
+      let offset = 0;
+      for (let i = 0; i < messages.length; i += 1) {
+        const current = messages[i];
+        if (current.id === messageId) {
+          break;
+        }
+        offset += rowHeightsRef.current.get(current.id) ?? estimatedRowHeight;
+      }
+      pendingHighlightRef.current = messageId;
+      container.scrollTo({ top: offset, behavior: "smooth" });
+    },
+    [estimatedRowHeight, messageIndexMap, messages, startHighlight],
+  );
 
   const handleLikeMessage = useCallback(
     async (message: CasualChatMessage) => {
@@ -586,29 +1348,46 @@ const Community: React.FC = () => {
     [sendMessage, shortenPubkey],
   );
 
-  const handleSendLightning = useCallback(
-    (address: string) => {
-      if (!address) return;
-      if (!user?.lnWalletAddress) {
-        setWalletPromptOpen(true);
-        return;
+  const registerRow = useCallback(
+    (messageId: string) => (node: HTMLDivElement | null) => {
+      const observers = resizeObserversRef.current;
+      const existing = observers.get(messageId);
+      if (existing) {
+        existing.disconnect();
+        observers.delete(messageId);
       }
-      const target = address.startsWith("lightning:") ? address : `lightning:${address}`;
-      if (typeof window === "undefined") {
-        void navigator.clipboard?.writeText(address);
-        return;
-      }
-      try {
-        window.open(target, "_blank", "noopener,noreferrer");
-      } catch (error) {
-        try {
-          void navigator.clipboard?.writeText(address);
-        } catch {
-          // ignore copy failures
+      if (node) {
+        messageRefs.current.set(messageId, node);
+        const measure = () => {
+          const height = node.getBoundingClientRect().height;
+          if (height > 0 && rowHeightsRef.current.get(messageId) !== height) {
+            rowHeightsRef.current.set(messageId, height);
+            setVirtualVersion((value) => value + 1);
+          }
+        };
+        measure();
+        if (typeof ResizeObserver !== "undefined") {
+          const observer = new ResizeObserver((entries) => {
+            const entry = entries[0];
+            const height =
+              entry?.borderBoxSize?.[0]?.blockSize ?? entry?.contentRect?.height ?? node.getBoundingClientRect().height;
+            if (height > 0 && rowHeightsRef.current.get(messageId) !== height) {
+              rowHeightsRef.current.set(messageId, height);
+              setVirtualVersion((value) => value + 1);
+            }
+          });
+          observer.observe(node);
+          observers.set(messageId, observer);
         }
+        if (pendingHighlightRef.current === messageId) {
+          pendingHighlightRef.current = null;
+          startHighlight(messageId);
+        }
+      } else {
+        messageRefs.current.delete(messageId);
       }
     },
-    [user?.lnWalletAddress],
+    [setVirtualVersion, startHighlight],
   );
 
   const gatingResult = renderContent();
@@ -616,16 +1395,45 @@ const Community: React.FC = () => {
     return gatingResult;
   }
 
+  const chatListFallback = (
+    <div className="flex flex-1 items-center justify-center px-6 py-12">
+      <div
+        role="alert"
+        className="rounded-3xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-500 shadow-sm"
+      >
+        We couldn&apos;t load chat messages. Please refresh the page.
+      </div>
+    </div>
+  );
+
+  const feedFallback = (
+    <div className="flex flex-1 items-center justify-center px-6 py-12">
+      <div
+        role="alert"
+        className="rounded-3xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-500 shadow-sm"
+      >
+        We couldn&apos;t load the community feed. Please refresh and try again.
+      </div>
+    </div>
+  );
+
   return (
     <div className="relative flex min-h-screen w-full overflow-hidden bg-gradient-to-br from-amber-50 via-white to-rose-50 dark:from-neutral-950 dark:via-neutral-950 dark:to-neutral-900">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.25),transparent_55%),radial-gradient(circle_at_bottom_right,rgba(244,114,182,0.2),transparent_45%)] dark:bg-[radial-gradient(circle_at_top_left,rgba(96,165,250,0.12),transparent_55%),radial-gradient(circle_at_bottom_right,rgba(244,114,182,0.15),transparent_45%)]" />
-      <div className="relative z-0 flex min-h-screen w-full">
-        <aside className="hidden w-80 flex-col border-r border-white/40 bg-white/30 px-5 py-8 shadow-sm backdrop-blur lg:flex dark:border-neutral-800 dark:bg-neutral-900/60">
-          <nav aria-label="Community navigation" className="space-y-2">
+      <div className="relative z-0 flex min-h-screen w-full flex-col lg:flex-row">
+        <aside className="flex w-full flex-col border-b border-white/40 bg-white/30 px-5 py-6 shadow-sm backdrop-blur dark:border-neutral-800 dark:bg-neutral-900/60 lg:w-80 lg:border-b-0 lg:border-r lg:py-8">
+          <nav
+            aria-label="Community navigation"
+            className="grid grid-cols-2 gap-2 lg:flex lg:flex-col lg:space-y-2"
+          >
             <button
               type="button"
               onClick={() => setActiveView("casual")}
-              className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left text-sm font-semibold uppercase tracking-[0.2em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${isCasualView ? "border-brand bg-brand/10 text-brand" : "border-transparent text-[var(--fg-muted)] hover:border-brand hover:text-brand"}`}
+              className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 sm:text-sm ${
+                isCasualView
+                  ? "border-brand bg-brand/10 text-brand shadow-sm"
+                  : "border-transparent text-[var(--fg-muted)] hover:border-brand hover:text-brand"
+              }`}
               aria-current={isCasualView ? "page" : undefined}
             >
               <MessageCircle className="h-4 w-4" aria-hidden="true" />
@@ -634,43 +1442,104 @@ const Community: React.FC = () => {
             <button
               type="button"
               onClick={() => setActiveView("feed")}
-              className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left text-sm font-semibold uppercase tracking-[0.2em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${!isCasualView ? "border-brand bg-brand/10 text-brand" : "border-transparent text-[var(--fg-muted)] hover:border-brand hover:text-brand"}`}
+              className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 sm:text-sm ${
+                !isCasualView
+                  ? "border-brand bg-brand/10 text-brand shadow-sm"
+                  : "border-transparent text-[var(--fg-muted)] hover:border-brand hover:text-brand"
+              }`}
               aria-current={!isCasualView ? "page" : undefined}
             >
               <Newspaper className="h-4 w-4" aria-hidden="true" />
               <span>Community Feed</span>
             </button>
           </nav>
-          <div className="mt-8">
-            <h2 className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)]">Active members</h2>
-            <div className="mt-6 space-y-3 overflow-y-auto pr-1">
-              {onlineMembers.length === 0 ? (
+          <div className="mt-6 flex-1 lg:mt-8">
+            <h2 className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)]">{membersHeading}</h2>
+            <div className="mt-5 space-y-3 overflow-y-auto pr-1 lg:max-h-[calc(100vh-12rem)]">
+              {contextMembers.length === 0 ? (
                 <p className="rounded-2xl bg-white/60 p-4 text-xs text-[var(--fg-muted)] shadow-sm dark:bg-neutral-900/50">
-                  We&apos;ll show members here as they join the conversation.
+                  We&apos;ll show members here as soon as there&apos;s activity.
                 </p>
               ) : (
-                onlineMembers.map(({ pubkey: memberKey, lastSeen }) => {
-                  const memberSummary = resolveProfileSummary(memberKey);
+                contextMembers.map((member) => {
+                  const lastSeenLabel = member.isCurrentUser
+                    ? "Active now"
+                    : member.lastSeen > 0
+                      ? formatLastSeenLabel(member.lastSeen)
+                      : "No activity yet";
+                  const profileZapKey = `profile:${member.pubkey}`;
+                  const profileZapEndpoint = detectZapEndpoint({
+                    lightningAddress: member.summary.lightningAddress,
+                  });
+                  const profileZapCount = zapCounts[profileZapKey] ?? 0;
+                  const profileZapPending = pendingZaps.has(profileZapKey);
+                  const profileZapDisplayCount = Math.max(
+                    0,
+                    profileZapCount + (profileZapPending ? 1 : 0),
+                  );
+                  const profileZapTitle = !profileZapEndpoint
+                    ? "Zaps unavailable"
+                    : profileZapPending
+                      ? "Sending zap…"
+                      : canZap
+                        ? `Zap ${member.summary.displayName}`
+                        : "Add your Lightning address to zap";
+
                   return (
-                    <button
-                      key={memberKey}
-                      type="button"
-                      onClick={() => openProfile(memberKey)}
-                      className="flex w-full items-center gap-3 rounded-2xl border border-white/60 bg-white/80 px-3 py-2 text-left shadow-sm transition hover:border-brand hover:text-brand dark:border-neutral-800 dark:bg-neutral-900/70"
+                    <div
+                      key={member.pubkey}
+                      className="flex w-full items-center gap-3 rounded-2xl border border-white/60 bg-white/80 px-3 py-2 text-left shadow-sm transition hover:border-brand hover:text-brand focus-within:ring-2 focus-within:ring-brand/60 dark:border-neutral-800 dark:bg-neutral-900/70"
                     >
-                      <img
-                        src={memberSummary.avatarUrl}
-                        alt={memberSummary.displayName}
-                        className="h-9 w-9 rounded-full border border-white/80 object-cover shadow-sm"
-                      />
-                      <div className="flex min-w-0 flex-1 flex-col">
-                        <span className="truncate text-sm font-semibold text-[var(--fg-default)]">{memberSummary.displayName}</span>
-                        <span className="truncate text-[10px] uppercase tracking-[0.24em] text-[var(--fg-muted)]">
-                          {formatLastSeenLabel(memberKey === pubkey ? Math.floor(Date.now() / 1000) : lastSeen)}
-                        </span>
-                      </div>
-                      {memberSummary.lightningAddress && <Zap className="h-4 w-4 text-brand" />}
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => openProfile(member.pubkey)}
+                        className="flex flex-1 items-center gap-3 rounded-2xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+                      >
+                        <img
+                          src={member.summary.avatarUrl}
+                          alt={member.summary.displayName}
+                          className="h-10 w-10 rounded-full border border-white/80 object-cover shadow-sm"
+                        />
+                        <div className="flex min-w-0 flex-1 flex-col text-left">
+                          <span className="truncate text-sm font-semibold text-[var(--fg-default)]">
+                            {member.summary.displayName}
+                            {member.isCurrentUser ? " (You)" : ""}
+                          </span>
+                          <span className="truncate text-[10px] uppercase tracking-[0.24em] text-[var(--fg-muted)]">
+                            {lastSeenLabel}
+                          </span>
+                        </div>
+                      </button>
+                      {profileZapEndpoint && (
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleMemberZap(member.pubkey, member.summary, profileZapEndpoint)}
+                            disabled={profileZapPending}
+                            className={`inline-flex h-8 w-8 items-center justify-center rounded-full border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
+                              profileZapPending
+                                ? "border-brand text-brand"
+                                : canZap
+                                  ? "border-brand/40 text-brand hover:border-brand"
+                                  : "border-dashed border-[var(--border-subtle)] text-[var(--fg-muted)]"
+                            } disabled:cursor-not-allowed disabled:opacity-60`}
+                            title={profileZapTitle}
+                          >
+                            {profileZapPending ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Zap className="h-4 w-4" />
+                            )}
+                            <span className="sr-only">Zap {member.summary.displayName}</span>
+                          </button>
+                          {profileZapDisplayCount > 0 && (
+                            <span className="text-[10px] font-semibold text-brand">
+                              {profileZapDisplayCount.toLocaleString()}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   );
                 })
               )}
@@ -678,159 +1547,293 @@ const Community: React.FC = () => {
           </div>
         </aside>
         <div className="flex min-h-screen flex-1 flex-col">
-          <header className="flex items-center justify-center border-b border-[var(--border-subtle)] bg-[var(--bg-card)] px-6 py-5 shadow-sm lg:hidden">
-            <nav aria-label="Community navigation" className="inline-flex items-center gap-2 rounded-full bg-[var(--bg-app)]/70 p-1 shadow-sm">
-              <button
-                type="button"
-                onClick={() => setActiveView("casual")}
-                className={`rounded-full px-5 py-2 text-xs font-semibold uppercase tracking-[0.24em] transition ${
-                  isCasualView ? "bg-brand text-white shadow" : "text-[var(--fg-muted)] hover:text-brand"
-                }`}
-                aria-current={isCasualView ? "page" : undefined}
-              >
-                Casual Chat
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveView("feed")}
-                className={`rounded-full px-5 py-2 text-xs font-semibold uppercase tracking-[0.24em] transition ${
-                  !isCasualView ? "bg-brand text-white shadow" : "text-[var(--fg-muted)] hover:text-brand"
-                }`}
-                aria-current={!isCasualView ? "page" : undefined}
-              >
-                Community Feed
-              </button>
-            </nav>
-          </header>
           <main className="relative flex flex-1 flex-col overflow-hidden">
             {isCasualView ? (
               <>
-                <div ref={listRef} className="flex-1 overflow-y-auto px-4 pb-56 pt-6 sm:px-8">
-                  {messages.map((message) => {
-                    const summary = resolveProfileSummary(message.pubkey);
-                    const isSelf = message.pubkey === pubkey;
-                    const bubbleBase = isSelf
-                      ? "bg-brand text-white shadow-xl"
-                      : "bg-white/85 text-[var(--fg-default)] shadow-sm dark:bg-neutral-900/70";
-                    const timestampColor = isSelf ? "text-white/80" : "text-[var(--fg-muted)]";
-                    return (
-                      <div key={message.id} className={`flex w-full ${isSelf ? "justify-end" : "justify-start"} py-2`}>
-                        <div className={`flex max-w-[min(80%,32rem)] items-end gap-3 ${isSelf ? "flex-row-reverse" : ""}`}>
-                          <button
-                            type="button"
-                            onClick={() => openProfile(message.pubkey)}
-                            className="group flex-shrink-0"
-                          >
-                            <img
-                              src={summary.avatarUrl}
-                              alt={summary.displayName}
-                              className="h-10 w-10 rounded-full border border-white/80 object-cover shadow-sm transition group-hover:ring-2 group-hover:ring-brand dark:border-neutral-700"
-                            />
-                            <span className="sr-only">Open profile</span>
-                          </button>
-                          <div className={`space-y-3 rounded-3xl px-4 py-3 backdrop-blur ${bubbleBase}`}>
-                            <div className="flex items-center justify-between gap-3 text-[10px] uppercase tracking-[0.24em]">
-                              <span className={`font-semibold ${isSelf ? "text-white" : "text-[var(--fg-default)]"}`}>
-                                {summary.displayName}
-                              </span>
-                              <span className={timestampColor}>{formatTimestamp(message.created_at)}</span>
-                            </div>
+                {stickyDateLabel && (
+                  <div className="pointer-events-none absolute left-0 right-0 top-24 z-20 flex justify-center sm:top-20">
+                    <div className="inline-flex items-center gap-2 rounded-full bg-[var(--bg-card)]/90 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)] shadow-sm backdrop-blur">
+                      {stickyDateLabel}
+                    </div>
+                  </div>
+                )}
+                {showJumpToBottom && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewMessageAnchor(null);
+                      scrollToBottom("smooth");
+                    }}
+                    className="pointer-events-auto absolute bottom-40 right-6 z-30 inline-flex items-center gap-2 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-brand sm:right-10"
+                  >
+                    <ArrowDown className="h-4 w-4" aria-hidden />
+                    Jump to bottom
+                  </button>
+                )}
+                <ErrorBoundary fallback={chatListFallback}>
+                  <div ref={listRef} className="relative flex-1 overflow-y-auto">
+                    <div className="px-4 pb-56 pt-6 sm:px-8">
+                      <div
+                        style={{ height: `${totalSize}px`, position: "relative" }}
+                      >
+                        {virtualItems.map((virtualRow) => {
+                          const message = messages[virtualRow.index];
+                          if (!message) return null;
+                          const previousMessage =
+                            virtualRow.index > 0 ? messages[virtualRow.index - 1] : null;
+                          const showDateDivider =
+                            !previousMessage ||
+                            formatDateLabel(previousMessage.created_at) !== formatDateLabel(message.created_at);
+                          const isSelf = message.pubkey === pubkey;
+                          const accent = authorAccents.get(message.pubkey);
+                          const summary = resolveProfileSummary(message.pubkey);
+                          const timestampColor = isSelf ? "text-white/80" : "text-[var(--fg-muted)]";
+                          const referencedMessage = message.quoteId ? messagesById.get(message.quoteId) : undefined;
+                          const quoteAccentSource = message.quotePubkey ?? referencedMessage?.pubkey ?? undefined;
+                          const quoteAccent =
+                            quoteAccentSource
+                              ? authorAccents.get(quoteAccentSource) ?? computeAuthorAccent(quoteAccentSource)
+                              : undefined;
+                          const quotedSummary = message.quotePubkey
+                            ? resolveProfileSummary(message.quotePubkey)
+                            : referencedMessage
+                              ? resolveProfileSummary(referencedMessage.pubkey)
+                              : null;
+                          const isHighlighted = highlightedMessageId === message.id;
+                          const messageZapKey = `chat:${message.id}`;
+                          const messageZapEndpoint = detectZapEndpoint({
+                            lightningAddress: summary.lightningAddress,
+                            tags: message.tags,
+                          });
+                          const baseMessageZapCount = zapCounts[messageZapKey] ?? 0;
+                          const messageZapPending = pendingZaps.has(messageZapKey);
+                          const messageZapDisplayCount = Math.max(
+                            0,
+                            baseMessageZapCount + (messageZapPending ? 1 : 0),
+                          );
+                          const messageZapTitle = !messageZapEndpoint
+                            ? "Zaps unavailable"
+                            : messageZapPending
+                              ? "Sending zap…"
+                              : canZap
+                                ? "Zap this message"
+                                : "Add your Lightning address to zap";
+                          const messageSnippet = buildQuoteSnippet(message.markdown);
+                          return (
                             <div
-                              className={`prose prose-sm max-w-none whitespace-pre-wrap break-words ${
-                                isSelf ? "prose-invert" : "text-[var(--fg-default)]"
-                              } prose-a:text-brand`}
-                              dangerouslySetInnerHTML={{ __html: message.html }}
-                            />
-                            {message.attachments.length > 0 && (
-                              <div className="space-y-3">
-                                {message.attachments.map((attachment) => (
-                                  <div
-                                    key={`${message.id}-${attachment.digest ?? attachment.url}`}
-                                    className="overflow-hidden rounded-2xl border border-white/40 bg-black/10"
-                                  >
-                                    <AttachmentPreview attachment={attachment} />
+                              key={message.id}
+                              data-index={virtualRow.index}
+                              ref={registerRow(message.id)}
+                              style={{
+                                position: "absolute",
+                                top: 0,
+                                left: 0,
+                                width: "100%",
+                                transform: `translateY(${virtualRow.start}px)`,
+                              }}
+                              className="pb-4"
+                            >
+                              {showDateDivider && (
+                                <div className="mb-4 flex justify-center">
+                                  <div className="inline-flex items-center gap-2 rounded-full bg-[var(--bg-card)]/90 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)] shadow-sm backdrop-blur">
+                                    {formatDateLabel(message.created_at)}
                                   </div>
-                                ))}
-                              </div>
-                            )}
-                            <div className={`flex items-center gap-2 ${isSelf ? "justify-end" : ""}`}>
-                              <button
-                                type="button"
-                                onClick={() => handleReplyToMessage(message)}
-                                disabled={!ready}
-                                className={`inline-flex h-8 w-8 items-center justify-center rounded-full border ${
-                                  isSelf
-                                    ? "border-white/60 text-white"
-                                    : "border-white/70 text-[var(--fg-muted)] hover:border-brand hover:text-brand"
-                                } disabled:cursor-not-allowed disabled:opacity-60`}
-                                title="Reply"
-                              >
-                                <MessageCircle className="h-4 w-4" />
-                                <span className="sr-only">Reply</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleQuoteMessage(message)}
-                                disabled={!ready}
-                                className={`inline-flex h-8 w-8 items-center justify-center rounded-full border ${
-                                  isSelf
-                                    ? "border-white/60 text-white"
-                                    : "border-white/70 text-[var(--fg-muted)] hover:border-brand hover:text-brand"
-                                } disabled:cursor-not-allowed disabled:opacity-60`}
-                                title="Quote"
-                              >
-                                <MessageSquareQuote className="h-4 w-4" />
-                                <span className="sr-only">Quote</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleLikeMessage(message)}
-                                disabled={!ready}
-                                className={`inline-flex h-8 w-8 items-center justify-center rounded-full border ${
-                                  isSelf
-                                    ? "border-white/60 text-white hover:border-white"
-                                    : "border-white/70 text-[var(--fg-muted)] hover:border-brand hover:text-brand"
-                                } disabled:cursor-not-allowed disabled:opacity-60`}
-                                title="Send a like"
-                              >
-                                <Heart className="h-4 w-4" />
-                                <span className="sr-only">Like</span>
-                              </button>
-                              {summary.lightningAddress && (
+                                </div>
+                              )}
+                              {newMessageAnchor === message.id && (
+                                <div className="mb-4 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.3em] text-brand">
+                                  <span className="h-px flex-1 bg-brand/40" />
+                                  <span>New messages</span>
+                                  <span className="h-px flex-1 bg-brand/40" />
+                                </div>
+                              )}
+                              <div className={`flex w-full ${isSelf ? "justify-end" : "justify-start"} py-2`}>
+                                <div className={`flex max-w-[min(80%,32rem)] items-end gap-3 ${isSelf ? "flex-row-reverse" : ""}`}>
                                 <button
                                   type="button"
-                                  onClick={() => handleSendLightning(summary.lightningAddress!)}
-                                  className={`inline-flex h-8 w-8 items-center justify-center rounded-full border ${
-                                    user?.lnWalletAddress
-                                      ? "border-brand/40 text-white hover:border-brand dark:text-brand"
-                                      : "border-dashed border-white/60 text-white/80 dark:text-[var(--fg-muted)]"
-                                  }`}
-                                  title={
-                                    user?.lnWalletAddress
-                                      ? "Send sats via Lightning"
-                                      : "Add your Lightning address to zap from here"
+                                  onClick={() => openProfile(message.pubkey)}
+                                  className="group flex-shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+                                >
+                                  <img
+                                    src={summary.avatarUrl}
+                                    alt={summary.displayName}
+                                    className="h-10 w-10 rounded-full border border-white/80 object-cover shadow-sm transition group-hover:ring-2 group-hover:ring-brand dark:border-neutral-700"
+                                  />
+                                  <span className="sr-only">Open profile</span>
+                                </button>
+                                <div
+                                  className={`space-y-3 rounded-3xl border px-4 py-3 backdrop-blur ${
+                                    isSelf
+                                      ? "bg-brand text-white shadow-xl border-brand/60"
+                                      : "bg-white/85 text-[var(--fg-default)] shadow-sm dark:bg-neutral-900/70"
+                                  } ${isHighlighted ? "ring-2 ring-brand/70" : "ring-1 ring-transparent"}`}
+                                  style={
+                                    !isSelf && accent
+                                      ? { borderColor: accent.border, boxShadow: `0 18px 36px ${accent.shadow}` }
+                                      : undefined
                                   }
                                 >
-                                  <Zap className="h-4 w-4" />
-                                  <span className="sr-only">Send sats</span>
-                                </button>
-                              )}
+                                  <div className="flex items-center justify-between gap-3 text-[10px] uppercase tracking-[0.24em]">
+                                    <span
+                                      className={`flex items-center gap-2 font-semibold ${
+                                        isSelf ? "text-white" : "text-[var(--fg-default)]"
+                                      }`}
+                                    >
+                                      {!isSelf && (
+                                        <span
+                                          aria-hidden
+                                          className="inline-flex h-2 w-2 rounded-full"
+                                          style={{ backgroundColor: accent?.dot }}
+                                        />
+                                      )}
+                                      {summary.displayName}
+                                    </span>
+                                    <span className={timestampColor}>{formatTimestamp(message.created_at)}</span>
+                                  </div>
+                                  {message.quoteId && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleScrollToMessage(message.quoteId!)}
+                                      className="group flex w-full items-start gap-3 rounded-2xl border border-dashed border-[var(--border-subtle)] bg-white/80 px-3 py-2 text-left text-xs transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 dark:bg-neutral-900/60"
+                                    >
+                                      <span
+                                        aria-hidden
+                                        className="mt-1 inline-flex h-2 w-2 flex-shrink-0 rounded-full"
+                                        style={{ backgroundColor: quoteAccent?.dot ?? accent?.dot }}
+                                      />
+                                      <div className="flex-1">
+                                        <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)] group-hover:text-brand">
+                                          {quotedSummary?.displayName ?? "Quoted member"}
+                                        </p>
+                                        <p className="mt-1 text-[11px] text-[var(--fg-default)] group-hover:text-brand">
+                                          {referencedMessage
+                                            ? buildQuoteSnippet(referencedMessage.markdown)
+                                            : "Original message unavailable"}
+                                        </p>
+                                        <p
+                                          className={`mt-2 text-[9px] uppercase tracking-[0.3em] ${
+                                            isSelf ? "text-white/70" : "text-[var(--fg-muted)]"
+                                          }`}
+                                        >
+                                          {referencedMessage ? formatTimestamp(referencedMessage.created_at) : ""}
+                                        </p>
+                                      </div>
+                                    </button>
+                                  )}
+                                  <div
+                                    className={`prose prose-sm max-w-none whitespace-pre-wrap break-words ${
+                                      isSelf ? "prose-invert" : "text-[var(--fg-default)]"
+                                    } prose-a:text-brand`}
+                                    dangerouslySetInnerHTML={{ __html: message.html }}
+                                  />
+                                  {message.attachments.length > 0 && (
+                                    <div className="space-y-3">
+                                      {message.attachments.map((attachment) => (
+                                        <div
+                                          key={`${message.id}-${attachment.digest ?? attachment.url}`}
+                                          className="overflow-hidden rounded-2xl border border-white/40 bg-black/10"
+                                        >
+                                          <AttachmentPreview attachment={attachment} />
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                  <div className={`flex items-center gap-2 ${isSelf ? "justify-end" : ""}`}>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleQuoteMessage(message)}
+                                      disabled={!ready}
+                                      className={`inline-flex h-8 w-8 items-center justify-center rounded-full border ${
+                                        isSelf
+                                          ? "border-white/60 text-white"
+                                          : "border-white/70 text-[var(--fg-muted)] hover:border-brand hover:text-brand"
+                                      } disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60`}
+                                      title="Quote"
+                                    >
+                                      <MessageSquareQuote className="h-4 w-4" />
+                                      <span className="sr-only">Quote</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleLikeMessage(message)}
+                                      disabled={!ready}
+                                      className={`inline-flex h-8 w-8 items-center justify-center rounded-full border ${
+                                        isSelf
+                                          ? "border-white/60 text-white hover:border-white"
+                                          : "border-white/70 text-[var(--fg-muted)] hover:border-brand hover:text-brand"
+                                      } disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60`}
+                                      title="Send a like"
+                                    >
+                                      <Heart className="h-4 w-4" />
+                                      <span className="sr-only">Like</span>
+                                    </button>
+                                    {messageZapEndpoint && (
+                                      <div className="flex items-center gap-1">
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            handleOpenZap({
+                                              key: messageZapKey,
+                                              context: "chat",
+                                              endpoint: messageZapEndpoint,
+                                              authorPubkey: message.pubkey,
+                                              noteId: message.id,
+                                              relays: extractRelaysFromTags(message.tags),
+                                              summary,
+                                              snippet: messageSnippet,
+                                            })
+                                          }
+                                          disabled={messageZapPending}
+                                          className={`inline-flex h-8 w-8 items-center justify-center rounded-full border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
+                                            messageZapPending
+                                              ? "border-brand text-white dark:text-brand"
+                                              : canZap
+                                                ? "border-brand/40 text-white hover:border-brand dark:text-brand"
+                                                : "border-dashed border-white/60 text-white/80 dark:text-[var(--fg-muted)]"
+                                          } disabled:cursor-not-allowed disabled:opacity-60`}
+                                          title={messageZapTitle}
+                                        >
+                                          {messageZapPending ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                          ) : (
+                                            <Zap className="h-4 w-4" />
+                                          )}
+                                          <span className="sr-only">Zap {summary.displayName}</span>
+                                        </button>
+                                        {messageZapDisplayCount > 0 && (
+                                          <span className="text-[10px] font-semibold text-brand">
+                                            {messageZapDisplayCount.toLocaleString()}
+                                          </span>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                  {message.status === "pending" && (
+                                    <p className={`text-[10px] uppercase tracking-[0.24em] ${timestampColor}`}>Sending…</p>
+                                  )}
+                                  {message.status === "failed" && (
+                                    <p className="text-[10px] uppercase tracking-[0.24em] text-red-200 dark:text-red-400">
+                                      {message.error ?? "We couldn't deliver this message."}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
                             </div>
-                            {message.status === "pending" && (
-                              <p className={`text-[10px] uppercase tracking-[0.24em] ${timestampColor}`}>Sending…</p>
-                            )}
-                            {message.status === "failed" && (
-                              <p className="text-[10px] uppercase tracking-[0.24em] text-red-200 dark:text-red-400">
-                                {message.error ?? "We couldn't deliver this message."}
-                              </p>
-                            )}
                           </div>
-                        </div>
+                        );
+                        })}
                       </div>
-                    );
-                  })}
-                </div>
+                    </div>
+                  </div>
+                </ErrorBoundary>
                 <div className="pointer-events-none fixed bottom-0 left-0 right-0 z-30 px-4 pb-6 pt-3 sm:px-8">
+                  {typingSummaries.length > 0 && (
+                    <div className="pointer-events-none mb-3 flex justify-center">
+                      <div className="inline-flex items-center gap-2 rounded-full bg-[var(--bg-card)]/90 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-[var(--fg-muted)] shadow-sm backdrop-blur">
+                        {`${typingSummaries.map((entry) => entry.displayName).join(", ")} typing…`}
+                      </div>
+                    </div>
+                  )}
                   <div className="pointer-events-auto mx-auto w-full max-w-3xl rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)]/95 px-4 py-4 shadow-xl backdrop-blur">
                     {roomKeyError && <p className="mb-3 text-sm text-red-500">{roomKeyError}</p>}
                     {sendError && <p className="mb-3 text-sm text-red-500">{sendError}</p>}
@@ -845,27 +1848,36 @@ const Community: React.FC = () => {
                       uploadProgress={uploadProgress}
                       uploadError={uploadError}
                       draft={composerDraft}
+                      onTyping={sendTyping}
+                      quoteContext={quoteContext}
+                      onClearQuote={() => setQuoteContext(null)}
+                      onJumpToQuote={handleScrollToMessage}
                     />
                   </div>
                 </div>
               </>
-            ) : (
-              <div className="flex h-full flex-1 overflow-hidden">
-                <BitcoinSquareFeed
-                  posts={feedPosts}
-                  ready={feedReady}
-                  publishing={feedPublishing}
-                  publishStatus={publishFeedStatus}
-                  likePost={likeFeedPost}
-                  loadMore={loadMoreFeed}
-                  loadingMore={feedLoadingMore}
-                  hasMore={feedHasMore}
-                  error={feedError}
-                  onSendLightning={handleSendLightning}
-                  canZap={Boolean(user?.lnWalletAddress)}
-                  pubkey={feedPubkey}
-                />
-              </div>
+              ) : (
+                <ErrorBoundary fallback={feedFallback}>
+                  <div className="flex h-full flex-1 overflow-hidden">
+                    <BitcoinSquareFeed
+                      posts={feedPosts}
+                      ready={feedReady}
+                      publishing={feedPublishing}
+                      publishStatus={publishFeedStatus}
+                      likePost={likeFeedPost}
+                      loadMore={loadMoreFeed}
+                      loadingMore={feedLoadingMore}
+                      hasMore={feedHasMore}
+                      error={feedError}
+                      canZap={canZap}
+                      pubkey={feedPubkey}
+                      initialLoading={feedInitialLoading}
+                      onZapRequest={handleFeedZapRequest}
+                      zapCounts={zapCounts}
+                      pendingZaps={pendingZaps}
+                    />
+                  </div>
+                </ErrorBoundary>
             )}
           </main>
         </div>
@@ -896,8 +1908,21 @@ const Community: React.FC = () => {
           </div>
         </div>
       )}
-
-      <ProfileModal />
+      <ZapDialog
+        open={zapState.open}
+        target={zapState.target}
+        stage={zapState.stage}
+        lnurl={zapState.lnurl}
+        lnurlLoading={zapState.lnurlLoading}
+        amountSats={zapState.amountSats}
+        invoice={zapState.invoice}
+        error={zapState.error}
+        weblnTried={zapState.weblnTried}
+        onClose={handleZapClose}
+        onSubmit={handleSubmitZap}
+        onRetry={handleZapRetry}
+        onMarkPaid={handleZapMarkPaid}
+      />
     </div>
   );
 };
