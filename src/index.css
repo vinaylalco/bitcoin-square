@@ -20,6 +20,7 @@
     color-scheme: light;
     --bg-app: #f6f6f7;
     --bg-muted: #ececef;
+    --bg-surface: #f1f1f4;
     --bg-card: #ffffff;
     --fg-default: #111112;
     --fg-muted: #44464d;
@@ -35,6 +36,7 @@
     color-scheme: dark;
     --bg-app: #050505;
     --bg-muted: #101012;
+    --bg-surface: #0b0b0f;
     --bg-card: #111114;
     --fg-default: #f5f5f7;
     --fg-muted: #a2a2aa;

@@ -12,7 +12,6 @@ export interface ComposerDialogDependencies {
   setContent: (value: string) => void;
   setComposerError: (value: string | null) => void;
   setComposerOpen: (value: boolean) => void;
-  shortenPubkey: (value: string) => string;
 }
 
 export const createOpenComposerDialog = ({
@@ -21,23 +20,12 @@ export const createOpenComposerDialog = ({
   setContent,
   setComposerError,
   setComposerOpen,
-  shortenPubkey,
 }: ComposerDialogDependencies) =>
   (mode: ComposerMode, post?: FeedPost | null) => {
     setComposerMode(mode);
     const target = post ?? null;
     setComposerTarget(target);
-    if (mode === "reply" && target) {
-      setContent(`@${shortenPubkey(target.pubkey)} `);
-    } else if (mode === "quote" && target) {
-      const quoted = target.content
-        .split(/\r?\n/)
-        .map((line) => `> ${line}`)
-        .join("\n");
-      setContent(`${quoted}\n\n`);
-    } else {
-      setContent("");
-    }
+    setContent("");
     setComposerError(null);
     setComposerOpen(true);
   };

@@ -151,6 +151,20 @@ const buildPostSnippet = (content: string) => {
   return `${condensed.slice(0, 217)}…`;
 };
 
+const formatAbsoluteTimestamp = (unixSeconds: number | null | undefined) => {
+  if (!unixSeconds) {
+    return null;
+  }
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(new Date(unixSeconds * 1000));
+  } catch {
+    return new Date(unixSeconds * 1000).toLocaleString();
+  }
+};
+
 const extractRelaysFromTags = (tags: string[][]): string[] => {
   const relays = new Set<string>();
   tags.forEach((tag) => {
@@ -228,7 +242,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       type: "private",
       hasLocalKey: true,
     }),
-    [],
+    [setComposerMode, setComposerTarget, setContent, setComposerError, setComposerOpen],
   );
 
   const {
@@ -383,6 +397,12 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     setPendingMedia((prev) => prev.filter((item) => item.cacheKey !== cacheKey));
   }, []);
 
+  const clearComposerTarget = useCallback(() => {
+    setComposerTarget(null);
+    setComposerMode("new");
+    persistedComposerTargetIdRef.current = null;
+  }, [setComposerMode, setComposerTarget]);
+
   const openComposerDialog = useMemo(
     () =>
       createOpenComposerDialog({
@@ -391,9 +411,8 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         setContent,
         setComposerError,
         setComposerOpen,
-        shortenPubkey,
       }),
-    [shortenPubkey],
+    [setComposerMode, setComposerTarget, setContent, setComposerError, setComposerOpen],
   );
 
   useEffect(() => {
@@ -692,10 +711,15 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
           ? "Posting…"
           : "Post update";
 
+  const composerTimestampLabel = composerTarget
+    ? formatAbsoluteTimestamp(composerTarget.created_at)
+    : null;
+  const composerPreviewSnippet = composerTarget ? buildPostSnippet(composerTarget.content) : "";
+
   return (
     <div className="relative flex flex-1 flex-col overflow-hidden">
       {activeFilter && filterLabel && (
-        <div className="border-b border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 px-6 py-3 text-xs text-[var(--fg-muted)]">
+        <div className="border-b border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 px-4 py-3 text-xs text-[var(--fg-muted)] sm:px-6">
           <span>{filterLabel}</span>
           <button
             type="button"
@@ -707,7 +731,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         </div>
       )}
 
-      <div className="border-b border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 px-6 py-3">
+      <div className="border-b border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 px-4 py-3 sm:px-6">
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <span className="font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">Quick filters:</span>
           {quickFilterOptions.map(({ type, label, disabled }) => {
@@ -733,7 +757,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
 
       <div
         ref={scrollContainerRef}
-        className="flex-1 space-y-4 overflow-y-auto px-6 py-6 pb-28"
+        className="flex-1 space-y-4 overflow-y-auto overscroll-y-contain px-4 py-6 pb-[calc(8rem+env(safe-area-inset-bottom,0px))] sm:px-6 sm:pb-32"
       >
         <ErrorBoundary
           fallback={
@@ -982,7 +1006,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         <button
           type="button"
           onClick={handleJumpToNewPosts}
-          className="fixed bottom-36 left-1/2 z-40 -translate-x-1/2 rounded-full bg-[var(--bg-card)] px-5 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-brand shadow-lg ring-1 ring-brand/40 transition hover:bg-brand/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+          className="fixed left-1/2 z-40 -translate-x-1/2 rounded-full bg-[var(--bg-card)] px-5 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-brand shadow-lg ring-1 ring-brand/40 transition hover:bg-brand/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 bottom-[calc(7rem+env(safe-area-inset-bottom,0px))] sm:bottom-36"
         >
           New posts available — Jump
         </button>
@@ -992,7 +1016,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         type="button"
         onClick={handlePost}
         disabled={!ready}
-        className="fixed bottom-24 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-lg transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-brand disabled:cursor-not-allowed disabled:bg-brand/40"
+        className="fixed right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-lg transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-brand disabled:cursor-not-allowed disabled:bg-brand/40 bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] sm:bottom-24"
         aria-label="Create a new community post"
       >
         <Plus className="h-6 w-6" />
@@ -1015,11 +1039,28 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
             </header>
 
             {composerTarget && (
-              <div className="mt-4 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-4 text-xs text-[var(--fg-muted)]">
-                <p className="font-semibold text-[var(--fg-default)]">
-                  {composerMode === "reply" ? "Replying to" : "Quoting"} {shortenPubkey(composerTarget.pubkey)}
-                </p>
-                <p className="mt-2 line-clamp-3 whitespace-pre-line text-sm text-[var(--fg-muted)]">{composerTarget.content}</p>
+              <div className="mt-4 flex items-start justify-between gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-4 text-xs text-[var(--fg-muted)]">
+                <div className="flex-1">
+                  <p className="font-semibold uppercase tracking-[0.18em] text-[var(--fg-default)]">
+                    {composerMode === "reply" ? "Replying to" : "Quoting"} {shortenPubkey(composerTarget.pubkey)}
+                  </p>
+                  <p className="mt-2 line-clamp-3 text-sm text-[var(--fg-muted)]">
+                    {composerPreviewSnippet || "Referenced post"}
+                  </p>
+                  {composerTimestampLabel && (
+                    <p className="mt-2 text-[10px] uppercase tracking-[0.24em] text-[var(--fg-muted)]">
+                      {composerTimestampLabel}
+                    </p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={clearComposerTarget}
+                  className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+                  aria-label="Remove referenced post"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
               </div>
             )}
 
