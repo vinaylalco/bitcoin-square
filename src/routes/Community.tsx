@@ -22,7 +22,7 @@ import { useNostrAccount } from "../hooks/useNostrAccount";
 import { setNostrClientSigner } from "../lib/nostrClient";
 import { useTheme } from "../context/ThemeContext";
 import type { LucideIcon } from "lucide-react";
-import { ArrowDown, ChevronDown, Heart, Loader2, MessageCircle, MessageSquareQuote, Newspaper, X, Zap } from "lucide-react";
+import { ArrowDown, Heart, Loader2, MessageCircle, MessageSquareQuote, Newspaper, Users, X, Zap } from "lucide-react";
 import ZapDialog from "../components/bitcoinSquareChat/ZapDialog";
 import {
   countZapReferences,
@@ -33,11 +33,18 @@ import {
   type ZapEndpoint,
 } from "../utils/zap";
 
-type ActiveView = "casual" | "feed";
+type ActiveView = "casual" | "feed" | "members";
 
-const VIEW_TABS: Array<{ key: ActiveView; label: string; icon: LucideIcon }> = [
+type ViewTab = { key: ActiveView; label: string; icon: LucideIcon };
+
+const DESKTOP_VIEW_TABS: ViewTab[] = [
   { key: "casual", label: "Casual Chat", icon: MessageCircle },
   { key: "feed", label: "Community Feed", icon: Newspaper },
+];
+
+const MOBILE_VIEW_TABS: ViewTab[] = [
+  ...DESKTOP_VIEW_TABS,
+  { key: "members", label: "Members", icon: Users },
 ];
 
 const CASUAL_ROOM: RoomDefinition = {
@@ -579,8 +586,8 @@ const Community: React.FC = () => {
   const canZap = hasLightningWallet && accountReady && Boolean(globalSignEvent);
 
   const [activeView, setActiveView] = useState<ActiveView>("casual");
-  const [mobileMembersOpen, setMobileMembersOpen] = useState(false);
   const listRef = useRef<HTMLDivElement | null>(null);
+  const composerContainerRef = useRef<HTMLDivElement | null>(null);
   const scrollUpdateFrameRef = useRef<number | null>(null);
   const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
   const {
@@ -601,6 +608,8 @@ const Community: React.FC = () => {
   const [zapCounts, setZapCounts] = useState<Record<string, number>>({});
   const [pendingZaps, setPendingZaps] = useState<Set<string>>(() => new Set());
   const [zapState, setZapState] = useState<ZapDialogState>(() => createInitialZapState());
+  const [composerHeight, setComposerHeight] = useState(0);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
   const messageRefs = useRef(new Map<string, HTMLDivElement>());
   const highlightTimerRef = useRef<number | null>(null);
   const pendingHighlightRef = useRef<string | null>(null);
@@ -615,6 +624,74 @@ const Community: React.FC = () => {
     () => (theme === "dark" ? DARK_BACKGROUND_TEXTURE : LIGHT_BACKGROUND_TEXTURE),
     [theme],
   );
+  const isCasualView = activeView === "casual";
+  const isFeedView = activeView === "feed";
+  const isMembersView = activeView === "members";
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
+    const handleChange = (event: MediaQueryListEvent) => {
+      setIsMobileViewport(event.matches);
+    };
+    setIsMobileViewport(mediaQuery.matches);
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", handleChange);
+      return () => {
+        mediaQuery.removeEventListener("change", handleChange);
+      };
+    }
+    mediaQuery.addListener(handleChange);
+    return () => {
+      mediaQuery.removeListener(handleChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isCasualView) {
+      setComposerHeight(0);
+      return;
+    }
+    const node = composerContainerRef.current;
+    if (!node) {
+      return;
+    }
+    const measure = () => {
+      const height = node.getBoundingClientRect().height;
+      setComposerHeight(Math.ceil(height));
+    };
+    measure();
+    if (typeof ResizeObserver !== "undefined") {
+      const observer = new ResizeObserver(measure);
+      observer.observe(node);
+      return () => {
+        observer.disconnect();
+      };
+    }
+    if (typeof window === "undefined") {
+      return;
+    }
+    window.addEventListener("resize", measure);
+    return () => {
+      window.removeEventListener("resize", measure);
+    };
+  }, [isCasualView]);
+
+  const chatListPaddingStyle = useMemo<React.CSSProperties>(() => {
+    if (!isCasualView || !isMobileViewport || composerHeight <= 0) {
+      return {};
+    }
+    return { paddingBottom: `calc(${composerHeight}px + 1.5rem)` };
+  }, [composerHeight, isCasualView, isMobileViewport]);
+
+  const jumpButtonStyle = useMemo<React.CSSProperties>(() => {
+    if (!isMobileViewport || composerHeight <= 0) {
+      return {};
+    }
+    return { bottom: `${composerHeight + 16}px` };
+  }, [composerHeight, isMobileViewport]);
 
   const setPendingZap = useCallback((key: string, pending: boolean) => {
     setPendingZaps((prev) => {
@@ -1050,8 +1127,23 @@ const Community: React.FC = () => {
 
   const contextMembers = useMemo<MemberListEntry[]>(() => {
     const now = Math.floor(Date.now() / 1000);
-    const source = activeView === "casual" ? casualMemberActivity : feedMemberActivity;
-    const merged = new Map(source);
+    const merged = new Map<string, number>();
+
+    const mergeSource = (source: Map<string, number>) => {
+      source.forEach((timestamp, memberKey) => {
+        const previous = merged.get(memberKey) ?? 0;
+        merged.set(memberKey, Math.max(previous, timestamp));
+      });
+    };
+
+    if (isMembersView) {
+      mergeSource(casualMemberActivity);
+      mergeSource(feedMemberActivity);
+    } else if (isFeedView) {
+      mergeSource(feedMemberActivity);
+    } else {
+      mergeSource(casualMemberActivity);
+    }
 
     if (pubkey) {
       const currentTimestamp = Math.max(merged.get(pubkey) ?? 0, now);
@@ -1088,7 +1180,7 @@ const Community: React.FC = () => {
     });
 
     return currentMember ? [currentMember, ...others] : others;
-  }, [activeView, casualMemberActivity, feedMemberActivity, pubkey, resolveProfileSummary]);
+  }, [casualMemberActivity, feedMemberActivity, isFeedView, isMembersView, pubkey, resolveProfileSummary]);
 
   const { activeMembers, inactiveMembers } = useMemo(() => {
     const nowSeconds = Math.floor(Date.now() / 1000);
@@ -1250,7 +1342,6 @@ const Community: React.FC = () => {
     });
   }, [feedPosts, messages, contextMembers]);
 
-  const isCasualView = activeView === "casual";
   const authorAccents = useMemo(() => {
     const map = new Map<string, AuthorAccent>();
     messages.forEach((message) => {
@@ -1284,7 +1375,11 @@ const Community: React.FC = () => {
         .map((key) => resolveProfileSummary(key)),
     [typingPubkeys, pubkey, resolveProfileSummary],
   );
-  const membersHeading = isCasualView ? "Casual Chat members" : "Community Feed members";
+  const membersHeading = isCasualView
+    ? "Casual Chat members"
+    : isFeedView
+      ? "Community Feed members"
+      : "Community members";
   const memberListContent =
     contextMembers.length === 0 ? (
       <p className="rounded-2xl bg-[var(--bg-card)]/70 p-4 text-xs text-[var(--fg-muted)] shadow-sm">
@@ -1307,7 +1402,7 @@ const Community: React.FC = () => {
         </div>
       </div>
     );
-  const renderTabButton = (tab: (typeof VIEW_TABS)[number], variant: "mobile" | "desktop") => {
+  const renderTabButton = (tab: ViewTab, variant: "mobile" | "desktop") => {
     const Icon = tab.icon;
     const isActive = activeView === tab.key;
     const tabId = `community-tab-${tab.key}`;
@@ -1329,7 +1424,6 @@ const Community: React.FC = () => {
         tabIndex={isActive ? 0 : -1}
         onClick={() => {
           setActiveView(tab.key);
-          setMobileMembersOpen(false);
         }}
         className={`${baseClasses} ${layoutClass} ${paletteClasses}`}
       >
@@ -1616,7 +1710,7 @@ const Community: React.FC = () => {
             role="tablist"
             className="flex flex-col gap-2"
           >
-            {VIEW_TABS.map((tab) => renderTabButton(tab, "desktop"))}
+            {DESKTOP_VIEW_TABS.map((tab) => renderTabButton(tab, "desktop"))}
           </nav>
           <div className="mt-8 flex-1">
             <h2 className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)]">{membersHeading}</h2>
@@ -1631,25 +1725,8 @@ const Community: React.FC = () => {
               className="-mx-5 flex snap-x snap-mandatory gap-2 overflow-x-auto px-5 pb-2 text-sm scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
               style={{ WebkitOverflowScrolling: "touch" }}
             >
-              {VIEW_TABS.map((tab) => renderTabButton(tab, "mobile"))}
+              {MOBILE_VIEW_TABS.map((tab) => renderTabButton(tab, "mobile"))}
             </nav>
-            <div className="mt-4">
-              <button
-                type="button"
-                onClick={() => setMobileMembersOpen((open) => !open)}
-                className="flex w-full items-center justify-between rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)]/70 px-4 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
-                aria-expanded={mobileMembersOpen}
-              >
-                <span>{membersHeading}</span>
-                <ChevronDown
-                  className={`h-4 w-4 transition-transform ${mobileMembersOpen ? "rotate-180 text-brand" : "text-[var(--fg-muted)]"}`}
-                  aria-hidden="true"
-                />
-              </button>
-              {mobileMembersOpen && (
-                <div className="mt-3 max-h-[min(60vh,26rem)] overflow-y-auto pr-1">{memberListContent}</div>
-              )}
-            </div>
           </div>
           <main className="relative flex flex-1 min-h-0 flex-col">
             {isCasualView ? (
@@ -1676,6 +1753,7 @@ const Community: React.FC = () => {
                       scrollToBottom("smooth");
                     }}
                     className="pointer-events-auto absolute right-6 z-30 inline-flex items-center gap-2 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-brand bottom-[calc(7.5rem+env(safe-area-inset-bottom,0px))] sm:bottom-40 sm:right-10"
+                    style={jumpButtonStyle}
                   >
                     <ArrowDown className="h-4 w-4" aria-hidden />
                     Jump to bottom
@@ -1683,7 +1761,10 @@ const Community: React.FC = () => {
                 )}
                 <ErrorBoundary fallback={chatListFallback}>
                   <div ref={listRef} className="relative flex-1 overflow-y-auto overscroll-y-contain">
-                    <div className="px-4 pb-[calc(8rem+env(safe-area-inset-bottom,0px))] pt-6 sm:px-8 sm:pb-32">
+                    <div
+                      className="px-4 pb-[calc(8rem+env(safe-area-inset-bottom,0px))] pt-6 sm:px-8 sm:pb-32"
+                      style={chatListPaddingStyle}
+                    >
                       <div
                         style={{ height: `${totalSize}px`, position: "relative" }}
                       >
@@ -1784,7 +1865,7 @@ const Community: React.FC = () => {
                                       : undefined
                                   }
                                 >
-                                  <div className="flex items-center justify-between gap-3 text-[10px] uppercase tracking-[0.24em]">
+                                  <div className="flex flex-col gap-1 text-[10px] uppercase tracking-[0.24em] sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                                     <span
                                       className={`flex items-center gap-2 font-semibold ${
                                         isSelf ? "text-white" : "text-[var(--fg-default)]"
@@ -1799,7 +1880,11 @@ const Community: React.FC = () => {
                                       )}
                                       {summary.displayName}
                                     </span>
-                                    <span className={timestampColor}>{formatTimestamp(message.created_at)}</span>
+                                    <span
+                                      className={`${timestampColor} order-last block w-full text-left sm:order-none sm:w-auto sm:text-right`}
+                                    >
+                                      {formatTimestamp(message.created_at)}
+                                    </span>
                                   </div>
                                   {message.quoteId && (
                                     <button
@@ -1937,7 +2022,10 @@ const Community: React.FC = () => {
                     </div>
                   </div>
                 </ErrorBoundary>
-                <div className="border-t border-[var(--border-subtle)] bg-[var(--bg-card)]/95 px-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pt-4 backdrop-blur sm:px-8">
+                <div
+                  ref={composerContainerRef}
+                  className="fixed bottom-0 left-0 right-0 z-40 border-t border-[var(--border-subtle)] bg-[var(--bg-card)]/95 px-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pt-4 backdrop-blur sm:px-8 md:relative md:bottom-auto md:left-auto md:right-auto md:z-0"
+                >
                   <div className="mx-auto w-full max-w-3xl space-y-3">
                     {typingSummaries.length > 0 && (
                       <div className="flex justify-center">
@@ -1967,12 +2055,12 @@ const Community: React.FC = () => {
                   </div>
                 </div>
               </section>
-              ) : (
-                <section
-                  id="community-panel-feed"
-                  role="tabpanel"
-                  aria-labelledby="community-tab-feed"
-                  className="flex flex-1 min-h-0"
+            ) : isFeedView ? (
+              <section
+                id="community-panel-feed"
+                role="tabpanel"
+                aria-labelledby="community-tab-feed"
+                className="flex flex-1 min-h-0"
                 >
                   <ErrorBoundary fallback={feedFallback}>
                     <div className="flex h-full flex-1 min-h-0 overflow-hidden">
@@ -1996,6 +2084,20 @@ const Community: React.FC = () => {
                     </div>
                   </ErrorBoundary>
                 </section>
+            ) : (
+              <section
+                id="community-panel-members"
+                role="tabpanel"
+                aria-labelledby="community-tab-members"
+                className="flex flex-1 flex-col"
+              >
+                <div className="flex flex-1 flex-col overflow-hidden px-5 py-6 sm:px-8">
+                  <h2 className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)]">
+                    {membersHeading}
+                  </h2>
+                  <div className="mt-5 flex-1 overflow-y-auto pr-1">{memberListContent}</div>
+                </div>
+              </section>
             )}
           </main>
         </div>
