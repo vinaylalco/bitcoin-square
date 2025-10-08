@@ -1228,6 +1228,15 @@ const Community: React.FC = () => {
     setPendingAttachments((prev) => prev.filter((item) => item.cacheKey !== cacheKey));
   }, []);
 
+  const scrollToBottom = useCallback(
+    (behavior: ScrollBehavior = "auto") => {
+      const node = listRef.current;
+      if (!node) return;
+      node.scrollTo({ top: node.scrollHeight, behavior });
+    },
+    [],
+  );
+
   const handleSend = useCallback(
     async (text: string, options?: { quoteId?: string | null; quotePubkey?: string | null }) => {
       const attachments: CasualAttachmentMeta[] = pendingAttachments.map((attachment) => ({
