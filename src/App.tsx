@@ -30,7 +30,7 @@ export default function App() {
   const { theme } = useTheme(); // ensures theme context is mounted
   const { user, logout } = useAuth();
 
-  const hideFooterOnPage = /^\/education\/[\w-]+/.test(loc.pathname);
+  const hideFooterOnPage = /^\/education\/[\w-]+/.test(loc.pathname) || loc.pathname.startsWith("/community");
 
   const lang = (i18n.language || "en").toLowerCase().startsWith("es") ? "es" : "en";
   const changeLang = (lng: "en" | "es") => i18n.changeLanguage(lng);

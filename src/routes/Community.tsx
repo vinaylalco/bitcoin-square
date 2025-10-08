@@ -20,7 +20,7 @@ import { useProfileIdentity, shortenPubkey } from "../context/ProfileIdentityCon
 import { useAuth } from "../context/AuthContext";
 import { useNostrAccount } from "../hooks/useNostrAccount";
 import { setNostrClientSigner } from "../lib/nostrClient";
-import { Heart, MessageCircle, MessageSquareQuote, Zap } from "lucide-react";
+import { Heart, MessageCircle, MessageSquareQuote, Newspaper, Zap } from "lucide-react";
 
 const CASUAL_ROOM: RoomDefinition = {
   id: CASUAL_ROOM_ID,
@@ -621,49 +621,72 @@ const Community: React.FC = () => {
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.25),transparent_55%),radial-gradient(circle_at_bottom_right,rgba(244,114,182,0.2),transparent_45%)] dark:bg-[radial-gradient(circle_at_top_left,rgba(96,165,250,0.12),transparent_55%),radial-gradient(circle_at_bottom_right,rgba(244,114,182,0.15),transparent_45%)]" />
       <div className="relative z-0 flex min-h-screen w-full">
         <aside className="hidden w-80 flex-col border-r border-white/40 bg-white/30 px-5 py-8 shadow-sm backdrop-blur lg:flex dark:border-neutral-800 dark:bg-neutral-900/60">
-          <h2 className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)]">Active members</h2>
-          <div className="mt-6 space-y-3 overflow-y-auto pr-1">
-            {onlineMembers.length === 0 ? (
-              <p className="rounded-2xl bg-white/60 p-4 text-xs text-[var(--fg-muted)] shadow-sm dark:bg-neutral-900/50">
-                We&apos;ll show members here as they join the conversation.
-              </p>
-            ) : (
-              onlineMembers.map(({ pubkey: memberKey, lastSeen }) => {
-                const memberSummary = resolveProfileSummary(memberKey);
-                return (
-                  <button
-                    key={memberKey}
-                    type="button"
-                    onClick={() => openProfile(memberKey)}
-                    className="flex w-full items-center gap-3 rounded-2xl border border-white/60 bg-white/80 px-3 py-2 text-left shadow-sm transition hover:border-brand hover:text-brand dark:border-neutral-800 dark:bg-neutral-900/70"
-                  >
-                    <img
-                      src={memberSummary.avatarUrl}
-                      alt={memberSummary.displayName}
-                      className="h-9 w-9 rounded-full border border-white/80 object-cover shadow-sm"
-                    />
-                    <div className="flex min-w-0 flex-1 flex-col">
-                      <span className="truncate text-sm font-semibold text-[var(--fg-default)]">{memberSummary.displayName}</span>
-                      <span className="truncate text-[10px] uppercase tracking-[0.24em] text-[var(--fg-muted)]">
-                        {formatLastSeenLabel(memberKey === pubkey ? Math.floor(Date.now() / 1000) : lastSeen)}
-                      </span>
-                    </div>
-                    {memberSummary.lightningAddress && <Zap className="h-4 w-4 text-brand" />}
-                  </button>
-                );
-              })
-            )}
+          <nav aria-label="Community navigation" className="space-y-2">
+            <button
+              type="button"
+              onClick={() => setActiveView("casual")}
+              className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left text-sm font-semibold uppercase tracking-[0.2em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${isCasualView ? "border-brand bg-brand/10 text-brand" : "border-transparent text-[var(--fg-muted)] hover:border-brand hover:text-brand"}`}
+              aria-current={isCasualView ? "page" : undefined}
+            >
+              <MessageCircle className="h-4 w-4" aria-hidden="true" />
+              <span>Casual Chat</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveView("feed")}
+              className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left text-sm font-semibold uppercase tracking-[0.2em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${!isCasualView ? "border-brand bg-brand/10 text-brand" : "border-transparent text-[var(--fg-muted)] hover:border-brand hover:text-brand"}`}
+              aria-current={!isCasualView ? "page" : undefined}
+            >
+              <Newspaper className="h-4 w-4" aria-hidden="true" />
+              <span>Community Feed</span>
+            </button>
+          </nav>
+          <div className="mt-8">
+            <h2 className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)]">Active members</h2>
+            <div className="mt-6 space-y-3 overflow-y-auto pr-1">
+              {onlineMembers.length === 0 ? (
+                <p className="rounded-2xl bg-white/60 p-4 text-xs text-[var(--fg-muted)] shadow-sm dark:bg-neutral-900/50">
+                  We&apos;ll show members here as they join the conversation.
+                </p>
+              ) : (
+                onlineMembers.map(({ pubkey: memberKey, lastSeen }) => {
+                  const memberSummary = resolveProfileSummary(memberKey);
+                  return (
+                    <button
+                      key={memberKey}
+                      type="button"
+                      onClick={() => openProfile(memberKey)}
+                      className="flex w-full items-center gap-3 rounded-2xl border border-white/60 bg-white/80 px-3 py-2 text-left shadow-sm transition hover:border-brand hover:text-brand dark:border-neutral-800 dark:bg-neutral-900/70"
+                    >
+                      <img
+                        src={memberSummary.avatarUrl}
+                        alt={memberSummary.displayName}
+                        className="h-9 w-9 rounded-full border border-white/80 object-cover shadow-sm"
+                      />
+                      <div className="flex min-w-0 flex-1 flex-col">
+                        <span className="truncate text-sm font-semibold text-[var(--fg-default)]">{memberSummary.displayName}</span>
+                        <span className="truncate text-[10px] uppercase tracking-[0.24em] text-[var(--fg-muted)]">
+                          {formatLastSeenLabel(memberKey === pubkey ? Math.floor(Date.now() / 1000) : lastSeen)}
+                        </span>
+                      </div>
+                      {memberSummary.lightningAddress && <Zap className="h-4 w-4 text-brand" />}
+                    </button>
+                  );
+                })
+              )}
+            </div>
           </div>
         </aside>
         <div className="flex min-h-screen flex-1 flex-col">
-          <header className="flex items-center justify-center border-b border-[var(--border-subtle)] bg-[var(--bg-card)] px-6 py-5 shadow-sm">
-            <div className="inline-flex items-center gap-2 rounded-full bg-[var(--bg-app)]/70 p-1 shadow-sm">
+          <header className="flex items-center justify-center border-b border-[var(--border-subtle)] bg-[var(--bg-card)] px-6 py-5 shadow-sm lg:hidden">
+            <nav aria-label="Community navigation" className="inline-flex items-center gap-2 rounded-full bg-[var(--bg-app)]/70 p-1 shadow-sm">
               <button
                 type="button"
                 onClick={() => setActiveView("casual")}
                 className={`rounded-full px-5 py-2 text-xs font-semibold uppercase tracking-[0.24em] transition ${
                   isCasualView ? "bg-brand text-white shadow" : "text-[var(--fg-muted)] hover:text-brand"
                 }`}
+                aria-current={isCasualView ? "page" : undefined}
               >
                 Casual Chat
               </button>
@@ -673,10 +696,11 @@ const Community: React.FC = () => {
                 className={`rounded-full px-5 py-2 text-xs font-semibold uppercase tracking-[0.24em] transition ${
                   !isCasualView ? "bg-brand text-white shadow" : "text-[var(--fg-muted)] hover:text-brand"
                 }`}
+                aria-current={!isCasualView ? "page" : undefined}
               >
                 Community Feed
               </button>
-            </div>
+            </nav>
           </header>
           <main className="relative flex flex-1 flex-col overflow-hidden">
             {isCasualView ? (

@@ -15,6 +15,7 @@ import {
   writePersistedProfile,
   writeSessionProfile,
 } from "../utils/profileCache";
+import safeJsonFetch, { JsonFetchError } from "../utils/safeJsonFetch";
 import {
   generateScreenName,
   generateWarmAvatar,
@@ -80,6 +81,24 @@ const profileUrl = (pubkey: string) => `https://bitcoinsquare.io/profile/${pubke
 const FOLLOWING_STORAGE_KEY = "bitcoin-square-following";
 const CACHE_TTL = 1000 * 60 * 15; // 15 minutes
 
+const isJsonFetchError = (error: unknown): error is JsonFetchError => error instanceof JsonFetchError;
+
+const handleJsonFetchError = (pubkey: string, error: JsonFetchError): never => {
+  if (import.meta.env?.DEV) {
+    console.error("Profile fetch failed", {
+      pubkey,
+      status: error.status,
+      reason: error.reason,
+      contentType: error.contentType,
+      snippet: error.bodySnippet,
+    });
+  }
+  if (error.reason === "unexpected-content-type") {
+    throw new Error(PROFILE_FALLBACK_MESSAGE);
+  }
+  throw error;
+};
+
 const normalizeProfile = (pubkey: string, payload: Partial<BitcoinSquareProfile>): BitcoinSquareProfile => {
   const badges = Array.isArray(payload.badges)
     ? payload.badges
@@ -137,13 +156,20 @@ const persistFollowing = (following: Set<string>) => {
   }
 };
 
+const PROFILE_FALLBACK_MESSAGE = "Profile unavailable. Try again.";
+
 const fetchProfileFromApi = async (pubkey: string): Promise<BitcoinSquareProfile> => {
-  const response = await fetch(`https://bitcoinsquare.io/api/users/${pubkey}`);
-  if (!response.ok) {
-    throw new Error(`Profile request failed with status ${response.status}`);
+  try {
+    const json = await safeJsonFetch<Partial<BitcoinSquareProfile>>(
+      `https://bitcoinsquare.io/api/users/${pubkey}`
+    );
+    return normalizeProfile(pubkey, json);
+  } catch (error) {
+    if (isJsonFetchError(error)) {
+      return handleJsonFetchError(pubkey, error);
+    }
+    throw error;
   }
-  const json = (await response.json()) as Partial<BitcoinSquareProfile>;
-  return normalizeProfile(pubkey, json);
 };
 
 export const formatMemberSince = (value?: string | null) => {
