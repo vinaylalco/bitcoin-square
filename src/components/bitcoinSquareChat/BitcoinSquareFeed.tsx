@@ -5,6 +5,7 @@ import { useProfileIdentity, shortenPubkey } from "../../context/ProfileIdentity
 import type { ProfileSummary } from "../../context/ProfileIdentityContext";
 import { CASUAL_ROOM_ID, CASUAL_ROOM_NAME } from "../../hooks/useBitcoinSquareCasualChat";
 import { useMediaUploader, type MediaUploadResult } from "../../hooks/useMediaUploader";
+import { useCommunityTranslation } from "../../context/CommunityTranslationContext";
 import ProfileCard from "../profile/ProfileCard";
 import ErrorBoundary from "../ErrorBoundary";
 import type { RoomDefinition } from "../RoomList";
@@ -264,6 +265,15 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   const relativeFormatter = useMemo(() => createRelativeFormatter(), []);
   const now = useRelativeNow();
   const { requestProfile, resolveProfileSummary, openProfile } = useProfileIdentity();
+  const {
+    autoTranslateEnabled,
+    ensureTranslation,
+    refreshTranslation,
+    getTranslation,
+    isOriginalVisible,
+    toggleOriginal,
+    formatLanguageName,
+  } = useCommunityTranslation();
   const feedRoom = useMemo<RoomDefinition>(
     () => ({
       id: CASUAL_ROOM_ID,
@@ -378,6 +388,13 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       requestProfile(pubkey).catch(() => undefined);
     });
   }, [posts, requestProfile]);
+
+  useEffect(() => {
+    if (!autoTranslateEnabled) return;
+    posts.forEach((post) => {
+      ensureTranslation(`feed:${post.id}`, post.content);
+    });
+  }, [autoTranslateEnabled, ensureTranslation, posts]);
 
   const resetComposer = useCallback(() => {
     setComposerOpen(false);
@@ -818,40 +835,41 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
 
   return (
     <div className="relative flex flex-1 flex-col overflow-hidden">
-      {activeFilter && filterLabel && (
-        <div className="border-b border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 px-4 py-3 text-xs text-[var(--fg-muted)] sm:px-6">
-          <span>{filterLabel}</span>
-          <button
-            type="button"
-            onClick={clearFilter}
-            className="ml-3 rounded-full border border-[var(--border-subtle)] px-3 py-1 font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
-          >
-            Clear filter
-          </button>
-        </div>
-      )}
-
-      <div className="border-b border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 px-4 py-3 sm:px-6">
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">Quick filters:</span>
-          {quickFilterOptions.map(({ type, label, disabled }) => {
-            const isActive = activeFilter?.type === type;
-            return (
+      <div className="border-b border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 px-4 py-3 text-xs sm:px-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">Quick filters:</span>
+            {quickFilterOptions.map(({ type, label, disabled }) => {
+              const isActive = activeFilter?.type === type;
+              return (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => setQuickFilter(type)}
+                  disabled={disabled}
+                  className={`rounded-full border px-3 py-1 font-medium transition disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
+                    isActive
+                      ? "border-brand bg-brand/10 text-brand"
+                      : "border-[var(--border-subtle)] text-[var(--fg-muted)] hover:border-brand hover:text-brand"
+                  } ${disabled ? "opacity-50" : ""}`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          {activeFilter && filterLabel && (
+            <div className="flex flex-wrap items-center gap-2 text-[var(--fg-muted)]">
+              <span>{filterLabel}</span>
               <button
-                key={type}
                 type="button"
-                onClick={() => setQuickFilter(type)}
-                disabled={disabled}
-                className={`rounded-full border px-3 py-1 font-medium transition disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
-                  isActive
-                    ? "border-brand bg-brand/10 text-brand"
-                    : "border-[var(--border-subtle)] text-[var(--fg-muted)] hover:border-brand hover:text-brand"
-                } ${disabled ? "opacity-50" : ""}`}
+                onClick={clearFilter}
+                className="rounded-full border border-[var(--border-subtle)] px-3 py-1 font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
               >
-                {label}
+                Clear filter
               </button>
-            );
-          })}
+            </div>
+          )}
         </div>
       </div>
 
@@ -892,9 +910,24 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
                 : post.status === "failed"
                   ? post.error ?? "Delivery failed."
                   : null;
-            const longPost = isLongPost(post.content);
             const isExpanded = expandedPosts.has(post.id);
-            const displayContent = isExpanded || !longPost ? post.content : getCollapsedContent(post.content);
+            const translationKey = `feed:${post.id}`;
+            const translationEntry = getTranslation(translationKey);
+            const translationStatus = translationEntry?.status ?? "idle";
+            const rawTranslatedText =
+              translationEntry?.translatedText && translationEntry.translatedText.trim().length > 0
+                ? translationEntry.translatedText
+                : null;
+            const translationReady = translationStatus === "ready" && !!rawTranslatedText;
+            const showOriginal =
+              !autoTranslateEnabled || !translationReady || isOriginalVisible(translationKey);
+            const contentSource = !showOriginal && rawTranslatedText ? rawTranslatedText : post.content;
+            const longPost = isLongPost(contentSource);
+            const displayContent = isExpanded || !longPost ? contentSource : getCollapsedContent(contentSource);
+            const detectedLanguageLabel =
+              translationEntry?.detectedLanguage && translationEntry.detectedLanguage.trim().length > 0
+                ? formatLanguageName(translationEntry.detectedLanguage)
+                : null;
             const zapKey = `feed:${post.id}`;
             const zapEndpoint = isSelfPost
               ? null
@@ -989,6 +1022,40 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
                 <div className="mt-4 whitespace-pre-wrap break-words text-sm leading-relaxed text-[var(--fg-default)]">
                   {renderContent(displayContent, handleTagClick, handleMentionClick)}
                 </div>
+
+                {autoTranslateEnabled && (
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.24em] text-[var(--fg-muted)]">
+                    {translationStatus === "loading" ? (
+                      <span>Translating…</span>
+                    ) : translationStatus === "error" ? (
+                      <>
+                        <span>Translation unavailable</span>
+                        <button
+                          type="button"
+                          onClick={() => refreshTranslation(translationKey, post.content)}
+                          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.24em] text-brand transition hover:text-brand/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand/60"
+                        >
+                          Retry
+                        </button>
+                      </>
+                    ) : translationReady ? (
+                      <>
+                        <span>
+                          {showOriginal
+                            ? `Showing original${detectedLanguageLabel ? ` (${detectedLanguageLabel})` : ""}`
+                            : `Translated from ${detectedLanguageLabel ?? "original language"}`}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => toggleOriginal(translationKey)}
+                          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.24em] text-brand transition hover:text-brand/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand/60"
+                        >
+                          {showOriginal ? "View translation" : "View original"}
+                        </button>
+                      </>
+                    ) : null}
+                  </div>
+                )}
 
                 {longPost && (
                   <button
@@ -1164,7 +1231,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       </button>
 
       {composerOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 px-4 py-8 sm:items-center">
+        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/60 px-4 py-8 sm:items-center">
           <div className="absolute inset-0" onClick={resetComposer} aria-hidden="true" />
           <div className="relative w-full max-w-xl rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-2xl">
             <header className="flex items-center justify-between gap-3">

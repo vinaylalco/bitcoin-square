@@ -19,16 +19,23 @@ import { useProfileIdentity, shortenPubkey } from "../context/ProfileIdentityCon
 import type { ProfileSummary } from "../context/ProfileIdentityContext";
 import { useAuth } from "../context/AuthContext";
 import { useNostrAccount } from "../hooks/useNostrAccount";
-import { setNostrClientSigner } from "../lib/nostrClient";
+import { nostrClient, setNostrClientSigner } from "../lib/nostrClient";
 import { useTheme } from "../context/ThemeContext";
+import {
+  CommunityTranslationProvider,
+  useCommunityTranslation,
+} from "../context/CommunityTranslationContext";
 import type { LucideIcon } from "lucide-react";
 import {
-  ArrowDown,
+  ArrowUp,
   Heart,
+  Languages,
   Loader2,
   MessageCircle,
   MessageSquareQuote,
   Newspaper,
+  Paperclip,
+  Send,
   Sparkles,
   Users,
   X,
@@ -43,6 +50,7 @@ import {
   type LnurlPayResponse,
   type ZapEndpoint,
 } from "../utils/zap";
+import { markdownToHtml } from "../utils/markdown";
 
 type ActiveView = "casual" | "feed" | "personal" | "members";
 
@@ -90,6 +98,10 @@ const LIGHT_BACKGROUND_TEXTURE =
   "radial-gradient(circle at top, rgba(148,163,184,0.16), transparent 60%), radial-gradient(circle at bottom right, rgba(129,140,248,0.12), transparent 55%)";
 const DARK_BACKGROUND_TEXTURE =
   "radial-gradient(circle at top, rgba(59,130,246,0.16), transparent 55%), radial-gradient(circle at bottom right, rgba(16,185,129,0.14), transparent 50%)";
+
+const MEMBER_LIST_INITIAL_LIMIT = 20;
+const MEMBER_LIST_PAGE_SIZE = 20;
+const MEMBER_SCROLL_THRESHOLD_PX = 120;
 
 const formatTimestamp = (unixSeconds: number) => {
   try {
@@ -490,39 +502,55 @@ const Composer: React.FC<{
           )}
         </div>
       )}
-      <textarea
-        value={value}
-        onChange={handleChange}
-        onKeyDown={handleKeyDown}
-        disabled={disabled || isSending}
-        rows={3}
-        maxLength={CHAT_CHARACTER_LIMIT}
-        placeholder={disabled ? "Your BitcoinSquare keys must be ready before posting" : "Share an update…"}
-        className="w-full resize-none rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-4 py-3 text-sm leading-relaxed text-[var(--fg-default)] shadow-sm focus:border-brand focus:outline-none"
-      />
+      <div className="relative rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] shadow-sm transition focus-within:border-brand">
+        <textarea
+          value={value}
+          onChange={handleChange}
+          onKeyDown={handleKeyDown}
+          disabled={disabled || isSending}
+          rows={3}
+          maxLength={CHAT_CHARACTER_LIMIT}
+          placeholder={disabled ? "Your BitcoinSquare keys must be ready before posting" : "Share an update…"}
+          className="w-full resize-none rounded-2xl border-none bg-transparent px-4 pb-14 pr-28 text-sm leading-relaxed text-[var(--fg-default)] focus:outline-none focus:ring-0"
+        />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-between px-4 pb-3">
+          <div className="pointer-events-auto flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={disabled || uploadStatus === "uploading"}
+              className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--fg-muted)] shadow-sm transition hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-60"
+              title={uploadStatus === "uploading" ? `Uploading… ${uploadProgress}%` : "Add media"}
+            >
+              {uploadStatus === "uploading" ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              ) : (
+                <Paperclip className="h-4 w-4" aria-hidden />
+              )}
+              <span className="sr-only">Add media</span>
+            </button>
+          </div>
+          <div className="pointer-events-auto flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void handleSubmit()}
+              disabled={disabled || isSending || value.trim().length === 0}
+              className="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand text-white shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isSending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Send className="h-4 w-4" aria-hidden />}
+              <span className="sr-only">Send message</span>
+            </button>
+          </div>
+        </div>
+      </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={disabled || uploadStatus === "uploading"}
-          className="rounded-full border border-[var(--border-subtle)] px-3 py-1 font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {uploadStatus === "uploading" ? `Uploading… ${uploadProgress}%` : "Add media"}
-        </button>
-        <div className="flex items-center gap-3">
-          <span className={`font-semibold ${characterStatusClass}`} aria-live="polite">
-            {`${characterCount} / ${CHAT_CHARACTER_LIMIT}`}
-          </span>
-          <button
-            type="button"
-            onClick={() => void handleSubmit()}
-            disabled={disabled || isSending || value.trim().length === 0}
-            className="rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isSending ? "Sending…" : "Send"}
-          </button>
-        </div>
+        <span className={`font-semibold ${characterStatusClass}`} aria-live="polite">
+          {`${characterCount} / ${CHAT_CHARACTER_LIMIT}`}
+        </span>
+        <span className="font-semibold text-[var(--fg-muted)]" aria-live="polite">
+          {uploadStatus === "uploading" ? `Uploading… ${uploadProgress}%` : ""}
+        </span>
       </div>
 
       {pendingAttachments.length > 0 && (
@@ -553,7 +581,7 @@ const Composer: React.FC<{
         </div>
       )}
 
-      {uploadError && <p className="text-xs text-red-500">{uploadError}</p>}
+      {uploadError && uploadStatus === "error" && <p className="text-xs text-red-500">{uploadError}</p>}
       {error && <p className="text-xs text-red-500">{error}</p>}
 
       <input
@@ -567,11 +595,11 @@ const Composer: React.FC<{
   );
 };
 
-const Community: React.FC = () => {
+const CommunityView: React.FC = () => {
   const { theme } = useTheme();
   const {
     roomId,
-    messages,
+    messages: rawMessages,
     sendMessage,
     pubkey,
     ready,
@@ -580,6 +608,8 @@ const Community: React.FC = () => {
     typingPubkeys,
     sendTyping,
   } = useBitcoinSquareCasualChat();
+
+  const messages = useMemo(() => [...rawMessages].reverse(), [rawMessages]);
 
   const {
     posts: feedPosts,
@@ -603,7 +633,19 @@ const Community: React.FC = () => {
     error: accountError,
   } = useNostrAccount();
   const hasLightningWallet = Boolean(user?.lnWalletAddress);
-  const canZap = hasLightningWallet && accountReady && Boolean(globalSignEvent);
+  const canZap = accountReady && Boolean(globalSignEvent);
+
+  const {
+    autoTranslateEnabled,
+    setAutoTranslateEnabled,
+    ensureTranslation,
+    refreshTranslation,
+    getTranslation,
+    isOriginalVisible,
+    toggleOriginal,
+    targetLanguageLabel,
+    formatLanguageName,
+  } = useCommunityTranslation();
 
   const [activeView, setActiveView] = useState<ActiveView>("casual");
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -622,7 +664,7 @@ const Community: React.FC = () => {
   const [composerDraft, setComposerDraft] = useState<string | undefined>(undefined);
   const [walletPromptOpen, setWalletPromptOpen] = useState(false);
   const [quoteContext, setQuoteContext] = useState<QuoteContextState | null>(null);
-  const [isAtBottom, setIsAtBottom] = useState(true);
+  const [isAtTop, setIsAtTop] = useState(true);
   const [newMessageAnchor, setNewMessageAnchor] = useState<string | null>(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const [zapCounts, setZapCounts] = useState<Record<string, number>>({});
@@ -633,7 +675,7 @@ const Community: React.FC = () => {
   const highlightTimerRef = useRef<number | null>(null);
   const pendingHighlightRef = useRef<string | null>(null);
   const previousMessageIdsRef = useRef<string[]>([]);
-  const previousLastMessageRef = useRef<{ id: string; createdAt: number } | null>(null);
+  const previousLatestMessageRef = useRef<{ id: string; createdAt: number } | null>(null);
   const initialScrollDoneRef = useRef(false);
   const estimatedRowHeight = 220;
   const rowHeightsRef = useRef(new Map<string, number>());
@@ -685,23 +727,27 @@ const Community: React.FC = () => {
     };
   }, [isCasualView]);
 
-  const chatListPaddingStyle = useMemo<React.CSSProperties>(() => {
-    if (!isCasualView || composerHeight <= 0) {
-      return {};
-    }
+  const chatSpacing = useMemo(() => {
+    const safeInset = "env(safe-area-inset-bottom, 0px)";
+    const fallbackHeight = "7rem";
+    const measuredHeight = isCasualView && composerHeight > 0 ? `${composerHeight}px` : fallbackHeight;
+    const contentPadding = `calc(${measuredHeight} + ${safeInset} + 1.5rem)`;
+    const scrollPadding = `calc(${measuredHeight} + ${safeInset} + 1rem)`;
     return {
-      paddingBottom: `calc(${composerHeight}px + env(safe-area-inset-bottom, 0px) + 1.5rem)`,
+      contentPadding,
+      scrollPadding,
+      buttonOffset: scrollPadding,
     };
   }, [composerHeight, isCasualView]);
 
   const jumpButtonStyle = useMemo<React.CSSProperties>(() => {
-    if (composerHeight <= 0) {
+    if (!chatSpacing.buttonOffset) {
       return {};
     }
     return {
-      bottom: `calc(${composerHeight}px + env(safe-area-inset-bottom, 0px) + 1rem)`,
+      bottom: chatSpacing.buttonOffset,
     };
-  }, [composerHeight]);
+  }, [chatSpacing.buttonOffset]);
 
   const setPendingZap = useCallback((key: string, pending: boolean) => {
     setPendingZaps((prev) => {
@@ -734,7 +780,6 @@ const Community: React.FC = () => {
     (target: CommunityZapTarget) => {
       if (!hasLightningWallet) {
         setWalletPromptOpen(true);
-        return;
       }
 
       if (!globalSignEvent || !accountReady) {
@@ -831,6 +876,15 @@ const Community: React.FC = () => {
               lnurlRaw: target.endpoint.raw,
               logger: import.meta.env?.DEV ? console : undefined,
             });
+            if (response.event) {
+              try {
+                await nostrClient.broadcast(response.event);
+              } catch (relayError) {
+                if (import.meta.env?.DEV) {
+                  console.warn("Zap event broadcast failed", relayError);
+                }
+              }
+            }
             const invoice = response.pr;
             if (typeof window !== "undefined" && window.webln) {
               try {
@@ -1013,23 +1067,30 @@ const Community: React.FC = () => {
     });
   }, [feedPosts, messages, requestProfile, typingPubkeys]);
 
+  useEffect(() => {
+    if (!autoTranslateEnabled) return;
+    messages.forEach((message) => {
+      ensureTranslation(`chat:${message.id}`, message.markdown);
+    });
+  }, [autoTranslateEnabled, ensureTranslation, messages]);
+
   const computeScrollState = useCallback(() => {
     const node = listRef.current;
     if (!node) return;
     const threshold = 80;
-    const atBottom = node.scrollHeight - (node.scrollTop + node.clientHeight) < threshold;
-    setIsAtBottom(atBottom);
-    if (atBottom) {
+    const atTop = node.scrollTop < threshold;
+    setIsAtTop(atTop);
+    if (atTop) {
       setNewMessageAnchor((current) => (current ? null : current));
     }
     setVirtualVersion((value) => value + 1);
   }, []);
 
-  const scrollToBottom = useCallback(
+  const scrollToTop = useCallback(
     (behavior: ScrollBehavior = "auto") => {
       const node = listRef.current;
       if (!node) return;
-      node.scrollTo({ top: node.scrollHeight, behavior });
+      node.scrollTo({ top: 0, behavior });
     },
     [],
   );
@@ -1070,39 +1131,39 @@ const Community: React.FC = () => {
   useEffect(() => {
     if (activeView !== "casual") {
       previousMessageIdsRef.current = messages.map((message) => message.id);
-      const lastMessage = messages[messages.length - 1];
-      previousLastMessageRef.current =
-        lastMessage != null
-          ? { id: lastMessage.id, createdAt: lastMessage.created_at }
+      const latestMessage = messages[0];
+      previousLatestMessageRef.current =
+        latestMessage != null
+          ? { id: latestMessage.id, createdAt: latestMessage.created_at }
           : null;
       initialScrollDoneRef.current = false;
       return;
     }
 
-    const lastMessage = messages[messages.length - 1];
+    const latestMessage = messages[0];
 
-    if (!initialScrollDoneRef.current && lastMessage) {
+    if (!initialScrollDoneRef.current && latestMessage) {
       initialScrollDoneRef.current = true;
-      scrollToBottom("auto");
+      scrollToTop("auto");
       computeScrollState();
-    } else if (lastMessage) {
-      const previousLast = previousLastMessageRef.current;
+    } else if (latestMessage) {
+      const previousLatest = previousLatestMessageRef.current;
       const hasNewerMessage =
-        !previousLast ||
-        lastMessage.created_at > previousLast.createdAt ||
-        (lastMessage.created_at === previousLast.createdAt && lastMessage.id !== previousLast.id);
+        !previousLatest ||
+        latestMessage.created_at > previousLatest.createdAt ||
+        (latestMessage.created_at === previousLatest.createdAt && latestMessage.id !== previousLatest.id);
 
       if (hasNewerMessage) {
-        scrollToBottom("smooth");
+        scrollToTop("smooth");
         setNewMessageAnchor(null);
         scheduleScrollState();
       }
     }
 
     previousMessageIdsRef.current = messages.map((message) => message.id);
-    previousLastMessageRef.current =
-      lastMessage != null ? { id: lastMessage.id, createdAt: lastMessage.created_at } : null;
-  }, [activeView, computeScrollState, messages, scheduleScrollState, scrollToBottom]);
+    previousLatestMessageRef.current =
+      latestMessage != null ? { id: latestMessage.id, createdAt: latestMessage.created_at } : null;
+  }, [activeView, computeScrollState, messages, scheduleScrollState, scrollToTop]);
 
   useEffect(() => {
     setVirtualVersion((value) => value + 1);
@@ -1120,16 +1181,16 @@ const Community: React.FC = () => {
   useEffect(() => {
     if (activeView === "casual") {
       if (typeof window === "undefined") {
-        scrollToBottom("auto");
+        scrollToTop("auto");
         computeScrollState();
         return;
       }
       window.requestAnimationFrame(() => {
-        scrollToBottom("auto");
+        scrollToTop("auto");
         computeScrollState();
       });
     }
-  }, [activeView, computeScrollState, scrollToBottom]);
+  }, [activeView, computeScrollState, scrollToTop]);
 
   useEffect(() => {
     if (!walletPromptOpen) return;
@@ -1209,27 +1270,106 @@ const Community: React.FC = () => {
     resolveProfileSummary,
   ]);
 
-  const { activeMembers, inactiveMembers } = useMemo(() => {
+  const [visibleMemberCount, setVisibleMemberCount] = useState(MEMBER_LIST_INITIAL_LIMIT);
+  const [memberScrollContainer, setMemberScrollContainer] = useState<HTMLDivElement | null>(null);
+
+  const { currentMemberEntry, followingMemberEntries, otherOnlineMemberEntries } = useMemo(() => {
     const nowSeconds = Math.floor(Date.now() / 1000);
-    const active: MemberListEntry[] = [];
-    const inactive: MemberListEntry[] = [];
+    let current: MemberListEntry | null = null;
+    const followed: MemberListEntry[] = [];
+    const otherOnline: MemberListEntry[] = [];
+
+    const sortByRecency = (a: MemberListEntry, b: MemberListEntry) => {
+      const diff = (b.lastSeen ?? 0) - (a.lastSeen ?? 0);
+      if (diff !== 0) {
+        return diff;
+      }
+      return a.summary.displayName.localeCompare(b.summary.displayName, undefined, {
+        sensitivity: "base",
+        numeric: true,
+      });
+    };
 
     contextMembers.forEach((member) => {
       if (member.isCurrentUser) {
-        active.push(member);
+        current = member;
         return;
       }
-
+      if (following.has(member.pubkey)) {
+        followed.push(member);
+        return;
+      }
       const lastSeen = member.lastSeen ?? 0;
       if (lastSeen > 0 && nowSeconds - lastSeen < ACTIVE_MEMBER_WINDOW_SECONDS) {
-        active.push(member);
-      } else {
-        inactive.push(member);
+        otherOnline.push(member);
       }
     });
 
-    return { activeMembers: active, inactiveMembers: inactive };
-  }, [contextMembers]);
+    followed.sort(sortByRecency);
+    otherOnline.sort(sortByRecency);
+
+    return {
+      currentMemberEntry: current,
+      followingMemberEntries: followed,
+      otherOnlineMemberEntries: otherOnline,
+    };
+  }, [contextMembers, following]);
+
+  const totalMemberPool = followingMemberEntries.length + otherOnlineMemberEntries.length;
+  const displayedFollowingMembers = followingMemberEntries.slice(0, visibleMemberCount);
+  const remainingMemberSlots = Math.max(visibleMemberCount - displayedFollowingMembers.length, 0);
+  const displayedOtherOnlineMembers = otherOnlineMemberEntries.slice(0, remainingMemberSlots);
+  const hasMoreMembers = visibleMemberCount < totalMemberPool;
+  const memberScrollRef = useCallback((node: HTMLDivElement | null) => {
+    setMemberScrollContainer(node);
+  }, []);
+
+  const followingCount = following.size;
+
+  useEffect(() => {
+    setVisibleMemberCount(MEMBER_LIST_INITIAL_LIMIT);
+    if (memberScrollContainer) {
+      memberScrollContainer.scrollTo({ top: 0 });
+    }
+  }, [contextMembers.length, followingCount, memberScrollContainer]);
+
+  useEffect(() => {
+    if (!memberScrollContainer) return;
+
+    const handleScroll = () => {
+      if (!hasMoreMembers) {
+        return;
+      }
+      const { scrollTop, scrollHeight, clientHeight } = memberScrollContainer;
+      if (scrollHeight - (scrollTop + clientHeight) < MEMBER_SCROLL_THRESHOLD_PX) {
+        setVisibleMemberCount((prev) => {
+          if (prev >= totalMemberPool) {
+            return prev;
+          }
+          return Math.min(prev + MEMBER_LIST_PAGE_SIZE, totalMemberPool);
+        });
+      }
+    };
+
+    memberScrollContainer.addEventListener("scroll", handleScroll);
+    return () => {
+      memberScrollContainer.removeEventListener("scroll", handleScroll);
+    };
+  }, [memberScrollContainer, hasMoreMembers, totalMemberPool]);
+
+  useEffect(() => {
+    if (!memberScrollContainer) return;
+    if (!hasMoreMembers) return;
+    const { scrollHeight, clientHeight } = memberScrollContainer;
+    if (scrollHeight - clientHeight < MEMBER_SCROLL_THRESHOLD_PX) {
+      setVisibleMemberCount((prev) => {
+        if (prev >= totalMemberPool) {
+          return prev;
+        }
+        return Math.min(prev + MEMBER_LIST_PAGE_SIZE, totalMemberPool);
+      });
+    }
+  }, [memberScrollContainer, hasMoreMembers, totalMemberPool, visibleMemberCount]);
   const recommendedMembers = useMemo(
     () =>
       contextMembers
@@ -1260,7 +1400,7 @@ const Community: React.FC = () => {
         ? "Sending zap…"
         : canZap
           ? `Zap ${member.summary.displayName}`
-          : "Add your Lightning address to zap";
+          : "Preparing your Nostr keys…";
 
     return (
       <div
@@ -1449,26 +1589,67 @@ const Community: React.FC = () => {
       : isPersonalFeedView
         ? "Your Feed members"
         : "Community members";
+  const hasFollowingMembers = followingMemberEntries.length > 0;
+  const hasOtherOnlineMembers = otherOnlineMemberEntries.length > 0;
+  const visibleFollowingCount = displayedFollowingMembers.length;
+  const visibleOtherOnlineCount = displayedOtherOnlineMembers.length;
+
   const memberListContent =
-    contextMembers.length === 0 ? (
+    !currentMemberEntry && !hasFollowingMembers && !hasOtherOnlineMembers ? (
       <p className="rounded-2xl bg-[var(--bg-card)]/70 p-4 text-xs text-[var(--fg-muted)] shadow-sm">
         We&apos;ll show members here as soon as there&apos;s activity.
       </p>
     ) : (
       <div className="space-y-6">
-        <div className="space-y-3">{activeMembers.map((member) => renderMemberRow(member))}</div>
+        {currentMemberEntry && (
+          <div>
+            <h3 className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[var(--fg-muted)]">You</h3>
+            <div className="mt-3 space-y-3">{renderMemberRow(currentMemberEntry)}</div>
+          </div>
+        )}
         <div>
-          <h3 className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[var(--fg-muted)]">
-            Non-active Members
-          </h3>
-          {inactiveMembers.length === 0 ? (
-            <p className="mt-3 rounded-2xl bg-[var(--bg-card)]/70 p-4 text-xs text-[var(--fg-muted)] shadow-sm">
-              Everyone&apos;s active right now.
-            </p>
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[var(--fg-muted)]">
+              People you follow
+            </h3>
+            {hasFollowingMembers && (
+              <span className="text-[9px] uppercase tracking-[0.24em] text-[var(--fg-muted)]">
+                {`${visibleFollowingCount.toLocaleString()} / ${followingMemberEntries.length.toLocaleString()}`}
+              </span>
+            )}
+          </div>
+          {hasFollowingMembers ? (
+            <div className="mt-3 space-y-3">{displayedFollowingMembers.map((member) => renderMemberRow(member))}</div>
           ) : (
-            <div className="mt-3 space-y-3">{inactiveMembers.map((member) => renderMemberRow(member))}</div>
+            <p className="mt-3 rounded-2xl bg-[var(--bg-card)]/70 p-4 text-xs text-[var(--fg-muted)] shadow-sm">
+              Follow community members to see them here.
+            </p>
           )}
         </div>
+        <div>
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[var(--fg-muted)]">
+              Other online users
+            </h3>
+            {hasOtherOnlineMembers && (
+              <span className="text-[9px] uppercase tracking-[0.24em] text-[var(--fg-muted)]">
+                {`${visibleOtherOnlineCount.toLocaleString()} / ${otherOnlineMemberEntries.length.toLocaleString()}`}
+              </span>
+            )}
+          </div>
+          {hasOtherOnlineMembers ? (
+            <div className="mt-3 space-y-3">{displayedOtherOnlineMembers.map((member) => renderMemberRow(member))}</div>
+          ) : (
+            <p className="mt-3 rounded-2xl bg-[var(--bg-card)]/70 p-4 text-xs text-[var(--fg-muted)] shadow-sm">
+              No one else is online right now.
+            </p>
+          )}
+        </div>
+        {hasMoreMembers && (
+          <div className="text-center text-[9px] uppercase tracking-[0.3em] text-[var(--fg-muted)]">
+            Scroll to load more people
+          </div>
+        )}
       </div>
     );
   const renderTabButton = (tab: ViewTab, variant: "mobile" | "desktop") => {
@@ -1564,7 +1745,7 @@ const Community: React.FC = () => {
     }
     return formatDateLabel(firstVisible.created_at);
   }, [isCasualView, messages, virtualItems]);
-  const showJumpToBottom = isCasualView && !isAtBottom && messages.length > 0;
+  const showJumpToLatest = isCasualView && !isAtTop && messages.length > 0;
 
   const handleUploadFile = useCallback(
     async (file: File) => {
@@ -1778,8 +1959,8 @@ const Community: React.FC = () => {
         style={{ backgroundImage: backgroundTexture }}
         aria-hidden="true"
       />
-      <div className="relative z-0 flex min-h-screen w-full flex-col lg:flex-row">
-        <aside className="hidden w-80 flex-col border-r border-[var(--border-subtle)] bg-[var(--bg-card)]/70 px-5 py-8 backdrop-blur lg:flex">
+      <div className="relative z-0 flex min-h-screen w-full flex-col">
+        <aside className="hidden border-r border-[var(--border-subtle)] bg-[var(--bg-card)]/70 px-5 py-8 backdrop-blur lg:fixed lg:inset-y-0 lg:left-0 lg:flex lg:w-80 lg:flex-col">
           <nav
             aria-label="Community navigation"
             role="tablist"
@@ -1787,12 +1968,14 @@ const Community: React.FC = () => {
           >
             {DESKTOP_VIEW_TABS.map((tab) => renderTabButton(tab, "desktop"))}
           </nav>
-          <div className="mt-8 flex-1">
+          <div className="mt-8 flex-1 overflow-hidden">
             <h2 className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)]">{membersHeading}</h2>
-            <div className="mt-5 flex-1 overflow-y-auto pr-1 lg:max-h-[calc(100vh-12rem)]">{memberListContent}</div>
+            <div ref={memberScrollRef} className="mt-5 h-full overflow-y-auto pr-1">
+              {memberListContent}
+            </div>
           </div>
         </aside>
-        <div className="flex flex-1 min-h-0 flex-col">
+        <div className="flex flex-1 min-h-0 flex-col lg:pl-80">
           <div className="border-b border-[var(--border-subtle)] bg-[var(--bg-card)]/80 px-5 py-4 backdrop-blur lg:hidden">
             <nav
               aria-label="Community navigation"
@@ -1804,6 +1987,26 @@ const Community: React.FC = () => {
             </nav>
           </div>
           <main className="relative flex flex-1 min-h-0 flex-col">
+            <div className="flex flex-wrap items-center justify-end gap-2 border-b border-[var(--border-subtle)] bg-[var(--bg-card)]/60 px-5 py-3 text-[10px] uppercase tracking-[0.24em] text-[var(--fg-muted)] sm:px-8">
+              <div className="flex items-center gap-2 text-[11px] font-semibold text-[var(--fg-muted)]">
+                <Languages className="h-4 w-4 text-brand" aria-hidden="true" />
+                <span>
+                  Auto-translate: <span className="text-brand">{targetLanguageLabel}</span>
+                </span>
+              </div>
+              <button
+                type="button"
+                aria-pressed={autoTranslateEnabled}
+                onClick={() => setAutoTranslateEnabled(!autoTranslateEnabled)}
+                className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
+                  autoTranslateEnabled
+                    ? "border-brand/50 text-brand hover:border-brand"
+                    : "border-[var(--border-subtle)] text-[var(--fg-muted)] hover:border-brand hover:text-brand"
+                }`}
+              >
+                {autoTranslateEnabled ? "Turn off" : "Turn on"} translation
+              </button>
+            </div>
             {isCasualView ? (
               <section
                 id="community-panel-casual"
@@ -1820,25 +2023,29 @@ const Community: React.FC = () => {
                     </div>
                   </div>
                 )}
-                {showJumpToBottom && (
+                {showJumpToLatest && (
                   <button
                     type="button"
                     onClick={() => {
                       setNewMessageAnchor(null);
-                      scrollToBottom("smooth");
+                      scrollToTop("smooth");
                     }}
                     className="pointer-events-auto absolute bottom-28 right-6 z-30 inline-flex items-center gap-2 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-brand sm:bottom-36 sm:right-10"
                     style={jumpButtonStyle}
                   >
-                    <ArrowDown className="h-4 w-4" aria-hidden />
-                    Jump to bottom
+                    <ArrowUp className="h-4 w-4" aria-hidden />
+                    Jump to latest
                   </button>
                 )}
                 <ErrorBoundary fallback={chatListFallback}>
-                  <div ref={listRef} className="relative flex-1 overflow-y-auto overscroll-y-contain">
+                  <div
+                    ref={listRef}
+                    className="relative flex-1 overflow-y-auto overscroll-y-contain"
+                    style={{ scrollPaddingBottom: chatSpacing.scrollPadding }}
+                  >
                     <div
-                      className="px-4 pb-[calc(8rem+env(safe-area-inset-bottom,0px))] pt-6 sm:px-8 sm:pb-32"
-                      style={chatListPaddingStyle}
+                      className="px-4 pt-6 sm:px-8"
+                      style={{ paddingBottom: chatSpacing.contentPadding }}
                     >
                       <div
                         style={{ height: `${totalSize}px`, position: "relative" }}
@@ -1886,8 +2093,33 @@ const Community: React.FC = () => {
                               ? "Sending zap…"
                               : canZap
                                 ? "Zap this message"
-                                : "Add your Lightning address to zap";
+                                : "Preparing your Nostr keys…";
                           const messageSnippet = buildQuoteSnippet(message.markdown);
+                          const translationKey = messageZapKey;
+                          const translationEntry = getTranslation(translationKey);
+                          const translationStatus = translationEntry?.status ?? "idle";
+                          const rawTranslatedText =
+                            translationEntry?.translatedText &&
+                            translationEntry.translatedText.trim().length > 0
+                              ? translationEntry.translatedText
+                              : null;
+                          const translationReady = translationStatus === "ready" && !!rawTranslatedText;
+                          const showOriginal =
+                            !autoTranslateEnabled ||
+                            !translationReady ||
+                            isOriginalVisible(translationKey);
+                          const translatedHtml =
+                            translationReady && rawTranslatedText ? markdownToHtml(rawTranslatedText) : null;
+                          const renderedHtml =
+                            !showOriginal && translatedHtml ? translatedHtml : message.html;
+                          const detectedLanguageLabel =
+                            translationEntry?.detectedLanguage &&
+                            translationEntry.detectedLanguage.trim().length > 0
+                              ? formatLanguageName(translationEntry.detectedLanguage)
+                              : null;
+                          const translationNoticeColor = isSelf
+                            ? "text-white/70"
+                            : "text-[var(--fg-muted)]";
                           return (
                             <div
                               key={message.id}
@@ -1942,27 +2174,6 @@ const Community: React.FC = () => {
                                       : undefined
                                   }
                                 >
-                                  <div className="flex flex-col gap-1 text-[10px] uppercase tracking-[0.24em] sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-                                    <span
-                                      className={`flex items-center gap-2 font-semibold ${
-                                        isSelf ? "text-white" : "text-[var(--fg-default)]"
-                                      }`}
-                                    >
-                                      {!isSelf && (
-                                        <span
-                                          aria-hidden
-                                          className="inline-flex h-2 w-2 rounded-full"
-                                          style={{ backgroundColor: accent?.dot }}
-                                        />
-                                      )}
-                                      {summary.displayName}
-                                    </span>
-                                    <span
-                                      className={`${timestampColor} order-last block w-full text-left sm:order-none sm:w-auto sm:text-right`}
-                                    >
-                                      {formatTimestamp(message.created_at)}
-                                    </span>
-                                  </div>
                                   {message.quoteId && (
                                     <button
                                       type="button"
@@ -1997,8 +2208,53 @@ const Community: React.FC = () => {
                                     className={`prose prose-sm max-w-none whitespace-pre-wrap break-words ${
                                       isSelf ? "prose-invert" : "text-[var(--fg-default)]"
                                     } prose-a:text-brand`}
-                                    dangerouslySetInnerHTML={{ __html: message.html }}
+                                    dangerouslySetInnerHTML={{ __html: renderedHtml }}
                                   />
+                                  {autoTranslateEnabled && (
+                                    <div
+                                      className={`flex flex-wrap items-center gap-2 text-[9px] uppercase tracking-[0.3em] ${translationNoticeColor}`}
+                                    >
+                                      {translationStatus === "loading" ? (
+                                        <span>Translating…</span>
+                                      ) : translationStatus === "error" ? (
+                                        <>
+                                          <span>Translation unavailable</span>
+                                          <button
+                                            type="button"
+                                            onClick={() => refreshTranslation(translationKey, message.markdown)}
+                                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.3em] transition focus-visible:outline-none focus-visible:ring-1 ${
+                                              isSelf
+                                                ? "text-white hover:text-white focus-visible:ring-white/60"
+                                                : "text-brand hover:text-brand/80 focus-visible:ring-brand/60"
+                                            }`}
+                                          >
+                                            Retry
+                                          </button>
+                                        </>
+                                      ) : translationReady ? (
+                                        <>
+                                          <span>
+                                            {showOriginal
+                                              ? `Showing original${
+                                                  detectedLanguageLabel ? ` (${detectedLanguageLabel})` : ""
+                                                }`
+                                              : `Translated from ${detectedLanguageLabel ?? "original language"}`}
+                                          </span>
+                                          <button
+                                            type="button"
+                                            onClick={() => toggleOriginal(translationKey)}
+                                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.3em] transition focus-visible:outline-none focus-visible:ring-1 ${
+                                              isSelf
+                                                ? "text-white hover:text-white focus-visible:ring-white/60"
+                                                : "text-brand hover:text-brand/80 focus-visible:ring-brand/60"
+                                            }`}
+                                          >
+                                            {showOriginal ? "View translation" : "View original"}
+                                          </button>
+                                        </>
+                                      ) : null}
+                                    </div>
+                                  )}
                                   {message.attachments.length > 0 && (
                                     <div className="space-y-3">
                                       {message.attachments.map((attachment) => (
@@ -2101,7 +2357,7 @@ const Community: React.FC = () => {
                 </ErrorBoundary>
                 <div
                   ref={composerContainerRef}
-                  className="fixed bottom-0 left-0 right-0 z-40 border-t border-[var(--border-subtle)] bg-[var(--bg-card)]/95 px-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pt-4 backdrop-blur sm:px-8"
+                  className="fixed bottom-0 left-0 right-0 z-40 border-t border-[var(--border-subtle)] bg-[var(--bg-card)]/95 px-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pt-4 backdrop-blur sm:px-8 lg:left-80"
                 >
                   <div className="mx-auto w-full max-w-3xl space-y-3">
                     {typingSummaries.length > 0 && (
@@ -2226,7 +2482,9 @@ const Community: React.FC = () => {
                   <h2 className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)]">
                     {membersHeading}
                   </h2>
-                  <div className="mt-5 flex-1 overflow-y-auto pr-1">{memberListContent}</div>
+                  <div ref={memberScrollRef} className="mt-5 flex-1 overflow-y-auto pr-1">
+                    {memberListContent}
+                  </div>
                 </div>
               </section>
             )}
@@ -2277,5 +2535,11 @@ const Community: React.FC = () => {
     </div>
   );
 };
+
+const Community: React.FC = () => (
+  <CommunityTranslationProvider>
+    <CommunityView />
+  </CommunityTranslationProvider>
+);
 
 export default Community;

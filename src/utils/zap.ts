@@ -1,5 +1,5 @@
 import safeJsonFetch from "./safeJsonFetch";
-import type { EventTemplate } from "../lib/nostrToolsShim";
+import type { Event, EventTemplate } from "../lib/nostrToolsShim";
 
 const BECH32_CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
 
@@ -213,6 +213,10 @@ export interface RequestZapInvoiceParams {
   logger?: Pick<Console, "warn">;
 }
 
+export interface ZapInvoiceRequestResult extends ZapInvoiceResponse {
+  event?: Event;
+}
+
 export const requestZapInvoice = async ({
   details,
   amountMsat,
@@ -223,7 +227,7 @@ export const requestZapInvoice = async ({
   signEvent,
   lnurlRaw,
   logger,
-}: RequestZapInvoiceParams): Promise<ZapInvoiceResponse> => {
+}: RequestZapInvoiceParams): Promise<ZapInvoiceRequestResult> => {
   if (!signEvent) {
     throw new Error("Nostr signer is unavailable. Refresh and try again.");
   }
@@ -274,5 +278,8 @@ export const requestZapInvoice = async ({
     const reason = (invoiceResponse as { reason?: string }).reason ?? "Zap request failed.";
     throw new Error(reason);
   }
-  return invoiceResponse as ZapInvoiceResponse;
+  return {
+    ...(invoiceResponse as ZapInvoiceResponse),
+    event: details.allowsNostr === false ? undefined : (signed as Event),
+  };
 };

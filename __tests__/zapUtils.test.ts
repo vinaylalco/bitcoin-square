@@ -131,7 +131,12 @@ describe("zap utilities", () => {
       logger: { warn: vi.fn() },
     });
 
-    expect(result).toEqual(invoiceResponse);
+    expect(result).toEqual(
+      expect.objectContaining({
+        pr: "lnbc1exampleinvoice",
+        event: expect.objectContaining({ id: "signed-event", pubkey: "pubkey", kind: 9734 }),
+      }),
+    );
     expect(signEvent).toHaveBeenCalledTimes(1);
     expect(signEvent.mock.calls[0]?.[0]).toMatchObject({
       kind: 9734,

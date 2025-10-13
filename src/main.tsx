@@ -32,6 +32,7 @@ import CheckoutSuccess from "./routes/CheckoutSuccess";
 import CheckoutCancel from "./routes/CheckoutCancel";
 import Community from "./routes/Community";
 import Profile from "./routes/Profile";
+import Messages from "./routes/Messages";
 import { ProfileIdentityProvider } from "./context/ProfileIdentityContext";
 import { DirectMessageProvider } from "./context/DirectMessageContext";
 
@@ -62,6 +63,7 @@ const router = createBrowserRouter([
       { path: "checkout/cancel", element: <CheckoutCancel /> },
       { path: "community", element: <Community /> },
       { path: "profile/:pubkey", element: <Profile /> },
+      { path: "messages", element: <Messages /> },
     ],
   },
 ]);

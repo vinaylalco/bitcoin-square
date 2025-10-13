@@ -9,7 +9,7 @@ import {
 } from "../utils/chatCache";
 import { useNostrAccount } from "./useNostrAccount";
 import { publishWithPool, replicateWithPool } from "../lib/nostrPublish";
-import { decryptJson, encryptJson } from "../utils/aes";
+import { decryptChannelJson, encryptChannelJson } from "../utils/channelEncryption";
 import { getConfiguredCasualRoomKey } from "../config/nostr";
 import { useRoomKey } from "./useRoomKey";
 
@@ -431,7 +431,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
         return fallback;
       }
       try {
-        const payload = await decryptJson<FeedPayload>(FEED_ROOM_ID, event.content);
+        const payload = await decryptChannelJson<FeedPayload>(FEED_ROOM_ID, event.content);
         if (payload && typeof payload.body === "string") {
           const attachments = Array.isArray(payload.attachments)
             ? payload.attachments
@@ -769,7 +769,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
           attachments: normalizedAttachments,
         };
 
-        const encryptedContent = await encryptJson(FEED_ROOM_ID, payload);
+        const encryptedContent = await encryptChannelJson(FEED_ROOM_ID, payload);
 
         const template: EventTemplate = {
           kind: 1,

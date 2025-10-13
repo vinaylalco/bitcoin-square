@@ -1,10 +1,17 @@
 import React from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { Instagram } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 export default function Footer() {
   const { t } = useTranslation();
+  const location = useLocation();
+
+  const isCommunityRoute = /^\/community(?:\/|$)/i.test(location.pathname);
+
+  if (isCommunityRoute) {
+    return null;
+  }
 
   return (
     <footer className="mt-16 border-t border-[var(--border-subtle)] bg-[var(--bg-card)]/70 backdrop-blur">

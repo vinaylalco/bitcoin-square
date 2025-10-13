@@ -63,6 +63,11 @@ export class NostrClient {
     return signed;
   }
 
+  async broadcast(event: Event) {
+    await publishWithPool(this.pool, this.relays, event);
+    return event;
+  }
+
   dispose() {
     this.pool.close(this.relays);
   }

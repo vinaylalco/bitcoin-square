@@ -5,12 +5,8 @@ import MessageInput from "./MessageInput";
 import type { RoomDefinition } from "./RoomList";
 import { nostrClient } from "../lib/nostrClient";
 import { cacheMessage, getCachedMessages, type CachedMessage } from "../utils/chatCache";
-import {
-  decryptBinary,
-  decryptMessage,
-  encryptMessage,
-  hasRoomKey,
-} from "../utils/aes";
+import { decryptBinary, hasRoomKey } from "../utils/aes";
+import { decryptChannelText, encryptChannelText } from "../utils/channelEncryption";
 import {
   flushPendingEvents,
   queuePendingEvent,
@@ -208,7 +204,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ room, pubkey, prefetched }) => {
       if (event.kind === 1) {
         if (room.type === "private") {
           try {
-            const decrypted = await decryptMessage(room.id, event.content);
+            const decrypted = await decryptChannelText(room.id, event.content);
             return {
               id: event.id,
               pubkey: event.pubkey,
@@ -566,7 +562,8 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ room, pubkey, prefetched }) => {
         ["t", `server:${room.id}`],
       ];
 
-      const encryptedContent = room.type === "private" ? await encryptMessage(room.id, text) : text;
+      const encryptedContent =
+        room.type === "private" ? await encryptChannelText(room.id, text) : text;
 
       const template: EventTemplate = {
         kind: 1,

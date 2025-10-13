@@ -371,12 +371,17 @@ const fetchProfileFromApi = async (pubkey: string): Promise<BitcoinSquareProfile
 
 export const formatMemberSince = (value?: string | null) => {
   if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
+  const trimmed = value.trim();
+  if (!trimmed) return "—";
+  const date = new Date(trimmed);
+  if (Number.isNaN(date.getTime())) {
+    return trimmed;
+  }
   try {
     return new Intl.DateTimeFormat(undefined, {
       year: "numeric",
       month: "long",
+      day: "numeric",
     }).format(date);
   } catch (error) {
     console.warn("Failed to format member since", error);

@@ -13,14 +13,9 @@ import { createPortal } from "react-dom";
 import { useAuth } from "./AuthContext";
 import { useNostrAccount } from "../hooks/useNostrAccount";
 import { publishWithPool } from "../lib/nostrPublish";
-import {
-  SimplePool,
-  type Event,
-  type EventTemplate,
-  nip04Decrypt,
-  nip04Encrypt,
-} from "../lib/nostrToolsShim";
+import { SimplePool, type Event, type EventTemplate } from "../lib/nostrToolsShim";
 import { useProfileIdentity } from "./ProfileIdentityContext";
+import { decryptDirectMessage, encryptDirectMessage } from "../utils/directMessageEncryption";
 
 const DM_RELAYS = ["wss://relay.damus.io", "wss://relay.primal.net", "wss://nos.lol"];
 const PORTAL_ELEMENT_ID = "direct-message-root";
@@ -174,38 +169,20 @@ export const DirectMessageProvider: React.FC<React.PropsWithChildren> = ({ child
 
   const encryptWithPeer = useCallback(
     async (peerPubkey: string, plaintext: string) => {
-      if (typeof window !== "undefined" && window.nostr?.nip04?.encrypt) {
-        try {
-          return await window.nostr.nip04.encrypt(peerPubkey, plaintext);
-        } catch (error) {
-          if (import.meta.env?.DEV) {
-            console.warn("NIP-04 extension encryption failed, falling back", error);
-          }
-        }
-      }
       if (!privkeyHex) {
-        throw new Error("Missing Nostr private key for encryption.");
+        throw new Error("A stored Nostr private key is required to send encrypted messages.");
       }
-      return nip04Encrypt(privkeyHex, peerPubkey, plaintext);
+      return encryptDirectMessage(privkeyHex, peerPubkey, plaintext);
     },
     [privkeyHex],
   );
 
   const decryptWithPeer = useCallback(
     async (peerPubkey: string, payload: string) => {
-      if (typeof window !== "undefined" && window.nostr?.nip04?.decrypt) {
-        try {
-          return await window.nostr.nip04.decrypt(peerPubkey, payload);
-        } catch (error) {
-          if (import.meta.env?.DEV) {
-            console.warn("NIP-04 extension decryption failed, falling back", error);
-          }
-        }
-      }
       if (!privkeyHex) {
-        throw new Error("Missing Nostr private key for decryption.");
+        throw new Error("A stored Nostr private key is required to read encrypted messages.");
       }
-      return nip04Decrypt(privkeyHex, peerPubkey, payload);
+      return decryptDirectMessage(privkeyHex, peerPubkey, payload);
     },
     [privkeyHex],
   );

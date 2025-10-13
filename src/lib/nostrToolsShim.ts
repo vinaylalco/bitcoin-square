@@ -58,6 +58,15 @@ type Nip04Module = {
   decrypt: (secretKey: string, pubkey: string, ciphertext: string) => Promise<string>;
 };
 
+type Nip44Module = {
+  encrypt: (plaintext: string, conversationKey: Uint8Array, nonce?: Uint8Array) => string | Promise<string>;
+  decrypt: (payload: string, conversationKey: Uint8Array) => string | Promise<string>;
+  getConversationKey?: (privkey: Uint8Array, pubkey: string) => Uint8Array | Promise<Uint8Array>;
+  utils?: {
+    getConversationKey?: (privkey: Uint8Array, pubkey: string) => Uint8Array | Promise<Uint8Array>;
+  };
+};
+
 type SimplePoolModule = {
   SimplePool: new () => {
     subscribeMany: (relays: string[], filters: Filter[], opts?: SubscribeHandlers) => Subscription;
@@ -67,6 +76,7 @@ type SimplePoolModule = {
   finalizeEvent: (template: EventTemplate, privkey: Uint8Array) => Event;
   getPublicKey: (privkey: Uint8Array) => string;
   nip04?: Nip04Module;
+  nip44?: Nip44Module;
 };
 
 const MODULE_URL = "https://esm.sh/nostr-tools@2.10.4?bundle";
@@ -90,7 +100,9 @@ const normalizeModule = (input: unknown): SimplePoolModule => {
   }
 
   const { SimplePool, finalizeEvent, getPublicKey } = candidate as Record<string, unknown>;
-  const nip04Candidate = (candidate as Record<string, unknown>).nip04 as Nip04Module | undefined;
+  const record = candidate as Record<string, unknown>;
+  const nip04Candidate = record.nip04 as Nip04Module | undefined;
+  const nip44Candidate = record.nip44 as Nip44Module | undefined;
 
   if (typeof SimplePool !== "function" || typeof finalizeEvent !== "function" || typeof getPublicKey !== "function") {
     throw new Error("nostr-tools module is missing required exports");
@@ -103,6 +115,12 @@ const normalizeModule = (input: unknown): SimplePoolModule => {
     nip04:
       nip04Candidate && typeof nip04Candidate.encrypt === "function" && typeof nip04Candidate.decrypt === "function"
         ? nip04Candidate
+        : undefined,
+    nip44:
+      nip44Candidate &&
+      typeof nip44Candidate.encrypt === "function" &&
+      typeof nip44Candidate.decrypt === "function"
+        ? nip44Candidate
         : undefined,
   };
 };
@@ -206,4 +224,55 @@ export const nip04Decrypt = async (secretKey: string, pubkey: string, ciphertext
     throw new Error("nostr-tools nip04 helpers are unavailable");
   }
   return mod.nip04.decrypt(secretKey, pubkey, ciphertext);
+};
+
+const resolveNip44 = async (): Promise<Required<Nip44Module>> => {
+  const mod = await loadModule();
+  if (!mod.nip44) {
+    throw new Error("nostr-tools nip44 helpers are unavailable");
+  }
+
+  const nip44 = mod.nip44;
+  const conversationResolver =
+    typeof nip44.getConversationKey === "function"
+      ? nip44.getConversationKey.bind(nip44)
+      : typeof nip44.utils?.getConversationKey === "function"
+        ? nip44.utils.getConversationKey.bind(nip44.utils)
+        : null;
+
+  if (!conversationResolver) {
+    throw new Error("nostr-tools nip44 helpers are missing getConversationKey");
+  }
+
+  const encrypt = nip44.encrypt.bind(nip44);
+  const decrypt = nip44.decrypt.bind(nip44);
+
+  return {
+    encrypt: async (plaintext: string, conversationKey: Uint8Array, nonce?: Uint8Array) =>
+      (await encrypt(plaintext, conversationKey, nonce)) as string,
+    decrypt: async (payload: string, conversationKey: Uint8Array) =>
+      (await decrypt(payload, conversationKey)) as string,
+    getConversationKey: async (privkey: Uint8Array, pubkey: string) =>
+      (await conversationResolver(privkey, pubkey)) as Uint8Array,
+    utils: { getConversationKey: conversationResolver },
+  };
+};
+
+export const nip44GetConversationKey = async (privkey: Uint8Array, pubkey: string): Promise<Uint8Array> => {
+  const mod = await resolveNip44();
+  return mod.getConversationKey(privkey, pubkey);
+};
+
+export const nip44Encrypt = async (
+  plaintext: string,
+  conversationKey: Uint8Array,
+  nonce?: Uint8Array,
+): Promise<string> => {
+  const mod = await resolveNip44();
+  return mod.encrypt(plaintext, conversationKey, nonce);
+};
+
+export const nip44Decrypt = async (payload: string, conversationKey: Uint8Array): Promise<string> => {
+  const mod = await resolveNip44();
+  return mod.decrypt(payload, conversationKey);
 };

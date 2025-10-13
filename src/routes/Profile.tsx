@@ -1,12 +1,15 @@
 import React, { useMemo } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
-import { Copy, MessageCircle, RefreshCw } from "lucide-react";
+import { Copy, Info, MessageCircle, RefreshCw } from "lucide-react";
 
 import {
   formatMemberSince,
   useProfileIdentity,
   useUserProfile,
 } from "../context/ProfileIdentityContext";
+
+const STATS_EXPLANATION =
+  "Stats reflect verified posts, reactions, and follower endorsements recorded on Bitcoin Square. Rankings refresh nightly based on your reputation points.";
 
 const Profile: React.FC = () => {
   const { pubkey } = useParams<{ pubkey: string }>();
@@ -105,21 +108,43 @@ const Profile: React.FC = () => {
           <dl className="grid gap-4 sm:grid-cols-2">
             <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-4">
               <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">Member since</dt>
-              <dd className="mt-2 text-sm font-medium">{memberSince}</dd>
+              <dd className="mt-2 text-sm font-medium" title={profile?.joined ?? undefined}>
+                {memberSince}
+              </dd>
             </div>
             <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-4">
               <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">Total posts</dt>
               <dd className="mt-2 text-sm font-medium">{totalPosts}</dd>
             </div>
             <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-4">
-              <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">Reputation score</dt>
+              <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">
+                <span className="inline-flex items-center gap-1.5">
+                  Reputation score
+                  <Info
+                    className="h-3.5 w-3.5 text-[var(--fg-muted)]"
+                    aria-hidden="true"
+                    title={STATS_EXPLANATION}
+                  />
+                </span>
+              </dt>
               <dd className="mt-2 text-sm font-medium">{reputation}</dd>
             </div>
             <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-4">
-              <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">Community rank</dt>
+              <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">
+                <span className="inline-flex items-center gap-1.5">
+                  Community rank
+                  <Info
+                    className="h-3.5 w-3.5 text-[var(--fg-muted)]"
+                    aria-hidden="true"
+                    title={STATS_EXPLANATION}
+                  />
+                </span>
+              </dt>
               <dd className="mt-2 text-sm font-medium">{rank}</dd>
             </div>
           </dl>
+
+          <p className="mt-2 text-[0.65rem] text-[var(--fg-muted)]">{STATS_EXPLANATION}</p>
 
           {profile?.lightningAddress && (
             <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-4 text-sm text-[var(--fg-default)]">
