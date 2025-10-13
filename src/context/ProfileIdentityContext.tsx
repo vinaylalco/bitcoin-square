@@ -84,6 +84,73 @@ const fallbackAvatar = (pubkey: string) => generateWarmAvatar(pubkey);
 
 const profileUrl = (pubkey: string) => `https://bitcoinsquare.io/profile/${pubkey}`;
 
+const env = (() => {
+  const nodeProcess =
+    typeof globalThis !== "undefined" && (globalThis as { process?: { env?: Record<string, string | undefined> } })?.process;
+  if (nodeProcess?.env) {
+    return nodeProcess.env;
+  }
+  if (typeof import.meta !== "undefined" && (import.meta as any)?.env) {
+    return (import.meta as any).env as Record<string, string | undefined>;
+  }
+  return {} as Record<string, string | undefined>;
+})();
+
+const resolveProfileApiBase = () => {
+  const candidates = [
+    env.VITE_PROFILE_API_BASE_URL,
+    env.VITE_PROFILE_SERVICE_URL,
+    env.NEXT_PUBLIC_PROFILE_API_BASE_URL,
+    env.NEXT_PUBLIC_PROFILE_SERVICE_URL,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim().length > 0) {
+      const trimmed = candidate.trim();
+      return trimmed.endsWith("/") ? trimmed.slice(0, -1) : trimmed;
+    }
+  }
+
+  return "https://bitcoinsquare.io/api";
+};
+
+const PROFILE_API_BASE = resolveProfileApiBase();
+
+const trimTrailingSlash = (value: string) => (value.endsWith("/") ? value.slice(0, -1) : value);
+
+const resolveProfileApiTemplates = () => {
+  const overrides = [
+    env.VITE_PROFILE_API_URL,
+    env.NEXT_PUBLIC_PROFILE_API_URL,
+    env.VITE_PROFILE_API_ENDPOINT,
+    env.NEXT_PUBLIC_PROFILE_API_ENDPOINT,
+  ].filter((value): value is string => typeof value === "string" && value.trim().length > 0);
+
+  const normalizedOverrides = overrides.map((value) => value.trim());
+  if (normalizedOverrides.length > 0) {
+    return Array.from(
+      new Set(
+        normalizedOverrides.flatMap((value) =>
+          value.includes("{pubkey}")
+            ? [value]
+            : [
+                `${trimTrailingSlash(value)}/users/{pubkey}.json`,
+                `${trimTrailingSlash(value)}/users/{pubkey}`,
+              ],
+        ),
+      ),
+    );
+  }
+
+  const base = trimTrailingSlash(PROFILE_API_BASE);
+  return [`${base}/users/{pubkey}.json`, `${base}/users/{pubkey}`];
+};
+
+const PROFILE_API_TEMPLATES = resolveProfileApiTemplates();
+
+const buildProfileApiCandidates = (pubkey: string) =>
+  PROFILE_API_TEMPLATES.map((template) => template.replace("{pubkey}", encodeURIComponent(pubkey)));
+
 const FOLLOWING_STORAGE_KEY = "bitcoin-square-following";
 const CACHE_TTL = 1000 * 60 * 15; // 15 minutes
 
@@ -275,20 +342,31 @@ const persistFollowState = (following: Set<string>, followers: Map<string, Set<s
 export const PROFILE_FALLBACK_MESSAGE = "Profile unavailable. Try again later.";
 
 const fetchProfileFromApi = async (pubkey: string): Promise<BitcoinSquareProfile> => {
-  try {
-    const response = await safeJsonFetch<unknown>(`https://bitcoinsquare.io/api/users/${pubkey}`);
-    const payload = extractProfilePayload(pubkey, response);
-    return normalizeProfile(pubkey, payload);
-  } catch (error) {
-    if (isJsonFetchError(error)) {
-      const normalized = handleJsonFetchError(pubkey, error);
+  const urls = buildProfileApiCandidates(pubkey);
+  const errors: unknown[] = [];
+  for (const url of urls) {
+    try {
+      const response = await safeJsonFetch<unknown>(url);
+      const payload = extractProfilePayload(pubkey, response);
+      return normalizeProfile(pubkey, payload);
+    } catch (error) {
+      errors.push(error);
+    }
+  }
+
+  const finalError = errors.at(-1);
+  if (finalError) {
+    if (isJsonFetchError(finalError)) {
+      const normalized = handleJsonFetchError(pubkey, finalError);
       throw new ProfileFetchError(PROFILE_FALLBACK_MESSAGE, { cause: normalized });
     }
-    if (error instanceof ProfileFetchError) {
-      throw error;
+    if (finalError instanceof ProfileFetchError) {
+      throw finalError;
     }
-    throw new ProfileFetchError(PROFILE_FALLBACK_MESSAGE, { cause: error });
+    throw new ProfileFetchError(PROFILE_FALLBACK_MESSAGE, { cause: finalError });
   }
+
+  throw new ProfileFetchError(PROFILE_FALLBACK_MESSAGE);
 };
 
 export const formatMemberSince = (value?: string | null) => {
