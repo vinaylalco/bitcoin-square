@@ -1,380 +1,314 @@
-import React, { useEffect, useRef, useState } from "react";
-import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
-import {
-  BookOpen,
-  Home as HomeIcon,
-  LayoutDashboard,
-  Mail,
-  Menu,
-  Users,
-  Settings,
-  ShoppingBag,
-  X,
-} from "lucide-react";
-import { useTranslation } from "react-i18next";
-import FocusTrap from "./components/FocusTrap";
-import { useSwipe } from "./hooks/useSwipe";
-import { useTheme } from "./context/ThemeContext";
-import { useAuth } from "./context/AuthContext";
-import Footer from "./components/Footer";
-import ProfileModalPortal from "./components/profile/ProfileModal";
-import { cn } from "./utils/cn";
+import { courseContent } from "./data/course";
+
+function countTopics() {
+  return courseContent.modules.reduce((sum, module) => sum + module.topics.length, 0);
+}
+
+function countLessons() {
+  return courseContent.modules.reduce(
+    (sum, module) => sum + module.topics.reduce((topicSum, topic) => topicSum + topic.lessons.length, 0),
+    0,
+  );
+}
+
+const navItems = [
+  { label: "Overview", href: "#overview" },
+  { label: "Curriculum", href: "#curriculum" },
+  { label: "Resources", href: "#resources" },
+  { label: "FAQ", href: "#faq" },
+];
 
 export default function App() {
-  const [open, setOpen] = useState(false);
-  const [mobileEducationOpen, setMobileEducationOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement | null>(null);
-  const drawerRef = useRef<HTMLDivElement | null>(null);
-
-  const { t, i18n } = useTranslation();
-  const loc = useLocation();
-  const { theme } = useTheme(); // ensures theme context is mounted
-  const { user, logout } = useAuth();
-
-  const hideFooterOnPage = /^\/education\/[\w-]+/.test(loc.pathname) || loc.pathname.startsWith("/community");
-
-  const lang = (i18n.language || "en").toLowerCase().startsWith("es") ? "es" : "en";
-  const changeLang = (lng: "en" | "es") => i18n.changeLanguage(lng);
-
-  const educationChildren = [
-    {
-      label: t("app.btcFullCourse"),
-      to: "/education/full-btc-course",
-    },
-  ];
-
-  const desktopNav = [
-    { label: t("nav.education"), to: "/education", dropdown: educationChildren },
-    { label: t("nav.shop"), to: "/shop" },
-    { label: t("nav.newsletter"), to: "/newsletter" },
-    { label: t("nav.community"), to: "/community" },
-    { label: t("nav.settings"), to: "/settings" },
-  ];
-
-  useEffect(() => setOpen(false), [loc.pathname]);
-
-  useEffect(() => {
-    const el = document.documentElement;
-    if (open) {
-      el.classList.add("overflow-hidden");
-    } else {
-      el.classList.remove("overflow-hidden");
-    }
-    return () => el.classList.remove("overflow-hidden");
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
-
-  useSwipe(drawerRef, {
-    enabled: open,
-    axis: "x",
-    onMove: (dx) => {
-      if (dx > 0 && drawerRef.current) {
-        drawerRef.current.style.transform = `translateX(${Math.min(dx, 72)}px)`;
-      }
-    },
-    onEnd: (dx) => {
-      if (!drawerRef.current) return;
-      drawerRef.current.style.transform = "";
-      if (dx > 60) setOpen(false);
-    },
-  });
+  const totalModules = courseContent.modules.length;
+  const totalTopics = countTopics();
+  const totalLessons = countLessons();
 
   return (
-    <div className="min-h-screen min-h-mobile-fill bg-[var(--bg-app)] text-[var(--fg-default)] transition-colors duration-300">
-      <header
-        data-app-header
-        className="sticky top-0 z-50 border-b border-[var(--border-subtle)] bg-[var(--bg-card)]/90 backdrop-blur"
-      >
+    <div className="min-h-screen bg-[var(--bg-app)] text-[var(--fg-default)]">
+      <header className="sticky top-0 z-40 border-b border-[var(--border-subtle)] bg-[var(--bg-card)]/90 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-          <div className="flex items-center gap-3 lg:gap-6">
-            <button
-              ref={triggerRef}
-              onClick={() => setOpen((v) => !v)}
-              aria-label={open ? t("app.mobileMenu.closeAria") : t("app.mobileMenu.openAria")}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--fg-default)] shadow-sm transition-colors hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand lg:hidden"
-            >
-              {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </button>
+          <a href="#overview" className="flex items-center gap-2 text-lg font-black uppercase tracking-[0.28em]">
+            <span className="flex items-center gap-2">
+              <img src="/btc_B_orange.png" alt="Bitcoin Square" className="h-5 w-5" />
+              <span className="sr-only">Bitcoin</span>
+              <span>itcoin</span>
+            </span>
+            <span className="rounded-full bg-brand px-2 py-0.5 text-[0.65rem] font-semibold text-white">Square</span>
+          </a>
 
-            <Link to="/" className="flex items-center gap-2">
-              <span className="relative flex items-center gap-2 text-lg font-black uppercase tracking-[0.28em]">
-                <span className="flex items-center gap-2">
-                  <img
-                    src={theme === "dark" ? "/btc_B_white.png" : "/btc_B_orange.png"}
-                    alt=""
-                    aria-hidden
-                    className="h-5 w-5 object-contain"
-                  />
-                  <span className="sr-only">Bitcoin</span>
-                  <span>itcoin</span>
-                </span>
-                <span className="rounded-full bg-brand px-2 py-0.5 text-[0.65rem] font-semibold text-white">Square</span>
-              </span>
-            </Link>
-          </div>
-
-          <nav className="hidden lg:flex items-center gap-8 text-sm font-semibold uppercase tracking-[0.22em]">
-            {desktopNav.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                className={({ isActive }) =>
-                  cn(
-                    "inline-flex items-center gap-2 py-2 transition",
-                    item.highlight
-                      ? "rounded-full border border-brand px-4 text-xs tracking-[0.32em] text-brand hover:-translate-y-0.5 hover:border-brand hover:shadow-[0_12px_30px_rgba(169,21,255,0.35)]"
-                      : "text-[var(--fg-muted)] hover:text-brand",
-                    isActive && (item.highlight ? "bg-brand text-white" : "text-brand"),
-                  )
-                }
-              >
+          <nav className="hidden items-center gap-8 text-xs font-semibold uppercase tracking-[0.32em] sm:flex">
+            {navItems.map((item) => (
+              <a key={item.href} href={item.href} className="text-[var(--fg-muted)] transition hover:text-brand">
                 {item.label}
-              </NavLink>
+              </a>
             ))}
           </nav>
-
-          <div className="hidden items-center gap-3 lg:flex">
-            {user ? (
-              <>
-                <NavLink
-                  to="/dashboard"
-                  className={({ isActive }) =>
-                    cn(
-                      "rounded-full border border-brand/30 px-4 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-brand transition hover:-translate-y-0.5 hover:border-brand hover:shadow-[0_12px_30px_rgba(169,21,255,0.35)]",
-                      isActive && "bg-brand text-white",
-                    )
-                  }
-                >
-                  {t("nav.dashboard")}
-                </NavLink>
-                <button
-                  onClick={logout}
-                  className="rounded-full border border-[var(--border-subtle)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)] transition hover:text-brand hover:shadow-sm"
-                >
-                  {t("nav.logout")}
-                </button>
-              </>
-            ) : (
-              <NavLink
-                to="/login"
-                className={({ isActive }) =>
-                  cn(
-                    "rounded-full border border-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-white transition hover:-translate-y-0.5 hover:shadow-[0_12px_30px_rgba(169,21,255,0.35)]",
-                    isActive ? "bg-brand" : "bg-gradient-to-r from-brand via-brand/90 to-[#FFF582]",
-                  )
-                }
-              >
-                {t("nav.login")}
-              </NavLink>
-            )}
-          </div>
+          <a
+            href="#curriculum"
+            className="hidden rounded-full border border-brand bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-white shadow-[0_12px_30px_rgba(169,21,255,0.35)] transition hover:-translate-y-0.5 sm:inline-flex"
+          >
+            View lessons
+          </a>
         </div>
       </header>
 
-      {open && (
-        <div
-          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden"
-          onClick={() => setOpen(false)}
-          aria-hidden
-        />
-      )}
+      <main className="mx-auto max-w-6xl space-y-24 px-4 py-16 sm:px-6">
+        <section id="overview" className="space-y-12">
+          <div className="grid gap-12 lg:grid-cols-2 lg:items-center">
+            <div className="space-y-6">
+              <p className="text-xs font-semibold uppercase tracking-[0.32em] text-brand">{courseContent.tagline}</p>
+              <h1 className="text-4xl font-black tracking-tight sm:text-5xl">{courseContent.title}</h1>
+              <p className="text-lg leading-relaxed text-[var(--fg-muted)]">{courseContent.description}</p>
+              <p className="text-sm font-semibold uppercase tracking-[0.32em] text-brand/80">
+                {totalModules} modules · {totalTopics} topics · {totalLessons} lessons
+              </p>
 
-      <aside
-        ref={drawerRef}
-        className={cn(
-          "fixed top-0 left-0 z-50 h-full w-80 transform border-r border-[var(--border-subtle)] bg-white text-neutral-900 shadow-[var(--shadow-soft)] transition-transform duration-300 dark:bg-black dark:text-white lg:hidden",
-          open ? "translate-x-0" : "-translate-x-full",
-        )}
-        role="dialog"
-        aria-modal="true"
-        aria-label={t("app.mobileMenu.ariaLabel")}
-      >
-        <FocusTrap active={open} onDeactivate={() => setOpen(false)} returnFocusRef={triggerRef}>
-          <div className="flex h-full flex-col overflow-y-auto touch-momentum">
-            <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-5 py-4">
-              <span className="text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)] dark:text-white">
-                {t("app.mobileMenu.title")}
-              </span>
-              <button
-                onClick={() => setOpen(false)}
-                className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] px-3 py-1 text-xs uppercase tracking-[0.32em] text-[var(--fg-muted)] transition hover:text-brand dark:text-white"
-              >
-                {t("app.mobileMenu.close")}
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <nav className="flex flex-1 flex-col gap-2 px-5 py-6 text-sm font-semibold uppercase tracking-[0.32em]">
-              <NavLink
-                to="/"
-                onClick={() => setOpen(false)}
-                className={({ isActive }) =>
-                  cn(
-                    "inline-flex items-center gap-3 rounded-2xl border border-transparent px-4 py-3 transition hover:border-brand/40 hover:bg-brand/5",
-                    isActive && "border-brand bg-brand/10 text-brand",
-                  )
-                }
-              >
-                <HomeIcon className="h-5 w-5" /> {t("nav.home")}
-              </NavLink>
-              <div>
-                <button
-                  onClick={() => setMobileEducationOpen((prev) => !prev)}
-                  className={cn(
-                    "flex w-full items-center justify-between gap-3 rounded-2xl border border-transparent px-4 py-3 transition hover:border-brand/40 hover:bg-brand/5",
-                    mobileEducationOpen && "border-brand bg-brand/10 text-brand",
-                  )}
-                >
-                  <span className="inline-flex items-center gap-3">
-                    <BookOpen className="h-5 w-5" /> {t("nav.education")}
-                  </span>
-                  <span className="text-[0.65rem]">{mobileEducationOpen ? "−" : "+"}</span>
-                </button>
-                <div className={cn("mt-2 space-y-2 pl-10 text-[0.65rem] font-semibold", mobileEducationOpen ? "block" : "hidden")}
-                >
-                  {educationChildren.map((item) => (
-                    <NavLink
-                      key={item.to}
-                      to={item.to}
-                      onClick={() => setOpen(false)}
-                      className={({ isActive }) =>
-                        cn(
-                          "block rounded-2xl border border-transparent px-3 py-2 tracking-[0.4em] text-[var(--fg-muted)] transition hover:border-brand/40 hover:bg-brand/5 hover:text-brand dark:text-white dark:hover:text-brand",
-                          isActive && "border-brand bg-brand/10 text-brand",
-                        )
-                      }
-                    >
-                      {item.label}
-                    </NavLink>
-                  ))}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">Duration</p>
+                  <p className="mt-2 text-xl font-semibold">{courseContent.estimatedLength}</p>
+                </div>
+                <div className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">Level</p>
+                  <p className="mt-2 text-xl font-semibold">{courseContent.level}</p>
+                </div>
+                <div className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">Modules</p>
+                  <p className="mt-2 text-xl font-semibold">{totalModules}</p>
+                </div>
+                <div className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">Lessons</p>
+                  <p className="mt-2 text-xl font-semibold">{totalLessons}</p>
                 </div>
               </div>
-              <NavLink
-                to="/shop"
-                onClick={() => setOpen(false)}
-                className={({ isActive }) =>
-                  cn(
-                    "inline-flex items-center gap-3 rounded-2xl border border-transparent px-4 py-3 transition hover:border-brand/40 hover:bg-brand/5",
-                    isActive && "border-brand bg-brand/10 text-brand",
-                  )
-                }
-              >
-                <ShoppingBag className="h-5 w-5" /> {t("nav.shop")}
-              </NavLink>
-              <NavLink
-                to="/newsletter"
-                onClick={() => setOpen(false)}
-                className={({ isActive }) =>
-                  cn(
-                    "inline-flex items-center gap-3 rounded-2xl border border-transparent px-4 py-3 transition hover:border-brand/40 hover:bg-brand/5",
-                    isActive && "border-brand bg-brand/10 text-brand",
-                  )
-                }
-              >
-                <Mail className="h-5 w-5" /> {t("nav.newsletter")}
-              </NavLink>
-              <NavLink
-                to="/community"
-                onClick={() => setOpen(false)}
-                className={({ isActive }) =>
-                  cn(
-                    "inline-flex items-center gap-3 rounded-2xl border border-transparent px-4 py-3 transition hover:border-brand/40 hover:bg-brand/5",
-                    isActive && "border-brand bg-brand/10 text-brand",
-                  )
-                }
-              >
-                <Users className="h-5 w-5" /> {t("nav.community")}
-              </NavLink>
-              <NavLink
-                to="/settings"
-                onClick={() => setOpen(false)}
-                className={({ isActive }) =>
-                  cn(
-                    "inline-flex items-center gap-3 rounded-2xl border border-transparent px-4 py-3 transition hover:border-brand/40 hover:bg-brand/5",
-                    isActive && "border-brand bg-brand/10 text-brand",
-                  )
-                }
-              >
-                <Settings className="h-5 w-5" /> {t("nav.settings")}
-              </NavLink>
-              {user ? (
-                <>
-                  <NavLink
-                    to="/dashboard"
-                    onClick={() => setOpen(false)}
-                    className={({ isActive }) =>
-                      cn(
-                        "inline-flex items-center gap-3 rounded-2xl border border-transparent px-4 py-3 transition hover:border-brand/40 hover:bg-brand/5",
-                        isActive && "border-brand bg-brand/10 text-brand",
-                      )
-                    }
-                  >
-                    <LayoutDashboard className="h-5 w-5" /> {t("nav.dashboard")}
-                  </NavLink>
-                  <button
-                    onClick={() => {
-                      logout();
-                      setOpen(false);
-                    }}
-                    className="inline-flex items-center gap-3 rounded-2xl border border-transparent px-4 py-3 text-left text-[var(--fg-muted)] transition hover:border-brand/40 hover:bg-brand/5 hover:text-brand"
-                  >
-                    {t("nav.logout")}
-                  </button>
-                </>
-              ) : (
-                <NavLink
-                  to="/login"
-                  onClick={() => setOpen(false)}
-                  className={({ isActive }) =>
-                  cn(
-                    "inline-flex items-center justify-center gap-3 rounded-2xl border border-brand px-4 py-3 text-white transition hover:-translate-y-0.5 hover:shadow-[0_12px_30px_rgba(169,21,255,0.35)]",
-                    isActive ? "bg-brand" : "bg-gradient-to-r from-brand via-brand/90 to-[#FFF582]",
-                  )
-                  }
+
+              <div className="flex flex-wrap gap-3 pt-2">
+                <a
+                  href="#curriculum"
+                  className="inline-flex rounded-full border border-brand bg-brand px-6 py-3 text-xs font-semibold uppercase tracking-[0.32em] text-white shadow-[0_12px_30px_rgba(169,21,255,0.35)] transition hover:-translate-y-0.5"
                 >
-                  {t("nav.login")}
-                </NavLink>
-              )}
-            </nav>
-            <div className="px-5 pb-6">
-              <p className="text-[0.65rem] font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">{t("common.language")}</p>
-              <div className="mt-3 inline-flex overflow-hidden rounded-full border border-[var(--border-subtle)]">
-                <button
-                  onClick={() => changeLang("en")}
-                  className={cn(
-                    "px-4 py-2 text-[0.65rem] font-semibold uppercase tracking-[0.32em] transition",
-                    lang === "en" ? "bg-brand text-white" : "text-[var(--fg-muted)] hover:text-brand",
-                  )}
+                  Start learning
+                </a>
+                <a
+                  href="#resources"
+                  className="inline-flex rounded-full border border-[var(--border-subtle)] px-6 py-3 text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)] transition hover:text-brand"
                 >
-                  EN
-                </button>
-                <button
-                  onClick={() => changeLang("es")}
-                  className={cn(
-                    "px-4 py-2 text-[0.65rem] font-semibold uppercase tracking-[0.32em] transition",
-                    lang === "es" ? "bg-brand text-white" : "text-[var(--fg-muted)] hover:text-brand",
-                  )}
-                >
-                  ES
-                </button>
+                  Download materials
+                </a>
+              </div>
+            </div>
+
+            <div className="relative overflow-hidden rounded-4xl border border-[var(--border-subtle)] shadow-[var(--shadow-soft)]">
+              <div className="aspect-video w-full bg-black">
+                <iframe
+                  src={courseContent.heroVideo}
+                  title="Course introduction"
+                  loading="lazy"
+                  className="h-full w-full"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
               </div>
             </div>
           </div>
-        </FocusTrap>
-      </aside>
 
-      <main className="flex-1">
-        <Outlet />
-        {!hideFooterOnPage && <Footer />}
+          <div className="grid gap-6 rounded-4xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-8 sm:grid-cols-2">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">Languages</p>
+              <p className="mt-2 text-lg font-semibold text-[var(--fg-default)]">{courseContent.language}</p>
+              <p className="mt-2 text-sm leading-relaxed text-[var(--fg-muted)]">
+                Each lesson includes bilingual vocabulary, facilitator notes, and discussion prompts so the material works anywhere.
+              </p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">Included resources</p>
+              <ul className="mt-3 space-y-2 text-sm text-[var(--fg-default)]">
+                {courseContent.resources.map((item) => (
+                  <li key={item} className="flex items-start gap-2">
+                    <span className="mt-1 h-2 w-2 rounded-full bg-brand" aria-hidden />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section id="curriculum" className="space-y-12">
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.32em] text-brand">Curriculum</p>
+            <h2 className="text-3xl font-black tracking-tight sm:text-4xl">What you will explore</h2>
+            <p className="max-w-3xl text-base leading-relaxed text-[var(--fg-muted)]">
+              The course is organised into modules that build on each other. Topics include videos, facilitator guidance, and lesson plans
+              that you can download or remix for your local workshops.
+            </p>
+          </div>
+
+          <div className="space-y-10">
+            {courseContent.modules.map((module, moduleIndex) => (
+              <article
+                key={module.id}
+                className="space-y-6 rounded-4xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-8 shadow-[var(--shadow-soft)]"
+              >
+                <header className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">
+                    Module {moduleIndex + 1}
+                  </p>
+                  <h3 className="text-2xl font-bold tracking-tight">{module.title}</h3>
+                  <p className="text-sm leading-relaxed text-[var(--fg-muted)]">{module.description}</p>
+                </header>
+
+                <div className="space-y-6">
+                  {module.topics.map((topic, topicIndex) => (
+                    <div
+                      key={topic.id}
+                      className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-6"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div className="space-y-2">
+                          <p className="text-[0.65rem] font-semibold uppercase tracking-[0.32em] text-brand">
+                            Topic {moduleIndex + 1}.{topicIndex + 1}
+                          </p>
+                          <h4 className="text-xl font-semibold">{topic.title}</h4>
+                          <p className="text-sm leading-relaxed text-[var(--fg-muted)]">{topic.description}</p>
+                        </div>
+                        {topic.videoUrl && (
+                          <a
+                            href={topic.videoUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex rounded-full border border-brand px-4 py-2 text-[0.65rem] font-semibold uppercase tracking-[0.32em] text-brand transition hover:-translate-y-0.5"
+                          >
+                            Watch overview
+                          </a>
+                        )}
+                      </div>
+
+                      <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:items-start">
+                        <ul className="space-y-3 rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-5 text-sm text-[var(--fg-default)]">
+                          {topic.keyPoints.map((point) => (
+                            <li key={point} className="flex items-start gap-2">
+                              <span className="mt-1 h-2 w-2 rounded-full bg-brand" aria-hidden />
+                              <span>{point}</span>
+                            </li>
+                          ))}
+                        </ul>
+
+                        <div className="space-y-4">
+                          {topic.lessons.map((lesson) => (
+                            <div
+                              key={lesson.id}
+                              className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-5"
+                            >
+                              <div className="flex flex-wrap items-center justify-between gap-4">
+                                <p className="text-base font-semibold">{lesson.title}</p>
+                                <span className="text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">
+                                  {lesson.duration}
+                                </span>
+                              </div>
+                              <ul className="mt-3 space-y-2 text-sm text-[var(--fg-muted)]">
+                                {lesson.summary.map((item) => (
+                                  <li key={item} className="flex items-start gap-2">
+                                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-brand" aria-hidden />
+                                    <span>{item}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section id="resources" className="space-y-6 rounded-4xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-8">
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.32em] text-brand">Resources</p>
+            <h2 className="text-3xl font-black tracking-tight sm:text-4xl">Facilitator toolkit</h2>
+            <p className="max-w-3xl text-base leading-relaxed text-[var(--fg-muted)]">
+              Download ready-to-use lesson decks, share printable guides with your learners, or remix the activities for your next meetup.
+            </p>
+          </div>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {courseContent.resources.map((item) => (
+              <div key={item} className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/70 p-6 text-sm">
+                <p className="font-semibold text-[var(--fg-default)]">{item}</p>
+                <p className="mt-2 text-[var(--fg-muted)]">
+                  Delivered as editable PDFs and slides so you can adapt them to your community.
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section id="faq" className="space-y-6">
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.32em] text-brand">FAQ</p>
+            <h2 className="text-3xl font-black tracking-tight sm:text-4xl">Still curious?</h2>
+            <p className="max-w-3xl text-base leading-relaxed text-[var(--fg-muted)]">
+              This curriculum is open for anyone to use offline. Share it with students, community leaders, or friends who are Bitcoin curious.
+            </p>
+          </div>
+          <div className="grid gap-6 lg:grid-cols-2">
+            <div className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6">
+              <h3 className="text-lg font-semibold">How do I use the lessons offline?</h3>
+              <p className="mt-2 text-sm leading-relaxed text-[var(--fg-muted)]">
+                Every topic includes bullet-point summaries and facilitation notes so you can teach from printouts or a tablet without needing internet access.
+              </p>
+            </div>
+            <div className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6">
+              <h3 className="text-lg font-semibold">Can I translate the material?</h3>
+              <p className="mt-2 text-sm leading-relaxed text-[var(--fg-muted)]">
+                Yes. Adapt the examples, change the vocabulary, and republish your version. Please reference Bitcoin Square so others can find the original.
+              </p>
+            </div>
+          </div>
+        </section>
       </main>
-      <ProfileModalPortal />
+
+      <footer className="mt-16 border-t border-[var(--border-subtle)] bg-[var(--bg-card)]/80 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl flex-col items-center gap-6 px-4 py-10 text-center text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)] sm:px-6">
+          <nav className="flex flex-wrap justify-center gap-4 sm:gap-6">
+            {navItems.map((item) => (
+              <a key={item.href} href={item.href} className="transition hover:text-brand">
+                {item.label}
+              </a>
+            ))}
+          </nav>
+          <p className="text-[var(--fg-muted)]">&copy; {new Date().getFullYear()} Bitcoin Square. Learn, build, and share Bitcoin with your community.</p>
+          <div className="flex items-center gap-4">
+            <a
+              href="https://www.tiktok.com/@elbitcoiner"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border-subtle)] transition hover:border-brand hover:bg-brand/10"
+              aria-label="TikTok"
+            >
+              <svg className="h-5 w-5" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                <path d="M16.656 1.029c1.637-.025 3.262-.012 4.886-.025.054 2.031.878 3.859 2.189 5.213 1.411 1.271 3.247 2.095 5.271 2.235v5.036c-1.912-.048-3.71-.489-5.331-1.247-.784-.377-1.447-.764-2.077-1.196v10.934c-.103 1.853-.719 3.543-1.707 4.954-1.652 2.366-4.328 3.919-7.371 4.011-.123.006-.268.009-.414.009-1.73 0-3.347-.482-4.725-1.319-2.508-1.509-4.238-4.091-4.558-7.094-.025-.625-.037-1.25-.012-1.862.49-4.779 4.494-8.476 9.361-8.476.547 0 1.083.047 1.604.136.025 1.849-.05 3.699-.05 5.548-.423-.153-.911-.242-1.42-.242-1.868 0-3.457 1.194-4.045 2.861-.133.427-.21.918-.21 1.426 0 .206.013.41.037.61.332 2.046 2.086 3.59 4.201 3.59.061 0 .121-.001.181-.004 1.463-.044 2.733-.831 3.451-1.994.267-.372.45-.822.511-1.311.125-2.237.075-4.461.087-6.698.012-5.036-.012-10.06.025-15.083z" />
+              </svg>
+            </a>
+            <a
+              href="https://www.instagram.com/elbitcoiner"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border-subtle)] transition hover:border-brand hover:bg-brand/10"
+              aria-label="Instagram"
+            >
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+                <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                <line x1="17.5" y1="6.5" x2="17.5" y2="6.5" />
+              </svg>
+            </a>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
