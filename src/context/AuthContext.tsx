@@ -11,13 +11,18 @@ import {
   register as apiRegister,
   resetPassword as apiReset,
 } from '../api/auth';
-import { strapiFetch } from '../api/strapi-client';
+import {
+  StrapiNetworkError,
+  strapiFetch,
+} from '../api/strapi-client';
 import { normalizeLessonCompletionList } from '../utils/localProgress';
 import {
   decryptPrivateKey,
   encryptPrivateKey,
   generateNostrKeyPair,
 } from '../utils/nostr';
+import { fetchAccountNostrKeys } from '../api/nostrAccount';
+import { normalizeAvatarUrl, normalizeScreenName } from '../utils/profileDefaults';
 
 interface LessonCompletionMap {
   [slug: string]: string[];
@@ -32,8 +37,11 @@ export interface User {
   id: number;
   email: string;
   username?: string;
+  screenName?: string | null;
+  avatarUrl?: string | null;
   nostrPublicKey?: string;
   nostrEncryptedKey?: string;
+  lnWalletAddress?: string | null;
   points: number;
   lessonCompletions: LessonCompletionMap;
   studyStreak: number;
@@ -105,8 +113,22 @@ function normalizePreferences(raw: unknown): UserPreferences {
   return prefs;
 }
 
+function normalizeLightningAddress(value: unknown): string | null {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+  return null;
+}
+
 function normalizeUser(raw: any | null | undefined): User | null {
   if (!raw) return null;
+  const seedSource =
+    (typeof raw.nostrPublicKey === 'string' && raw.nostrPublicKey.trim().length > 0
+      ? raw.nostrPublicKey
+      : '') ||
+    (raw.id != null ? String(raw.id) : '') ||
+    (typeof raw.email === 'string' ? raw.email : '');
   const normalized: User = {
     ...raw,
     points: normalizePoints(raw.points),
@@ -114,6 +136,12 @@ function normalizeUser(raw: any | null | undefined): User | null {
     studyStreak: normalizeStudyStreak(raw.studyStreak),
     lastStudyDate: normalizeLastStudyDate(raw.lastStudyDate),
     preferences: normalizePreferences(raw.preferences),
+    lnWalletAddress: normalizeLightningAddress(raw.lnWalletAddress ?? raw.lightningAddress),
+    screenName: normalizeScreenName(raw.screenName ?? raw.displayName ?? raw.username, seedSource),
+    avatarUrl: normalizeAvatarUrl(
+      raw.avatarUrl ?? raw.profileImage ?? raw.image ?? raw.picture,
+      seedSource,
+    ),
   };
   if (!normalized.lessonCompletions) {
     normalized.lessonCompletions = {};
@@ -131,11 +159,13 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   nostrPrivKey: string | null;
+  nostrKeyLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
   logout: () => void;
   reset: (code: string, password: string, confirm: string) => Promise<void>;
   updateUser: (updater: (prev: User | null) => User | null) => void;
+  refreshNostrKeys: () => Promise<void>;
 }
 
 const AuthCtx = createContext<AuthContextType | null>(null);
@@ -163,6 +193,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return null;
     }
   });
+  const [nostrKeyLoading, setNostrKeyLoading] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -182,6 +213,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return next;
     });
   }, []);
+
+  const refreshNostrKeys = useCallback(async () => {
+    if (!user || !token) return;
+    setNostrKeyLoading(true);
+    try {
+      const response = await fetchAccountNostrKeys(user.id, token);
+      if (!response) {
+        return;
+      }
+      if (response?.nostrPublicKey && response.nostrPublicKey !== user.nostrPublicKey) {
+        updateUser((prev) => (prev ? { ...prev, nostrPublicKey: response.nostrPublicKey } : prev));
+      }
+      if (response?.nostrPrivateKey) {
+        setNostrPrivKey(response.nostrPrivateKey);
+        try {
+          localStorage.setItem('nostrPrivKey', response.nostrPrivateKey);
+        } catch {}
+      }
+      if (!response?.nostrPrivateKey && response?.nostrEncryptedKey) {
+        try {
+          const priv = await decryptPrivateKey(response.nostrEncryptedKey, token);
+          setNostrPrivKey(priv);
+          try {
+            localStorage.setItem('nostrPrivKey', priv);
+          } catch {}
+        } catch (error) {
+          console.warn('Failed to decrypt nostr key from response', error);
+        }
+      }
+    } catch (error) {
+      if (error instanceof StrapiNetworkError) {
+        console.info('Skipping nostr key refresh: Strapi API is unreachable.');
+      } else {
+        console.warn('Failed to refresh nostr keys', error);
+      }
+    } finally {
+      setNostrKeyLoading(false);
+    }
+  }, [token, updateUser, user]);
 
   function applyAuth(res: AuthResponse) {
     const normalized = normalizeUser(res.user);
@@ -207,7 +277,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try {
           localStorage.setItem('nostrPrivKey', priv);
         } catch {}
+        setNostrKeyLoading(false);
       } catch {}
+    } else {
+      await refreshNostrKeys();
     }
   }
 
@@ -216,6 +289,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     applyAuth(res);
     const { pub, priv } = generateNostrKeyPair();
     setNostrPrivKey(priv);
+    setNostrKeyLoading(false);
     try {
       localStorage.setItem('nostrPrivKey', priv);
     } catch {}
@@ -240,6 +314,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     setToken(null);
     setNostrPrivKey(null);
+    setNostrKeyLoading(false);
     try {
       localStorage.removeItem('jwt');
       localStorage.removeItem('user');
@@ -247,9 +322,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {}
   }
 
+  useEffect(() => {
+    if (!user || !token) return;
+    if (nostrPrivKey || nostrKeyLoading) return;
+    refreshNostrKeys().catch(() => undefined);
+  }, [nostrPrivKey, nostrKeyLoading, refreshNostrKeys, token, user]);
+
   return (
     <AuthCtx.Provider
-      value={{ user, token, nostrPrivKey, login, register, logout, reset, updateUser }}
+      value={{
+        user,
+        token,
+        nostrPrivKey,
+        nostrKeyLoading,
+        login,
+        register,
+        logout,
+        reset,
+        updateUser,
+        refreshNostrKeys,
+      }}
     >
       {children}
     </AuthCtx.Provider>

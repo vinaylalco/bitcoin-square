@@ -1,11 +1,43 @@
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { Copy, Flame, Layers, LogOut, Sparkles, Trophy } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { updateProfileSettings } from '../api/account';
+import { generateScreenName, normalizeAvatarUrl, normalizeScreenName } from '../utils/profileDefaults';
 
 export default function Dashboard() {
-  const { user, logout, nostrPrivKey } = useAuth();
+  const { user, logout, nostrPrivKey, token, updateUser } = useAuth();
   const nav = useNavigate();
+
+  const profileSeed = useMemo(
+    () => user?.nostrPublicKey ?? user?.email ?? String(user?.id ?? ''),
+    [user?.email, user?.id, user?.nostrPublicKey],
+  );
+  const defaultScreenName = useMemo(() => generateScreenName(profileSeed), [profileSeed]);
+  const defaultAvatar = useMemo(() => normalizeAvatarUrl(user?.avatarUrl, profileSeed), [profileSeed, user?.avatarUrl]);
+
+  const [lightningAddress, setLightningAddress] = useState(() => user?.lnWalletAddress ?? '');
+  const [lightningStatus, setLightningStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+  const [lightningError, setLightningError] = useState<string | null>(null);
+  const [screenName, setScreenName] = useState(() => user?.screenName ?? defaultScreenName);
+  const [avatarUrl, setAvatarUrl] = useState(() => defaultAvatar);
+  const [profileStatus, setProfileStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [avatarUploadStatus, setAvatarUploadStatus] = useState<'idle' | 'uploading' | 'error' | 'success'>('idle');
+  const [avatarUploadError, setAvatarUploadError] = useState<string | null>(null);
+  const avatarInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    setLightningAddress(user?.lnWalletAddress ?? '');
+  }, [user?.lnWalletAddress]);
+
+  useEffect(() => {
+    setScreenName(user?.screenName ?? defaultScreenName);
+  }, [defaultScreenName, user?.screenName]);
+
+  useEffect(() => {
+    setAvatarUrl(normalizeAvatarUrl(user?.avatarUrl, profileSeed));
+  }, [profileSeed, user?.avatarUrl]);
 
   if (!user) return <Navigate to="/login" replace />;
 
@@ -25,6 +57,158 @@ export default function Dashboard() {
     logout();
     nav('/');
   }
+
+  const handleLightningSubmit = useCallback(
+    async (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      if (!user || !token) return;
+
+      const trimmed = lightningAddress.trim();
+      setLightningStatus('saving');
+      setLightningError(null);
+
+      try {
+        const response = await updateProfileSettings(user.id, token, {
+          lnWalletAddress: trimmed.length > 0 ? trimmed : null,
+        });
+        const nextValue = response.lnWalletAddress ?? response.lightningAddress ?? (trimmed.length > 0 ? trimmed : null);
+        updateUser((prev) => (prev ? { ...prev, lnWalletAddress: nextValue ?? null } : prev));
+        setLightningStatus('success');
+        setLightningAddress(nextValue ?? '');
+      } catch (error) {
+        setLightningStatus('error');
+        setLightningError(
+          error instanceof Error ? error.message : 'Unable to update your Lightning address right now.',
+        );
+      }
+    },
+    [lightningAddress, token, updateUser, user],
+  );
+
+  const uploadAvatarFile = useCallback(async (file: File) => {
+    setAvatarUploadStatus('uploading');
+    setAvatarUploadError(null);
+    try {
+      const formData = new FormData();
+      formData.append('fileToUpload', file);
+      const response = await fetch('https://nostr.build/api/v2/upload/files', {
+        method: 'POST',
+        body: formData,
+      });
+      if (!response.ok) {
+        throw new Error(`Upload failed with status ${response.status}`);
+      }
+      const payload = await response.json();
+      const candidateUrl =
+        (payload && typeof payload.url === 'string' && payload.url) ||
+        (Array.isArray(payload?.data) && payload.data[0] && typeof payload.data[0].url === 'string'
+          ? payload.data[0].url
+          : null);
+      if (!candidateUrl) {
+        throw new Error('Upload succeeded but no URL was returned by the host.');
+      }
+      setAvatarUrl(candidateUrl);
+      setAvatarUploadStatus('success');
+      return candidateUrl as string;
+    } catch (error) {
+      setAvatarUploadStatus('error');
+      setAvatarUploadError(
+        error instanceof Error ? error.message : 'We were unable to upload that photo. Please try again.',
+      );
+      throw error;
+    }
+  }, []);
+
+  const handleAvatarFileChange = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      try {
+        await uploadAvatarFile(file);
+        setProfileStatus('idle');
+      } catch {
+        // errors handled in uploadAvatarFile
+      } finally {
+        event.target.value = '';
+      }
+    },
+    [uploadAvatarFile],
+  );
+
+  const handleProfileSubmit = useCallback(
+    async (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      if (!user || !token) return;
+
+      const trimmedName = normalizeScreenName(screenName, profileSeed);
+      const trimmedAvatar = normalizeAvatarUrl(avatarUrl, profileSeed);
+
+      setProfileStatus('saving');
+      setProfileError(null);
+
+      try {
+        const response = await updateProfileSettings(user.id, token, {
+          screenName: trimmedName,
+          avatarUrl: trimmedAvatar,
+        });
+        const nextName = response.screenName ?? trimmedName;
+        const nextAvatar = response.avatarUrl ?? trimmedAvatar;
+        updateUser((prev) =>
+          prev
+            ? {
+                ...prev,
+                screenName: nextName,
+                avatarUrl: nextAvatar,
+              }
+            : prev,
+        );
+        setScreenName(nextName);
+        setAvatarUrl(nextAvatar);
+        setProfileStatus('success');
+      } catch (error) {
+        setProfileStatus('error');
+        setProfileError(
+          error instanceof Error ? error.message : 'Unable to update your profile details right now.',
+        );
+      }
+    },
+    [avatarUrl, profileSeed, screenName, token, updateUser, user],
+  );
+
+  const handleRandomizeName = useCallback(() => {
+    const next = generateScreenName(`${profileSeed}:${Date.now()}`);
+    setScreenName(next);
+    setProfileStatus('idle');
+  }, [profileSeed]);
+
+  const openAvatarPicker = useCallback(() => {
+    avatarInputRef.current?.click();
+  }, []);
+
+  const isLightningSaving = lightningStatus === 'saving';
+  const isProfileSaving = profileStatus === 'saving';
+
+  const handleScreenNameChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      setScreenName(event.target.value);
+      if (profileStatus === 'success') {
+        setProfileStatus('idle');
+      }
+    },
+    [profileStatus],
+  );
+
+  const handleAvatarUrlInput = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      setAvatarUrl(event.target.value);
+      setProfileStatus('idle');
+      if (avatarUploadStatus !== 'idle') {
+        setAvatarUploadStatus('idle');
+        setAvatarUploadError(null);
+      }
+    },
+    [avatarUploadStatus],
+  );
 
   return (
     <div className="min-h-screen w-full bg-white text-neutral-900 transition-colors dark:bg-neutral-950 dark:text-neutral-100">
@@ -108,6 +292,150 @@ export default function Dashboard() {
                 <dd className="break-words text-base font-medium text-neutral-900 dark:text-neutral-100">{user.id}</dd>
               </div>
             </dl>
+
+            <form
+              onSubmit={handleProfileSubmit}
+              className="mt-6 space-y-4 rounded-2xl border border-neutral-200 bg-neutral-50 p-4 transition-colors dark:border-neutral-800 dark:bg-neutral-950/40"
+            >
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                <div className="relative h-24 w-24 flex-shrink-0 overflow-hidden rounded-3xl border border-neutral-200 bg-gradient-to-br from-amber-200 via-orange-200 to-pink-200 shadow-inner dark:border-neutral-700 dark:from-orange-500/40 dark:via-amber-500/30 dark:to-pink-500/30">
+                  <img
+                    src={avatarUrl}
+                    alt="Profile preview"
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                  />
+                  <button
+                    type="button"
+                    onClick={openAvatarPicker}
+                    className="absolute inset-x-2 bottom-2 rounded-full bg-neutral-900/70 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-white shadow-md transition hover:bg-neutral-900/90"
+                  >
+                    Change
+                  </button>
+                </div>
+                <div className="flex-1 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label htmlFor="screen-name" className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">
+                      Screen name
+                    </label>
+                    {profileStatus === 'success' && (
+                      <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-500">
+                        Saved
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-neutral-600 dark:text-neutral-300">
+                    This name replaces your public key around the community. Make it friendly and easy to recognise.
+                  </p>
+                  <input
+                    id="screen-name"
+                    value={screenName}
+                    onChange={handleScreenNameChange}
+                    className="w-full rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 transition focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+                    placeholder="SunnySpark310"
+                    maxLength={40}
+                    autoComplete="off"
+                  />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleRandomizeName}
+                      className="rounded-full border border-neutral-300 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-600 transition hover:border-brand hover:text-brand dark:border-neutral-700 dark:text-neutral-200"
+                    >
+                      Randomise
+                    </button>
+                    <button
+                      type="button"
+                      onClick={openAvatarPicker}
+                      className="rounded-full border border-brand/40 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-brand transition hover:border-brand"
+                    >
+                      Upload photo
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="avatar-url" className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">
+                      Avatar image URL
+                    </label>
+                    <input
+                      id="avatar-url"
+                      value={avatarUrl}
+                      onChange={handleAvatarUrlInput}
+                      className="w-full rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 transition focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+                      placeholder="https://"
+                      autoComplete="off"
+                    />
+                    {avatarUploadStatus === 'uploading' && (
+                      <p className="text-xs text-neutral-500">Uploading photo…</p>
+                    )}
+                    {avatarUploadStatus === 'error' && avatarUploadError && (
+                      <p className="text-xs text-red-500">{avatarUploadError}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+              {profileError && <p className="text-xs text-red-500">{profileError}</p>}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleAvatarFileChange}
+                />
+                <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                  Tip: square images look best for your community avatar.
+                </span>
+                <button
+                  type="submit"
+                  disabled={isProfileSaving || !token}
+                  className="inline-flex items-center justify-center rounded-full bg-brand px-5 py-2 text-sm font-semibold uppercase tracking-[0.3em] text-white transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:bg-brand/40"
+                >
+                  {isProfileSaving ? 'Saving…' : 'Save profile'}
+                </button>
+              </div>
+            </form>
+
+            <form onSubmit={handleLightningSubmit} className="mt-6 space-y-3 rounded-2xl border border-neutral-200 bg-neutral-50 p-4 transition-colors dark:border-neutral-800 dark:bg-neutral-950/40">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <label htmlFor="lightning-address" className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">
+                  Lightning wallet address
+                </label>
+                {lightningStatus === 'success' && (
+                  <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-500">
+                    Saved
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-neutral-600 dark:text-neutral-300">
+                Add a Lightning address (for example, <code className="font-mono">name@provider.com</code>) so other members can send you sats directly from the community areas.
+              </p>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <input
+                  id="lightning-address"
+                  name="lightning-address"
+                  value={lightningAddress}
+                  onChange={(event) => {
+                    setLightningAddress(event.target.value);
+                    if (lightningStatus === 'success') {
+                      setLightningStatus('idle');
+                    }
+                  }}
+                  placeholder="you@lightningaddress.com"
+                  className="w-full flex-1 rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 transition focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+                  autoComplete="off"
+                />
+                <button
+                  type="submit"
+                  disabled={isLightningSaving || !token}
+                  className="inline-flex items-center justify-center rounded-full bg-brand px-5 py-2 text-sm font-semibold uppercase tracking-[0.3em] text-white transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:bg-brand/40"
+                >
+                  {isLightningSaving ? 'Saving…' : 'Save address'}
+                </button>
+              </div>
+              {lightningError && (
+                <p className="text-xs text-red-500">{lightningError}</p>
+              )}
+            </form>
           </div>
 
           <div className="flex flex-col gap-4 rounded-3xl border border-neutral-200 bg-white p-8 shadow-sm transition-colors dark:border-neutral-800 dark:bg-neutral-900">

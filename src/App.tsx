@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   Mail,
   Menu,
+  Users,
   Settings,
   ShoppingBag,
   X,
@@ -16,6 +17,7 @@ import { useSwipe } from "./hooks/useSwipe";
 import { useTheme } from "./context/ThemeContext";
 import { useAuth } from "./context/AuthContext";
 import Footer from "./components/Footer";
+import ProfileModalPortal from "./components/profile/ProfileModal";
 import { cn } from "./utils/cn";
 
 export default function App() {
@@ -29,7 +31,7 @@ export default function App() {
   const { theme } = useTheme(); // ensures theme context is mounted
   const { user, logout } = useAuth();
 
-  const hideFooterOnPage = /^\/education\/[\w-]+/.test(loc.pathname);
+  const hideFooterOnPage = /^\/education\/[\w-]+/.test(loc.pathname) || loc.pathname.startsWith("/community");
 
   const lang = (i18n.language || "en").toLowerCase().startsWith("es") ? "es" : "en";
   const changeLang = (lng: "en" | "es") => i18n.changeLanguage(lng);
@@ -45,6 +47,7 @@ export default function App() {
     { label: t("nav.education"), to: "/education", dropdown: educationChildren },
     { label: t("nav.shop"), to: "/shop" },
     { label: t("nav.newsletter"), to: "/newsletter" },
+    { label: t("nav.community"), to: "/community" },
     { label: t("nav.settings"), to: "/settings" },
   ];
 
@@ -278,6 +281,18 @@ export default function App() {
                 <Mail className="h-5 w-5" /> {t("nav.newsletter")}
               </NavLink>
               <NavLink
+                to="/community"
+                onClick={() => setOpen(false)}
+                className={({ isActive }) =>
+                  cn(
+                    "inline-flex items-center gap-3 rounded-2xl border border-transparent px-4 py-3 transition hover:border-brand/40 hover:bg-brand/5",
+                    isActive && "border-brand bg-brand/10 text-brand",
+                  )
+                }
+              >
+                <Users className="h-5 w-5" /> {t("nav.community")}
+              </NavLink>
+              <NavLink
                 to="/settings"
                 onClick={() => setOpen(false)}
                 className={({ isActive }) =>
@@ -359,6 +374,7 @@ export default function App() {
         <Outlet />
         {!hideFooterOnPage && <Footer />}
       </main>
+      <ProfileModalPortal />
     </div>
   );
 }

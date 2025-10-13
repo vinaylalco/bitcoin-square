@@ -30,6 +30,10 @@ import { AuthProvider } from "./context/AuthContext";
 import NewsletterSubscribe from "./pages/NewsletterSubscribe";
 import CheckoutSuccess from "./routes/CheckoutSuccess";
 import CheckoutCancel from "./routes/CheckoutCancel";
+import Community from "./routes/Community";
+import Profile from "./routes/Profile";
+import { ProfileIdentityProvider } from "./context/ProfileIdentityContext";
+import { DirectMessageProvider } from "./context/DirectMessageContext";
 
 const router = createBrowserRouter([
   {
@@ -56,6 +60,8 @@ const router = createBrowserRouter([
       { path: "newsletter", element: <NewsletterSubscribe /> },
       { path: "checkout/success", element: <CheckoutSuccess /> },
       { path: "checkout/cancel", element: <CheckoutCancel /> },
+      { path: "community", element: <Community /> },
+      { path: "profile/:pubkey", element: <Profile /> },
     ],
   },
 ]);
@@ -68,10 +74,22 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
       <AuthProvider>
         <ThemeProvider>
           <PreferencesProvider>
-            <RouterProvider router={router} />
+            <ProfileIdentityProvider>
+              <DirectMessageProvider>
+                <RouterProvider router={router} />
+              </DirectMessageProvider>
+            </ProfileIdentityProvider>
           </PreferencesProvider>
         </ThemeProvider>
       </AuthProvider>
     </QueryClientProvider>
   </React.StrictMode>
 );
+
+if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register("/nostr-sw.js")
+      .catch((error) => console.warn("Service worker registration failed", error));
+  });
+}
