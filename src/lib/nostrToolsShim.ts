@@ -67,6 +67,10 @@ type Nip44Module = {
   };
 };
 
+type Nip19Module = {
+  decode: (value: string) => { type: string; data: string | Uint8Array };
+};
+
 type SimplePoolModule = {
   SimplePool: new () => {
     subscribeMany: (relays: string[], filters: Filter[], opts?: SubscribeHandlers) => Subscription;
@@ -77,6 +81,7 @@ type SimplePoolModule = {
   getPublicKey: (privkey: Uint8Array) => string;
   nip04?: Nip04Module;
   nip44?: Nip44Module;
+  nip19?: Nip19Module;
 };
 
 const MODULE_URL = "https://esm.sh/nostr-tools@2.10.4?bundle";
@@ -103,6 +108,7 @@ const normalizeModule = (input: unknown): SimplePoolModule => {
   const record = candidate as Record<string, unknown>;
   const nip04Candidate = record.nip04 as Nip04Module | undefined;
   const nip44Candidate = record.nip44 as Nip44Module | undefined;
+  const nip19Candidate = record.nip19 as Nip19Module | undefined;
 
   if (typeof SimplePool !== "function" || typeof finalizeEvent !== "function" || typeof getPublicKey !== "function") {
     throw new Error("nostr-tools module is missing required exports");
@@ -122,6 +128,7 @@ const normalizeModule = (input: unknown): SimplePoolModule => {
       typeof nip44Candidate.decrypt === "function"
         ? nip44Candidate
         : undefined,
+    nip19: nip19Candidate && typeof nip19Candidate.decode === "function" ? nip19Candidate : undefined,
   };
 };
 
@@ -147,6 +154,14 @@ const loadModule = async (): Promise<SimplePoolModule> => {
 };
 
 export const loadNostrTools = () => loadModule();
+
+export const decodeBech32 = async (value: string) => {
+  const module = await loadModule();
+  if (!module.nip19) {
+    throw new Error("nostr-tools nip19 helpers are unavailable");
+  }
+  return module.nip19.decode(value);
+};
 
 export class SimplePool {
   private readonly poolPromise: Promise<InstanceType<SimplePoolModule["SimplePool"]>>;

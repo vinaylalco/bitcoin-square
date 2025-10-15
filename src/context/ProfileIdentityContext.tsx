@@ -23,7 +23,8 @@ import {
   normalizeAvatarUrl,
   normalizeScreenName,
 } from "../utils/profileDefaults";
-import { useAuth } from "./AuthContext";
+import { SimplePool, type Event, decodeBech32 } from "../lib/nostrToolsShim";
+import { useAuth, type User } from "./AuthContext";
 import { deriveProfileReputation } from "../utils/reputation";
 
 export interface BitcoinSquareProfile {
@@ -42,13 +43,14 @@ export interface BitcoinSquareProfile {
   following?: string[];
 }
 
-export type ProfileStatus = "idle" | "loading" | "success" | "error";
+export type ProfileStatus = "idle" | "loading" | "success" | "error" | "unavailable";
 
 interface ProfileEntry {
   status: ProfileStatus;
   data: BitcoinSquareProfile | null;
   error: string | null;
   fetchedAt: number | null;
+  stale: boolean;
 }
 
 export interface ProfileSummary {
@@ -84,6 +86,139 @@ const shorten = (value: string) => `${value.slice(0, 8)}…${value.slice(-8)}`;
 const fallbackAvatar = (pubkey: string) => generateWarmAvatar(pubkey);
 
 const profileUrl = (pubkey: string) => `https://bitcoinsquare.io/profile/${pubkey}`;
+
+const HEX_PUBKEY_REGEX = /^[0-9a-f]{64}$/i;
+const INVALID_PUBKEY_MESSAGE = "Invalid Nostr public key.";
+export const PROFILE_UNAVAILABLE_MESSAGE = "Profile data is temporarily unavailable.";
+export const PROFILE_STALE_MESSAGE = "Live profile lookup failed—showing cached details.";
+const DEFAULT_PROFILE_RELAYS = ["wss://relay.damus.io", "wss://relay.primal.net", "wss://nos.lol"];
+const PROFILE_RELAY_TIMEOUT_MS = 5000;
+const API_RETRY_BACKOFF_MS = [0, 200, 800];
+const FINAL_RETRY_DELAY_MS = 2000;
+
+const profileRelayPool = new SimplePool();
+
+const wait = (ms: number) =>
+  new Promise<void>((resolve) => {
+    setTimeout(resolve, ms);
+  });
+
+async function retryWithBackoff<T>(operation: () => Promise<T>): Promise<T> {
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    if (attempt > 0) {
+      const delay = API_RETRY_BACKOFF_MS[Math.min(attempt, API_RETRY_BACKOFF_MS.length - 1)];
+      if (delay > 0) {
+        await wait(delay);
+      }
+    }
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  if (FINAL_RETRY_DELAY_MS > 0) {
+    await wait(FINAL_RETRY_DELAY_MS);
+  }
+  throw lastError ?? new Error("Profile lookup failed");
+}
+
+const hexFromBytes = (value: Uint8Array) =>
+  Array.from(value)
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+
+const normalizedPubkeyCache = new Map<string, string>();
+
+const normalizePubkeyInput = async (
+  pubkey: string,
+): Promise<{ pubkey: string } | { error: string }> => {
+  if (typeof pubkey !== "string") {
+    return { error: INVALID_PUBKEY_MESSAGE };
+  }
+  const trimmed = pubkey.trim();
+  if (!trimmed) {
+    return { error: INVALID_PUBKEY_MESSAGE };
+  }
+
+  const cached = normalizedPubkeyCache.get(trimmed);
+  if (cached) {
+    return { pubkey: cached };
+  }
+
+  if (HEX_PUBKEY_REGEX.test(trimmed)) {
+    const normalized = trimmed.toLowerCase();
+    normalizedPubkeyCache.set(trimmed, normalized);
+    return { pubkey: normalized };
+  }
+
+  if (/^npub/i.test(trimmed)) {
+    try {
+      const decoded = await decodeBech32(trimmed);
+      if (decoded.type === "npub") {
+        if (typeof decoded.data === "string" && HEX_PUBKEY_REGEX.test(decoded.data)) {
+          const normalized = decoded.data.toLowerCase();
+          normalizedPubkeyCache.set(trimmed, normalized);
+          return { pubkey: normalized };
+        }
+        if (decoded.data instanceof Uint8Array) {
+          const normalized = hexFromBytes(decoded.data).toLowerCase();
+          if (HEX_PUBKEY_REGEX.test(normalized)) {
+            normalizedPubkeyCache.set(trimmed, normalized);
+            return { pubkey: normalized };
+          }
+        }
+      }
+    } catch (error) {
+      if (import.meta.env?.DEV) {
+        console.warn("Failed to decode bech32 pubkey", error);
+      }
+    }
+  }
+
+  return { error: INVALID_PUBKEY_MESSAGE };
+};
+
+const parseRelayList = (value: unknown): string[] => {
+  if (!value) return [];
+  if (Array.isArray(value)) {
+    return value
+      .filter((entry): entry is string => typeof entry === "string")
+      .map((entry) => entry.trim())
+      .filter((entry) => entry.startsWith("wss://"));
+  }
+  if (typeof value === "string") {
+    return value
+      .split(/[,\s]+/)
+      .map((entry) => entry.trim())
+      .filter((entry) => entry.length > 0 && entry.startsWith("wss://"));
+  }
+  return [];
+};
+
+const resolveReadingRelays = (user: User | null | undefined): string[] => {
+  const envRelays = [
+    env.VITE_PROFILE_RELAYS,
+    env.VITE_NOSTR_READ_RELAYS,
+    env.VITE_NOSTR_RELAYS,
+  ].flatMap(parseRelayList);
+
+  const preferenceRelays = user?.preferences
+    ? [
+        parseRelayList((user.preferences as Record<string, unknown>).nostrReadingRelays),
+        parseRelayList((user.preferences as Record<string, unknown>).readingRelays),
+      ].flat()
+    : [];
+
+  const accountRelays = parseRelayList((user as unknown as { nostrRelays?: unknown })?.nostrRelays);
+
+  const combined = [...preferenceRelays, ...accountRelays, ...envRelays, ...DEFAULT_PROFILE_RELAYS];
+
+  return combined
+    .map((relay) => relay.trim())
+    .filter((relay, index, array) => relay.length > 0 && array.indexOf(relay) === index);
+};
 
 const env = (() => {
   const nodeProcess =
@@ -349,6 +484,135 @@ const persistFollowState = (following: Set<string>, followers: Map<string, Set<s
 
 export const PROFILE_FALLBACK_MESSAGE = "Profile unavailable. Try again later.";
 
+const extractStringArray = (value: unknown): string[] =>
+  Array.isArray(value)
+    ? value
+        .map((entry) => (typeof entry === "string" ? entry.trim() : ""))
+        .filter((entry) => entry.length > 0)
+    : [];
+
+const buildRelayProfilePayload = (event: Event): Partial<BitcoinSquareProfile> => {
+  let content: Record<string, unknown> | null = null;
+  if (typeof event.content === "string" && event.content.trim().length > 0) {
+    try {
+      content = JSON.parse(event.content) as Record<string, unknown>;
+    } catch (error) {
+      if (import.meta.env?.DEV) {
+        console.warn("Failed to parse relay profile payload", error);
+      }
+    }
+  }
+
+  const safe = (key: string): string | null => {
+    if (!content) return null;
+    const value = content[key];
+    if (typeof value !== "string") return null;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  };
+
+  const created = Number.isFinite(event.created_at)
+    ? new Date(event.created_at * 1000).toISOString()
+    : null;
+
+  const lightning = safe("lud16") ?? safe("lud06") ?? safe("lightning") ?? safe("lnurl");
+
+  return {
+    pubkey: event.pubkey,
+    screenName: safe("name") ?? undefined,
+    displayName: safe("display_name") ?? undefined,
+    avatarUrl: safe("picture") ?? undefined,
+    joined: created,
+    lightningAddress: lightning,
+    badges: content ? extractStringArray(content.badges) : [],
+    achievements: content ? extractStringArray(content.achievements) : [],
+    followers: content ? extractStringArray(content.followers) : [],
+    following: content ? extractStringArray(content.following) : [],
+  };
+};
+
+const fetchProfileFromRelays = async (
+  pubkey: string,
+  relays: string[],
+): Promise<BitcoinSquareProfile> => {
+  const uniqueRelays = relays
+    .map((relay) => relay.trim())
+    .filter((relay, index, array) => relay.startsWith("wss://") && array.indexOf(relay) === index);
+
+  if (uniqueRelays.length === 0) {
+    throw new ProfileFetchError("No relays configured for profile lookup");
+  }
+
+  await profileRelayPool.waitUntilReady();
+
+  return new Promise<BitcoinSquareProfile>((resolve, reject) => {
+    let settled = false;
+    let timeout: ReturnType<typeof setTimeout> | null = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      subscription?.close();
+      profileRelayPool.close(uniqueRelays);
+      reject(new ProfileFetchError(PROFILE_FALLBACK_MESSAGE));
+    }, PROFILE_RELAY_TIMEOUT_MS);
+    const pending = new Set(uniqueRelays);
+    const relayErrors = new Map<string, unknown>();
+
+    const cleanup = () => {
+      if (timeout) {
+        clearTimeout(timeout);
+        timeout = null;
+      }
+      subscription?.close();
+      profileRelayPool.close(uniqueRelays);
+    };
+
+    const fail = (error: unknown) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      if (error instanceof ProfileFetchError) {
+        reject(error);
+        return;
+      }
+      reject(new ProfileFetchError(PROFILE_FALLBACK_MESSAGE, { cause: error }));
+    };
+
+    const filters = [{ kinds: [0], authors: [pubkey], limit: 1 }];
+    let subscription: ReturnType<SimplePool["subscribeMany"]> | null = null;
+
+    subscription = profileRelayPool.subscribeMany(uniqueRelays, filters, {
+      onevent: (event: Event) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        try {
+          const payload = buildRelayProfilePayload(event);
+          resolve(normalizeProfile(pubkey, payload));
+        } catch (error) {
+          fail(error);
+        }
+      },
+      oneose: (relay?: string) => {
+        if (relay) {
+          pending.delete(relay);
+        }
+        if (!settled && pending.size === 0) {
+          fail(relayErrors.size > 0 ? Array.from(relayErrors.values()).at(-1) : null);
+        }
+      },
+      onerror: (error, relay) => {
+        if (relay) {
+          pending.delete(relay);
+          relayErrors.set(relay, error);
+        }
+        if (!settled && pending.size === 0) {
+          fail(error);
+        }
+      },
+    });
+  });
+};
+
 const fetchProfileFromApi = async (pubkey: string): Promise<BitcoinSquareProfile> => {
   const urls = buildProfileApiCandidates(pubkey);
   const errors: unknown[] = [];
@@ -377,6 +641,53 @@ const fetchProfileFromApi = async (pubkey: string): Promise<BitcoinSquareProfile
   throw new ProfileFetchError(PROFILE_FALLBACK_MESSAGE);
 };
 
+interface ProfileFetchOutcome {
+  profile: BitcoinSquareProfile | null;
+  stale: boolean;
+  message: string | null;
+  source: "api" | "relay" | "cache" | "none";
+  errors: unknown[];
+}
+
+const fetchProfileWithFallbacks = async (
+  canonicalPubkey: string,
+  relays: string[],
+  lastKnown: CachedProfileEntry<BitcoinSquareProfile> | null,
+): Promise<ProfileFetchOutcome> => {
+  const errors: unknown[] = [];
+
+  try {
+    const profile = await retryWithBackoff(() => fetchProfileFromApi(canonicalPubkey));
+    return { profile, stale: false, message: null, source: "api", errors };
+  } catch (error) {
+    errors.push(error);
+  }
+
+  try {
+    const profile = await retryWithBackoff(() => fetchProfileFromRelays(canonicalPubkey, relays));
+    return { profile, stale: false, message: null, source: "relay", errors };
+  } catch (error) {
+    errors.push(error);
+  }
+
+  if (lastKnown) {
+    return {
+      profile: lastKnown.profile,
+      stale: true,
+      message: PROFILE_STALE_MESSAGE,
+      source: "cache",
+      errors,
+    };
+  }
+
+  const finalError = errors.find((candidate) => candidate instanceof ProfileFetchError) as
+    | ProfileFetchError
+    | undefined;
+  const message = finalError?.message ?? PROFILE_UNAVAILABLE_MESSAGE;
+
+  return { profile: null, stale: false, message, source: "none", errors };
+};
+
 export const formatMemberSince = (value?: string | null) => {
   if (!value) return "—";
   const trimmed = value.trim();
@@ -400,10 +711,12 @@ export const formatMemberSince = (value?: string | null) => {
 export const ProfileIdentityProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
   const { user } = useAuth();
   const viewerPubkey = user?.nostrPublicKey?.trim() || null;
+  const readingRelays = useMemo(() => resolveReadingRelays(user), [user]);
   const [profiles, setProfiles] = useState<Record<string, ProfileEntry>>({});
   const [activeProfile, setActiveProfile] = useState<string | null>(null);
   const profilesRef = useRef(profiles);
   const inflight = useRef(new Map<string, Promise<BitcoinSquareProfile | null>>() );
+  const readingRelaysRef = useRef(readingRelays);
   const initialFollowStateRef = useRef(loadFollowState());
   const [following, setFollowing] = useState<Set<string>>(
     () => new Set(initialFollowStateRef.current.following.map((value) => value.trim()).filter(isNonEmptyString)),
@@ -423,6 +736,10 @@ export const ProfileIdentityProvider: React.FC<React.PropsWithChildren> = ({ chi
   useEffect(() => {
     profilesRef.current = profiles;
   }, [profiles]);
+
+  useEffect(() => {
+    readingRelaysRef.current = readingRelays;
+  }, [readingRelays]);
 
   useEffect(() => {
     persistFollowState(following, followersMap);
@@ -501,102 +818,166 @@ export const ProfileIdentityProvider: React.FC<React.PropsWithChildren> = ({ chi
   const requestProfile = useCallback(
     async (pubkey: string, options?: { force?: boolean }) => {
       if (!pubkey) return null;
+      const trimmed = pubkey.trim();
+      if (!trimmed) return null;
       const force = options?.force ?? false;
-      const current = profilesRef.current[pubkey];
       const now = Date.now();
-      if (
-        !force &&
-        current &&
-        current.status === "success" &&
-        current.fetchedAt &&
-        now - current.fetchedAt < CACHE_TTL
-      ) {
-        return current.data;
-      }
+      const current = profilesRef.current[trimmed];
 
-      if (!force) {
-        const sessionEntry = readSessionProfile<BitcoinSquareProfile>(pubkey);
-        if (sessionEntry && now - sessionEntry.fetchedAt < CACHE_TTL) {
-          updateProfileEntry(pubkey, () => ({
-            status: "success",
-            data: sessionEntry.profile,
-            error: null,
-            fetchedAt: sessionEntry.fetchedAt,
-          }));
-          return sessionEntry.profile;
+      let lastKnown: CachedProfileEntry<BitcoinSquareProfile> | null = null;
+      if (current?.data) {
+        lastKnown = {
+          profile: current.data,
+          fetchedAt: current.fetchedAt ?? now,
+        };
+        if (!force && current.status === "success" && current.fetchedAt && now - current.fetchedAt < CACHE_TTL) {
+          return current.data;
         }
       }
 
       if (!force) {
-        const persisted = await readPersistedProfile<BitcoinSquareProfile>(pubkey);
-        if (persisted && now - persisted.fetchedAt < CACHE_TTL) {
-          updateProfileEntry(pubkey, () => ({
-            status: "success",
-            data: persisted.profile,
-            error: null,
-            fetchedAt: persisted.fetchedAt,
-          }));
-          writeSessionProfile(pubkey, persisted);
-          return persisted.profile;
+        const sessionEntry = readSessionProfile<BitcoinSquareProfile>(trimmed);
+        if (sessionEntry) {
+          if (!lastKnown || sessionEntry.fetchedAt > lastKnown.fetchedAt) {
+            lastKnown = sessionEntry;
+          }
+          if (now - sessionEntry.fetchedAt < CACHE_TTL) {
+            updateProfileEntry(trimmed, () => ({
+              status: "success",
+              data: sessionEntry.profile,
+              error: null,
+              fetchedAt: sessionEntry.fetchedAt,
+              stale: false,
+            }));
+            return sessionEntry.profile;
+          }
         }
       }
 
-      const existingPromise = inflight.current.get(pubkey);
+      if (!force) {
+        const persisted = await readPersistedProfile<BitcoinSquareProfile>(trimmed);
+        if (persisted) {
+          if (!lastKnown || persisted.fetchedAt > lastKnown.fetchedAt) {
+            lastKnown = persisted;
+          }
+          if (now - persisted.fetchedAt < CACHE_TTL) {
+            updateProfileEntry(trimmed, () => ({
+              status: "success",
+              data: persisted.profile,
+              error: null,
+              fetchedAt: persisted.fetchedAt,
+              stale: false,
+            }));
+            writeSessionProfile(trimmed, persisted);
+            return persisted.profile;
+          }
+        }
+      }
+
+      const existingPromise = inflight.current.get(trimmed);
       if (existingPromise && !force) {
         return existingPromise;
       }
 
       const promise = (async () => {
-        updateProfileEntry(pubkey, (entry) => ({
-          status: "loading",
-          data: entry?.data ?? null,
-          error: null,
-          fetchedAt: entry?.fetchedAt ?? null,
-        }));
-        try {
-          const profile = await fetchProfileFromApi(pubkey);
-          const record: CachedProfileEntry<BitcoinSquareProfile> = {
-            profile,
-            fetchedAt: Date.now(),
-          };
-          updateProfileEntry(pubkey, () => ({
-            status: "success",
-            data: profile,
-            error: null,
-            fetchedAt: record.fetchedAt,
+        const normalized = await normalizePubkeyInput(trimmed);
+        if ("error" in normalized) {
+          const fallbackProfile = lastKnown?.profile ?? null;
+          updateProfileEntry(trimmed, (entry) => ({
+            status: "unavailable",
+            data: entry?.data ?? fallbackProfile,
+            error: normalized.error,
+            fetchedAt: entry?.fetchedAt ?? lastKnown?.fetchedAt ?? null,
+            stale: Boolean(entry?.data ?? fallbackProfile),
           }));
-          writeSessionProfile(pubkey, record);
-          await writePersistedProfile(pubkey, record);
-          return profile;
-        } catch (error) {
-          const message =
-            error instanceof ProfileFetchError
-              ? error.message
-              : error instanceof Error
-                ? error.message
-                : PROFILE_FALLBACK_MESSAGE;
+          return fallbackProfile;
+        }
+
+        const canonicalPubkey = normalized.pubkey;
+
+        updateProfileEntry(trimmed, (entry) => ({
+          status: "loading",
+          data: entry?.data ?? lastKnown?.profile ?? null,
+          error: null,
+          fetchedAt: entry?.fetchedAt ?? lastKnown?.fetchedAt ?? null,
+          stale: entry?.stale ?? Boolean(lastKnown),
+        }));
+
+        try {
+          const result = await fetchProfileWithFallbacks(canonicalPubkey, readingRelaysRef.current, lastKnown);
+
+          if (result.profile) {
+            const fetchedAt = result.stale ? lastKnown?.fetchedAt ?? Date.now() : Date.now();
+
+            if (!result.stale) {
+              const record: CachedProfileEntry<BitcoinSquareProfile> = {
+                profile: result.profile,
+                fetchedAt,
+              };
+              writeSessionProfile(trimmed, record);
+              await writePersistedProfile(trimmed, record);
+              if (canonicalPubkey !== trimmed) {
+                writeSessionProfile(canonicalPubkey, record);
+                await writePersistedProfile(canonicalPubkey, record);
+              }
+            }
+
+            updateProfileEntry(trimmed, () => ({
+              status: result.stale ? "unavailable" : "success",
+              data: result.profile,
+              error: result.stale ? result.message : null,
+              fetchedAt,
+              stale: result.stale,
+            }));
+
+            return result.profile;
+          }
+
           if (import.meta.env?.DEV) {
             console.warn("Profile fetch failed", {
-              pubkey,
+              pubkey: trimmed,
+              canonical: canonicalPubkey,
+              relays: readingRelaysRef.current,
+              errors: result.errors,
+            });
+          }
+
+          const fallbackProfile = lastKnown?.profile ?? null;
+          updateProfileEntry(trimmed, (entry) => ({
+            status: "unavailable",
+            data: entry?.data ?? fallbackProfile,
+            error: result.message ?? PROFILE_UNAVAILABLE_MESSAGE,
+            fetchedAt: entry?.fetchedAt ?? lastKnown?.fetchedAt ?? null,
+            stale: Boolean(entry?.data ?? fallbackProfile),
+          }));
+          return fallbackProfile;
+        } catch (error) {
+          const fallbackProfile = lastKnown?.profile ?? null;
+          if (import.meta.env?.DEV) {
+            console.warn("Profile fetch encountered an unexpected error", {
+              pubkey: trimmed,
               error,
             });
           }
-          updateProfileEntry(pubkey, (entry) => ({
-            status: "error",
-            data: entry?.data ?? null,
-            error: message ?? PROFILE_FALLBACK_MESSAGE,
-            fetchedAt: Date.now(),
+          const message =
+            error instanceof Error && error.message ? error.message : PROFILE_UNAVAILABLE_MESSAGE;
+          updateProfileEntry(trimmed, (entry) => ({
+            status: "unavailable",
+            data: entry?.data ?? fallbackProfile,
+            error: message,
+            fetchedAt: entry?.fetchedAt ?? lastKnown?.fetchedAt ?? null,
+            stale: Boolean(entry?.data ?? fallbackProfile),
           }));
-          return null;
-        } finally {
-          inflight.current.delete(pubkey);
+          return fallbackProfile;
         }
-      })();
+      })().finally(() => {
+        inflight.current.delete(trimmed);
+      });
 
-      inflight.current.set(pubkey, promise);
+      inflight.current.set(trimmed, promise);
       return promise;
     },
-    [updateProfileEntry],
+    [readingRelaysRef, updateProfileEntry],
   );
 
   const refreshProfile = useCallback(
@@ -820,6 +1201,7 @@ export const useUserProfile = (pubkey: string | null | undefined) => {
     status,
     profile: entry?.data ?? null,
     error: entry?.error ?? null,
+    stale: entry?.stale ?? false,
     refresh: () => (pubkey ? refreshProfile(pubkey) : Promise.resolve(null)),
     isFollowing: pubkey ? isFollowing(pubkey) : false,
   };

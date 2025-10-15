@@ -4,6 +4,9 @@ import { Copy, Info, MessageCircle, RefreshCw } from "lucide-react";
 
 import {
   formatMemberSince,
+  PROFILE_FALLBACK_MESSAGE,
+  PROFILE_STALE_MESSAGE,
+  PROFILE_UNAVAILABLE_MESSAGE,
   useProfileIdentity,
   useUserProfile,
 } from "../context/ProfileIdentityContext";
@@ -26,7 +29,7 @@ const Profile: React.FC = () => {
   } = useProfileIdentity();
   const { user } = useAuth();
 
-  const { profile, status, error, refresh } = useUserProfile(pubkey);
+  const { profile, status, error, refresh, stale } = useUserProfile(pubkey);
 
   const summary = useMemo(() => (pubkey ? resolveProfileSummary(pubkey) : null), [pubkey, resolveProfileSummary]);
 
@@ -53,6 +56,17 @@ const Profile: React.FC = () => {
       ? reputationFormatter.format(profile.reputationScore)
       : "—";
   const rank = profile?.rank ?? "—";
+
+  const isUnavailable = status === "error" || status === "unavailable";
+  const unavailableMessage = stale
+    ? "Showing the last saved version of this profile. Some details may be out of date."
+    : "Some profile details are unavailable right now.";
+  const statusMessage = isUnavailable
+    ? error &&
+      ![PROFILE_FALLBACK_MESSAGE, PROFILE_UNAVAILABLE_MESSAGE, PROFILE_STALE_MESSAGE].includes(error)
+      ? error
+      : unavailableMessage
+    : null;
 
   return (
     <div className="min-h-screen overflow-auto bg-[var(--bg-app)] px-4 py-10 text-[var(--fg-default)] sm:px-6">
@@ -120,13 +134,13 @@ const Profile: React.FC = () => {
               Loading profile…
             </p>
           )}
-          {status === "error" && (
-            <div className="rounded-2xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-500">
-              <p>{error ?? "We couldn’t load this profile."}</p>
+          {statusMessage && (
+            <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-500">
+              <p>{statusMessage}</p>
               <button
                 type="button"
                 onClick={() => refresh().catch(() => undefined)}
-                className="mt-3 inline-flex items-center gap-2 rounded-full border border-red-500/40 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-red-500 transition hover:border-red-500 hover:bg-red-500/10"
+                className="mt-3 inline-flex items-center gap-2 rounded-full border border-amber-500/40 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-amber-500 transition hover:border-amber-500 hover:bg-amber-500/10"
               >
                 Retry
               </button>

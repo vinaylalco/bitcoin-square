@@ -5,6 +5,8 @@ import { Info } from "lucide-react";
 import ErrorBoundary from "../ErrorBoundary";
 import {
   PROFILE_FALLBACK_MESSAGE,
+  PROFILE_STALE_MESSAGE,
+  PROFILE_UNAVAILABLE_MESSAGE,
   formatMemberSince,
   useProfileIdentity,
   useUserProfile,
@@ -55,6 +57,7 @@ interface ProfileModalBodyProps {
   profile: ReturnType<typeof useUserProfile>["profile"];
   status: ReturnType<typeof useUserProfile>["status"];
   error: ReturnType<typeof useUserProfile>["error"];
+  stale: ReturnType<typeof useUserProfile>["stale"];
   following: boolean;
 }
 
@@ -71,6 +74,7 @@ const ProfileModalBody: React.FC<ProfileModalBodyProps> = ({
   profile,
   status,
   error,
+  stale,
   following,
 }) => {
   const memberSince = formatMemberSince(profile?.joined);
@@ -108,11 +112,15 @@ const ProfileModalBody: React.FC<ProfileModalBodyProps> = ({
     return [] as string[];
   }, [profile]);
 
-  const isError = status === "error";
-  const statusMessage = isError
-    ? error && error !== PROFILE_FALLBACK_MESSAGE
+  const isUnavailable = status === "error" || status === "unavailable";
+  const fallbackMessage = stale
+    ? "Showing the last saved version of this profile. Some details may be out of date."
+    : "Some profile details are unavailable right now.";
+  const statusMessage = isUnavailable
+    ? error &&
+      ![PROFILE_FALLBACK_MESSAGE, PROFILE_UNAVAILABLE_MESSAGE, PROFILE_STALE_MESSAGE].includes(error)
       ? error
-      : "Some profile details are unavailable right now."
+      : fallbackMessage
     : null;
 
   return (
@@ -328,7 +336,7 @@ const ProfileModalPortal: React.FC = () => {
     startDirectMessage,
     shortenPubkey,
   } = useProfileIdentity();
-  const { profile, status, error, refresh } = useUserProfile(activeProfile);
+  const { profile, status, error, refresh, stale } = useUserProfile(activeProfile);
   const [avatarLoaded, setAvatarLoaded] = useState(false);
   const portalNode = useProfileModalPortalNode();
 
@@ -395,6 +403,7 @@ const ProfileModalPortal: React.FC = () => {
         profile={profile}
         status={status}
         error={error}
+        stale={stale}
         following={following}
       />
     </ErrorBoundary>,
