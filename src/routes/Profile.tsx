@@ -36,7 +36,7 @@ const Profile: React.FC = () => {
   const rank = profile?.rank ?? "—";
 
   return (
-    <div className="min-h-screen bg-[var(--bg-app)] px-4 py-10 text-[var(--fg-default)] sm:px-6">
+    <div className="min-h-screen overflow-auto bg-[var(--bg-app)] px-4 py-10 text-[var(--fg-default)] sm:px-6">
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-8">
         <header className="flex flex-col gap-6 rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-4">
