@@ -7,6 +7,7 @@ import {
   useProfileIdentity,
   useUserProfile,
 } from "../context/ProfileIdentityContext";
+import { useAuth } from "../context/AuthContext";
 
 const STATS_EXPLANATION =
   "Stats reflect verified posts, reactions, and follower endorsements recorded on Bitcoin Square. Rankings refresh nightly based on your reputation points.";
@@ -20,10 +21,14 @@ const Profile: React.FC = () => {
     startDirectMessage,
     shortenPubkey,
   } = useProfileIdentity();
+  const { user } = useAuth();
 
   const { profile, status, error, refresh } = useUserProfile(pubkey);
 
   const summary = useMemo(() => (pubkey ? resolveProfileSummary(pubkey) : null), [pubkey, resolveProfileSummary]);
+
+  const viewerPubkey = user?.nostrPublicKey?.trim() || null;
+  const isViewerProfile = Boolean(viewerPubkey && pubkey && viewerPubkey === pubkey);
 
   if (!pubkey) {
     return <Navigate to="/" replace />;
@@ -69,13 +74,22 @@ const Profile: React.FC = () => {
             >
               {following ? "Following" : "Follow"}
             </button>
-            <button
-              type="button"
-              onClick={() => startDirectMessage(pubkey)}
-              className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--fg-default)] transition hover:border-brand hover:text-brand"
-            >
-              <MessageCircle className="h-4 w-4" /> Message
-            </button>
+            {isViewerProfile ? (
+              <Link
+                to={`/profile/${pubkey}/messages`}
+                className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--fg-default)] transition hover:border-brand hover:text-brand"
+              >
+                <MessageCircle className="h-4 w-4" /> Inbox
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={() => startDirectMessage(pubkey)}
+                className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--fg-default)] transition hover:border-brand hover:text-brand"
+              >
+                <MessageCircle className="h-4 w-4" /> Message
+              </button>
+            )}
             <button
               type="button"
               onClick={() => refresh().catch(() => undefined)}

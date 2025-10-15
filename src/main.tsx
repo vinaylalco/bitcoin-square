@@ -63,6 +63,7 @@ const router = createBrowserRouter([
       { path: "checkout/success", element: <CheckoutSuccess /> },
       { path: "checkout/cancel", element: <CheckoutCancel /> },
       { path: "community", element: <Community /> },
+      { path: "profile/:pubkey/messages", element: <Messages /> },
       { path: "profile/:pubkey", element: <Profile /> },
       { path: "messages", element: <Messages /> },
     ],

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { AlertCircle, MessageCircle, Search } from "lucide-react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 import {
   useDirectMessages,
@@ -9,6 +10,7 @@ import {
   useProfileIdentity,
   type ProfileSummary,
 } from "../context/ProfileIdentityContext";
+import { useAuth } from "../context/AuthContext";
 
 const formatPreview = (value: string, limit = 140) => {
   const normalized = value.trim();
@@ -58,7 +60,7 @@ interface KnownMember {
   searchText: string;
 }
 
-const Messages: React.FC = () => {
+const MessagesPage: React.FC = () => {
   const { conversations, openConversation, ready, error } = useDirectMessages();
   const { profiles, resolveProfileSummary, requestProfile, shortenPubkey } = useProfileIdentity();
   const [query, setQuery] = useState("");
@@ -361,4 +363,47 @@ const Messages: React.FC = () => {
   );
 };
 
-export default Messages;
+const MessagesRoute: React.FC = () => {
+  const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const params = useParams<{ pubkey?: string }>();
+  const [authorized, setAuthorized] = useState(false);
+
+  useEffect(() => {
+    setAuthorized(false);
+
+    if (!user) {
+      navigate("/login", { replace: true, state: { from: location } });
+      return;
+    }
+
+    const viewerPubkey = user.nostrPublicKey?.trim();
+    const targetPubkey = params.pubkey?.trim();
+
+    if (!viewerPubkey) {
+      navigate(`/profile/${targetPubkey ?? ""}`, { replace: true });
+      return;
+    }
+
+    if (!targetPubkey) {
+      navigate(`/profile/${viewerPubkey}`, { replace: true });
+      return;
+    }
+
+    if (targetPubkey !== viewerPubkey) {
+      navigate(`/profile/${viewerPubkey}`, { replace: true });
+      return;
+    }
+
+    setAuthorized(true);
+  }, [location, navigate, params.pubkey, user]);
+
+  if (!authorized) {
+    return null;
+  }
+
+  return <MessagesPage />;
+};
+
+export default MessagesRoute;

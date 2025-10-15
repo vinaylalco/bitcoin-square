@@ -5,7 +5,6 @@ import {
   Home as HomeIcon,
   LayoutDashboard,
   Mail,
-  MessageCircle,
   Menu,
   Users,
   Settings,
@@ -164,17 +163,6 @@ export default function App() {
             <div className="hidden items-center gap-3 lg:flex">
               {user ? (
                 <>
-                  <NavLink
-                    to="/messages"
-                    className={({ isActive }) =>
-                      cn(
-                        "rounded-full border border-[var(--border-subtle)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand",
-                        isActive && "border-brand bg-brand/10 text-brand",
-                      )
-                    }
-                  >
-                    {t("nav.messages")}
-                  </NavLink>
                   <NavLink
                     to="/dashboard"
                     className={({ isActive }) =>
@@ -342,18 +330,6 @@ export default function App() {
               </NavLink>
               {user ? (
                 <>
-                  <NavLink
-                    to="/messages"
-                    onClick={() => setOpen(false)}
-                    className={({ isActive }) =>
-                      cn(
-                        "inline-flex items-center gap-3 rounded-2xl border border-transparent px-4 py-3 transition hover:border-brand/40 hover:bg-brand/5",
-                        isActive && "border-brand bg-brand/10 text-brand",
-                      )
-                    }
-                  >
-                    <MessageCircle className="h-5 w-5" /> {t("nav.messages")}
-                  </NavLink>
                   <NavLink
                     to="/dashboard"
                     onClick={() => setOpen(false)}
