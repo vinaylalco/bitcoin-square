@@ -9,30 +9,13 @@ import { useCommunityTranslation } from "../../context/CommunityTranslationConte
 import ProfileCard from "../profile/ProfileCard";
 import ErrorBoundary from "../ErrorBoundary";
 import type { RoomDefinition } from "../RoomList";
-import {
-  Heart,
-  Image as ImageIcon,
-  Loader2,
-  MessageCircle,
-  MessageSquareQuote,
-  Plus,
-  X,
-  Zap,
-} from "lucide-react";
+import { Heart, Image as ImageIcon, Loader2, MessageCircle, MessageSquareQuote, Plus, X } from "lucide-react";
 import {
   createFeedActionHandlers,
   createOpenComposerDialog,
   type ComposerMode,
   type PendingMap,
 } from "./feedActions";
-import { countZapReferences, detectZapEndpoint, type ZapEndpoint } from "../../utils/zap";
-import { recordTipAttempt } from "../../utils/analytics";
-
-export interface ManualTipRequest {
-  context: "feed" | "chat";
-  summary: ProfileSummary;
-  snippet?: string | null;
-}
 
 interface BitcoinSquareFeedProps {
   posts: FeedPost[];
@@ -50,23 +33,8 @@ interface BitcoinSquareFeedProps {
   loadingMore: boolean;
   hasMore: boolean;
   error: string | null;
-  canZap: boolean;
   pubkey: string | null;
   initialLoading: boolean;
-  onZapRequest: (request: FeedZapRequest) => void;
-  onManualTipRequest: (request: ManualTipRequest) => void;
-  zapCounts: Record<string, number>;
-  pendingZaps: Set<string>;
-}
-
-export interface FeedZapRequest {
-  key: string;
-  endpoint: ZapEndpoint;
-  authorPubkey: string;
-  noteId: string;
-  relays: string[];
-  summary: ProfileSummary;
-  snippet: string;
 }
 
 type ActiveFilter =
@@ -200,24 +168,6 @@ const formatAbsoluteTimestamp = (unixSeconds: number | null | undefined) => {
   }
 };
 
-const extractRelaysFromTags = (tags: string[][]): string[] => {
-  const relays = new Set<string>();
-  tags.forEach((tag) => {
-    if (!Array.isArray(tag) || tag.length === 0) return;
-    if (tag[0] === "relays") {
-      tag.slice(1).forEach((value) => {
-        if (typeof value === "string" && value.trim().length > 0) {
-          relays.add(value);
-        }
-      });
-    }
-    if (tag[0] === "relay" && typeof tag[1] === "string" && tag[1].trim().length > 0) {
-      relays.add(tag[1]);
-    }
-  });
-  return Array.from(relays);
-};
-
 const renderContent = (
   content: string,
   onTagClick: (tag: string) => void,
@@ -243,13 +193,8 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   loadingMore,
   hasMore,
   error,
-  canZap,
   pubkey,
   initialLoading,
-  onZapRequest,
-  onManualTipRequest,
-  zapCounts,
-  pendingZaps,
 }) => {
   const [content, setContent] = useState("");
   const [composerError, setComposerError] = useState<string | null>(null);
@@ -275,6 +220,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   const now = useRelativeNow();
   const { requestProfile, resolveProfileSummary, openProfile } = useProfileIdentity();
   const {
+    isSupported: translationSupported,
     autoTranslateEnabled,
     ensureTranslation,
     refreshTranslation,
@@ -283,6 +229,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     toggleOriginal,
     formatLanguageName,
   } = useCommunityTranslation();
+  const translationEnabled = translationSupported && autoTranslateEnabled;
   const feedRoom = useMemo<RoomDefinition>(
     () => ({
       id: CASUAL_ROOM_ID,
@@ -399,11 +346,11 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   }, [posts, requestProfile]);
 
   useEffect(() => {
-    if (!autoTranslateEnabled) return;
+    if (!translationEnabled) return;
     posts.forEach((post) => {
       ensureTranslation(`feed:${post.id}`, post.content);
     });
-  }, [autoTranslateEnabled, ensureTranslation, posts]);
+  }, [ensureTranslation, posts, translationEnabled]);
 
   const resetComposer = useCallback(() => {
     setComposerOpen(false);
@@ -921,15 +868,15 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
                   : null;
             const isExpanded = expandedPosts.has(post.id);
             const translationKey = `feed:${post.id}`;
-            const translationEntry = getTranslation(translationKey);
+            const translationEntry = translationEnabled ? getTranslation(translationKey) : undefined;
             const translationStatus = translationEntry?.status ?? "idle";
             const rawTranslatedText =
               translationEntry?.translatedText && translationEntry.translatedText.trim().length > 0
                 ? translationEntry.translatedText
                 : null;
-            const translationReady = translationStatus === "ready" && !!rawTranslatedText;
+            const translationReady = translationEnabled && translationStatus === "ready" && !!rawTranslatedText;
             const showOriginal =
-              !autoTranslateEnabled || !translationReady || isOriginalVisible(translationKey);
+              !translationEnabled || !translationReady || isOriginalVisible(translationKey);
             const contentSource = !showOriginal && rawTranslatedText ? rawTranslatedText : post.content;
             const longPost = isLongPost(contentSource);
             const displayContent = isExpanded || !longPost ? contentSource : getCollapsedContent(contentSource);
@@ -937,44 +884,6 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
               translationEntry?.detectedLanguage && translationEntry.detectedLanguage.trim().length > 0
                 ? formatLanguageName(translationEntry.detectedLanguage)
                 : null;
-            const zapKey = `feed:${post.id}`;
-            const zapEndpoint = isSelfPost
-              ? null
-              : detectZapEndpoint({
-                  lightningAddress: profile.lightningAddress,
-                  tags: post.tags,
-                });
-            const baseZapCount = zapCounts[zapKey] ?? countZapReferences(post.tags);
-            const zapPending = pendingZaps.has(zapKey);
-            const displayZapCount = Math.max(0, baseZapCount + (zapPending ? 1 : 0));
-            const zapTitle = zapPending
-              ? "Sending zap…"
-              : zapEndpoint
-                ? canZap
-                  ? "Zap this post"
-                  : "Add your Lightning address on the dashboard to zap"
-                : "Send a Lightning tip";
-            const postSnippet = buildPostSnippet(post.content);
-            const handleZap = () => {
-              recordTipAttempt({ context: "feed", hasEndpoint: !!zapEndpoint, action: "button" });
-              if (zapEndpoint) {
-                onZapRequest({
-                  key: zapKey,
-                  endpoint: zapEndpoint,
-                  authorPubkey: post.pubkey,
-                  noteId: post.id,
-                  relays: extractRelaysFromTags(post.tags),
-                  summary: profile,
-                  snippet: postSnippet,
-                });
-              } else {
-                onManualTipRequest({
-                  context: "feed",
-                  summary: profile,
-                  snippet: postSnippet,
-                });
-              }
-            };
             const reference = extractPostReference(post.tags);
             const referencedId = reference?.id ?? null;
             const referencedPost = referencedId ? postsById.get(referencedId) : undefined;
@@ -1041,7 +950,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
                   {renderContent(displayContent, handleTagClick, handleMentionClick)}
                 </div>
 
-                {autoTranslateEnabled && (
+                {translationEnabled && (
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.24em] text-[var(--fg-muted)]">
                     {translationStatus === "loading" ? (
                       <span>Translating…</span>
@@ -1153,31 +1062,6 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
                     {isPendingLike ? <Loader2 className="h-4 w-4 animate-spin" /> : <Heart className="h-4 w-4" />}
                     <span className="sr-only">Like</span>
                   </button>
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={handleZap}
-                      disabled={zapPending}
-                      className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
-                        zapPending
-                          ? "border-brand text-brand"
-                          : zapEndpoint
-                            ? canZap
-                              ? "border-brand/40 text-brand hover:border-brand"
-                              : "border-dashed border-[var(--border-subtle)] text-[var(--fg-muted)] hover:border-brand/40"
-                            : "border-dashed border-[var(--border-subtle)] text-[var(--fg-muted)] hover:border-brand/40"
-                      } disabled:cursor-not-allowed disabled:opacity-60`}
-                      title={zapTitle}
-                    >
-                      {zapPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
-                      <span className="sr-only">Send a Lightning tip to {profile.displayName}</span>
-                    </button>
-                    {displayZapCount > 0 && (
-                      <span className="ml-1 text-xs font-semibold text-brand">
-                        {displayZapCount.toLocaleString()}
-                      </span>
-                    )}
-                  </div>
                 </div>
               </article>
             );

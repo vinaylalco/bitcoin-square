@@ -125,11 +125,11 @@ const ProfileModalBody: React.FC<ProfileModalBodyProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      className="fixed inset-0 z-50 flex justify-center bg-black/60 p-4"
       role="dialog"
       aria-modal="true"
     >
-      <div className="w-full max-w-lg rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-2xl">
+      <div className="w-full max-w-lg overflow-auto rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-2xl">
         <header className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-4">
             <a

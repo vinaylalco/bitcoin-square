@@ -1,10 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate } from "react-router-dom";
 
-import BitcoinSquareFeed, {
-  type FeedZapRequest,
-  type ManualTipRequest,
-} from "../components/bitcoinSquareChat/BitcoinSquareFeed";
+import BitcoinSquareFeed from "../components/bitcoinSquareChat/BitcoinSquareFeed";
 import ErrorBoundary from "../components/ErrorBoundary";
 import type { RoomDefinition } from "../components/RoomList";
 import {
@@ -29,33 +26,8 @@ import {
   useCommunityTranslation,
 } from "../context/CommunityTranslationContext";
 import type { LucideIcon } from "lucide-react";
-import {
-  ArrowUp,
-  Heart,
-  Languages,
-  Loader2,
-  MessageCircle,
-  MessageSquareQuote,
-  Newspaper,
-  Paperclip,
-  Send,
-  Sparkles,
-  Users,
-  X,
-  Zap,
-} from "lucide-react";
-import ZapDialog from "../components/bitcoinSquareChat/ZapDialog";
-import ManualTipDialog from "../components/bitcoinSquareChat/ManualTipDialog";
-import {
-  countZapReferences,
-  detectZapEndpoint,
-  fetchLnurlDetails,
-  requestZapInvoice,
-  type LnurlPayResponse,
-  type ZapEndpoint,
-} from "../utils/zap";
+import { ArrowUp, Heart, Loader2, MessageCircle, MessageSquareQuote, Newspaper, Paperclip, Send, Sparkles, Users, X } from "lucide-react";
 import { markdownToHtml } from "../utils/markdown";
-import { recordTipAttempt } from "../utils/analytics";
 
 type ActiveView = "casual" | "feed" | "personal" | "members";
 
@@ -185,41 +157,6 @@ const extractRelaysFromTags = (tags?: string[][] | null): string[] => {
   });
   return Array.from(relays);
 };
-
-interface CommunityZapTarget {
-  key: string;
-  context: "feed" | "chat" | "profile";
-  endpoint: ZapEndpoint;
-  authorPubkey: string;
-  noteId?: string | null;
-  relays?: string[];
-  summary: ProfileSummary;
-  snippet?: string | null;
-}
-
-interface ZapDialogState {
-  open: boolean;
-  target: CommunityZapTarget | null;
-  stage: "select" | "paying" | "invoice" | "success" | "error";
-  lnurl: LnurlPayResponse | null;
-  lnurlLoading: boolean;
-  invoice: string | null;
-  amountSats?: number;
-  error: string | null;
-  weblnTried: boolean;
-}
-
-const createInitialZapState = (): ZapDialogState => ({
-  open: false,
-  target: null,
-  stage: "select",
-  lnurl: null,
-  lnurlLoading: false,
-  invoice: null,
-  amountSats: undefined,
-  error: null,
-  weblnTried: false,
-});
 
 const base64ToUint8Array = (value: string) => {
   const binary = atob(value);
@@ -619,20 +556,18 @@ const CommunityView: React.FC = () => {
     pubkey: accountPubkey,
     error: accountError,
   } = useNostrAccount();
-  const hasLightningWallet = Boolean(user?.lnWalletAddress);
-  const canZap = accountReady && Boolean(globalSignEvent);
 
   const {
+    isSupported: translationSupported,
     autoTranslateEnabled,
-    setAutoTranslateEnabled,
     ensureTranslation,
     refreshTranslation,
     getTranslation,
     isOriginalVisible,
     toggleOriginal,
-    targetLanguageLabel,
     formatLanguageName,
   } = useCommunityTranslation();
+  const translationEnabled = translationSupported && autoTranslateEnabled;
 
   const [activeView, setActiveView] = useState<ActiveView>("casual");
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -649,15 +584,10 @@ const CommunityView: React.FC = () => {
   } = useMediaUploader({ room: CASUAL_ROOM, pubkey });
   const [composerError, setComposerError] = useState<string | null>(null);
   const [composerDraft, setComposerDraft] = useState<string | undefined>(undefined);
-  const [walletPromptOpen, setWalletPromptOpen] = useState(false);
   const [quoteContext, setQuoteContext] = useState<QuoteContextState | null>(null);
   const [isAtTop, setIsAtTop] = useState(true);
   const [newMessageAnchor, setNewMessageAnchor] = useState<string | null>(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
-  const [zapCounts, setZapCounts] = useState<Record<string, number>>({});
-  const [pendingZaps, setPendingZaps] = useState<Set<string>>(() => new Set());
-  const [zapState, setZapState] = useState<ZapDialogState>(() => createInitialZapState());
-  const [manualTipTarget, setManualTipTarget] = useState<ManualTipRequest | null>(null);
   const [composerHeight, setComposerHeight] = useState(0);
   const messageRefs = useRef(new Map<string, HTMLDivElement>());
   const highlightTimerRef = useRef<number | null>(null);
@@ -736,250 +666,6 @@ const CommunityView: React.FC = () => {
       bottom: chatSpacing.buttonOffset,
     };
   }, [chatSpacing.buttonOffset]);
-
-  const setPendingZap = useCallback((key: string, pending: boolean) => {
-    setPendingZaps((prev) => {
-      const has = prev.has(key);
-      if ((pending && has) || (!pending && !has)) {
-        return prev;
-      }
-      const next = new Set(prev);
-      if (pending) {
-        next.add(key);
-      } else {
-        next.delete(key);
-      }
-      return next;
-    });
-  }, []);
-
-  const adjustZapCount = useCallback((key: string, delta: number) => {
-    setZapCounts((prev) => {
-      const current = prev[key] ?? 0;
-      const nextValue = Math.max(0, current + delta);
-      if (nextValue === current) {
-        return prev;
-      }
-      return { ...prev, [key]: nextValue };
-    });
-  }, []);
-
-  const handleOpenZap = useCallback(
-    (target: CommunityZapTarget) => {
-      if (!hasLightningWallet) {
-        setWalletPromptOpen(true);
-      }
-
-      if (!globalSignEvent || !accountReady) {
-        setZapState({
-          ...createInitialZapState(),
-          open: true,
-          target,
-          stage: "error",
-          error:
-            "We need your Nostr signer ready to send zaps. Refresh your keys from the dashboard and try again.",
-        });
-        return;
-      }
-
-      setZapState({
-        ...createInitialZapState(),
-        open: true,
-        target,
-        stage: target.endpoint.type === "lnurl" ? "select" : "invoice",
-        lnurlLoading: target.endpoint.type === "lnurl",
-        invoice: target.endpoint.type === "bolt11" ? target.endpoint.invoice : null,
-      });
-    },
-    [accountReady, globalSignEvent, hasLightningWallet],
-  );
-
-  const handleManualTipRequest = useCallback((request: ManualTipRequest) => {
-    setManualTipTarget(request);
-  }, []);
-
-  const handleManualTipClose = useCallback(() => {
-    setManualTipTarget(null);
-  }, []);
-
-  useEffect(() => {
-    if (!zapState.open || !zapState.target) {
-      return;
-    }
-    if (zapState.target.endpoint.type !== "lnurl") {
-      return;
-    }
-    if (zapState.lnurlLoading || zapState.lnurl) {
-      return;
-    }
-
-    let cancelled = false;
-    setZapState((prev) => ({ ...prev, lnurlLoading: true }));
-
-    (async () => {
-      try {
-        const details = await fetchLnurlDetails(zapState.target!.endpoint.url);
-        if (cancelled) return;
-        setZapState((prev) => ({ ...prev, lnurl: details, lnurlLoading: false }));
-      } catch (error) {
-        if (cancelled) return;
-        if (import.meta.env?.DEV) {
-          console.error("Zap details fetch failed", error);
-        }
-        const message = error instanceof Error ? error.message : "Unable to load zap details.";
-        setZapState((prev) => ({ ...prev, stage: "error", lnurlLoading: false, error: message }));
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [zapState.open, zapState.target, zapState.lnurl, zapState.lnurlLoading]);
-
-  const handleSubmitZap = useCallback(
-    (amount: number, comment?: string) => {
-      if (!zapState.target) {
-        return;
-      }
-
-      const target = zapState.target;
-      const lnurlDetails = zapState.lnurl;
-
-      setZapState((prev) => ({
-        ...prev,
-        stage: "paying",
-        amountSats: amount,
-        error: null,
-        invoice: null,
-        weblnTried: false,
-      }));
-      setPendingZap(target.key, true);
-
-      (async () => {
-        try {
-          if (target.endpoint.type === "lnurl") {
-            if (!lnurlDetails) {
-              throw new Error("Zap details are still loading. Please wait a moment.");
-            }
-            const response = await requestZapInvoice({
-              details: lnurlDetails,
-              amountMsat: Math.round(amount * 1000),
-              targetPubkey: target.authorPubkey,
-              noteId: target.noteId ?? null,
-              relays: target.relays,
-              comment,
-              signEvent: globalSignEvent,
-              lnurlRaw: target.endpoint.raw,
-              logger: import.meta.env?.DEV ? console : undefined,
-            });
-            if (response.event) {
-              try {
-                await nostrClient.broadcast(response.event);
-              } catch (relayError) {
-                if (import.meta.env?.DEV) {
-                  console.warn("Zap event broadcast failed", relayError);
-                }
-              }
-            }
-            const invoice = response.pr;
-            if (typeof window !== "undefined" && window.webln) {
-              try {
-                await window.webln.enable();
-                await window.webln.sendPayment(invoice);
-                adjustZapCount(target.key, 1);
-                setPendingZap(target.key, false);
-                setZapState((prev) => ({ ...prev, stage: "success", invoice, weblnTried: true }));
-                return;
-              } catch (weblnError) {
-                if (import.meta.env?.DEV) {
-                  console.warn("WebLN payment failed", weblnError);
-                }
-                setZapState((prev) => ({ ...prev, stage: "invoice", invoice, weblnTried: true }));
-              }
-            } else {
-              setZapState((prev) => ({ ...prev, stage: "invoice", invoice, weblnTried: false }));
-            }
-            setPendingZap(target.key, false);
-          } else {
-            setZapState((prev) => ({
-              ...prev,
-              stage: "invoice",
-              invoice: target.endpoint.invoice,
-              amountSats: amount,
-            }));
-            setPendingZap(target.key, false);
-          }
-        } catch (error) {
-          if (import.meta.env?.DEV) {
-            console.error("Zap submission failed", error);
-          }
-          const message = error instanceof Error ? error.message : "Zap failed. Try again later.";
-          setZapState((prev) => ({ ...prev, stage: "error", error: message }));
-          setPendingZap(target.key, false);
-        }
-      })();
-    },
-    [adjustZapCount, globalSignEvent, setPendingZap, zapState.lnurl, zapState.target],
-  );
-
-  const handleZapRetry = useCallback(() => {
-    setZapState((prev) => {
-      if (!prev.target) {
-        return prev;
-      }
-      return {
-        ...prev,
-        stage: prev.target.endpoint.type === "lnurl" ? "select" : "invoice",
-        error: null,
-        weblnTried: false,
-      };
-    });
-  }, []);
-
-  const handleZapMarkPaid = useCallback(() => {
-    if (!zapState.target) {
-      return;
-    }
-    adjustZapCount(zapState.target.key, 1);
-    setPendingZap(zapState.target.key, false);
-    setZapState((prev) => ({ ...prev, stage: "success" }));
-  }, [adjustZapCount, setPendingZap, zapState.target]);
-
-  const handleZapClose = useCallback(() => {
-    if (zapState.target) {
-      setPendingZap(zapState.target.key, false);
-    }
-    setZapState(createInitialZapState());
-  }, [setPendingZap, zapState.target]);
-
-  const handleFeedZapRequest = useCallback(
-    (request: FeedZapRequest) => {
-      handleOpenZap({
-        key: request.key,
-        context: "feed",
-        endpoint: request.endpoint,
-        authorPubkey: request.authorPubkey,
-        noteId: request.noteId,
-        relays: request.relays,
-        summary: request.summary,
-        snippet: request.snippet,
-      });
-    },
-    [handleOpenZap],
-  );
-
-  const handleMemberZap = useCallback(
-    (pubkeyValue: string, summary: ProfileSummary, endpoint: ZapEndpoint) => {
-      handleOpenZap({
-        key: `profile:${pubkeyValue}`,
-        context: "profile",
-        endpoint,
-        authorPubkey: pubkeyValue,
-        summary,
-      });
-    },
-    [handleOpenZap],
-  );
 
   useEffect(() => {
     if (accountReady && globalSignEvent) {
@@ -1064,11 +750,11 @@ const CommunityView: React.FC = () => {
   }, [feedPosts, messages, requestProfile, typingPubkeys]);
 
   useEffect(() => {
-    if (!autoTranslateEnabled) return;
+    if (!translationEnabled) return;
     messages.forEach((message) => {
       ensureTranslation(`chat:${message.id}`, message.markdown);
     });
-  }, [autoTranslateEnabled, ensureTranslation, messages]);
+  }, [ensureTranslation, messages, translationEnabled]);
 
   const computeScrollState = useCallback(() => {
     const node = listRef.current;
@@ -1187,17 +873,6 @@ const CommunityView: React.FC = () => {
       });
     }
   }, [activeView, computeScrollState, scrollToTop]);
-
-  useEffect(() => {
-    if (!walletPromptOpen) return;
-    const handler = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setWalletPromptOpen(false);
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [walletPromptOpen]);
 
   const casualMemberActivity = useMemo(() => collectMemberActivity(messages), [messages]);
   const feedMemberActivity = useMemo(() => collectMemberActivity(feedPosts), [feedPosts]);
@@ -1380,24 +1055,6 @@ const CommunityView: React.FC = () => {
       : member.lastSeen > 0
         ? formatLastSeenLabel(member.lastSeen)
         : "No activity yet";
-    const profileZapKey = `profile:${member.pubkey}`;
-    const profileZapEndpoint = detectZapEndpoint({
-      lightningAddress: member.summary.lightningAddress,
-    });
-    const profileZapCount = zapCounts[profileZapKey] ?? 0;
-    const profileZapPending = pendingZaps.has(profileZapKey);
-    const profileZapDisplayCount = Math.max(
-      0,
-      profileZapCount + (profileZapPending ? 1 : 0),
-    );
-    const profileZapTitle = !profileZapEndpoint
-      ? "Zaps unavailable"
-      : profileZapPending
-        ? "Sending zap…"
-        : canZap
-          ? `Zap ${member.summary.displayName}`
-          : "Preparing your Nostr keys…";
-
     return (
       <div
         key={member.pubkey}
@@ -1423,35 +1080,6 @@ const CommunityView: React.FC = () => {
             </span>
           </div>
         </button>
-        {profileZapEndpoint && (
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => handleMemberZap(member.pubkey, member.summary, profileZapEndpoint)}
-              disabled={profileZapPending}
-              className={`inline-flex h-8 w-8 items-center justify-center rounded-full border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
-                profileZapPending
-                  ? "border-brand text-brand"
-                  : canZap
-                    ? "border-brand/40 text-brand hover:border-brand"
-                    : "border-dashed border-[var(--border-subtle)] text-[var(--fg-muted)]"
-              } disabled:cursor-not-allowed disabled:opacity-60`}
-              title={profileZapTitle}
-            >
-              {profileZapPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Zap className="h-4 w-4" />
-              )}
-              <span className="sr-only">Zap {member.summary.displayName}</span>
-            </button>
-            {profileZapDisplayCount > 0 && (
-              <span className="text-[10px] font-semibold text-brand">
-                {profileZapDisplayCount.toLocaleString()}
-              </span>
-            )}
-          </div>
-        )}
       </div>
     );
   };
@@ -1973,26 +1601,6 @@ const CommunityView: React.FC = () => {
             </nav>
           </div>
           <main className="relative flex flex-1 min-h-0 flex-col">
-            <div className="flex flex-wrap items-center justify-end gap-2 border-b border-[var(--border-subtle)] bg-[var(--bg-card)]/60 px-5 py-3 text-[10px] uppercase tracking-[0.24em] text-[var(--fg-muted)] sm:px-8">
-              <div className="flex items-center gap-2 text-[11px] font-semibold text-[var(--fg-muted)]">
-                <Languages className="h-4 w-4 text-brand" aria-hidden="true" />
-                <span>
-                  Auto-translate: <span className="text-brand">{targetLanguageLabel}</span>
-                </span>
-              </div>
-              <button
-                type="button"
-                aria-pressed={autoTranslateEnabled}
-                onClick={() => setAutoTranslateEnabled(!autoTranslateEnabled)}
-                className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
-                  autoTranslateEnabled
-                    ? "border-brand/50 text-brand hover:border-brand"
-                    : "border-[var(--border-subtle)] text-[var(--fg-muted)] hover:border-brand hover:text-brand"
-                }`}
-              >
-                {autoTranslateEnabled ? "Turn off" : "Turn on"} translation
-              </button>
-            </div>
             {isCasualView ? (
               <section
                 id="community-panel-casual"
@@ -2046,70 +1654,30 @@ const CommunityView: React.FC = () => {
                               ? resolveProfileSummary(referencedMessage.pubkey)
                               : null;
                           const isHighlighted = highlightedMessageId === message.id;
-                          const messageZapKey = `chat:${message.id}`;
-                          const messageZapEndpoint = isSelf
-                            ? null
-                            : detectZapEndpoint({
-                                lightningAddress: summary.lightningAddress,
-                                tags: message.tags,
-                              });
-                          const baseMessageZapCount = zapCounts[messageZapKey] ?? 0;
-                          const messageZapPending = pendingZaps.has(messageZapKey);
-                          const messageZapDisplayCount = Math.max(
-                            0,
-                            baseMessageZapCount + (messageZapPending ? 1 : 0),
-                          );
-                          const messageZapTitle = messageZapPending
-                            ? "Sending zap…"
-                            : messageZapEndpoint
-                              ? canZap
-                                ? "Zap this message"
-                                : "Preparing your Nostr keys…"
-                              : "Send a Lightning tip";
-                          const messageSnippet = buildQuoteSnippet(message.markdown);
-                          const handleMessageZap = () => {
-                            recordTipAttempt({
-                              context: "chat",
-                              hasEndpoint: !!messageZapEndpoint,
-                              action: "button",
-                            });
-                            if (messageZapEndpoint) {
-                              handleOpenZap({
-                                key: messageZapKey,
-                                context: "chat",
-                                endpoint: messageZapEndpoint,
-                                authorPubkey: message.pubkey,
-                                noteId: message.id,
-                                relays: extractRelaysFromTags(message.tags),
-                                summary,
-                                snippet: messageSnippet,
-                              });
-                            } else {
-                              handleManualTipRequest({
-                                context: "chat",
-                                summary,
-                                snippet: messageSnippet,
-                              });
-                            }
-                          };
-                          const translationKey = messageZapKey;
-                          const translationEntry = getTranslation(translationKey);
+                          const translationKey = `chat:${message.id}`;
+                          const translationEntry = translationEnabled
+                            ? getTranslation(translationKey)
+                            : undefined;
                           const translationStatus = translationEntry?.status ?? "idle";
                           const rawTranslatedText =
                             translationEntry?.translatedText &&
                             translationEntry.translatedText.trim().length > 0
                               ? translationEntry.translatedText
                               : null;
-                          const translationReady = translationStatus === "ready" && !!rawTranslatedText;
+                          const translationReady =
+                            translationEnabled && translationStatus === "ready" && !!rawTranslatedText;
                           const showOriginal =
-                            !autoTranslateEnabled ||
-                            !translationReady ||
-                            isOriginalVisible(translationKey);
+                            !translationEnabled || !translationReady || isOriginalVisible(translationKey);
                           const translatedHtml =
-                            translationReady && rawTranslatedText ? markdownToHtml(rawTranslatedText) : null;
+                            translationEnabled && translationReady && rawTranslatedText
+                              ? markdownToHtml(rawTranslatedText)
+                              : null;
                           const renderedHtml =
-                            !showOriginal && translatedHtml ? translatedHtml : message.html;
+                            translatedHtml && translationEnabled && !showOriginal
+                              ? translatedHtml
+                              : message.html;
                           const detectedLanguageLabel =
+                            translationEnabled &&
                             translationEntry?.detectedLanguage &&
                             translationEntry.detectedLanguage.trim().length > 0
                               ? formatLanguageName(translationEntry.detectedLanguage)
@@ -2200,7 +1768,7 @@ const CommunityView: React.FC = () => {
                                     } prose-a:text-brand`}
                                     dangerouslySetInnerHTML={{ __html: renderedHtml }}
                                   />
-                                  {autoTranslateEnabled && (
+                                  {translationEnabled && (
                                     <div
                                       className={`flex flex-wrap items-center gap-2 text-[9px] uppercase tracking-[0.3em] ${translationNoticeColor}`}
                                     >
@@ -2286,35 +1854,6 @@ const CommunityView: React.FC = () => {
                                       <Heart className="h-4 w-4" />
                                       <span className="sr-only">Like</span>
                                     </button>
-                                    <div className="flex items-center gap-1">
-                                      <button
-                                        type="button"
-                                        onClick={handleMessageZap}
-                                        disabled={messageZapPending}
-                                        className={`inline-flex h-8 w-8 items-center justify-center rounded-full border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
-                                          messageZapPending
-                                            ? "border-brand text-white dark:text-brand"
-                                            : messageZapEndpoint
-                                              ? canZap
-                                                ? "border-brand/40 text-white hover:border-brand dark:text-brand"
-                                                : "border-dashed border-white/60 text-white/80 dark:text-[var(--fg-muted)]"
-                                              : "border-dashed border-white/60 text-white/80 dark:text-[var(--fg-muted)]"
-                                        } disabled:cursor-not-allowed disabled:opacity-60`}
-                                        title={messageZapTitle}
-                                      >
-                                        {messageZapPending ? (
-                                          <Loader2 className="h-4 w-4 animate-spin" />
-                                        ) : (
-                                          <Zap className="h-4 w-4" />
-                                        )}
-                                        <span className="sr-only">Send a Lightning tip to {summary.displayName}</span>
-                                      </button>
-                                      {messageZapDisplayCount > 0 && (
-                                        <span className="text-[10px] font-semibold text-brand">
-                                          {messageZapDisplayCount.toLocaleString()}
-                                        </span>
-                                      )}
-                                    </div>
                                   </div>
                                   {message.status === "pending" && (
                                     <p className={`text-[10px] uppercase tracking-[0.24em] ${timestampColor}`}>Sending…</p>
@@ -2386,13 +1925,8 @@ const CommunityView: React.FC = () => {
                         loadingMore={feedLoadingMore}
                         hasMore={feedHasMore}
                         error={feedError}
-                        canZap={canZap}
                         pubkey={feedPubkey}
                         initialLoading={feedInitialLoading}
-                        onZapRequest={handleFeedZapRequest}
-                        onManualTipRequest={handleManualTipRequest}
-                        zapCounts={zapCounts}
-                        pendingZaps={pendingZaps}
                       />
                     </div>
                   </ErrorBoundary>
@@ -2417,13 +1951,8 @@ const CommunityView: React.FC = () => {
                         loadingMore={feedLoadingMore}
                         hasMore={feedHasMore}
                         error={feedError}
-                        canZap={canZap}
                         pubkey={feedPubkey}
                         initialLoading={feedInitialLoading}
-                        onZapRequest={handleFeedZapRequest}
-                        onManualTipRequest={handleManualTipRequest}
-                        zapCounts={zapCounts}
-                        pendingZaps={pendingZaps}
                       />
                     ) : (
                       <div className="flex flex-1 items-center justify-center px-6 py-12">
@@ -2473,53 +2002,6 @@ const CommunityView: React.FC = () => {
         </div>
       </div>
 
-      {walletPromptOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-8">
-          <div className="w-full max-w-md rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 text-center shadow-2xl">
-            <h2 className="text-lg font-semibold text-[var(--fg-default)]">Connect your Lightning wallet</h2>
-            <p className="mt-3 text-sm text-[var(--fg-muted)]">
-              Add a Lightning address on your dashboard so you can zap other members instantly.
-            </p>
-            <div className="mt-6 flex flex-wrap justify-center gap-3">
-              <a
-                href="/dashboard"
-                className="inline-flex items-center justify-center rounded-full bg-brand px-5 py-2 text-sm font-semibold uppercase tracking-[0.24em] text-white transition hover:bg-brand/90"
-              >
-                Open dashboard
-              </a>
-              <button
-                type="button"
-                onClick={() => setWalletPromptOpen(false)}
-                className="inline-flex items-center justify-center rounded-full border border-[var(--border-subtle)] px-5 py-2 text-sm font-semibold uppercase tracking-[0.24em] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      <ZapDialog
-        open={zapState.open}
-        target={zapState.target}
-        stage={zapState.stage}
-        lnurl={zapState.lnurl}
-        lnurlLoading={zapState.lnurlLoading}
-        amountSats={zapState.amountSats}
-        invoice={zapState.invoice}
-        error={zapState.error}
-        weblnTried={zapState.weblnTried}
-        onClose={handleZapClose}
-        onSubmit={handleSubmitZap}
-        onRetry={handleZapRetry}
-        onMarkPaid={handleZapMarkPaid}
-      />
-      <ManualTipDialog
-        open={manualTipTarget !== null}
-        context={manualTipTarget?.context ?? "feed"}
-        summary={manualTipTarget?.summary ?? null}
-        snippet={manualTipTarget?.snippet ?? null}
-        onClose={handleManualTipClose}
-      />
     </div>
   );
 };
