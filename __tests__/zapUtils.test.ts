@@ -7,9 +7,13 @@ vi.mock("../src/utils/safeJsonFetch", () => ({
 
 import safeJsonFetch from "../src/utils/safeJsonFetch";
 import {
+  buildLightningUri,
   countZapReferences,
   detectZapEndpoint,
   fetchLnurlDetails,
+  isBolt11,
+  isLightningAddress,
+  isLnurl,
   lightningAddressToLnurl,
   requestZapInvoice,
   type LnurlPayResponse,
@@ -25,6 +29,22 @@ describe("zap utilities", () => {
   it("converts lightning addresses into LNURL pay endpoints", () => {
     expect(lightningAddressToLnurl("satoshi@example.com")).toBe(
       "https://example.com/.well-known/lnurlp/satoshi",
+    );
+  });
+
+  it("detects supported Lightning identifiers", () => {
+    expect(isBolt11("lnbc1exampleinvoice")).toBe(true);
+    expect(isLightningAddress("user@example.com")).toBe(true);
+    expect(isLnurl("lnurl1dp68gurn8ghj7mmsd9hx7apwd3hkccm0d3hxuep0w4hzu"))
+      .toBe(true);
+  });
+
+  it("normalizes Lightning URIs", () => {
+    expect(buildLightningUri("lnbc1exampleinvoice")).toBe(
+      "lightning:lnbc1exampleinvoice",
+    );
+    expect(buildLightningUri("lightning:user@example.com")).toBe(
+      "lightning:user@example.com",
     );
   });
 

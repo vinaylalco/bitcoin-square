@@ -26,6 +26,13 @@ import {
   type PendingMap,
 } from "./feedActions";
 import { countZapReferences, detectZapEndpoint, type ZapEndpoint } from "../../utils/zap";
+import { recordTipAttempt } from "../../utils/analytics";
+
+export interface ManualTipRequest {
+  context: "feed" | "chat";
+  summary: ProfileSummary;
+  snippet?: string | null;
+}
 
 interface BitcoinSquareFeedProps {
   posts: FeedPost[];
@@ -47,6 +54,7 @@ interface BitcoinSquareFeedProps {
   pubkey: string | null;
   initialLoading: boolean;
   onZapRequest: (request: FeedZapRequest) => void;
+  onManualTipRequest: (request: ManualTipRequest) => void;
   zapCounts: Record<string, number>;
   pendingZaps: Set<string>;
 }
@@ -239,6 +247,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   pubkey,
   initialLoading,
   onZapRequest,
+  onManualTipRequest,
   zapCounts,
   pendingZaps,
 }) => {
@@ -938,24 +947,33 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
             const baseZapCount = zapCounts[zapKey] ?? countZapReferences(post.tags);
             const zapPending = pendingZaps.has(zapKey);
             const displayZapCount = Math.max(0, baseZapCount + (zapPending ? 1 : 0));
-            const zapTitle = !zapEndpoint
-              ? "Zaps unavailable"
-              : zapPending
-                ? "Sending zap…"
-                : canZap
+            const zapTitle = zapPending
+              ? "Sending zap…"
+              : zapEndpoint
+                ? canZap
                   ? "Zap this post"
-                  : "Add your Lightning address on the dashboard to zap";
+                  : "Add your Lightning address on the dashboard to zap"
+                : "Send a Lightning tip";
+            const postSnippet = buildPostSnippet(post.content);
             const handleZap = () => {
-              if (!zapEndpoint) return;
-              onZapRequest({
-                key: zapKey,
-                endpoint: zapEndpoint,
-                authorPubkey: post.pubkey,
-                noteId: post.id,
-                relays: extractRelaysFromTags(post.tags),
-                summary: profile,
-                snippet: buildPostSnippet(post.content),
-              });
+              recordTipAttempt({ context: "feed", hasEndpoint: !!zapEndpoint, action: "button" });
+              if (zapEndpoint) {
+                onZapRequest({
+                  key: zapKey,
+                  endpoint: zapEndpoint,
+                  authorPubkey: post.pubkey,
+                  noteId: post.id,
+                  relays: extractRelaysFromTags(post.tags),
+                  summary: profile,
+                  snippet: postSnippet,
+                });
+              } else {
+                onManualTipRequest({
+                  context: "feed",
+                  summary: profile,
+                  snippet: postSnippet,
+                });
+              }
             };
             const reference = extractPostReference(post.tags);
             const referencedId = reference?.id ?? null;
@@ -1135,31 +1153,31 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
                     {isPendingLike ? <Loader2 className="h-4 w-4 animate-spin" /> : <Heart className="h-4 w-4" />}
                     <span className="sr-only">Like</span>
                   </button>
-                  {zapEndpoint && (
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={handleZap}
-                        disabled={zapPending}
-                        className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
-                          zapPending
-                            ? "border-brand text-brand"
-                            : canZap
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={handleZap}
+                      disabled={zapPending}
+                      className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
+                        zapPending
+                          ? "border-brand text-brand"
+                          : zapEndpoint
+                            ? canZap
                               ? "border-brand/40 text-brand hover:border-brand"
                               : "border-dashed border-[var(--border-subtle)] text-[var(--fg-muted)] hover:border-brand/40"
-                        } disabled:cursor-not-allowed disabled:opacity-60`}
-                        title={zapTitle}
-                      >
-                        {zapPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
-                        <span className="sr-only">Zap {profile.displayName}</span>
-                      </button>
-                      {displayZapCount > 0 && (
-                        <span className="ml-1 text-xs font-semibold text-brand">
-                          {displayZapCount.toLocaleString()}
-                        </span>
-                      )}
-                    </div>
-                  )}
+                            : "border-dashed border-[var(--border-subtle)] text-[var(--fg-muted)] hover:border-brand/40"
+                      } disabled:cursor-not-allowed disabled:opacity-60`}
+                      title={zapTitle}
+                    >
+                      {zapPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+                      <span className="sr-only">Send a Lightning tip to {profile.displayName}</span>
+                    </button>
+                    {displayZapCount > 0 && (
+                      <span className="ml-1 text-xs font-semibold text-brand">
+                        {displayZapCount.toLocaleString()}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </article>
             );

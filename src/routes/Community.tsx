@@ -1,7 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate } from "react-router-dom";
 
-import BitcoinSquareFeed, { type FeedZapRequest } from "../components/bitcoinSquareChat/BitcoinSquareFeed";
+import BitcoinSquareFeed, {
+  type FeedZapRequest,
+  type ManualTipRequest,
+} from "../components/bitcoinSquareChat/BitcoinSquareFeed";
 import ErrorBoundary from "../components/ErrorBoundary";
 import type { RoomDefinition } from "../components/RoomList";
 import {
@@ -42,6 +45,7 @@ import {
   Zap,
 } from "lucide-react";
 import ZapDialog from "../components/bitcoinSquareChat/ZapDialog";
+import ManualTipDialog from "../components/bitcoinSquareChat/ManualTipDialog";
 import {
   countZapReferences,
   detectZapEndpoint,
@@ -51,6 +55,7 @@ import {
   type ZapEndpoint,
 } from "../utils/zap";
 import { markdownToHtml } from "../utils/markdown";
+import { recordTipAttempt } from "../utils/analytics";
 
 type ActiveView = "casual" | "feed" | "personal" | "members";
 
@@ -670,6 +675,7 @@ const CommunityView: React.FC = () => {
   const [zapCounts, setZapCounts] = useState<Record<string, number>>({});
   const [pendingZaps, setPendingZaps] = useState<Set<string>>(() => new Set());
   const [zapState, setZapState] = useState<ZapDialogState>(() => createInitialZapState());
+  const [manualTipTarget, setManualTipTarget] = useState<ManualTipRequest | null>(null);
   const [composerHeight, setComposerHeight] = useState(0);
   const messageRefs = useRef(new Map<string, HTMLDivElement>());
   const highlightTimerRef = useRef<number | null>(null);
@@ -805,6 +811,14 @@ const CommunityView: React.FC = () => {
     },
     [accountReady, globalSignEvent, hasLightningWallet],
   );
+
+  const handleManualTipRequest = useCallback((request: ManualTipRequest) => {
+    setManualTipTarget(request);
+  }, []);
+
+  const handleManualTipClose = useCallback(() => {
+    setManualTipTarget(null);
+  }, []);
 
   useEffect(() => {
     if (!zapState.open || !zapState.target) {
@@ -2078,14 +2092,39 @@ const CommunityView: React.FC = () => {
                             0,
                             baseMessageZapCount + (messageZapPending ? 1 : 0),
                           );
-                          const messageZapTitle = !messageZapEndpoint
-                            ? "Zaps unavailable"
-                            : messageZapPending
-                              ? "Sending zap…"
-                              : canZap
+                          const messageZapTitle = messageZapPending
+                            ? "Sending zap…"
+                            : messageZapEndpoint
+                              ? canZap
                                 ? "Zap this message"
-                                : "Preparing your Nostr keys…";
+                                : "Preparing your Nostr keys…"
+                              : "Send a Lightning tip";
                           const messageSnippet = buildQuoteSnippet(message.markdown);
+                          const handleMessageZap = () => {
+                            recordTipAttempt({
+                              context: "chat",
+                              hasEndpoint: !!messageZapEndpoint,
+                              action: "button",
+                            });
+                            if (messageZapEndpoint) {
+                              handleOpenZap({
+                                key: messageZapKey,
+                                context: "chat",
+                                endpoint: messageZapEndpoint,
+                                authorPubkey: message.pubkey,
+                                noteId: message.id,
+                                relays: extractRelaysFromTags(message.tags),
+                                summary,
+                                snippet: messageSnippet,
+                              });
+                            } else {
+                              handleManualTipRequest({
+                                context: "chat",
+                                summary,
+                                snippet: messageSnippet,
+                              });
+                            }
+                          };
                           const translationKey = messageZapKey;
                           const translationEntry = getTranslation(translationKey);
                           const translationStatus = translationEntry?.status ?? "idle";
@@ -2287,46 +2326,35 @@ const CommunityView: React.FC = () => {
                                       <Heart className="h-4 w-4" />
                                       <span className="sr-only">Like</span>
                                     </button>
-                                    {messageZapEndpoint && (
-                                      <div className="flex items-center gap-1">
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            handleOpenZap({
-                                              key: messageZapKey,
-                                              context: "chat",
-                                              endpoint: messageZapEndpoint,
-                                              authorPubkey: message.pubkey,
-                                              noteId: message.id,
-                                              relays: extractRelaysFromTags(message.tags),
-                                              summary,
-                                              snippet: messageSnippet,
-                                            })
-                                          }
-                                          disabled={messageZapPending}
-                                          className={`inline-flex h-8 w-8 items-center justify-center rounded-full border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
-                                            messageZapPending
-                                              ? "border-brand text-white dark:text-brand"
-                                              : canZap
+                                    <div className="flex items-center gap-1">
+                                      <button
+                                        type="button"
+                                        onClick={handleMessageZap}
+                                        disabled={messageZapPending}
+                                        className={`inline-flex h-8 w-8 items-center justify-center rounded-full border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
+                                          messageZapPending
+                                            ? "border-brand text-white dark:text-brand"
+                                            : messageZapEndpoint
+                                              ? canZap
                                                 ? "border-brand/40 text-white hover:border-brand dark:text-brand"
                                                 : "border-dashed border-white/60 text-white/80 dark:text-[var(--fg-muted)]"
-                                          } disabled:cursor-not-allowed disabled:opacity-60`}
-                                          title={messageZapTitle}
-                                        >
-                                          {messageZapPending ? (
-                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                          ) : (
-                                            <Zap className="h-4 w-4" />
-                                          )}
-                                          <span className="sr-only">Zap {summary.displayName}</span>
-                                        </button>
-                                        {messageZapDisplayCount > 0 && (
-                                          <span className="text-[10px] font-semibold text-brand">
-                                            {messageZapDisplayCount.toLocaleString()}
-                                          </span>
+                                              : "border-dashed border-white/60 text-white/80 dark:text-[var(--fg-muted)]"
+                                        } disabled:cursor-not-allowed disabled:opacity-60`}
+                                        title={messageZapTitle}
+                                      >
+                                        {messageZapPending ? (
+                                          <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                          <Zap className="h-4 w-4" />
                                         )}
-                                      </div>
-                                    )}
+                                        <span className="sr-only">Send a Lightning tip to {summary.displayName}</span>
+                                      </button>
+                                      {messageZapDisplayCount > 0 && (
+                                        <span className="text-[10px] font-semibold text-brand">
+                                          {messageZapDisplayCount.toLocaleString()}
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
                                   {message.status === "pending" && (
                                     <p className={`text-[10px] uppercase tracking-[0.24em] ${timestampColor}`}>Sending…</p>
@@ -2402,6 +2430,7 @@ const CommunityView: React.FC = () => {
                         pubkey={feedPubkey}
                         initialLoading={feedInitialLoading}
                         onZapRequest={handleFeedZapRequest}
+                        onManualTipRequest={handleManualTipRequest}
                         zapCounts={zapCounts}
                         pendingZaps={pendingZaps}
                       />
@@ -2432,6 +2461,7 @@ const CommunityView: React.FC = () => {
                         pubkey={feedPubkey}
                         initialLoading={feedInitialLoading}
                         onZapRequest={handleFeedZapRequest}
+                        onManualTipRequest={handleManualTipRequest}
                         zapCounts={zapCounts}
                         pendingZaps={pendingZaps}
                       />
@@ -2522,6 +2552,13 @@ const CommunityView: React.FC = () => {
         onSubmit={handleSubmitZap}
         onRetry={handleZapRetry}
         onMarkPaid={handleZapMarkPaid}
+      />
+      <ManualTipDialog
+        open={manualTipTarget !== null}
+        context={manualTipTarget?.context ?? "feed"}
+        summary={manualTipTarget?.summary ?? null}
+        snippet={manualTipTarget?.snippet ?? null}
+        onClose={handleManualTipClose}
       />
     </div>
   );

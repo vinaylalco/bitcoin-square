@@ -5,13 +5,21 @@ const BECH32_CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
 
 const LIGHTNING_PREFIX = "lightning:";
 
-const isBolt11 = (value: string) => /^lnbc[a-z0-9]+$/i.test(value.trim());
+export const isBolt11 = (value: string) => /^lnbc[a-z0-9]+$/i.test(value.trim());
 
-const isLightningAddress = (value: string) => {
+export const isLightningAddress = (value: string) => {
   const trimmed = value.trim();
   if (!trimmed.includes("@")) return false;
   const [name, domain] = trimmed.split("@");
   return Boolean(name) && Boolean(domain) && !/\s/.test(trimmed);
+};
+
+export const isLnurl = (value: string) => value.trim().toLowerCase().startsWith("lnurl");
+
+export const buildLightningUri = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return trimmed.toLowerCase().startsWith(LIGHTNING_PREFIX) ? trimmed : `${LIGHTNING_PREFIX}${trimmed}`;
 };
 
 const convertBits = (data: number[], from: number, to: number, pad: boolean) => {
