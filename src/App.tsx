@@ -89,21 +89,14 @@ export default function App() {
   return (
     <div className="min-h-screen min-h-mobile-fill bg-[var(--bg-app)] text-[var(--fg-default)] transition-colors duration-300">
       {isCommunityRoute ? (
-        <div
-          data-app-header
-          className="sticky top-0 z-50 border-b border-[var(--border-subtle)] bg-[var(--bg-card)]/90 backdrop-blur"
+        <button
+          ref={triggerRef}
+          onClick={() => setOpen((v) => !v)}
+          aria-label={open ? t("app.mobileMenu.closeAria") : t("app.mobileMenu.openAria")}
+          className="fixed left-4 top-4 z-50 inline-flex items-center justify-center p-2 text-[var(--fg-default)] transition-colors hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
         >
-          <div className="mx-auto flex h-16 max-w-6xl items-center px-4 sm:px-6">
-            <button
-              ref={triggerRef}
-              onClick={() => setOpen((v) => !v)}
-              aria-label={open ? t("app.mobileMenu.closeAria") : t("app.mobileMenu.openAria")}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--fg-default)] shadow-sm transition-colors hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-            >
-              {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </button>
-          </div>
-        </div>
+          {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+        </button>
       ) : (
         <header
           data-app-header

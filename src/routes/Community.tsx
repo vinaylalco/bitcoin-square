@@ -119,24 +119,6 @@ const formatTimestamp = (unixSeconds: number) => {
   }
 };
 
-const formatDateLabel = (unixSeconds: number) => {
-  try {
-    return new Intl.DateTimeFormat(undefined, {
-      dateStyle: "full",
-    }).format(new Date(unixSeconds * 1000));
-  } catch {
-    return new Date(unixSeconds * 1000).toDateString();
-  }
-};
-
-const getDateKey = (unixSeconds: number) => {
-  const date = new Date(unixSeconds * 1000);
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, "0");
-  const day = `${date.getDate()}`.padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
-
 const buildQuoteSnippet = (markdown: string) => {
   const condensed = markdown.replace(/\s+/g, " ").trim();
   if (condensed.length <= 140) return condensed;
@@ -1749,16 +1731,6 @@ const CommunityView: React.FC = () => {
     }
     return items;
   }, [estimatedRowHeight, isCasualView, messages, virtualVersion]);
-  const stickyDateLabel = useMemo(() => {
-    if (!isCasualView || virtualItems.length === 0) {
-      return null;
-    }
-    const firstVisible = messages[virtualItems[0].index];
-    if (!firstVisible) {
-      return null;
-    }
-    return formatDateLabel(firstVisible.created_at);
-  }, [isCasualView, messages, virtualItems]);
   const showJumpToLatest = isCasualView && !isAtTop && messages.length > 0;
 
   const handleUploadFile = useCallback(
@@ -2058,11 +2030,6 @@ const CommunityView: React.FC = () => {
                         {virtualItems.map((virtualRow) => {
                           const message = messages[virtualRow.index];
                           if (!message) return null;
-                          const previousMessage =
-                            virtualRow.index > 0 ? messages[virtualRow.index - 1] : null;
-                          const showDateDivider =
-                            !previousMessage ||
-                            getDateKey(previousMessage.created_at) !== getDateKey(message.created_at);
                           const isSelf = message.pubkey === pubkey;
                           const accent = authorAccents.get(message.pubkey);
                           const summary = resolveProfileSummary(message.pubkey);
@@ -2164,13 +2131,6 @@ const CommunityView: React.FC = () => {
                               }}
                               className="pb-4"
                             >
-                              {showDateDivider && (
-                                <div className="mb-4">
-                                  <div className="mx-auto w-full rounded-full bg-[var(--bg-card)]/90 px-4 py-1 text-center text-[10px] font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)] shadow-sm backdrop-blur sm:w-fit">
-                                    {formatDateLabel(message.created_at)}
-                                  </div>
-                                </div>
-                              )}
                               {newMessageAnchor === message.id && (
                                 <div className="mb-4 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.3em] text-brand">
                                   <span className="h-px flex-1 bg-brand/40" />
