@@ -2014,15 +2014,6 @@ const CommunityView: React.FC = () => {
                 aria-labelledby="community-tab-casual"
                 className="relative flex flex-1 min-h-0 flex-col"
               >
-                {stickyDateLabel && (
-                  <div className="pointer-events-none absolute left-0 right-0 top-24 z-20 px-4 sm:top-20">
-                    <div className="mx-auto max-w-3xl">
-                      <div className="w-full rounded-full bg-[var(--bg-card)]/90 px-4 py-1 text-center text-[10px] font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)] shadow-sm backdrop-blur sm:w-fit">
-                        {stickyDateLabel}
-                      </div>
-                    </div>
-                  </div>
-                )}
                 {showJumpToLatest && (
                   <button
                     type="button"

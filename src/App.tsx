@@ -89,42 +89,58 @@ export default function App() {
 
   return (
     <div className="min-h-screen min-h-mobile-fill bg-[var(--bg-app)] text-[var(--fg-default)] transition-colors duration-300">
-      <header
-        data-app-header
-        className="sticky top-0 z-50 border-b border-[var(--border-subtle)] bg-[var(--bg-card)]/90 backdrop-blur"
-      >
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-          <div className="flex items-center gap-3 lg:gap-6">
+      {isCommunityRoute ? (
+        <div
+          data-app-header
+          className="sticky top-0 z-50 border-b border-[var(--border-subtle)] bg-[var(--bg-card)]/90 backdrop-blur"
+        >
+          <div className="mx-auto flex h-16 max-w-6xl items-center px-4 sm:px-6">
             <button
               ref={triggerRef}
               onClick={() => setOpen((v) => !v)}
               aria-label={open ? t("app.mobileMenu.closeAria") : t("app.mobileMenu.openAria")}
-              className={cn(
-                "inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--fg-default)] shadow-sm transition-colors hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand",
-                !isCommunityRoute && "lg:hidden",
-              )}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--fg-default)] shadow-sm transition-colors hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
             >
               {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
-
-            <Link to="/" className="flex items-center gap-2">
-              <span className="relative flex items-center gap-2 text-lg font-black uppercase tracking-[0.28em]">
-                <span className="flex items-center gap-2">
-                  <img
-                    src={theme === "dark" ? "/btc_B_white.png" : "/btc_B_orange.png"}
-                    alt=""
-                    aria-hidden
-                    className="h-5 w-5 object-contain"
-                  />
-                  <span className="sr-only">Bitcoin</span>
-                  <span>itcoin</span>
-                </span>
-                <span className="rounded-full bg-brand px-2 py-0.5 text-[0.65rem] font-semibold text-white">Square</span>
-              </span>
-            </Link>
           </div>
+        </div>
+      ) : (
+        <header
+          data-app-header
+          className="sticky top-0 z-50 border-b border-[var(--border-subtle)] bg-[var(--bg-card)]/90 backdrop-blur"
+        >
+          <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
+            <div className="flex items-center gap-3 lg:gap-6">
+              <button
+                ref={triggerRef}
+                onClick={() => setOpen((v) => !v)}
+                aria-label={open ? t("app.mobileMenu.closeAria") : t("app.mobileMenu.openAria")}
+                className={cn(
+                  "inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--fg-default)] shadow-sm transition-colors hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand",
+                  !isCommunityRoute && "lg:hidden",
+                )}
+              >
+                {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              </button>
 
-          {!isCommunityRoute && (
+              <Link to="/" className="flex items-center gap-2">
+                <span className="relative flex items-center gap-2 text-lg font-black uppercase tracking-[0.28em]">
+                  <span className="flex items-center gap-2">
+                    <img
+                      src={theme === "dark" ? "/btc_B_white.png" : "/btc_B_orange.png"}
+                      alt=""
+                      aria-hidden
+                      className="h-5 w-5 object-contain"
+                    />
+                    <span className="sr-only">Bitcoin</span>
+                    <span>itcoin</span>
+                  </span>
+                  <span className="rounded-full bg-brand px-2 py-0.5 text-[0.65rem] font-semibold text-white">Square</span>
+                </span>
+              </Link>
+            </div>
+
             <nav className="hidden lg:flex items-center gap-8 text-sm font-semibold uppercase tracking-[0.22em]">
               {desktopNav.map((item) => (
                 <NavLink
@@ -144,9 +160,7 @@ export default function App() {
                 </NavLink>
               ))}
             </nav>
-          )}
 
-          {!isCommunityRoute && (
             <div className="hidden items-center gap-3 lg:flex">
               {user ? (
                 <>
@@ -193,9 +207,9 @@ export default function App() {
                 </NavLink>
               )}
             </div>
-          )}
-        </div>
-      </header>
+          </div>
+        </header>
+      )}
 
       {open && (
         <div
