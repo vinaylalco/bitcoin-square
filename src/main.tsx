@@ -35,6 +35,7 @@ import Profile from "./routes/Profile";
 import Messages from "./routes/Messages";
 import { ProfileIdentityProvider } from "./context/ProfileIdentityContext";
 import { DirectMessageProvider } from "./context/DirectMessageContext";
+import { ToastProvider } from "./context/ToastContext";
 
 const router = createBrowserRouter([
   {
@@ -78,7 +79,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <PreferencesProvider>
             <ProfileIdentityProvider>
               <DirectMessageProvider>
-                <RouterProvider router={router} />
+                <ToastProvider>
+                  <RouterProvider router={router} />
+                </ToastProvider>
               </DirectMessageProvider>
             </ProfileIdentityProvider>
           </PreferencesProvider>

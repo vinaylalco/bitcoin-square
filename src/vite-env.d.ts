@@ -9,6 +9,7 @@ interface ImportMetaEnv {
   readonly VITE_MEDIA_UPLOAD_HOSTS?: string;
   readonly VITE_MEDIA_UPLOAD_ENDPOINT_NOSTR_BUILD?: string;
   readonly VITE_MEDIA_UPLOAD_ENDPOINT_VOID_CAT?: string;
+  readonly VITE_MEDIA_UPLOAD_NOSTR_BUILD_API_KEY?: string;
   readonly VITE_TRANSLATION_API_URL?: string;
   readonly VITE_TRANSLATION_API_KEY?: string;
 }
