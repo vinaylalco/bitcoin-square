@@ -11,8 +11,11 @@ import {
 } from "../../context/ProfileIdentityContext";
 import type { ProfileSummary } from "../../context/ProfileIdentityContext";
 const PORTAL_ELEMENT_ID = "profile-modal-root";
+const REPUTATION_TOOLTIP =
+  "Weighted blend of engagement (40%), trust (30%), longevity (20%), contribution (10%) over last 30 days. Scaled 0–100.";
+const RANK_TOOLTIP = "Percentile among active members. Calculated from Reputation vs peers.";
 const STATS_EXPLANATION =
-  "Stats reflect verified posts, reactions, and follower endorsements recorded on Bitcoin Square. Rankings refresh nightly based on your reputation points.";
+  "Scores refresh when you open a profile, using the last 30 days of verified community activity.";
 
 const useProfileModalPortalNode = () => {
   const [node, setNode] = useState<HTMLElement | null>(null);
@@ -72,7 +75,18 @@ const ProfileModalBody: React.FC<ProfileModalBodyProps> = ({
 }) => {
   const memberSince = formatMemberSince(profile?.joined);
   const totalPosts = profile?.totalPosts != null ? profile.totalPosts.toLocaleString() : "—";
-  const reputation = profile?.reputationScore != null ? profile.reputationScore.toLocaleString() : "—";
+  const reputationFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat(undefined, {
+        maximumFractionDigits: 1,
+        minimumFractionDigits: 1,
+      }),
+    [],
+  );
+  const reputation =
+    profile?.reputationScore != null
+      ? reputationFormatter.format(profile.reputationScore)
+      : "—";
   const rank = profile?.rank ?? "—";
   const followerCount = Array.isArray(profile?.followers)
     ? profile?.followers?.length ?? 0
@@ -183,7 +197,7 @@ const ProfileModalBody: React.FC<ProfileModalBodyProps> = ({
                   <Info
                     className="h-3.5 w-3.5 text-[var(--fg-muted)]"
                     aria-hidden="true"
-                    title={STATS_EXPLANATION}
+                    title={REPUTATION_TOOLTIP}
                   />
                 </span>
               </dt>
@@ -196,7 +210,7 @@ const ProfileModalBody: React.FC<ProfileModalBodyProps> = ({
                   <Info
                     className="h-3.5 w-3.5 text-[var(--fg-muted)]"
                     aria-hidden="true"
-                    title={STATS_EXPLANATION}
+                    title={RANK_TOOLTIP}
                   />
                 </span>
               </dt>
