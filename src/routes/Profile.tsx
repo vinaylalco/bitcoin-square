@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
-import { Copy, Info, MessageCircle, RefreshCw } from "lucide-react";
+import { Copy, MessageCircle, RefreshCw } from "lucide-react";
 
 import {
   formatMemberSince,
@@ -11,12 +11,6 @@ import {
   useUserProfile,
 } from "../context/ProfileIdentityContext";
 import { useAuth } from "../context/AuthContext";
-
-const REPUTATION_TOOLTIP =
-  "Weighted blend of engagement (40%), trust (30%), longevity (20%), contribution (10%) over last 30 days. Scaled 0–100.";
-const RANK_TOOLTIP = "Percentile among active members. Calculated from Reputation vs peers.";
-const STATS_EXPLANATION =
-  "Scores refresh when you open a profile, using the last 30 days of verified community activity.";
 
 const Profile: React.FC = () => {
   const { pubkey } = useParams<{ pubkey: string }>();
@@ -43,20 +37,6 @@ const Profile: React.FC = () => {
   const following = isFollowing(pubkey);
   const memberSince = formatMemberSince(profile?.joined);
   const totalPosts = profile?.totalPosts != null ? profile.totalPosts.toLocaleString() : "—";
-  const reputationFormatter = useMemo(
-    () =>
-      new Intl.NumberFormat(undefined, {
-        maximumFractionDigits: 1,
-        minimumFractionDigits: 1,
-      }),
-    [],
-  );
-  const reputation =
-    profile?.reputationScore != null
-      ? reputationFormatter.format(profile.reputationScore)
-      : "—";
-  const rank = profile?.rank ?? "—";
-
   const isUnavailable = status === "error" || status === "unavailable";
   const unavailableMessage = stale
     ? "Showing the last saved version of this profile. Some details may be out of date."
@@ -158,35 +138,7 @@ const Profile: React.FC = () => {
               <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">Total posts</dt>
               <dd className="mt-2 text-sm font-medium">{totalPosts}</dd>
             </div>
-            <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-4">
-              <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">
-                <span className="inline-flex items-center gap-1.5">
-                  Reputation score
-                  <Info
-                    className="h-3.5 w-3.5 text-[var(--fg-muted)]"
-                    aria-hidden="true"
-                    title={REPUTATION_TOOLTIP}
-                  />
-                </span>
-              </dt>
-              <dd className="mt-2 text-sm font-medium">{reputation}</dd>
-            </div>
-            <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-4">
-              <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">
-                <span className="inline-flex items-center gap-1.5">
-                  Community rank
-                  <Info
-                    className="h-3.5 w-3.5 text-[var(--fg-muted)]"
-                    aria-hidden="true"
-                    title={RANK_TOOLTIP}
-                  />
-                </span>
-              </dt>
-              <dd className="mt-2 text-sm font-medium">{rank}</dd>
-            </div>
           </dl>
-
-          <p className="mt-2 text-[0.65rem] text-[var(--fg-muted)]">{STATS_EXPLANATION}</p>
 
           {profile?.lightningAddress && (
             <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-4 text-sm text-[var(--fg-default)]">

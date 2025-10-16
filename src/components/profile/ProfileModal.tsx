@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Info } from "lucide-react";
 
 import ErrorBoundary from "../ErrorBoundary";
 import {
@@ -13,12 +12,6 @@ import {
 } from "../../context/ProfileIdentityContext";
 import type { ProfileSummary } from "../../context/ProfileIdentityContext";
 const PORTAL_ELEMENT_ID = "profile-modal-root";
-const REPUTATION_TOOLTIP =
-  "Weighted blend of engagement (40%), trust (30%), longevity (20%), contribution (10%) over last 30 days. Scaled 0–100.";
-const RANK_TOOLTIP = "Percentile among active members. Calculated from Reputation vs peers.";
-const STATS_EXPLANATION =
-  "Scores refresh when you open a profile, using the last 30 days of verified community activity.";
-
 const useProfileModalPortalNode = () => {
   const [node, setNode] = useState<HTMLElement | null>(null);
 
@@ -79,19 +72,6 @@ const ProfileModalBody: React.FC<ProfileModalBodyProps> = ({
 }) => {
   const memberSince = formatMemberSince(profile?.joined);
   const totalPosts = profile?.totalPosts != null ? profile.totalPosts.toLocaleString() : "—";
-  const reputationFormatter = useMemo(
-    () =>
-      new Intl.NumberFormat(undefined, {
-        maximumFractionDigits: 1,
-        minimumFractionDigits: 1,
-      }),
-    [],
-  );
-  const reputation =
-    profile?.reputationScore != null
-      ? reputationFormatter.format(profile.reputationScore)
-      : "—";
-  const rank = profile?.rank ?? "—";
   const followerCount = Array.isArray(profile?.followers)
     ? profile?.followers?.length ?? 0
     : null;
@@ -199,32 +179,6 @@ const ProfileModalBody: React.FC<ProfileModalBodyProps> = ({
               <dd className="mt-1 text-sm font-medium text-[var(--fg-default)]">{totalPosts}</dd>
             </div>
             <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-3">
-              <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">
-                <span className="inline-flex items-center gap-1.5">
-                  Reputation score
-                  <Info
-                    className="h-3.5 w-3.5 text-[var(--fg-muted)]"
-                    aria-hidden="true"
-                    title={REPUTATION_TOOLTIP}
-                  />
-                </span>
-              </dt>
-              <dd className="mt-1 text-sm font-medium text-[var(--fg-default)]">{reputation}</dd>
-            </div>
-            <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-3 sm:col-span-2">
-              <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">
-                <span className="inline-flex items-center gap-1.5">
-                  Community rank
-                  <Info
-                    className="h-3.5 w-3.5 text-[var(--fg-muted)]"
-                    aria-hidden="true"
-                    title={RANK_TOOLTIP}
-                  />
-                </span>
-              </dt>
-              <dd className="mt-1 text-sm font-medium text-[var(--fg-default)]">{rank}</dd>
-            </div>
-            <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-3">
               <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">Followers</dt>
               <dd className="mt-1 text-sm font-medium text-[var(--fg-default)]">{followerLabel}</dd>
             </div>
@@ -233,10 +187,6 @@ const ProfileModalBody: React.FC<ProfileModalBodyProps> = ({
               <dd className="mt-1 text-sm font-medium text-[var(--fg-default)]">{followingLabel}</dd>
             </div>
           </dl>
-
-          <p className="mt-2 text-[0.65rem] text-[var(--fg-muted)]">
-            {STATS_EXPLANATION}
-          </p>
 
           <div className="flex flex-wrap items-center gap-3">
             <button

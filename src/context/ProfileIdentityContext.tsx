@@ -25,7 +25,6 @@ import {
 } from "../utils/profileDefaults";
 import { SimplePool, type Event, decodeBech32 } from "../lib/nostrToolsShim";
 import { useAuth, type User } from "./AuthContext";
-import { deriveProfileReputation } from "../utils/reputation";
 
 export interface BitcoinSquareProfile {
   pubkey: string;
@@ -34,8 +33,6 @@ export interface BitcoinSquareProfile {
   avatarUrl: string;
   joined: string | null;
   totalPosts: number | null;
-  reputationScore: number | null;
-  rank: string | null;
   badges: string[];
   achievements?: string[];
   lightningAddress: string | null;
@@ -363,7 +360,6 @@ const extractProfilePayload = (
 const isNonEmptyString = (value: unknown): value is string => typeof value === "string" && value.trim().length > 0;
 
 const normalizeProfile = (pubkey: string, payload: Partial<BitcoinSquareProfile>): BitcoinSquareProfile => {
-  const rawPayload = payload as Record<string, unknown>;
   const badges = Array.isArray(payload.badges)
     ? payload.badges
     : Array.isArray(payload.achievements)
@@ -371,11 +367,6 @@ const normalizeProfile = (pubkey: string, payload: Partial<BitcoinSquareProfile>
       : [];
   const seed = pubkey || "profile";
   const displayName = normalizeScreenName(payload.screenName ?? payload.displayName, seed);
-  const reputationSnapshot = deriveProfileReputation(rawPayload);
-  const computedReputation = Number.isFinite(reputationSnapshot.score)
-    ? (reputationSnapshot.score as number)
-    : undefined;
-  const computedRank = reputationSnapshot.rankLabel ?? undefined;
   return {
     pubkey,
     displayName,
@@ -386,12 +377,6 @@ const normalizeProfile = (pubkey: string, payload: Partial<BitcoinSquareProfile>
       typeof payload.totalPosts === "number" && Number.isFinite(payload.totalPosts)
         ? payload.totalPosts
         : null,
-    reputationScore:
-      computedReputation ??
-      (typeof payload.reputationScore === "number" && Number.isFinite(payload.reputationScore)
-        ? payload.reputationScore
-        : null),
-    rank: computedRank ?? (typeof payload.rank === "string" && payload.rank.trim().length > 0 ? payload.rank : null),
     badges,
     achievements: payload.achievements,
     lightningAddress:
