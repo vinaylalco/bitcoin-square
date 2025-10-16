@@ -6,6 +6,13 @@ interface ImportMetaEnv {
   readonly VITE_SITE_URL?: string;
   readonly VITE_FRONTEND_URL?: string;
   readonly VITE_CASUAL_ROOM_KEY?: string;
+  readonly [key: `VITE_ROOM_KEY_${string}`]: string | undefined;
+  readonly VITE_MEDIA_UPLOAD_HOSTS?: string;
+  readonly VITE_MEDIA_UPLOAD_ENDPOINT_NOSTR_BUILD?: string;
+  readonly VITE_MEDIA_UPLOAD_ENDPOINT_VOID_CAT?: string;
+  readonly VITE_MEDIA_UPLOAD_NOSTR_BUILD_API_KEY?: string;
+  readonly VITE_TRANSLATION_API_URL?: string;
+  readonly VITE_TRANSLATION_API_KEY?: string;
 }
 
 interface ImportMeta {
@@ -14,6 +21,7 @@ interface ImportMeta {
 
 interface BitcoinSquareRuntimeConfig {
   casualRoomKey?: string;
+  roomKeys?: Record<string, string | undefined>;
 }
 
 declare global {

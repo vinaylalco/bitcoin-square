@@ -32,8 +32,10 @@ import CheckoutSuccess from "./routes/CheckoutSuccess";
 import CheckoutCancel from "./routes/CheckoutCancel";
 import Community from "./routes/Community";
 import Profile from "./routes/Profile";
+import Messages from "./routes/Messages";
 import { ProfileIdentityProvider } from "./context/ProfileIdentityContext";
 import { DirectMessageProvider } from "./context/DirectMessageContext";
+import { ToastProvider } from "./context/ToastContext";
 
 const router = createBrowserRouter([
   {
@@ -61,7 +63,9 @@ const router = createBrowserRouter([
       { path: "checkout/success", element: <CheckoutSuccess /> },
       { path: "checkout/cancel", element: <CheckoutCancel /> },
       { path: "community", element: <Community /> },
+      { path: "profile/:pubkey/messages", element: <Messages /> },
       { path: "profile/:pubkey", element: <Profile /> },
+      { path: "messages", element: <Messages /> },
     ],
   },
 ]);
@@ -76,7 +80,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <PreferencesProvider>
             <ProfileIdentityProvider>
               <DirectMessageProvider>
-                <RouterProvider router={router} />
+                <ToastProvider>
+                  <RouterProvider router={router} />
+                </ToastProvider>
               </DirectMessageProvider>
             </ProfileIdentityProvider>
           </PreferencesProvider>

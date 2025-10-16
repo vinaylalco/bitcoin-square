@@ -5,6 +5,7 @@ import { nostrClient } from "../lib/nostrClient";
 import { getCachedPreview, setCachedMediaBlob, setCachedPreview } from "../utils/mediaCache";
 import { assertCryptoAvailable, useRoomKey } from "./useRoomKey";
 import { CASUAL_ROOM_ID } from "./useBitcoinSquareCasualChat";
+import { useToast } from "../context/ToastContext";
 
 type MediaUploaderStatus = "idle" | "uploading" | "success" | "error";
 
@@ -156,6 +157,104 @@ const parseUploadUrl = (payload: unknown): string | null => {
 
 type UploadHost = "void.cat" | "nostr.build";
 
+interface UploadHostConfig {
+  defaultEndpoint: string;
+  fieldName: string;
+  label: string;
+}
+
+interface UploadHostError extends Error {
+  host: UploadHost;
+  endpoint: string;
+  details?: string;
+  status?: number;
+}
+
+const UPLOAD_HOST_CONFIG: Record<UploadHost, UploadHostConfig> = {
+  "nostr.build": {
+    defaultEndpoint: "https://nostr.build/api/v2/upload/files",
+    fieldName: "fileToUpload",
+    label: "nostr.build",
+  },
+  "void.cat": {
+    defaultEndpoint: "https://void.cat/upload",
+    fieldName: "file",
+    label: "void.cat",
+  },
+};
+
+const DEFAULT_UPLOAD_HOSTS: UploadHost[] = ["nostr.build", "void.cat"];
+
+const isUploadHost = (value: string): value is UploadHost => value === "nostr.build" || value === "void.cat";
+
+const parseHostList = (value?: string): UploadHost[] => {
+  if (!value) return [];
+  return value
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter((entry): entry is UploadHost => isUploadHost(entry));
+};
+
+const configuredHostOrder = parseHostList(import.meta.env.VITE_MEDIA_UPLOAD_HOSTS);
+
+const buildHostOrder = (preferred: UploadHost): UploadHost[] => {
+  const order: UploadHost[] = [];
+  const append = (host: UploadHost) => {
+    if (!order.includes(host)) {
+      order.push(host);
+    }
+  };
+
+  append(preferred);
+  configuredHostOrder.forEach(append);
+  DEFAULT_UPLOAD_HOSTS.forEach(append);
+
+  return order;
+};
+
+const getUploadEndpoint = (host: UploadHost) => {
+  const override =
+    host === "nostr.build"
+      ? import.meta.env.VITE_MEDIA_UPLOAD_ENDPOINT_NOSTR_BUILD
+      : import.meta.env.VITE_MEDIA_UPLOAD_ENDPOINT_VOID_CAT;
+  if (override && override.trim().length > 0) {
+    return override.trim();
+  }
+  return UPLOAD_HOST_CONFIG[host].defaultEndpoint;
+};
+
+const createUploadError = (
+  host: UploadHost,
+  message: string,
+  details?: string,
+  cause?: unknown,
+  status?: number,
+): UploadHostError => {
+  const error = new Error(message) as UploadHostError & { cause?: unknown };
+  error.host = host;
+  error.endpoint = getUploadEndpoint(host);
+  if (details) {
+    error.details = details;
+  }
+  if (cause !== undefined) {
+    error.cause = cause;
+  }
+  if (typeof status === "number") {
+    error.status = status;
+  }
+  return error;
+};
+
+const getAuthorizationHeader = (host: UploadHost): string | null => {
+  if (host !== "nostr.build") return null;
+  const rawKey = import.meta.env.VITE_MEDIA_UPLOAD_NOSTR_BUILD_API_KEY?.trim();
+  if (!rawKey) return null;
+  if (rawKey.toLowerCase().startsWith("bearer ")) {
+    return rawKey;
+  }
+  return `Bearer ${rawKey}`;
+};
+
 const uploadToHost = async (
   blob: Blob,
   fileName: string,
@@ -163,12 +262,30 @@ const uploadToHost = async (
   onProgress: (progress: number) => void,
 ) =>
   new Promise<{ url: string; raw: unknown }>((resolve, reject) => {
+    const { fieldName } = UPLOAD_HOST_CONFIG[host];
+    const endpoint = getUploadEndpoint(host);
     const formData = new FormData();
-    const fieldName = host === "nostr.build" ? "fileToUpload" : "file";
     formData.append(fieldName, blob, fileName);
 
     const xhr = new XMLHttpRequest();
-    const endpoint = host === "nostr.build" ? "https://nostr.build/api/v2/upload/files" : "https://void.cat/upload";
+    xhr.open("POST", endpoint);
+    xhr.responseType = "";
+    xhr.timeout = 45000;
+
+    if (host === "nostr.build") {
+      const authHeader = getAuthorizationHeader(host);
+      if (!authHeader) {
+        reject(
+          createUploadError(
+            host,
+            "Missing API key for nostr.build uploads",
+            "Set VITE_MEDIA_UPLOAD_NOSTR_BUILD_API_KEY before uploading",
+          ),
+        );
+        return;
+      }
+      xhr.setRequestHeader("Authorization", authHeader);
+    }
 
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable) {
@@ -177,30 +294,57 @@ const uploadToHost = async (
     };
 
     xhr.onerror = () => {
-      reject(new Error(`Failed to upload media to ${host}. Please check your connection and try again.`));
+      reject(createUploadError(host, "Network request failed"));
+    };
+
+    xhr.onabort = () => {
+      reject(createUploadError(host, "Upload was aborted"));
+    };
+
+    xhr.ontimeout = () => {
+      reject(createUploadError(host, "Upload request timed out"));
     };
 
     xhr.onload = () => {
       if (xhr.status < 200 || xhr.status >= 300) {
-        reject(new Error(`Upload to ${host} failed with status ${xhr.status}`));
+        const statusText = xhr.statusText ? ` ${xhr.statusText}` : "";
+        const responseText = typeof xhr.responseText === "string" && xhr.responseText
+          ? xhr.responseText.slice(0, 200)
+          : undefined;
+        reject(
+          createUploadError(
+            host,
+            `HTTP ${xhr.status}${statusText}`.trim(),
+            responseText,
+            undefined,
+            xhr.status,
+          ),
+        );
         return;
       }
+
       try {
-        const response = xhr.response ?? (xhr.responseText ? JSON.parse(xhr.responseText) : null);
+        let response: unknown = undefined;
+        if (typeof xhr.responseText === "string" && xhr.responseText) {
+          try {
+            response = JSON.parse(xhr.responseText);
+          } catch {
+            response = xhr.responseText;
+          }
+        }
+
         const url = parseUploadUrl(response);
         if (!url) {
-          reject(new Error("Upload succeeded but no URL was returned by the host"));
+          reject(createUploadError(host, "Upload succeeded but no URL was returned by the host"));
           return;
         }
         onProgress(1);
         resolve({ url, raw: response });
       } catch (error) {
-        reject(error instanceof Error ? error : new Error(String(error)));
+        reject(createUploadError(host, "Unexpected response from upload host", undefined, error));
       }
     };
 
-    xhr.open("POST", endpoint);
-    xhr.responseType = "json";
     xhr.send(formData);
   });
 
@@ -226,6 +370,7 @@ export const useMediaUploader = ({ room, pubkey, host = "nostr.build" }: UseMedi
     isPrivate: Boolean(isPrivate),
     seedBase64,
   });
+  const { showToast } = useToast();
 
   const workerRef = useRef<Worker | null>(null);
 
@@ -389,9 +534,10 @@ export const useMediaUploader = ({ room, pubkey, host = "nostr.build" }: UseMedi
         const originalBuffer = workerResult.originalBuffer ?? workerResult.buffer!;
         const originalBlob = new Blob([originalBuffer], { type: file.type || mimeType });
 
-        const hostOrder: UploadHost[] = host === "nostr.build" ? ["nostr.build", "void.cat"] : ["void.cat", "nostr.build"];
+        const hostOrder = buildHostOrder(host);
         let uploadResult: { url: string; raw: unknown } | null = null;
-        let lastError: unknown = null;
+        const attemptErrors: UploadHostError[] = [];
+        let unauthorizedToastShown = false;
         for (const candidateHost of hostOrder) {
           try {
             const result = await uploadToHost(payloadBlob, file.name, candidateHost, (value) => {
@@ -400,16 +546,36 @@ export const useMediaUploader = ({ room, pubkey, host = "nostr.build" }: UseMedi
             uploadResult = result;
             break;
           } catch (attemptError) {
-            lastError = attemptError;
-            console.warn(`Upload to ${candidateHost} failed`, attemptError);
+            const normalizedError = attemptError instanceof Error ? attemptError : new Error(String(attemptError));
+            const uploadError =
+              normalizedError instanceof Error && "host" in normalizedError
+                ? (normalizedError as UploadHostError)
+                : createUploadError(candidateHost, normalizedError.message, undefined, normalizedError);
+            attemptErrors.push(uploadError);
+            console.warn(`Upload to ${candidateHost} failed`, normalizedError);
             setProgress(0);
+            if (uploadError.status === 401 && !unauthorizedToastShown) {
+              showToast("Upload unauthorized—check API key/config.", { tone: "error" });
+              unauthorizedToastShown = true;
+            }
           }
         }
 
         if (!uploadResult) {
-          throw (lastError instanceof Error
-            ? lastError
-            : new Error("We couldn't reach any media upload hosts. Please try again later."));
+          if (attemptErrors.length > 0) {
+            const details = attemptErrors
+              .map((error) => {
+                const label = UPLOAD_HOST_CONFIG[error.host].label;
+                const info = error.details ? `${error.message} (${error.details})` : error.message;
+                return `${label} — ${info}`;
+              })
+              .join("; ");
+            throw new Error(
+              `We couldn't upload your media right now. Upload attempts: ${details}. Please try again later.`,
+            );
+          }
+
+          throw new Error("We couldn't upload your media right now. Please try again later.");
         }
 
         const now = Math.floor(Date.now() / 1000);
@@ -485,10 +651,18 @@ export const useMediaUploader = ({ room, pubkey, host = "nostr.build" }: UseMedi
         const message = uploadError instanceof Error ? uploadError.message : String(uploadError);
         setError(message);
         setProgress(0);
+        if (
+          uploadError instanceof Error &&
+          "status" in uploadError &&
+          typeof (uploadError as UploadHostError).status === "number" &&
+          (uploadError as UploadHostError).status === 401
+        ) {
+          showToast("Upload unauthorized—check API key/config.", { tone: "error" });
+        }
         throw uploadError;
       }
     },
-    [ensure, host, isPrivate, pubkey, room, roomId, roomKey, runWorker],
+    [ensure, host, isPrivate, pubkey, room, roomId, roomKey, runWorker, showToast],
   );
 
   return useMemo(

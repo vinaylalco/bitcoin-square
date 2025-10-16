@@ -31,7 +31,8 @@ export default function App() {
   const { theme } = useTheme(); // ensures theme context is mounted
   const { user, logout } = useAuth();
 
-  const hideFooterOnPage = /^\/education\/[\w-]+/.test(loc.pathname) || loc.pathname.startsWith("/community");
+  const isCommunityRoute = loc.pathname.startsWith("/community");
+  const hideFooterOnPage = /^\/education\/[\w-]+/.test(loc.pathname) || isCommunityRoute;
 
   const lang = (i18n.language || "en").toLowerCase().startsWith("es") ? "es" : "en";
   const changeLang = (lng: "en" | "es") => i18n.changeLanguage(lng);
@@ -46,9 +47,7 @@ export default function App() {
   const desktopNav = [
     { label: t("nav.education"), to: "/education", dropdown: educationChildren },
     { label: t("nav.shop"), to: "/shop" },
-    { label: t("nav.newsletter"), to: "/newsletter" },
     { label: t("nav.community"), to: "/community" },
-    { label: t("nav.settings"), to: "/settings" },
   ];
 
   useEffect(() => setOpen(false), [loc.pathname]);
@@ -89,99 +88,116 @@ export default function App() {
 
   return (
     <div className="min-h-screen min-h-mobile-fill bg-[var(--bg-app)] text-[var(--fg-default)] transition-colors duration-300">
-      <header
-        data-app-header
-        className="sticky top-0 z-50 border-b border-[var(--border-subtle)] bg-[var(--bg-card)]/90 backdrop-blur"
-      >
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-          <div className="flex items-center gap-3 lg:gap-6">
-            <button
-              ref={triggerRef}
-              onClick={() => setOpen((v) => !v)}
-              aria-label={open ? t("app.mobileMenu.closeAria") : t("app.mobileMenu.openAria")}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--fg-default)] shadow-sm transition-colors hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand lg:hidden"
-            >
-              {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </button>
-
-            <Link to="/" className="flex items-center gap-2">
-              <span className="relative flex items-center gap-2 text-lg font-black uppercase tracking-[0.28em]">
-                <span className="flex items-center gap-2">
-                  <img
-                    src={theme === "dark" ? "/btc_B_white.png" : "/btc_B_orange.png"}
-                    alt=""
-                    aria-hidden
-                    className="h-5 w-5 object-contain"
-                  />
-                  <span className="sr-only">Bitcoin</span>
-                  <span>itcoin</span>
-                </span>
-                <span className="rounded-full bg-brand px-2 py-0.5 text-[0.65rem] font-semibold text-white">Square</span>
-              </span>
-            </Link>
-          </div>
-
-          <nav className="hidden lg:flex items-center gap-8 text-sm font-semibold uppercase tracking-[0.22em]">
-            {desktopNav.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                className={({ isActive }) =>
-                  cn(
-                    "inline-flex items-center gap-2 py-2 transition",
-                    item.highlight
-                      ? "rounded-full border border-brand px-4 text-xs tracking-[0.32em] text-brand hover:-translate-y-0.5 hover:border-brand hover:shadow-[0_12px_30px_rgba(169,21,255,0.35)]"
-                      : "text-[var(--fg-muted)] hover:text-brand",
-                    isActive && (item.highlight ? "bg-brand text-white" : "text-brand"),
-                  )
-                }
+      {isCommunityRoute ? (
+        <button
+          ref={triggerRef}
+          onClick={() => setOpen((v) => !v)}
+          aria-label={open ? t("app.mobileMenu.closeAria") : t("app.mobileMenu.openAria")}
+          className="fixed left-4 top-4 z-50 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-brand text-white shadow-lg transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-brand"
+        >
+          {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+        </button>
+      ) : (
+        <header
+          data-app-header
+          className="sticky top-0 z-50 border-b border-[var(--border-subtle)] bg-[var(--bg-card)]/90 backdrop-blur"
+        >
+          <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
+            <div className="flex items-center gap-3 lg:gap-6">
+              <button
+                ref={triggerRef}
+                onClick={() => setOpen((v) => !v)}
+                aria-label={open ? t("app.mobileMenu.closeAria") : t("app.mobileMenu.openAria")}
+                className={cn(
+                  "inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--fg-default)] shadow-sm transition-colors hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand",
+                  !isCommunityRoute && "lg:hidden",
+                )}
               >
-                {item.label}
-              </NavLink>
-            ))}
-          </nav>
+                {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              </button>
 
-          <div className="hidden items-center gap-3 lg:flex">
-            {user ? (
-              <>
+              <Link to="/" className="flex items-center gap-2">
+                <span className="relative flex items-center gap-2 text-lg font-black uppercase tracking-[0.28em]">
+                  <span className="flex items-center gap-2">
+                    <img
+                      src={theme === "dark" ? "/btc_B_white.png" : "/btc_B_orange.png"}
+                      alt=""
+                      aria-hidden
+                      className="h-5 w-5 object-contain"
+                    />
+                    <span className="sr-only">Bitcoin</span>
+                    <span>itcoin</span>
+                  </span>
+                  <span className="rounded-full bg-brand px-2 py-0.5 text-[0.65rem] font-semibold text-white">Square</span>
+                </span>
+              </Link>
+            </div>
+
+            <nav className="hidden lg:flex items-center gap-8 text-sm font-semibold uppercase tracking-[0.22em]">
+              {desktopNav.map((item) => (
                 <NavLink
-                  to="/dashboard"
+                  key={item.to}
+                  to={item.to}
                   className={({ isActive }) =>
                     cn(
-                      "rounded-full border border-brand/30 px-4 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-brand transition hover:-translate-y-0.5 hover:border-brand hover:shadow-[0_12px_30px_rgba(169,21,255,0.35)]",
-                      isActive && "bg-brand text-white",
+                      "inline-flex items-center gap-2 py-2 transition",
+                      item.highlight
+                        ? "rounded-full border border-brand px-4 text-xs tracking-[0.32em] text-brand hover:-translate-y-0.5 hover:border-brand hover:shadow-[0_12px_30px_rgba(169,21,255,0.35)]"
+                        : "text-[var(--fg-muted)] hover:text-brand",
+                      isActive && (item.highlight ? "bg-brand text-white" : "text-brand"),
                     )
                   }
                 >
-                  {t("nav.dashboard")}
+                  {item.label}
                 </NavLink>
-                <button
-                  onClick={logout}
-                  className="rounded-full border border-[var(--border-subtle)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)] transition hover:text-brand hover:shadow-sm"
+              ))}
+            </nav>
+
+            <div className="hidden items-center gap-3 lg:flex">
+              {user ? (
+                <>
+                  <NavLink
+                    to="/dashboard"
+                    className={({ isActive }) =>
+                      cn(
+                        "rounded-full border border-brand/30 px-4 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-brand transition hover:-translate-y-0.5 hover:border-brand hover:shadow-[0_12px_30px_rgba(169,21,255,0.35)]",
+                        isActive && "bg-brand text-white",
+                      )
+                    }
+                  >
+                    {t("nav.dashboard")}
+                  </NavLink>
+                  <button
+                    onClick={logout}
+                    className="rounded-full border border-[var(--border-subtle)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)] transition hover:text-brand hover:shadow-sm"
+                  >
+                    {t("nav.logout")}
+                  </button>
+                </>
+              ) : (
+                <NavLink
+                  to="/login"
+                  className={({ isActive }) =>
+                    cn(
+                      "rounded-full border border-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-white transition hover:-translate-y-0.5 hover:shadow-[0_12px_30px_rgba(169,21,255,0.35)]",
+                      isActive ? "bg-brand" : "bg-gradient-to-r from-brand via-brand/90 to-[#FFF582]",
+                    )
+                  }
                 >
-                  {t("nav.logout")}
-                </button>
-              </>
-            ) : (
-              <NavLink
-                to="/login"
-                className={({ isActive }) =>
-                  cn(
-                    "rounded-full border border-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-white transition hover:-translate-y-0.5 hover:shadow-[0_12px_30px_rgba(169,21,255,0.35)]",
-                    isActive ? "bg-brand" : "bg-gradient-to-r from-brand via-brand/90 to-[#FFF582]",
-                  )
-                }
-              >
-                {t("nav.login")}
-              </NavLink>
-            )}
+                  {t("nav.login")}
+                </NavLink>
+              )}
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
+      )}
 
       {open && (
         <div
-          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden"
+          className={cn(
+            "fixed inset-0 z-40 bg-black/40 backdrop-blur-sm",
+            !isCommunityRoute && "lg:hidden",
+          )}
           onClick={() => setOpen(false)}
           aria-hidden
         />
@@ -190,7 +206,8 @@ export default function App() {
       <aside
         ref={drawerRef}
         className={cn(
-          "fixed top-0 left-0 z-50 h-full w-80 transform border-r border-[var(--border-subtle)] bg-white text-neutral-900 shadow-[var(--shadow-soft)] transition-transform duration-300 dark:bg-black dark:text-white lg:hidden",
+          "fixed top-0 left-0 z-50 h-full w-80 transform border-r border-[var(--border-subtle)] bg-white text-neutral-900 shadow-[var(--shadow-soft)] transition-transform duration-300 dark:bg-black dark:text-white",
+          !isCommunityRoute && "lg:hidden",
           open ? "translate-x-0" : "-translate-x-full",
         )}
         role="dialog"

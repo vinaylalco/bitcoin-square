@@ -9,8 +9,8 @@ import {
 } from "../utils/chatCache";
 import { useNostrAccount } from "./useNostrAccount";
 import { publishWithPool, replicateWithPool } from "../lib/nostrPublish";
-import { decryptJson, encryptJson } from "../utils/aes";
-import { getConfiguredCasualRoomKey } from "../config/nostr";
+import { decryptChannelJson, encryptChannelJson } from "../utils/channelEncryption";
+import { getConfiguredRoomKey } from "../config/nostr";
 import { useRoomKey } from "./useRoomKey";
 
 const RELAYS = [
@@ -341,6 +341,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
 
   const poolRef = useRef<SimplePool | null>(null);
   const subRef = useRef<ReturnType<SimplePool["subscribeMany"]> | null>(null);
+  const pendingDecryptsRef = useRef<Map<string, Event>>(new Map());
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const backoffRef = useRef(BASE_BACKOFF);
   const oldestTimestampRef = useRef<number | null>(null);
@@ -348,13 +349,13 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
   const retryTimersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 
   const { ready: accountReady, pubkey, signEvent } = useNostrAccount();
-  const envRoomKey = getConfiguredCasualRoomKey();
+  const configuredRoomKey = getConfiguredRoomKey(FEED_ROOM_ID);
   const {
     hasKey: feedKeyAvailable,
     loading: feedKeyLoading,
     error: feedKeyError,
     ensure: ensureFeedKey,
-  } = useRoomKey({ roomId: FEED_ROOM_ID, isPrivate: true, seedBase64: envRoomKey });
+  } = useRoomKey({ roomId: FEED_ROOM_ID, isPrivate: true, seedBase64: configuredRoomKey });
 
   const ready = useMemo(() => accountReady && poolReady && feedKeyAvailable, [accountReady, feedKeyAvailable, poolReady]);
 
@@ -426,30 +427,42 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
 
   const decodeEventContent = useCallback(
     async (event: Event): Promise<FeedPayload> => {
-      const fallback = { body: event.content, attachments: parseAttachments(event.tags ?? []) };
+      const parsedAttachments = parseAttachments(event.tags ?? []);
+      const encryptedPayload = typeof event.content === "string" && event.content.startsWith("v44:");
       if (!feedKeyAvailable) {
-        return fallback;
+        if (encryptedPayload) {
+          pendingDecryptsRef.current.set(event.id, event);
+          return { body: "Decrypting message…", attachments: parsedAttachments };
+        }
+        return { body: event.content, attachments: parsedAttachments };
       }
       try {
-        const payload = await decryptJson<FeedPayload>(FEED_ROOM_ID, event.content);
+        const payload = await decryptChannelJson<FeedPayload>(FEED_ROOM_ID, event.content);
         if (payload && typeof payload.body === "string") {
           const attachments = Array.isArray(payload.attachments)
             ? payload.attachments
                 .map((attachment) => normalizeAttachment(attachment))
                 .filter((attachment): attachment is FeedAttachment => Boolean(attachment))
-            : parseAttachments(event.tags ?? []);
+            : parsedAttachments;
+          pendingDecryptsRef.current.delete(event.id);
           return {
             body: payload.body,
             attachments,
           };
         }
         if (typeof (payload as unknown) === "string") {
-          return { body: payload as unknown as string, attachments: parseAttachments(event.tags ?? []) };
+          pendingDecryptsRef.current.delete(event.id);
+          return { body: payload as unknown as string, attachments: parsedAttachments };
         }
       } catch (decodeError) {
         console.warn("Failed to decrypt feed event", decodeError);
       }
-      return fallback;
+      if (encryptedPayload) {
+        pendingDecryptsRef.current.set(event.id, event);
+        return { body: "Decrypting message…", attachments: parsedAttachments };
+      }
+      pendingDecryptsRef.current.delete(event.id);
+      return { body: event.content, attachments: parsedAttachments };
     },
     [feedKeyAvailable],
   );
@@ -465,6 +478,9 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
       if (!hasFeedTag(event)) return;
       const body = await decodeEventContent(event);
       insertPost(mapEventToPost(event, false, body));
+      if (pendingDecryptsRef.current.has(event.id)) {
+        return;
+      }
       try {
         await cacheMessage(eventToCached(event, body));
       } catch (cacheError) {
@@ -480,6 +496,16 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
     },
     [processEvent],
   );
+
+  useEffect(() => {
+    if (!feedKeyAvailable) return;
+    if (pendingDecryptsRef.current.size === 0) return;
+    const pending = Array.from(pendingDecryptsRef.current.values());
+    pendingDecryptsRef.current.clear();
+    pending.forEach((event) => {
+      void processEvent(event);
+    });
+  }, [feedKeyAvailable, processEvent]);
 
   const startSubscription = useCallback(() => {
     if (!feedKeyAvailable) return;
@@ -769,7 +795,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
           attachments: normalizedAttachments,
         };
 
-        const encryptedContent = await encryptJson(FEED_ROOM_ID, payload);
+        const encryptedContent = await encryptChannelJson(FEED_ROOM_ID, payload);
 
         const template: EventTemplate = {
           kind: 1,

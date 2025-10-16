@@ -4,13 +4,14 @@ import { createPortal } from "react-dom";
 import ErrorBoundary from "../ErrorBoundary";
 import {
   PROFILE_FALLBACK_MESSAGE,
+  PROFILE_STALE_MESSAGE,
+  PROFILE_UNAVAILABLE_MESSAGE,
   formatMemberSince,
   useProfileIdentity,
   useUserProfile,
 } from "../../context/ProfileIdentityContext";
 import type { ProfileSummary } from "../../context/ProfileIdentityContext";
 const PORTAL_ELEMENT_ID = "profile-modal-root";
-
 const useProfileModalPortalNode = () => {
   const [node, setNode] = useState<HTMLElement | null>(null);
 
@@ -49,6 +50,7 @@ interface ProfileModalBodyProps {
   profile: ReturnType<typeof useUserProfile>["profile"];
   status: ReturnType<typeof useUserProfile>["status"];
   error: ReturnType<typeof useUserProfile>["error"];
+  stale: ReturnType<typeof useUserProfile>["stale"];
   following: boolean;
 }
 
@@ -65,12 +67,11 @@ const ProfileModalBody: React.FC<ProfileModalBodyProps> = ({
   profile,
   status,
   error,
+  stale,
   following,
 }) => {
   const memberSince = formatMemberSince(profile?.joined);
   const totalPosts = profile?.totalPosts != null ? profile.totalPosts.toLocaleString() : "—";
-  const reputation = profile?.reputationScore != null ? profile.reputationScore.toLocaleString() : "—";
-  const rank = profile?.rank ?? "—";
   const followerCount = Array.isArray(profile?.followers)
     ? profile?.followers?.length ?? 0
     : null;
@@ -91,16 +92,24 @@ const ProfileModalBody: React.FC<ProfileModalBodyProps> = ({
     return [] as string[];
   }, [profile]);
 
-  const statusMessage = status === "error" ? error ?? PROFILE_FALLBACK_MESSAGE : null;
-  const showErrorFallback = status === "error" && !profile;
+  const isUnavailable = status === "error" || status === "unavailable";
+  const fallbackMessage = stale
+    ? "Showing the last saved version of this profile. Some details may be out of date."
+    : "Some profile details are unavailable right now.";
+  const statusMessage = isUnavailable
+    ? error &&
+      ![PROFILE_FALLBACK_MESSAGE, PROFILE_UNAVAILABLE_MESSAGE, PROFILE_STALE_MESSAGE].includes(error)
+      ? error
+      : fallbackMessage
+    : null;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      className="fixed inset-0 z-50 flex justify-center bg-black/60 p-4"
       role="dialog"
       aria-modal="true"
     >
-      <div className="w-full max-w-lg rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-2xl">
+      <div className="w-full max-w-lg overflow-auto rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-2xl">
         <header className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-4">
             <a
@@ -142,138 +151,125 @@ const ProfileModalBody: React.FC<ProfileModalBodyProps> = ({
             </p>
           )}
 
-          {showErrorFallback ? (
-            <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/70 p-5 text-center text-sm text-[var(--fg-muted)]">
-              <p className="font-medium text-[var(--fg-default)]">{statusMessage ?? PROFILE_FALLBACK_MESSAGE}</p>
-              <p className="mt-2 text-xs uppercase tracking-[0.18em]">Please try again later.</p>
+          {statusMessage && (
+            <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-500">
+              <p>{statusMessage}</p>
               <button
                 type="button"
                 onClick={onRefresh}
-                className="mt-4 inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand"
+                className="mt-2 inline-flex items-center gap-2 rounded-full border border-amber-500/40 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-amber-500 transition hover:border-amber-500 hover:bg-amber-500/10"
               >
                 Retry
               </button>
             </div>
-          ) : (
-            <>
-              {statusMessage && (
-                <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-500">
-                  <p>{statusMessage}</p>
+          )}
+
+          <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-3">
+              <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">Member since</dt>
+              <dd
+                className="mt-1 text-sm font-medium text-[var(--fg-default)]"
+                title={profile?.joined ?? undefined}
+              >
+                {memberSince}
+              </dd>
+            </div>
+            <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-3">
+              <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">Total posts</dt>
+              <dd className="mt-1 text-sm font-medium text-[var(--fg-default)]">{totalPosts}</dd>
+            </div>
+            <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-3">
+              <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">Followers</dt>
+              <dd className="mt-1 text-sm font-medium text-[var(--fg-default)]">{followerLabel}</dd>
+            </div>
+            <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-3">
+              <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">Following</dt>
+              <dd className="mt-1 text-sm font-medium text-[var(--fg-default)]">{followingLabel}</dd>
+            </div>
+          </dl>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={onFollow}
+              aria-pressed={following}
+              className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition ${
+                following
+                  ? "border-brand bg-brand/10 text-brand hover:bg-brand/20"
+                  : "border-[var(--border-subtle)] text-[var(--fg-default)] hover:border-brand hover:text-brand"
+              }`}
+            >
+              {following ? "Unfollow" : "Follow"}
+            </button>
+            <button
+              type="button"
+              onClick={onMessage}
+              className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--fg-default)] transition hover:border-brand hover:text-brand"
+            >
+              Message
+            </button>
+            <button
+              type="button"
+              onClick={onRefresh}
+              className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--fg-default)] transition hover:border-brand hover:text-brand"
+            >
+              Refresh
+            </button>
+          </div>
+
+          <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/70 p-4">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--fg-muted)]">Badges & Achievements</h3>
+            {badges.length > 0 ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {badges.map((badge) => (
+                  <span
+                    key={badge}
+                    className="inline-flex items-center rounded-full bg-brand/10 px-3 py-1 text-xs font-medium text-brand"
+                  >
+                    {badge}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-3 text-xs text-[var(--fg-muted)]">No badges yet.</p>
+            )}
+          </div>
+
+          {profile?.lightningAddress ? (
+            <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-4 text-sm text-[var(--fg-default)]">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">
+                  Lightning address
+                </span>
+                <div className="flex flex-wrap items-center gap-2 text-xs">
                   <button
                     type="button"
-                    onClick={onRefresh}
-                    className="mt-2 inline-flex items-center gap-2 rounded-full border border-red-500/40 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-red-500 transition hover:border-red-500 hover:bg-red-500/10"
+                    onClick={() => navigator.clipboard.writeText(profile.lightningAddress || "").catch(() => undefined)}
+                    className="rounded-full border border-[var(--border-subtle)] px-3 py-1 font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand"
                   >
-                    Retry
+                    Copy
                   </button>
+                  <a
+                    href={`lightning:${profile.lightningAddress}`}
+                    className="rounded-full border border-brand/40 px-3 py-1 font-semibold uppercase tracking-[0.18em] text-brand transition hover:border-brand"
+                  >
+                    Open wallet
+                  </a>
                 </div>
-              )}
-
-              <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-3">
-                  <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">Member since</dt>
-                  <dd className="mt-1 text-sm font-medium text-[var(--fg-default)]">{memberSince}</dd>
-                </div>
-                <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-3">
-                  <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">Total posts</dt>
-                  <dd className="mt-1 text-sm font-medium text-[var(--fg-default)]">{totalPosts}</dd>
-                </div>
-                <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-3">
-                  <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">Reputation score</dt>
-                  <dd className="mt-1 text-sm font-medium text-[var(--fg-default)]">{reputation}</dd>
-                </div>
-                <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-3 sm:col-span-2">
-                  <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">Community rank</dt>
-                  <dd className="mt-1 text-sm font-medium text-[var(--fg-default)]">{rank}</dd>
-                </div>
-                <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-3">
-                  <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">Followers</dt>
-                  <dd className="mt-1 text-sm font-medium text-[var(--fg-default)]">{followerLabel}</dd>
-                </div>
-                <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-3">
-                  <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">Following</dt>
-                  <dd className="mt-1 text-sm font-medium text-[var(--fg-default)]">{followingLabel}</dd>
-                </div>
-              </dl>
-
-              {profile?.lightningAddress && (
-                <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-4 text-sm text-[var(--fg-default)]">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">
-                      Lightning address
-                    </span>
-                    <div className="flex flex-wrap items-center gap-2 text-xs">
-                      <button
-                        type="button"
-                        onClick={() => navigator.clipboard.writeText(profile.lightningAddress || "").catch(() => undefined)}
-                        className="rounded-full border border-[var(--border-subtle)] px-3 py-1 font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand"
-                      >
-                        Copy
-                      </button>
-                      <a
-                        href={`lightning:${profile.lightningAddress}`}
-                        className="rounded-full border border-brand/40 px-3 py-1 font-semibold uppercase tracking-[0.18em] text-brand transition hover:border-brand"
-                      >
-                        Open wallet
-                      </a>
-                    </div>
-                  </div>
-                  <code className="mt-3 block break-all rounded-xl bg-[var(--bg-card)]/60 px-3 py-2 text-xs text-[var(--fg-default)]">
-                    {profile.lightningAddress}
-                  </code>
-                </div>
-              )}
-
-              <div className="flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  onClick={onFollow}
-                  aria-pressed={following}
-                  className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition ${
-                    following
-                      ? "border-brand bg-brand/10 text-brand hover:bg-brand/20"
-                      : "border-[var(--border-subtle)] text-[var(--fg-default)] hover:border-brand hover:text-brand"
-                  }`}
-                >
-                  {following ? "Unfollow" : "Follow"}
-                </button>
-                <button
-                  type="button"
-                  onClick={onMessage}
-                  className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--fg-default)] transition hover:border-brand hover:text-brand"
-                >
-                  Message
-                </button>
-                <button
-                  type="button"
-                  onClick={onRefresh}
-                  className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--fg-default)] transition hover:border-brand hover:text-brand"
-                >
-                  Refresh
-                </button>
               </div>
-
-              {badges.length > 0 && (
-                <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/70 p-4">
-                  <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--fg-muted)]">Badges & Achievements</h3>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {badges.map((badge) => (
-                      <span
-                        key={badge}
-                        className="inline-flex items-center rounded-full bg-brand/10 px-3 py-1 text-xs font-medium text-brand"
-                      >
-                        {badge}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <p className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-3 text-xs text-[var(--fg-muted)]">
-                Profiles are provided by BitcoinSquare.io. Data reflects the latest information available for this Nostr public key.
-              </p>
-            </>
+              <code className="mt-3 block break-all rounded-xl bg-[var(--bg-card)]/60 px-3 py-2 text-xs text-[var(--fg-default)]">
+                {profile.lightningAddress}
+              </code>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-4 text-xs text-[var(--fg-muted)]">
+              Lightning address not shared.
+            </div>
           )}
+
+          <p className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-3 text-xs text-[var(--fg-muted)]">
+            Profiles are provided by BitcoinSquare.io. Data reflects the latest information available for this Nostr public key.
+          </p>
         </section>
       </div>
     </div>
@@ -290,7 +286,7 @@ const ProfileModalPortal: React.FC = () => {
     startDirectMessage,
     shortenPubkey,
   } = useProfileIdentity();
-  const { profile, status, error, refresh } = useUserProfile(activeProfile);
+  const { profile, status, error, refresh, stale } = useUserProfile(activeProfile);
   const [avatarLoaded, setAvatarLoaded] = useState(false);
   const portalNode = useProfileModalPortalNode();
 
@@ -357,6 +353,7 @@ const ProfileModalPortal: React.FC = () => {
         profile={profile}
         status={status}
         error={error}
+        stale={stale}
         following={following}
       />
     </ErrorBoundary>,

@@ -5,26 +5,17 @@ import { useProfileIdentity, shortenPubkey } from "../../context/ProfileIdentity
 import type { ProfileSummary } from "../../context/ProfileIdentityContext";
 import { CASUAL_ROOM_ID, CASUAL_ROOM_NAME } from "../../hooks/useBitcoinSquareCasualChat";
 import { useMediaUploader, type MediaUploadResult } from "../../hooks/useMediaUploader";
+import { useCommunityTranslation } from "../../context/CommunityTranslationContext";
 import ProfileCard from "../profile/ProfileCard";
 import ErrorBoundary from "../ErrorBoundary";
 import type { RoomDefinition } from "../RoomList";
-import {
-  Heart,
-  Image as ImageIcon,
-  Loader2,
-  MessageCircle,
-  MessageSquareQuote,
-  Plus,
-  X,
-  Zap,
-} from "lucide-react";
+import { Heart, Image as ImageIcon, Loader2, MessageSquareQuote, Plus, X } from "lucide-react";
 import {
   createFeedActionHandlers,
   createOpenComposerDialog,
   type ComposerMode,
   type PendingMap,
 } from "./feedActions";
-import { countZapReferences, detectZapEndpoint, type ZapEndpoint } from "../../utils/zap";
 
 interface BitcoinSquareFeedProps {
   posts: FeedPost[];
@@ -42,22 +33,8 @@ interface BitcoinSquareFeedProps {
   loadingMore: boolean;
   hasMore: boolean;
   error: string | null;
-  canZap: boolean;
   pubkey: string | null;
   initialLoading: boolean;
-  onZapRequest: (request: FeedZapRequest) => void;
-  zapCounts: Record<string, number>;
-  pendingZaps: Set<string>;
-}
-
-export interface FeedZapRequest {
-  key: string;
-  endpoint: ZapEndpoint;
-  authorPubkey: string;
-  noteId: string;
-  relays: string[];
-  summary: ProfileSummary;
-  snippet: string;
 }
 
 type ActiveFilter =
@@ -191,24 +168,6 @@ const formatAbsoluteTimestamp = (unixSeconds: number | null | undefined) => {
   }
 };
 
-const extractRelaysFromTags = (tags: string[][]): string[] => {
-  const relays = new Set<string>();
-  tags.forEach((tag) => {
-    if (!Array.isArray(tag) || tag.length === 0) return;
-    if (tag[0] === "relays") {
-      tag.slice(1).forEach((value) => {
-        if (typeof value === "string" && value.trim().length > 0) {
-          relays.add(value);
-        }
-      });
-    }
-    if (tag[0] === "relay" && typeof tag[1] === "string" && tag[1].trim().length > 0) {
-      relays.add(tag[1]);
-    }
-  });
-  return Array.from(relays);
-};
-
 const renderContent = (
   content: string,
   onTagClick: (tag: string) => void,
@@ -234,12 +193,8 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   loadingMore,
   hasMore,
   error,
-  canZap,
   pubkey,
   initialLoading,
-  onZapRequest,
-  zapCounts,
-  pendingZaps,
 }) => {
   const [content, setContent] = useState("");
   const [composerError, setComposerError] = useState<string | null>(null);
@@ -264,6 +219,17 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   const relativeFormatter = useMemo(() => createRelativeFormatter(), []);
   const now = useRelativeNow();
   const { requestProfile, resolveProfileSummary, openProfile } = useProfileIdentity();
+  const {
+    isSupported: translationSupported,
+    autoTranslateEnabled,
+    ensureTranslation,
+    refreshTranslation,
+    getTranslation,
+    isOriginalVisible,
+    toggleOriginal,
+    formatLanguageName,
+  } = useCommunityTranslation();
+  const translationEnabled = translationSupported && autoTranslateEnabled;
   const feedRoom = useMemo<RoomDefinition>(
     () => ({
       id: CASUAL_ROOM_ID,
@@ -378,6 +344,13 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       requestProfile(pubkey).catch(() => undefined);
     });
   }, [posts, requestProfile]);
+
+  useEffect(() => {
+    if (!translationEnabled) return;
+    posts.forEach((post) => {
+      ensureTranslation(`feed:${post.id}`, post.content);
+    });
+  }, [ensureTranslation, posts, translationEnabled]);
 
   const resetComposer = useCallback(() => {
     setComposerOpen(false);
@@ -770,7 +743,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     });
   }, []);
 
-  const { handlePost, handleReply, handleQuote, handleLike } = useMemo(
+  const { handlePost, handleQuote, handleLike } = useMemo(
     () =>
       createFeedActionHandlers({
         openComposerDialog,
@@ -818,40 +791,41 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
 
   return (
     <div className="relative flex flex-1 flex-col overflow-hidden">
-      {activeFilter && filterLabel && (
-        <div className="border-b border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 px-4 py-3 text-xs text-[var(--fg-muted)] sm:px-6">
-          <span>{filterLabel}</span>
-          <button
-            type="button"
-            onClick={clearFilter}
-            className="ml-3 rounded-full border border-[var(--border-subtle)] px-3 py-1 font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
-          >
-            Clear filter
-          </button>
-        </div>
-      )}
-
-      <div className="border-b border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 px-4 py-3 sm:px-6">
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">Quick filters:</span>
-          {quickFilterOptions.map(({ type, label, disabled }) => {
-            const isActive = activeFilter?.type === type;
-            return (
+      <div className="border-b border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 px-4 py-3 text-xs sm:px-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">Quick filters:</span>
+            {quickFilterOptions.map(({ type, label, disabled }) => {
+              const isActive = activeFilter?.type === type;
+              return (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => setQuickFilter(type)}
+                  disabled={disabled}
+                  className={`rounded-full border px-3 py-1 font-medium transition disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
+                    isActive
+                      ? "border-brand bg-brand/10 text-brand"
+                      : "border-[var(--border-subtle)] text-[var(--fg-muted)] hover:border-brand hover:text-brand"
+                  } ${disabled ? "opacity-50" : ""}`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          {activeFilter && filterLabel && (
+            <div className="flex flex-wrap items-center gap-2 text-[var(--fg-muted)]">
+              <span>{filterLabel}</span>
               <button
-                key={type}
                 type="button"
-                onClick={() => setQuickFilter(type)}
-                disabled={disabled}
-                className={`rounded-full border px-3 py-1 font-medium transition disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
-                  isActive
-                    ? "border-brand bg-brand/10 text-brand"
-                    : "border-[var(--border-subtle)] text-[var(--fg-muted)] hover:border-brand hover:text-brand"
-                } ${disabled ? "opacity-50" : ""}`}
+                onClick={clearFilter}
+                className="rounded-full border border-[var(--border-subtle)] px-3 py-1 font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
               >
-                {label}
+                Clear filter
               </button>
-            );
-          })}
+            </div>
+          )}
         </div>
       </div>
 
@@ -892,38 +866,24 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
                 : post.status === "failed"
                   ? post.error ?? "Delivery failed."
                   : null;
-            const longPost = isLongPost(post.content);
             const isExpanded = expandedPosts.has(post.id);
-            const displayContent = isExpanded || !longPost ? post.content : getCollapsedContent(post.content);
-            const zapKey = `feed:${post.id}`;
-            const zapEndpoint = isSelfPost
-              ? null
-              : detectZapEndpoint({
-                  lightningAddress: profile.lightningAddress,
-                  tags: post.tags,
-                });
-            const baseZapCount = zapCounts[zapKey] ?? countZapReferences(post.tags);
-            const zapPending = pendingZaps.has(zapKey);
-            const displayZapCount = Math.max(0, baseZapCount + (zapPending ? 1 : 0));
-            const zapTitle = !zapEndpoint
-              ? "Zaps unavailable"
-              : zapPending
-                ? "Sending zap…"
-                : canZap
-                  ? "Zap this post"
-                  : "Add your Lightning address on the dashboard to zap";
-            const handleZap = () => {
-              if (!zapEndpoint) return;
-              onZapRequest({
-                key: zapKey,
-                endpoint: zapEndpoint,
-                authorPubkey: post.pubkey,
-                noteId: post.id,
-                relays: extractRelaysFromTags(post.tags),
-                summary: profile,
-                snippet: buildPostSnippet(post.content),
-              });
-            };
+            const translationKey = `feed:${post.id}`;
+            const translationEntry = translationEnabled ? getTranslation(translationKey) : undefined;
+            const translationStatus = translationEntry?.status ?? "idle";
+            const rawTranslatedText =
+              translationEntry?.translatedText && translationEntry.translatedText.trim().length > 0
+                ? translationEntry.translatedText
+                : null;
+            const translationReady = translationEnabled && translationStatus === "ready" && !!rawTranslatedText;
+            const showOriginal =
+              !translationEnabled || !translationReady || isOriginalVisible(translationKey);
+            const contentSource = !showOriginal && rawTranslatedText ? rawTranslatedText : post.content;
+            const longPost = isLongPost(contentSource);
+            const displayContent = isExpanded || !longPost ? contentSource : getCollapsedContent(contentSource);
+            const detectedLanguageLabel =
+              translationEntry?.detectedLanguage && translationEntry.detectedLanguage.trim().length > 0
+                ? formatLanguageName(translationEntry.detectedLanguage)
+                : null;
             const reference = extractPostReference(post.tags);
             const referencedId = reference?.id ?? null;
             const referencedPost = referencedId ? postsById.get(referencedId) : undefined;
@@ -990,6 +950,40 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
                   {renderContent(displayContent, handleTagClick, handleMentionClick)}
                 </div>
 
+                {translationEnabled && (
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.24em] text-[var(--fg-muted)]">
+                    {translationStatus === "loading" ? (
+                      <span>Translating…</span>
+                    ) : translationStatus === "error" ? (
+                      <>
+                        <span>Translation unavailable</span>
+                        <button
+                          type="button"
+                          onClick={() => refreshTranslation(translationKey, post.content)}
+                          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.24em] text-brand transition hover:text-brand/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand/60"
+                        >
+                          Retry
+                        </button>
+                      </>
+                    ) : translationReady ? (
+                      <>
+                        <span>
+                          {showOriginal
+                            ? `Showing original${detectedLanguageLabel ? ` (${detectedLanguageLabel})` : ""}`
+                            : `Translated from ${detectedLanguageLabel ?? "original language"}`}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => toggleOriginal(translationKey)}
+                          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.24em] text-brand transition hover:text-brand/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand/60"
+                        >
+                          {showOriginal ? "View translation" : "View original"}
+                        </button>
+                      </>
+                    ) : null}
+                  </div>
+                )}
+
                 {longPost && (
                   <button
                     type="button"
@@ -1036,16 +1030,6 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
                 <div className="mt-4 flex flex-wrap items-center gap-2 text-[var(--fg-muted)]">
                   <button
                     type="button"
-                    onClick={() => handleReply(post)}
-                    disabled={!ready}
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 disabled:cursor-not-allowed disabled:opacity-60"
-                    title="Reply to this post"
-                  >
-                    <MessageCircle className="h-4 w-4" />
-                    <span className="sr-only">Reply</span>
-                  </button>
-                  <button
-                    type="button"
                     onClick={() => handleQuote(post)}
                     disabled={!ready}
                     className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 disabled:cursor-not-allowed disabled:opacity-60"
@@ -1068,31 +1052,6 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
                     {isPendingLike ? <Loader2 className="h-4 w-4 animate-spin" /> : <Heart className="h-4 w-4" />}
                     <span className="sr-only">Like</span>
                   </button>
-                  {zapEndpoint && (
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={handleZap}
-                        disabled={zapPending}
-                        className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
-                          zapPending
-                            ? "border-brand text-brand"
-                            : canZap
-                              ? "border-brand/40 text-brand hover:border-brand"
-                              : "border-dashed border-[var(--border-subtle)] text-[var(--fg-muted)] hover:border-brand/40"
-                        } disabled:cursor-not-allowed disabled:opacity-60`}
-                        title={zapTitle}
-                      >
-                        {zapPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
-                        <span className="sr-only">Zap {profile.displayName}</span>
-                      </button>
-                      {displayZapCount > 0 && (
-                        <span className="ml-1 text-xs font-semibold text-brand">
-                          {displayZapCount.toLocaleString()}
-                        </span>
-                      )}
-                    </div>
-                  )}
                 </div>
               </article>
             );
@@ -1164,7 +1123,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       </button>
 
       {composerOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 px-4 py-8 sm:items-center">
+        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/60 px-4 py-8 sm:items-center">
           <div className="absolute inset-0" onClick={resetComposer} aria-hidden="true" />
           <div className="relative w-full max-w-xl rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-2xl">
             <header className="flex items-center justify-between gap-3">

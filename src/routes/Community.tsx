@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate } from "react-router-dom";
 
-import BitcoinSquareFeed, { type FeedZapRequest } from "../components/bitcoinSquareChat/BitcoinSquareFeed";
+import BitcoinSquareFeed from "../components/bitcoinSquareChat/BitcoinSquareFeed";
 import ErrorBoundary from "../components/ErrorBoundary";
 import type { RoomDefinition } from "../components/RoomList";
 import {
@@ -19,30 +19,15 @@ import { useProfileIdentity, shortenPubkey } from "../context/ProfileIdentityCon
 import type { ProfileSummary } from "../context/ProfileIdentityContext";
 import { useAuth } from "../context/AuthContext";
 import { useNostrAccount } from "../hooks/useNostrAccount";
-import { setNostrClientSigner } from "../lib/nostrClient";
+import { nostrClient, setNostrClientSigner } from "../lib/nostrClient";
 import { useTheme } from "../context/ThemeContext";
+import {
+  CommunityTranslationProvider,
+  useCommunityTranslation,
+} from "../context/CommunityTranslationContext";
 import type { LucideIcon } from "lucide-react";
-import {
-  ArrowDown,
-  Heart,
-  Loader2,
-  MessageCircle,
-  MessageSquareQuote,
-  Newspaper,
-  Sparkles,
-  Users,
-  X,
-  Zap,
-} from "lucide-react";
-import ZapDialog from "../components/bitcoinSquareChat/ZapDialog";
-import {
-  countZapReferences,
-  detectZapEndpoint,
-  fetchLnurlDetails,
-  requestZapInvoice,
-  type LnurlPayResponse,
-  type ZapEndpoint,
-} from "../utils/zap";
+import { ArrowUp, Heart, Loader2, MessageCircle, MessageSquareQuote, Newspaper, Paperclip, Send, Sparkles, Users, X } from "lucide-react";
+import { markdownToHtml } from "../utils/markdown";
 
 type ActiveView = "casual" | "feed" | "personal" | "members";
 
@@ -91,6 +76,10 @@ const LIGHT_BACKGROUND_TEXTURE =
 const DARK_BACKGROUND_TEXTURE =
   "radial-gradient(circle at top, rgba(59,130,246,0.16), transparent 55%), radial-gradient(circle at bottom right, rgba(16,185,129,0.14), transparent 50%)";
 
+const MEMBER_LIST_INITIAL_LIMIT = 20;
+const MEMBER_LIST_PAGE_SIZE = 20;
+const MEMBER_SCROLL_THRESHOLD_PX = 120;
+
 const formatTimestamp = (unixSeconds: number) => {
   try {
     return new Intl.DateTimeFormat(undefined, {
@@ -100,24 +89,6 @@ const formatTimestamp = (unixSeconds: number) => {
   } catch {
     return new Date(unixSeconds * 1000).toLocaleString();
   }
-};
-
-const formatDateLabel = (unixSeconds: number) => {
-  try {
-    return new Intl.DateTimeFormat(undefined, {
-      dateStyle: "full",
-    }).format(new Date(unixSeconds * 1000));
-  } catch {
-    return new Date(unixSeconds * 1000).toDateString();
-  }
-};
-
-const getDateKey = (unixSeconds: number) => {
-  const date = new Date(unixSeconds * 1000);
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, "0");
-  const day = `${date.getDate()}`.padStart(2, "0");
-  return `${year}-${month}-${day}`;
 };
 
 const buildQuoteSnippet = (markdown: string) => {
@@ -186,41 +157,6 @@ const extractRelaysFromTags = (tags?: string[][] | null): string[] => {
   });
   return Array.from(relays);
 };
-
-interface CommunityZapTarget {
-  key: string;
-  context: "feed" | "chat" | "profile";
-  endpoint: ZapEndpoint;
-  authorPubkey: string;
-  noteId?: string | null;
-  relays?: string[];
-  summary: ProfileSummary;
-  snippet?: string | null;
-}
-
-interface ZapDialogState {
-  open: boolean;
-  target: CommunityZapTarget | null;
-  stage: "select" | "paying" | "invoice" | "success" | "error";
-  lnurl: LnurlPayResponse | null;
-  lnurlLoading: boolean;
-  invoice: string | null;
-  amountSats?: number;
-  error: string | null;
-  weblnTried: boolean;
-}
-
-const createInitialZapState = (): ZapDialogState => ({
-  open: false,
-  target: null,
-  stage: "select",
-  lnurl: null,
-  lnurlLoading: false,
-  invoice: null,
-  amountSats: undefined,
-  error: null,
-  weblnTried: false,
-});
 
 const base64ToUint8Array = (value: string) => {
   const binary = atob(value);
@@ -490,39 +426,55 @@ const Composer: React.FC<{
           )}
         </div>
       )}
-      <textarea
-        value={value}
-        onChange={handleChange}
-        onKeyDown={handleKeyDown}
-        disabled={disabled || isSending}
-        rows={3}
-        maxLength={CHAT_CHARACTER_LIMIT}
-        placeholder={disabled ? "Your BitcoinSquare keys must be ready before posting" : "Share an update…"}
-        className="w-full resize-none rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-4 py-3 text-sm leading-relaxed text-[var(--fg-default)] shadow-sm focus:border-brand focus:outline-none"
-      />
+      <div className="relative rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] shadow-sm transition focus-within:border-brand">
+        <textarea
+          value={value}
+          onChange={handleChange}
+          onKeyDown={handleKeyDown}
+          disabled={disabled || isSending}
+          rows={3}
+          maxLength={CHAT_CHARACTER_LIMIT}
+          placeholder={disabled ? "Your BitcoinSquare keys must be ready before posting" : "Share an update…"}
+          className="w-full resize-none rounded-2xl border-none bg-transparent px-4 pb-14 pr-28 text-sm leading-relaxed text-[var(--fg-default)] focus:outline-none focus:ring-0"
+        />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-between px-4 pb-3">
+          <div className="pointer-events-auto flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={disabled || uploadStatus === "uploading"}
+              className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--fg-muted)] shadow-sm transition hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-60"
+              title={uploadStatus === "uploading" ? `Uploading… ${uploadProgress}%` : "Add media"}
+            >
+              {uploadStatus === "uploading" ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              ) : (
+                <Paperclip className="h-4 w-4" aria-hidden />
+              )}
+              <span className="sr-only">Add media</span>
+            </button>
+          </div>
+          <div className="pointer-events-auto flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void handleSubmit()}
+              disabled={disabled || isSending || value.trim().length === 0}
+              className="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand text-white shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isSending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Send className="h-4 w-4" aria-hidden />}
+              <span className="sr-only">Send message</span>
+            </button>
+          </div>
+        </div>
+      </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={disabled || uploadStatus === "uploading"}
-          className="rounded-full border border-[var(--border-subtle)] px-3 py-1 font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {uploadStatus === "uploading" ? `Uploading… ${uploadProgress}%` : "Add media"}
-        </button>
-        <div className="flex items-center gap-3">
-          <span className={`font-semibold ${characterStatusClass}`} aria-live="polite">
-            {`${characterCount} / ${CHAT_CHARACTER_LIMIT}`}
-          </span>
-          <button
-            type="button"
-            onClick={() => void handleSubmit()}
-            disabled={disabled || isSending || value.trim().length === 0}
-            className="rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isSending ? "Sending…" : "Send"}
-          </button>
-        </div>
+        <span className={`font-semibold ${characterStatusClass}`} aria-live="polite">
+          {`${characterCount} / ${CHAT_CHARACTER_LIMIT}`}
+        </span>
+        <span className="font-semibold text-[var(--fg-muted)]" aria-live="polite">
+          {uploadStatus === "uploading" ? `Uploading… ${uploadProgress}%` : ""}
+        </span>
       </div>
 
       {pendingAttachments.length > 0 && (
@@ -553,7 +505,7 @@ const Composer: React.FC<{
         </div>
       )}
 
-      {uploadError && <p className="text-xs text-red-500">{uploadError}</p>}
+      {uploadError && uploadStatus === "error" && <p className="text-xs text-red-500">{uploadError}</p>}
       {error && <p className="text-xs text-red-500">{error}</p>}
 
       <input
@@ -567,11 +519,11 @@ const Composer: React.FC<{
   );
 };
 
-const Community: React.FC = () => {
+const CommunityView: React.FC = () => {
   const { theme } = useTheme();
   const {
     roomId,
-    messages,
+    messages: rawMessages,
     sendMessage,
     pubkey,
     ready,
@@ -580,6 +532,8 @@ const Community: React.FC = () => {
     typingPubkeys,
     sendTyping,
   } = useBitcoinSquareCasualChat();
+
+  const messages = useMemo(() => [...rawMessages].reverse(), [rawMessages]);
 
   const {
     posts: feedPosts,
@@ -602,8 +556,18 @@ const Community: React.FC = () => {
     pubkey: accountPubkey,
     error: accountError,
   } = useNostrAccount();
-  const hasLightningWallet = Boolean(user?.lnWalletAddress);
-  const canZap = hasLightningWallet && accountReady && Boolean(globalSignEvent);
+
+  const {
+    isSupported: translationSupported,
+    autoTranslateEnabled,
+    ensureTranslation,
+    refreshTranslation,
+    getTranslation,
+    isOriginalVisible,
+    toggleOriginal,
+    formatLanguageName,
+  } = useCommunityTranslation();
+  const translationEnabled = translationSupported && autoTranslateEnabled;
 
   const [activeView, setActiveView] = useState<ActiveView>("casual");
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -620,20 +584,16 @@ const Community: React.FC = () => {
   } = useMediaUploader({ room: CASUAL_ROOM, pubkey });
   const [composerError, setComposerError] = useState<string | null>(null);
   const [composerDraft, setComposerDraft] = useState<string | undefined>(undefined);
-  const [walletPromptOpen, setWalletPromptOpen] = useState(false);
   const [quoteContext, setQuoteContext] = useState<QuoteContextState | null>(null);
-  const [isAtBottom, setIsAtBottom] = useState(true);
+  const [isAtTop, setIsAtTop] = useState(true);
   const [newMessageAnchor, setNewMessageAnchor] = useState<string | null>(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
-  const [zapCounts, setZapCounts] = useState<Record<string, number>>({});
-  const [pendingZaps, setPendingZaps] = useState<Set<string>>(() => new Set());
-  const [zapState, setZapState] = useState<ZapDialogState>(() => createInitialZapState());
   const [composerHeight, setComposerHeight] = useState(0);
   const messageRefs = useRef(new Map<string, HTMLDivElement>());
   const highlightTimerRef = useRef<number | null>(null);
   const pendingHighlightRef = useRef<string | null>(null);
   const previousMessageIdsRef = useRef<string[]>([]);
-  const previousLastMessageRef = useRef<{ id: string; createdAt: number } | null>(null);
+  const previousLatestMessageRef = useRef<{ id: string; createdAt: number } | null>(null);
   const initialScrollDoneRef = useRef(false);
   const estimatedRowHeight = 220;
   const rowHeightsRef = useRef(new Map<string, number>());
@@ -685,251 +645,27 @@ const Community: React.FC = () => {
     };
   }, [isCasualView]);
 
-  const chatListPaddingStyle = useMemo<React.CSSProperties>(() => {
-    if (!isCasualView || composerHeight <= 0) {
-      return {};
-    }
+  const chatSpacing = useMemo(() => {
+    const safeInset = "env(safe-area-inset-bottom, 0px)";
+    const fallbackHeight = "7rem";
+    const measuredHeight = isCasualView && composerHeight > 0 ? `${composerHeight}px` : fallbackHeight;
+    const contentPadding = `calc(${measuredHeight} + ${safeInset} + 1.5rem)`;
+    const scrollPadding = `calc(${measuredHeight} + ${safeInset} + 1rem)`;
     return {
-      paddingBottom: `calc(${composerHeight}px + env(safe-area-inset-bottom, 0px) + 1.5rem)`,
+      contentPadding,
+      scrollPadding,
+      buttonOffset: scrollPadding,
     };
   }, [composerHeight, isCasualView]);
 
   const jumpButtonStyle = useMemo<React.CSSProperties>(() => {
-    if (composerHeight <= 0) {
+    if (!chatSpacing.buttonOffset) {
       return {};
     }
     return {
-      bottom: `calc(${composerHeight}px + env(safe-area-inset-bottom, 0px) + 1rem)`,
+      bottom: chatSpacing.buttonOffset,
     };
-  }, [composerHeight]);
-
-  const setPendingZap = useCallback((key: string, pending: boolean) => {
-    setPendingZaps((prev) => {
-      const has = prev.has(key);
-      if ((pending && has) || (!pending && !has)) {
-        return prev;
-      }
-      const next = new Set(prev);
-      if (pending) {
-        next.add(key);
-      } else {
-        next.delete(key);
-      }
-      return next;
-    });
-  }, []);
-
-  const adjustZapCount = useCallback((key: string, delta: number) => {
-    setZapCounts((prev) => {
-      const current = prev[key] ?? 0;
-      const nextValue = Math.max(0, current + delta);
-      if (nextValue === current) {
-        return prev;
-      }
-      return { ...prev, [key]: nextValue };
-    });
-  }, []);
-
-  const handleOpenZap = useCallback(
-    (target: CommunityZapTarget) => {
-      if (!hasLightningWallet) {
-        setWalletPromptOpen(true);
-        return;
-      }
-
-      if (!globalSignEvent || !accountReady) {
-        setZapState({
-          ...createInitialZapState(),
-          open: true,
-          target,
-          stage: "error",
-          error:
-            "We need your Nostr signer ready to send zaps. Refresh your keys from the dashboard and try again.",
-        });
-        return;
-      }
-
-      setZapState({
-        ...createInitialZapState(),
-        open: true,
-        target,
-        stage: target.endpoint.type === "lnurl" ? "select" : "invoice",
-        lnurlLoading: target.endpoint.type === "lnurl",
-        invoice: target.endpoint.type === "bolt11" ? target.endpoint.invoice : null,
-      });
-    },
-    [accountReady, globalSignEvent, hasLightningWallet],
-  );
-
-  useEffect(() => {
-    if (!zapState.open || !zapState.target) {
-      return;
-    }
-    if (zapState.target.endpoint.type !== "lnurl") {
-      return;
-    }
-    if (zapState.lnurlLoading || zapState.lnurl) {
-      return;
-    }
-
-    let cancelled = false;
-    setZapState((prev) => ({ ...prev, lnurlLoading: true }));
-
-    (async () => {
-      try {
-        const details = await fetchLnurlDetails(zapState.target!.endpoint.url);
-        if (cancelled) return;
-        setZapState((prev) => ({ ...prev, lnurl: details, lnurlLoading: false }));
-      } catch (error) {
-        if (cancelled) return;
-        if (import.meta.env?.DEV) {
-          console.error("Zap details fetch failed", error);
-        }
-        const message = error instanceof Error ? error.message : "Unable to load zap details.";
-        setZapState((prev) => ({ ...prev, stage: "error", lnurlLoading: false, error: message }));
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [zapState.open, zapState.target, zapState.lnurl, zapState.lnurlLoading]);
-
-  const handleSubmitZap = useCallback(
-    (amount: number, comment?: string) => {
-      if (!zapState.target) {
-        return;
-      }
-
-      const target = zapState.target;
-      const lnurlDetails = zapState.lnurl;
-
-      setZapState((prev) => ({
-        ...prev,
-        stage: "paying",
-        amountSats: amount,
-        error: null,
-        invoice: null,
-        weblnTried: false,
-      }));
-      setPendingZap(target.key, true);
-
-      (async () => {
-        try {
-          if (target.endpoint.type === "lnurl") {
-            if (!lnurlDetails) {
-              throw new Error("Zap details are still loading. Please wait a moment.");
-            }
-            const response = await requestZapInvoice({
-              details: lnurlDetails,
-              amountMsat: Math.round(amount * 1000),
-              targetPubkey: target.authorPubkey,
-              noteId: target.noteId ?? null,
-              relays: target.relays,
-              comment,
-              signEvent: globalSignEvent,
-              lnurlRaw: target.endpoint.raw,
-              logger: import.meta.env?.DEV ? console : undefined,
-            });
-            const invoice = response.pr;
-            if (typeof window !== "undefined" && window.webln) {
-              try {
-                await window.webln.enable();
-                await window.webln.sendPayment(invoice);
-                adjustZapCount(target.key, 1);
-                setPendingZap(target.key, false);
-                setZapState((prev) => ({ ...prev, stage: "success", invoice, weblnTried: true }));
-                return;
-              } catch (weblnError) {
-                if (import.meta.env?.DEV) {
-                  console.warn("WebLN payment failed", weblnError);
-                }
-                setZapState((prev) => ({ ...prev, stage: "invoice", invoice, weblnTried: true }));
-              }
-            } else {
-              setZapState((prev) => ({ ...prev, stage: "invoice", invoice, weblnTried: false }));
-            }
-            setPendingZap(target.key, false);
-          } else {
-            setZapState((prev) => ({
-              ...prev,
-              stage: "invoice",
-              invoice: target.endpoint.invoice,
-              amountSats: amount,
-            }));
-            setPendingZap(target.key, false);
-          }
-        } catch (error) {
-          if (import.meta.env?.DEV) {
-            console.error("Zap submission failed", error);
-          }
-          const message = error instanceof Error ? error.message : "Zap failed. Try again later.";
-          setZapState((prev) => ({ ...prev, stage: "error", error: message }));
-          setPendingZap(target.key, false);
-        }
-      })();
-    },
-    [adjustZapCount, globalSignEvent, setPendingZap, zapState.lnurl, zapState.target],
-  );
-
-  const handleZapRetry = useCallback(() => {
-    setZapState((prev) => {
-      if (!prev.target) {
-        return prev;
-      }
-      return {
-        ...prev,
-        stage: prev.target.endpoint.type === "lnurl" ? "select" : "invoice",
-        error: null,
-        weblnTried: false,
-      };
-    });
-  }, []);
-
-  const handleZapMarkPaid = useCallback(() => {
-    if (!zapState.target) {
-      return;
-    }
-    adjustZapCount(zapState.target.key, 1);
-    setPendingZap(zapState.target.key, false);
-    setZapState((prev) => ({ ...prev, stage: "success" }));
-  }, [adjustZapCount, setPendingZap, zapState.target]);
-
-  const handleZapClose = useCallback(() => {
-    if (zapState.target) {
-      setPendingZap(zapState.target.key, false);
-    }
-    setZapState(createInitialZapState());
-  }, [setPendingZap, zapState.target]);
-
-  const handleFeedZapRequest = useCallback(
-    (request: FeedZapRequest) => {
-      handleOpenZap({
-        key: request.key,
-        context: "feed",
-        endpoint: request.endpoint,
-        authorPubkey: request.authorPubkey,
-        noteId: request.noteId,
-        relays: request.relays,
-        summary: request.summary,
-        snippet: request.snippet,
-      });
-    },
-    [handleOpenZap],
-  );
-
-  const handleMemberZap = useCallback(
-    (pubkeyValue: string, summary: ProfileSummary, endpoint: ZapEndpoint) => {
-      handleOpenZap({
-        key: `profile:${pubkeyValue}`,
-        context: "profile",
-        endpoint,
-        authorPubkey: pubkeyValue,
-        summary,
-      });
-    },
-    [handleOpenZap],
-  );
+  }, [chatSpacing.buttonOffset]);
 
   useEffect(() => {
     if (accountReady && globalSignEvent) {
@@ -1013,23 +749,30 @@ const Community: React.FC = () => {
     });
   }, [feedPosts, messages, requestProfile, typingPubkeys]);
 
+  useEffect(() => {
+    if (!translationEnabled) return;
+    messages.forEach((message) => {
+      ensureTranslation(`chat:${message.id}`, message.markdown);
+    });
+  }, [ensureTranslation, messages, translationEnabled]);
+
   const computeScrollState = useCallback(() => {
     const node = listRef.current;
     if (!node) return;
     const threshold = 80;
-    const atBottom = node.scrollHeight - (node.scrollTop + node.clientHeight) < threshold;
-    setIsAtBottom(atBottom);
-    if (atBottom) {
+    const atTop = node.scrollTop < threshold;
+    setIsAtTop(atTop);
+    if (atTop) {
       setNewMessageAnchor((current) => (current ? null : current));
     }
     setVirtualVersion((value) => value + 1);
   }, []);
 
-  const scrollToBottom = useCallback(
+  const scrollToTop = useCallback(
     (behavior: ScrollBehavior = "auto") => {
       const node = listRef.current;
       if (!node) return;
-      node.scrollTo({ top: node.scrollHeight, behavior });
+      node.scrollTo({ top: 0, behavior });
     },
     [],
   );
@@ -1070,39 +813,39 @@ const Community: React.FC = () => {
   useEffect(() => {
     if (activeView !== "casual") {
       previousMessageIdsRef.current = messages.map((message) => message.id);
-      const lastMessage = messages[messages.length - 1];
-      previousLastMessageRef.current =
-        lastMessage != null
-          ? { id: lastMessage.id, createdAt: lastMessage.created_at }
+      const latestMessage = messages[0];
+      previousLatestMessageRef.current =
+        latestMessage != null
+          ? { id: latestMessage.id, createdAt: latestMessage.created_at }
           : null;
       initialScrollDoneRef.current = false;
       return;
     }
 
-    const lastMessage = messages[messages.length - 1];
+    const latestMessage = messages[0];
 
-    if (!initialScrollDoneRef.current && lastMessage) {
+    if (!initialScrollDoneRef.current && latestMessage) {
       initialScrollDoneRef.current = true;
-      scrollToBottom("auto");
+      scrollToTop("auto");
       computeScrollState();
-    } else if (lastMessage) {
-      const previousLast = previousLastMessageRef.current;
+    } else if (latestMessage) {
+      const previousLatest = previousLatestMessageRef.current;
       const hasNewerMessage =
-        !previousLast ||
-        lastMessage.created_at > previousLast.createdAt ||
-        (lastMessage.created_at === previousLast.createdAt && lastMessage.id !== previousLast.id);
+        !previousLatest ||
+        latestMessage.created_at > previousLatest.createdAt ||
+        (latestMessage.created_at === previousLatest.createdAt && latestMessage.id !== previousLatest.id);
 
       if (hasNewerMessage) {
-        scrollToBottom("smooth");
+        scrollToTop("smooth");
         setNewMessageAnchor(null);
         scheduleScrollState();
       }
     }
 
     previousMessageIdsRef.current = messages.map((message) => message.id);
-    previousLastMessageRef.current =
-      lastMessage != null ? { id: lastMessage.id, createdAt: lastMessage.created_at } : null;
-  }, [activeView, computeScrollState, messages, scheduleScrollState, scrollToBottom]);
+    previousLatestMessageRef.current =
+      latestMessage != null ? { id: latestMessage.id, createdAt: latestMessage.created_at } : null;
+  }, [activeView, computeScrollState, messages, scheduleScrollState, scrollToTop]);
 
   useEffect(() => {
     setVirtualVersion((value) => value + 1);
@@ -1120,27 +863,16 @@ const Community: React.FC = () => {
   useEffect(() => {
     if (activeView === "casual") {
       if (typeof window === "undefined") {
-        scrollToBottom("auto");
+        scrollToTop("auto");
         computeScrollState();
         return;
       }
       window.requestAnimationFrame(() => {
-        scrollToBottom("auto");
+        scrollToTop("auto");
         computeScrollState();
       });
     }
-  }, [activeView, computeScrollState, scrollToBottom]);
-
-  useEffect(() => {
-    if (!walletPromptOpen) return;
-    const handler = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setWalletPromptOpen(false);
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [walletPromptOpen]);
+  }, [activeView, computeScrollState, scrollToTop]);
 
   const casualMemberActivity = useMemo(() => collectMemberActivity(messages), [messages]);
   const feedMemberActivity = useMemo(() => collectMemberActivity(feedPosts), [feedPosts]);
@@ -1209,27 +941,106 @@ const Community: React.FC = () => {
     resolveProfileSummary,
   ]);
 
-  const { activeMembers, inactiveMembers } = useMemo(() => {
+  const [visibleMemberCount, setVisibleMemberCount] = useState(MEMBER_LIST_INITIAL_LIMIT);
+  const [memberScrollContainer, setMemberScrollContainer] = useState<HTMLDivElement | null>(null);
+
+  const { currentMemberEntry, followingMemberEntries, otherOnlineMemberEntries } = useMemo(() => {
     const nowSeconds = Math.floor(Date.now() / 1000);
-    const active: MemberListEntry[] = [];
-    const inactive: MemberListEntry[] = [];
+    let current: MemberListEntry | null = null;
+    const followed: MemberListEntry[] = [];
+    const otherOnline: MemberListEntry[] = [];
+
+    const sortByRecency = (a: MemberListEntry, b: MemberListEntry) => {
+      const diff = (b.lastSeen ?? 0) - (a.lastSeen ?? 0);
+      if (diff !== 0) {
+        return diff;
+      }
+      return a.summary.displayName.localeCompare(b.summary.displayName, undefined, {
+        sensitivity: "base",
+        numeric: true,
+      });
+    };
 
     contextMembers.forEach((member) => {
       if (member.isCurrentUser) {
-        active.push(member);
+        current = member;
         return;
       }
-
+      if (following.has(member.pubkey)) {
+        followed.push(member);
+        return;
+      }
       const lastSeen = member.lastSeen ?? 0;
       if (lastSeen > 0 && nowSeconds - lastSeen < ACTIVE_MEMBER_WINDOW_SECONDS) {
-        active.push(member);
-      } else {
-        inactive.push(member);
+        otherOnline.push(member);
       }
     });
 
-    return { activeMembers: active, inactiveMembers: inactive };
-  }, [contextMembers]);
+    followed.sort(sortByRecency);
+    otherOnline.sort(sortByRecency);
+
+    return {
+      currentMemberEntry: current,
+      followingMemberEntries: followed,
+      otherOnlineMemberEntries: otherOnline,
+    };
+  }, [contextMembers, following]);
+
+  const totalMemberPool = followingMemberEntries.length + otherOnlineMemberEntries.length;
+  const displayedFollowingMembers = followingMemberEntries.slice(0, visibleMemberCount);
+  const remainingMemberSlots = Math.max(visibleMemberCount - displayedFollowingMembers.length, 0);
+  const displayedOtherOnlineMembers = otherOnlineMemberEntries.slice(0, remainingMemberSlots);
+  const hasMoreMembers = visibleMemberCount < totalMemberPool;
+  const memberScrollRef = useCallback((node: HTMLDivElement | null) => {
+    setMemberScrollContainer(node);
+  }, []);
+
+  const followingCount = following.size;
+
+  useEffect(() => {
+    setVisibleMemberCount(MEMBER_LIST_INITIAL_LIMIT);
+    if (memberScrollContainer) {
+      memberScrollContainer.scrollTo({ top: 0 });
+    }
+  }, [contextMembers.length, followingCount, memberScrollContainer]);
+
+  useEffect(() => {
+    if (!memberScrollContainer) return;
+
+    const handleScroll = () => {
+      if (!hasMoreMembers) {
+        return;
+      }
+      const { scrollTop, scrollHeight, clientHeight } = memberScrollContainer;
+      if (scrollHeight - (scrollTop + clientHeight) < MEMBER_SCROLL_THRESHOLD_PX) {
+        setVisibleMemberCount((prev) => {
+          if (prev >= totalMemberPool) {
+            return prev;
+          }
+          return Math.min(prev + MEMBER_LIST_PAGE_SIZE, totalMemberPool);
+        });
+      }
+    };
+
+    memberScrollContainer.addEventListener("scroll", handleScroll);
+    return () => {
+      memberScrollContainer.removeEventListener("scroll", handleScroll);
+    };
+  }, [memberScrollContainer, hasMoreMembers, totalMemberPool]);
+
+  useEffect(() => {
+    if (!memberScrollContainer) return;
+    if (!hasMoreMembers) return;
+    const { scrollHeight, clientHeight } = memberScrollContainer;
+    if (scrollHeight - clientHeight < MEMBER_SCROLL_THRESHOLD_PX) {
+      setVisibleMemberCount((prev) => {
+        if (prev >= totalMemberPool) {
+          return prev;
+        }
+        return Math.min(prev + MEMBER_LIST_PAGE_SIZE, totalMemberPool);
+      });
+    }
+  }, [memberScrollContainer, hasMoreMembers, totalMemberPool, visibleMemberCount]);
   const recommendedMembers = useMemo(
     () =>
       contextMembers
@@ -1244,24 +1055,6 @@ const Community: React.FC = () => {
       : member.lastSeen > 0
         ? formatLastSeenLabel(member.lastSeen)
         : "No activity yet";
-    const profileZapKey = `profile:${member.pubkey}`;
-    const profileZapEndpoint = detectZapEndpoint({
-      lightningAddress: member.summary.lightningAddress,
-    });
-    const profileZapCount = zapCounts[profileZapKey] ?? 0;
-    const profileZapPending = pendingZaps.has(profileZapKey);
-    const profileZapDisplayCount = Math.max(
-      0,
-      profileZapCount + (profileZapPending ? 1 : 0),
-    );
-    const profileZapTitle = !profileZapEndpoint
-      ? "Zaps unavailable"
-      : profileZapPending
-        ? "Sending zap…"
-        : canZap
-          ? `Zap ${member.summary.displayName}`
-          : "Add your Lightning address to zap";
-
     return (
       <div
         key={member.pubkey}
@@ -1287,35 +1080,6 @@ const Community: React.FC = () => {
             </span>
           </div>
         </button>
-        {profileZapEndpoint && (
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => handleMemberZap(member.pubkey, member.summary, profileZapEndpoint)}
-              disabled={profileZapPending}
-              className={`inline-flex h-8 w-8 items-center justify-center rounded-full border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
-                profileZapPending
-                  ? "border-brand text-brand"
-                  : canZap
-                    ? "border-brand/40 text-brand hover:border-brand"
-                    : "border-dashed border-[var(--border-subtle)] text-[var(--fg-muted)]"
-              } disabled:cursor-not-allowed disabled:opacity-60`}
-              title={profileZapTitle}
-            >
-              {profileZapPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Zap className="h-4 w-4" />
-              )}
-              <span className="sr-only">Zap {member.summary.displayName}</span>
-            </button>
-            {profileZapDisplayCount > 0 && (
-              <span className="text-[10px] font-semibold text-brand">
-                {profileZapDisplayCount.toLocaleString()}
-              </span>
-            )}
-          </div>
-        )}
       </div>
     );
   };
@@ -1352,62 +1116,6 @@ const Community: React.FC = () => {
       </div>
     );
   };
-
-  useEffect(() => {
-    const entries = new Map<string, number>();
-    feedPosts.forEach((post) => {
-      entries.set(`feed:${post.id}`, countZapReferences(post.tags));
-    });
-    messages.forEach((message) => {
-      entries.set(`chat:${message.id}`, 0);
-    });
-    contextMembers.forEach((member) => {
-      entries.set(`profile:${member.pubkey}`, 0);
-    });
-
-    setZapCounts((prev) => {
-      let changed = false;
-      const next: Record<string, number> = {};
-      entries.forEach((base, key) => {
-        const current = prev[key];
-        const value = current === undefined ? base : Math.max(current, base);
-        if (value !== current) {
-          changed = true;
-        }
-        if (current === undefined) {
-          changed = true;
-        }
-        next[key] = value;
-      });
-      if (Object.keys(prev).length !== entries.size) {
-        changed = true;
-      }
-      return changed ? next : prev;
-    });
-  }, [feedPosts, messages, contextMembers]);
-
-  useEffect(() => {
-    const validKeys = new Set<string>();
-    feedPosts.forEach((post) => validKeys.add(`feed:${post.id}`));
-    messages.forEach((message) => validKeys.add(`chat:${message.id}`));
-    contextMembers.forEach((member) => validKeys.add(`profile:${member.pubkey}`));
-
-    setPendingZaps((prev) => {
-      let changed = false;
-      const next = new Set<string>();
-      prev.forEach((key) => {
-        if (validKeys.has(key)) {
-          next.add(key);
-        } else {
-          changed = true;
-        }
-      });
-      if (!changed && next.size === prev.size) {
-        return prev;
-      }
-      return next;
-    });
-  }, [feedPosts, messages, contextMembers]);
 
   const authorAccents = useMemo(() => {
     const map = new Map<string, AuthorAccent>();
@@ -1449,26 +1157,67 @@ const Community: React.FC = () => {
       : isPersonalFeedView
         ? "Your Feed members"
         : "Community members";
+  const hasFollowingMembers = followingMemberEntries.length > 0;
+  const hasOtherOnlineMembers = otherOnlineMemberEntries.length > 0;
+  const visibleFollowingCount = displayedFollowingMembers.length;
+  const visibleOtherOnlineCount = displayedOtherOnlineMembers.length;
+
   const memberListContent =
-    contextMembers.length === 0 ? (
+    !currentMemberEntry && !hasFollowingMembers && !hasOtherOnlineMembers ? (
       <p className="rounded-2xl bg-[var(--bg-card)]/70 p-4 text-xs text-[var(--fg-muted)] shadow-sm">
         We&apos;ll show members here as soon as there&apos;s activity.
       </p>
     ) : (
       <div className="space-y-6">
-        <div className="space-y-3">{activeMembers.map((member) => renderMemberRow(member))}</div>
+        {currentMemberEntry && (
+          <div>
+            <h3 className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[var(--fg-muted)]">You</h3>
+            <div className="mt-3 space-y-3">{renderMemberRow(currentMemberEntry)}</div>
+          </div>
+        )}
         <div>
-          <h3 className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[var(--fg-muted)]">
-            Non-active Members
-          </h3>
-          {inactiveMembers.length === 0 ? (
-            <p className="mt-3 rounded-2xl bg-[var(--bg-card)]/70 p-4 text-xs text-[var(--fg-muted)] shadow-sm">
-              Everyone&apos;s active right now.
-            </p>
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[var(--fg-muted)]">
+              People you follow
+            </h3>
+            {hasFollowingMembers && (
+              <span className="text-[9px] uppercase tracking-[0.24em] text-[var(--fg-muted)]">
+                {`${visibleFollowingCount.toLocaleString()} / ${followingMemberEntries.length.toLocaleString()}`}
+              </span>
+            )}
+          </div>
+          {hasFollowingMembers ? (
+            <div className="mt-3 space-y-3">{displayedFollowingMembers.map((member) => renderMemberRow(member))}</div>
           ) : (
-            <div className="mt-3 space-y-3">{inactiveMembers.map((member) => renderMemberRow(member))}</div>
+            <p className="mt-3 rounded-2xl bg-[var(--bg-card)]/70 p-4 text-xs text-[var(--fg-muted)] shadow-sm">
+              Follow community members to see them here.
+            </p>
           )}
         </div>
+        <div>
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[var(--fg-muted)]">
+              Other online users
+            </h3>
+            {hasOtherOnlineMembers && (
+              <span className="text-[9px] uppercase tracking-[0.24em] text-[var(--fg-muted)]">
+                {`${visibleOtherOnlineCount.toLocaleString()} / ${otherOnlineMemberEntries.length.toLocaleString()}`}
+              </span>
+            )}
+          </div>
+          {hasOtherOnlineMembers ? (
+            <div className="mt-3 space-y-3">{displayedOtherOnlineMembers.map((member) => renderMemberRow(member))}</div>
+          ) : (
+            <p className="mt-3 rounded-2xl bg-[var(--bg-card)]/70 p-4 text-xs text-[var(--fg-muted)] shadow-sm">
+              No one else is online right now.
+            </p>
+          )}
+        </div>
+        {hasMoreMembers && (
+          <div className="text-center text-[9px] uppercase tracking-[0.3em] text-[var(--fg-muted)]">
+            Scroll to load more people
+          </div>
+        )}
       </div>
     );
   const renderTabButton = (tab: ViewTab, variant: "mobile" | "desktop") => {
@@ -1554,17 +1303,7 @@ const Community: React.FC = () => {
     }
     return items;
   }, [estimatedRowHeight, isCasualView, messages, virtualVersion]);
-  const stickyDateLabel = useMemo(() => {
-    if (!isCasualView || virtualItems.length === 0) {
-      return null;
-    }
-    const firstVisible = messages[virtualItems[0].index];
-    if (!firstVisible) {
-      return null;
-    }
-    return formatDateLabel(firstVisible.created_at);
-  }, [isCasualView, messages, virtualItems]);
-  const showJumpToBottom = isCasualView && !isAtBottom && messages.length > 0;
+  const showJumpToLatest = isCasualView && !isAtTop && messages.length > 0;
 
   const handleUploadFile = useCallback(
     async (file: File) => {
@@ -1778,8 +1517,8 @@ const Community: React.FC = () => {
         style={{ backgroundImage: backgroundTexture }}
         aria-hidden="true"
       />
-      <div className="relative z-0 flex min-h-screen w-full flex-col lg:flex-row">
-        <aside className="hidden w-80 flex-col border-r border-[var(--border-subtle)] bg-[var(--bg-card)]/70 px-5 py-8 backdrop-blur lg:flex">
+      <div className="relative z-0 flex min-h-screen w-full flex-col">
+        <aside className="hidden border-r border-[var(--border-subtle)] bg-[var(--bg-card)]/70 px-5 py-8 backdrop-blur lg:fixed lg:inset-y-0 lg:left-0 lg:flex lg:w-80 lg:flex-col">
           <nav
             aria-label="Community navigation"
             role="tablist"
@@ -1787,12 +1526,14 @@ const Community: React.FC = () => {
           >
             {DESKTOP_VIEW_TABS.map((tab) => renderTabButton(tab, "desktop"))}
           </nav>
-          <div className="mt-8 flex-1">
+          <div className="mt-8 flex-1 overflow-hidden">
             <h2 className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)]">{membersHeading}</h2>
-            <div className="mt-5 flex-1 overflow-y-auto pr-1 lg:max-h-[calc(100vh-12rem)]">{memberListContent}</div>
+            <div ref={memberScrollRef} className="mt-5 h-full overflow-y-auto pr-1">
+              {memberListContent}
+            </div>
           </div>
         </aside>
-        <div className="flex flex-1 min-h-0 flex-col">
+        <div className="flex flex-1 min-h-0 flex-col lg:pl-80">
           <div className="border-b border-[var(--border-subtle)] bg-[var(--bg-card)]/80 px-5 py-4 backdrop-blur lg:hidden">
             <nav
               aria-label="Community navigation"
@@ -1811,34 +1552,29 @@ const Community: React.FC = () => {
                 aria-labelledby="community-tab-casual"
                 className="relative flex flex-1 min-h-0 flex-col"
               >
-                {stickyDateLabel && (
-                  <div className="pointer-events-none absolute left-0 right-0 top-24 z-20 px-4 sm:top-20">
-                    <div className="mx-auto max-w-3xl">
-                      <div className="w-full rounded-full bg-[var(--bg-card)]/90 px-4 py-1 text-center text-[10px] font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)] shadow-sm backdrop-blur sm:w-fit">
-                        {stickyDateLabel}
-                      </div>
-                    </div>
-                  </div>
-                )}
-                {showJumpToBottom && (
+                {showJumpToLatest && (
                   <button
                     type="button"
                     onClick={() => {
                       setNewMessageAnchor(null);
-                      scrollToBottom("smooth");
+                      scrollToTop("smooth");
                     }}
                     className="pointer-events-auto absolute bottom-28 right-6 z-30 inline-flex items-center gap-2 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-brand sm:bottom-36 sm:right-10"
                     style={jumpButtonStyle}
                   >
-                    <ArrowDown className="h-4 w-4" aria-hidden />
-                    Jump to bottom
+                    <ArrowUp className="h-4 w-4" aria-hidden />
+                    Jump to latest
                   </button>
                 )}
                 <ErrorBoundary fallback={chatListFallback}>
-                  <div ref={listRef} className="relative flex-1 overflow-y-auto overscroll-y-contain">
+                  <div
+                    ref={listRef}
+                    className="relative flex-1 overflow-y-auto overscroll-y-contain"
+                    style={{ scrollPaddingBottom: chatSpacing.scrollPadding }}
+                  >
                     <div
-                      className="px-4 pb-[calc(8rem+env(safe-area-inset-bottom,0px))] pt-6 sm:px-8 sm:pb-32"
-                      style={chatListPaddingStyle}
+                      className="px-4 pt-6 sm:px-8"
+                      style={{ paddingBottom: chatSpacing.contentPadding }}
                     >
                       <div
                         style={{ height: `${totalSize}px`, position: "relative" }}
@@ -1846,11 +1582,6 @@ const Community: React.FC = () => {
                         {virtualItems.map((virtualRow) => {
                           const message = messages[virtualRow.index];
                           if (!message) return null;
-                          const previousMessage =
-                            virtualRow.index > 0 ? messages[virtualRow.index - 1] : null;
-                          const showDateDivider =
-                            !previousMessage ||
-                            getDateKey(previousMessage.created_at) !== getDateKey(message.created_at);
                           const isSelf = message.pubkey === pubkey;
                           const accent = authorAccents.get(message.pubkey);
                           const summary = resolveProfileSummary(message.pubkey);
@@ -1867,27 +1598,37 @@ const Community: React.FC = () => {
                               ? resolveProfileSummary(referencedMessage.pubkey)
                               : null;
                           const isHighlighted = highlightedMessageId === message.id;
-                          const messageZapKey = `chat:${message.id}`;
-                          const messageZapEndpoint = isSelf
-                            ? null
-                            : detectZapEndpoint({
-                                lightningAddress: summary.lightningAddress,
-                                tags: message.tags,
-                              });
-                          const baseMessageZapCount = zapCounts[messageZapKey] ?? 0;
-                          const messageZapPending = pendingZaps.has(messageZapKey);
-                          const messageZapDisplayCount = Math.max(
-                            0,
-                            baseMessageZapCount + (messageZapPending ? 1 : 0),
-                          );
-                          const messageZapTitle = !messageZapEndpoint
-                            ? "Zaps unavailable"
-                            : messageZapPending
-                              ? "Sending zap…"
-                              : canZap
-                                ? "Zap this message"
-                                : "Add your Lightning address to zap";
-                          const messageSnippet = buildQuoteSnippet(message.markdown);
+                          const translationKey = `chat:${message.id}`;
+                          const translationEntry = translationEnabled
+                            ? getTranslation(translationKey)
+                            : undefined;
+                          const translationStatus = translationEntry?.status ?? "idle";
+                          const rawTranslatedText =
+                            translationEntry?.translatedText &&
+                            translationEntry.translatedText.trim().length > 0
+                              ? translationEntry.translatedText
+                              : null;
+                          const translationReady =
+                            translationEnabled && translationStatus === "ready" && !!rawTranslatedText;
+                          const showOriginal =
+                            !translationEnabled || !translationReady || isOriginalVisible(translationKey);
+                          const translatedHtml =
+                            translationEnabled && translationReady && rawTranslatedText
+                              ? markdownToHtml(rawTranslatedText)
+                              : null;
+                          const renderedHtml =
+                            translatedHtml && translationEnabled && !showOriginal
+                              ? translatedHtml
+                              : message.html;
+                          const detectedLanguageLabel =
+                            translationEnabled &&
+                            translationEntry?.detectedLanguage &&
+                            translationEntry.detectedLanguage.trim().length > 0
+                              ? formatLanguageName(translationEntry.detectedLanguage)
+                              : null;
+                          const translationNoticeColor = isSelf
+                            ? "text-white/70"
+                            : "text-[var(--fg-muted)]";
                           return (
                             <div
                               key={message.id}
@@ -1902,13 +1643,6 @@ const Community: React.FC = () => {
                               }}
                               className="pb-4"
                             >
-                              {showDateDivider && (
-                                <div className="mb-4">
-                                  <div className="mx-auto w-full rounded-full bg-[var(--bg-card)]/90 px-4 py-1 text-center text-[10px] font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)] shadow-sm backdrop-blur sm:w-fit">
-                                    {formatDateLabel(message.created_at)}
-                                  </div>
-                                </div>
-                              )}
                               {newMessageAnchor === message.id && (
                                 <div className="mb-4 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.3em] text-brand">
                                   <span className="h-px flex-1 bg-brand/40" />
@@ -1942,27 +1676,6 @@ const Community: React.FC = () => {
                                       : undefined
                                   }
                                 >
-                                  <div className="flex flex-col gap-1 text-[10px] uppercase tracking-[0.24em] sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-                                    <span
-                                      className={`flex items-center gap-2 font-semibold ${
-                                        isSelf ? "text-white" : "text-[var(--fg-default)]"
-                                      }`}
-                                    >
-                                      {!isSelf && (
-                                        <span
-                                          aria-hidden
-                                          className="inline-flex h-2 w-2 rounded-full"
-                                          style={{ backgroundColor: accent?.dot }}
-                                        />
-                                      )}
-                                      {summary.displayName}
-                                    </span>
-                                    <span
-                                      className={`${timestampColor} order-last block w-full text-left sm:order-none sm:w-auto sm:text-right`}
-                                    >
-                                      {formatTimestamp(message.created_at)}
-                                    </span>
-                                  </div>
                                   {message.quoteId && (
                                     <button
                                       type="button"
@@ -1997,8 +1710,53 @@ const Community: React.FC = () => {
                                     className={`prose prose-sm max-w-none whitespace-pre-wrap break-words ${
                                       isSelf ? "prose-invert" : "text-[var(--fg-default)]"
                                     } prose-a:text-brand`}
-                                    dangerouslySetInnerHTML={{ __html: message.html }}
+                                    dangerouslySetInnerHTML={{ __html: renderedHtml }}
                                   />
+                                  {translationEnabled && (
+                                    <div
+                                      className={`flex flex-wrap items-center gap-2 text-[9px] uppercase tracking-[0.3em] ${translationNoticeColor}`}
+                                    >
+                                      {translationStatus === "loading" ? (
+                                        <span>Translating…</span>
+                                      ) : translationStatus === "error" ? (
+                                        <>
+                                          <span>Translation unavailable</span>
+                                          <button
+                                            type="button"
+                                            onClick={() => refreshTranslation(translationKey, message.markdown)}
+                                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.3em] transition focus-visible:outline-none focus-visible:ring-1 ${
+                                              isSelf
+                                                ? "text-white hover:text-white focus-visible:ring-white/60"
+                                                : "text-brand hover:text-brand/80 focus-visible:ring-brand/60"
+                                            }`}
+                                          >
+                                            Retry
+                                          </button>
+                                        </>
+                                      ) : translationReady ? (
+                                        <>
+                                          <span>
+                                            {showOriginal
+                                              ? `Showing original${
+                                                  detectedLanguageLabel ? ` (${detectedLanguageLabel})` : ""
+                                                }`
+                                              : `Translated from ${detectedLanguageLabel ?? "original language"}`}
+                                          </span>
+                                          <button
+                                            type="button"
+                                            onClick={() => toggleOriginal(translationKey)}
+                                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.3em] transition focus-visible:outline-none focus-visible:ring-1 ${
+                                              isSelf
+                                                ? "text-white hover:text-white focus-visible:ring-white/60"
+                                                : "text-brand hover:text-brand/80 focus-visible:ring-brand/60"
+                                            }`}
+                                          >
+                                            {showOriginal ? "View translation" : "View original"}
+                                          </button>
+                                        </>
+                                      ) : null}
+                                    </div>
+                                  )}
                                   {message.attachments.length > 0 && (
                                     <div className="space-y-3">
                                       {message.attachments.map((attachment) => (
@@ -2040,46 +1798,6 @@ const Community: React.FC = () => {
                                       <Heart className="h-4 w-4" />
                                       <span className="sr-only">Like</span>
                                     </button>
-                                    {messageZapEndpoint && (
-                                      <div className="flex items-center gap-1">
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            handleOpenZap({
-                                              key: messageZapKey,
-                                              context: "chat",
-                                              endpoint: messageZapEndpoint,
-                                              authorPubkey: message.pubkey,
-                                              noteId: message.id,
-                                              relays: extractRelaysFromTags(message.tags),
-                                              summary,
-                                              snippet: messageSnippet,
-                                            })
-                                          }
-                                          disabled={messageZapPending}
-                                          className={`inline-flex h-8 w-8 items-center justify-center rounded-full border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
-                                            messageZapPending
-                                              ? "border-brand text-white dark:text-brand"
-                                              : canZap
-                                                ? "border-brand/40 text-white hover:border-brand dark:text-brand"
-                                                : "border-dashed border-white/60 text-white/80 dark:text-[var(--fg-muted)]"
-                                          } disabled:cursor-not-allowed disabled:opacity-60`}
-                                          title={messageZapTitle}
-                                        >
-                                          {messageZapPending ? (
-                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                          ) : (
-                                            <Zap className="h-4 w-4" />
-                                          )}
-                                          <span className="sr-only">Zap {summary.displayName}</span>
-                                        </button>
-                                        {messageZapDisplayCount > 0 && (
-                                          <span className="text-[10px] font-semibold text-brand">
-                                            {messageZapDisplayCount.toLocaleString()}
-                                          </span>
-                                        )}
-                                      </div>
-                                    )}
                                   </div>
                                   {message.status === "pending" && (
                                     <p className={`text-[10px] uppercase tracking-[0.24em] ${timestampColor}`}>Sending…</p>
@@ -2101,7 +1819,7 @@ const Community: React.FC = () => {
                 </ErrorBoundary>
                 <div
                   ref={composerContainerRef}
-                  className="fixed bottom-0 left-0 right-0 z-40 border-t border-[var(--border-subtle)] bg-[var(--bg-card)]/95 px-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pt-4 backdrop-blur sm:px-8"
+                  className="fixed bottom-0 left-0 right-0 z-40 border-t border-[var(--border-subtle)] bg-[var(--bg-card)]/95 px-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pt-4 backdrop-blur sm:px-8 lg:left-80"
                 >
                   <div className="mx-auto w-full max-w-3xl space-y-3">
                     {typingSummaries.length > 0 && (
@@ -2151,12 +1869,8 @@ const Community: React.FC = () => {
                         loadingMore={feedLoadingMore}
                         hasMore={feedHasMore}
                         error={feedError}
-                        canZap={canZap}
                         pubkey={feedPubkey}
                         initialLoading={feedInitialLoading}
-                        onZapRequest={handleFeedZapRequest}
-                        zapCounts={zapCounts}
-                        pendingZaps={pendingZaps}
                       />
                     </div>
                   </ErrorBoundary>
@@ -2181,12 +1895,8 @@ const Community: React.FC = () => {
                         loadingMore={feedLoadingMore}
                         hasMore={feedHasMore}
                         error={feedError}
-                        canZap={canZap}
                         pubkey={feedPubkey}
                         initialLoading={feedInitialLoading}
-                        onZapRequest={handleFeedZapRequest}
-                        zapCounts={zapCounts}
-                        pendingZaps={pendingZaps}
                       />
                     ) : (
                       <div className="flex flex-1 items-center justify-center px-6 py-12">
@@ -2226,7 +1936,9 @@ const Community: React.FC = () => {
                   <h2 className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)]">
                     {membersHeading}
                   </h2>
-                  <div className="mt-5 flex-1 overflow-y-auto pr-1">{memberListContent}</div>
+                  <div ref={memberScrollRef} className="mt-5 flex-1 overflow-y-auto pr-1">
+                    {memberListContent}
+                  </div>
                 </div>
               </section>
             )}
@@ -2234,48 +1946,14 @@ const Community: React.FC = () => {
         </div>
       </div>
 
-      {walletPromptOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-8">
-          <div className="w-full max-w-md rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 text-center shadow-2xl">
-            <h2 className="text-lg font-semibold text-[var(--fg-default)]">Connect your Lightning wallet</h2>
-            <p className="mt-3 text-sm text-[var(--fg-muted)]">
-              Add a Lightning address on your dashboard so you can zap other members instantly.
-            </p>
-            <div className="mt-6 flex flex-wrap justify-center gap-3">
-              <a
-                href="/dashboard"
-                className="inline-flex items-center justify-center rounded-full bg-brand px-5 py-2 text-sm font-semibold uppercase tracking-[0.24em] text-white transition hover:bg-brand/90"
-              >
-                Open dashboard
-              </a>
-              <button
-                type="button"
-                onClick={() => setWalletPromptOpen(false)}
-                className="inline-flex items-center justify-center rounded-full border border-[var(--border-subtle)] px-5 py-2 text-sm font-semibold uppercase tracking-[0.24em] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      <ZapDialog
-        open={zapState.open}
-        target={zapState.target}
-        stage={zapState.stage}
-        lnurl={zapState.lnurl}
-        lnurlLoading={zapState.lnurlLoading}
-        amountSats={zapState.amountSats}
-        invoice={zapState.invoice}
-        error={zapState.error}
-        weblnTried={zapState.weblnTried}
-        onClose={handleZapClose}
-        onSubmit={handleSubmitZap}
-        onRetry={handleZapRetry}
-        onMarkPaid={handleZapMarkPaid}
-      />
     </div>
   );
 };
+
+const Community: React.FC = () => (
+  <CommunityTranslationProvider>
+    <CommunityView />
+  </CommunityTranslationProvider>
+);
 
 export default Community;
