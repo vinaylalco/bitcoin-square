@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
-import { Copy, Flame, Layers, LogOut, Sparkles, Trophy } from 'lucide-react';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { Copy, Flame, Layers, LogOut, MessageCircle, Sparkles, Trophy } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { updateProfileSettings } from '../api/account';
 import { generateScreenName, normalizeAvatarUrl, normalizeScreenName } from '../utils/profileDefaults';
@@ -432,14 +432,39 @@ export default function Dashboard() {
                   {isLightningSaving ? 'Saving…' : 'Save address'}
                 </button>
               </div>
-              {lightningError && (
-                <p className="text-xs text-red-500">{lightningError}</p>
-              )}
-            </form>
-          </div>
+            {lightningError && (
+              <p className="text-xs text-red-500">{lightningError}</p>
+            )}
+          </form>
 
           <div className="flex flex-col gap-4 rounded-3xl border border-neutral-200 bg-white p-8 shadow-sm transition-colors dark:border-neutral-800 dark:bg-neutral-900">
-            <h3 className="text-xl font-semibold">Nostr credentials</h3>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h3 className="text-xl font-semibold">Direct messages</h3>
+              <span className="rounded-full bg-brand/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-brand">
+                Private
+              </span>
+            </div>
+            <p className="text-sm text-neutral-600 dark:text-neutral-300">
+              Jump straight into your encrypted conversations without leaving the dashboard.
+            </p>
+            {user.nostrPublicKey ? (
+              <Link
+                to={`/profile/${user.nostrPublicKey}/messages`}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand px-5 py-2 text-sm font-semibold uppercase tracking-[0.3em] text-white transition hover:bg-brand/90"
+              >
+                <MessageCircle className="h-4 w-4" />
+                Open messages
+              </Link>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-neutral-300 bg-neutral-50 p-4 text-sm text-neutral-600 transition-colors dark:border-neutral-700 dark:bg-neutral-950/40 dark:text-neutral-300">
+                Add your Nostr public key in Settings to unlock the private inbox shortcut here.
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-4 rounded-3xl border border-neutral-200 bg-white p-8 shadow-sm transition-colors dark:border-neutral-800 dark:bg-neutral-900">
+          <h3 className="text-xl font-semibold">Nostr credentials</h3>
             <p className="text-sm text-neutral-600 dark:text-neutral-300">
               Securely manage your keys. Copy them when you need to plug into your favourite Nostr client.
             </p>

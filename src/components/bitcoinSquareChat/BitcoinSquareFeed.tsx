@@ -9,7 +9,7 @@ import { useCommunityTranslation } from "../../context/CommunityTranslationConte
 import ProfileCard from "../profile/ProfileCard";
 import ErrorBoundary from "../ErrorBoundary";
 import type { RoomDefinition } from "../RoomList";
-import { Heart, Image as ImageIcon, Loader2, MessageCircle, MessageSquareQuote, Plus, X } from "lucide-react";
+import { Heart, Image as ImageIcon, Loader2, MessageSquareQuote, Plus, X } from "lucide-react";
 import {
   createFeedActionHandlers,
   createOpenComposerDialog,
@@ -743,7 +743,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     });
   }, []);
 
-  const { handlePost, handleReply, handleQuote, handleLike } = useMemo(
+  const { handlePost, handleQuote, handleLike } = useMemo(
     () =>
       createFeedActionHandlers({
         openComposerDialog,
@@ -1028,16 +1028,6 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
                 {statusLabel && <p className="mt-3 text-xs text-[var(--fg-muted)]">{statusLabel}</p>}
 
                 <div className="mt-4 flex flex-wrap items-center gap-2 text-[var(--fg-muted)]">
-                  <button
-                    type="button"
-                    onClick={() => handleReply(post)}
-                    disabled={!ready}
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 disabled:cursor-not-allowed disabled:opacity-60"
-                    title="Reply to this post"
-                  >
-                    <MessageCircle className="h-4 w-4" />
-                    <span className="sr-only">Reply</span>
-                  </button>
                   <button
                     type="button"
                     onClick={() => handleQuote(post)}

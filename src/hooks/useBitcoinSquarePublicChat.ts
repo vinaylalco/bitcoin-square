@@ -5,7 +5,7 @@ import { useNostrAccount } from "./useNostrAccount";
 import { publishWithPool } from "../lib/nostrPublish";
 import { encryptChannelText, decryptChannelText } from "../utils/channelEncryption";
 import { useRoomKey } from "./useRoomKey";
-import { getConfiguredCasualRoomKey } from "../config/nostr";
+import { getConfiguredRoomKey } from "../config/nostr";
 
 const RELAYS = [
   "wss://relay.damus.io",
@@ -97,14 +97,15 @@ export const useBitcoinSquarePublicChat = () => {
   const [poolReady, setPoolReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const poolRef = useRef<SimplePool | null>(null);
+  const pendingDecryptsRef = useRef<Map<string, Event>>(new Map());
   const { ready: accountReady, pubkey, signEvent } = useNostrAccount();
-  const envRoomKey = getConfiguredCasualRoomKey();
+  const configuredRoomKey = getConfiguredRoomKey(ROOM_ID);
   const {
     hasKey: roomKeyAvailable,
     ensure: ensureRoomKey,
     loading: roomKeyLoading,
     error: roomKeyError,
-  } = useRoomKey({ roomId: ROOM_ID, isPrivate: true, seedBase64: envRoomKey });
+  } = useRoomKey({ roomId: ROOM_ID, isPrivate: true, seedBase64: configuredRoomKey });
 
   const ready = useMemo(
     () => accountReady && poolReady && roomKeyAvailable && !roomKeyLoading,
@@ -118,6 +119,59 @@ export const useBitcoinSquarePublicChat = () => {
       setError(null);
     }
   }, [roomKeyAvailable, roomKeyError]);
+
+  const processEvent = useCallback(
+    async (event: Event) => {
+      if (!event.tags.some((tag) => tag[0] === "t" && tag[1] === ROOM_TAG)) {
+        return;
+      }
+
+      const encryptedPayload = typeof event.content === "string" && event.content.startsWith("v44:");
+
+      if (!roomKeyAvailable) {
+        if (encryptedPayload) {
+          pendingDecryptsRef.current.set(event.id, event);
+          setMessages((prev) => upsertMessage(prev, mapEventToMessage(event, "Decrypting message…")));
+        } else {
+          pendingDecryptsRef.current.delete(event.id);
+          setMessages((prev) => upsertMessage(prev, mapEventToMessage(event, event.content)));
+        }
+        return;
+      }
+
+      try {
+        const plaintext = await decryptChannelText(ROOM_ID, event.content);
+        pendingDecryptsRef.current.delete(event.id);
+        setMessages((prev) => upsertMessage(prev, mapEventToMessage(event, plaintext)));
+        setError(null);
+      } catch (decryptError) {
+        console.warn("Failed to decrypt public chat message", decryptError);
+        if (encryptedPayload) {
+          pendingDecryptsRef.current.set(event.id, event);
+          setMessages((prev) => upsertMessage(prev, mapEventToMessage(event, "Decrypting message…")));
+        } else {
+          pendingDecryptsRef.current.delete(event.id);
+          setMessages((prev) => upsertMessage(prev, mapEventToMessage(event, event.content)));
+        }
+        setError(
+          decryptError instanceof Error
+            ? decryptError.message
+            : "Unable to decrypt public chat message",
+        );
+      }
+    },
+    [roomKeyAvailable],
+  );
+
+  useEffect(() => {
+    if (!roomKeyAvailable) return;
+    if (pendingDecryptsRef.current.size === 0) return;
+    const pending = Array.from(pendingDecryptsRef.current.values());
+    pendingDecryptsRef.current.clear();
+    pending.forEach((event) => {
+      void processEvent(event);
+    });
+  }, [processEvent, roomKeyAvailable]);
 
   useEffect(() => {
     if (roomKeyAvailable || roomKeyLoading) return;
@@ -156,25 +210,7 @@ export const useBitcoinSquarePublicChat = () => {
           ],
           {
             onevent: (event) => {
-              if (!event.tags.some((tag) => tag[0] === "t" && tag[1] === ROOM_TAG)) {
-                return;
-              }
-              if (!roomKeyAvailable) {
-                return;
-              }
-              void (async () => {
-                try {
-                  const plaintext = await decryptChannelText(ROOM_ID, event.content);
-                  setMessages((prev) => upsertMessage(prev, mapEventToMessage(event, plaintext)));
-                } catch (decryptError) {
-                  console.warn("Failed to decrypt public chat message", decryptError);
-                  setError(
-                    decryptError instanceof Error
-                      ? decryptError.message
-                      : "Unable to decrypt public chat message",
-                  );
-                }
-              })();
+              void processEvent(event);
             },
             onerror: (err) => {
               console.warn("Relay subscription error", err);
@@ -194,7 +230,7 @@ export const useBitcoinSquarePublicChat = () => {
       poolRef.current = null;
       setPoolReady(false);
     };
-  }, []);
+  }, [processEvent]);
 
   const sendMessage = useCallback(
     async (message: string): Promise<PublishResult> => {
