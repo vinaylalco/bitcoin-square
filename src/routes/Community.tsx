@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, NavLink } from "react-router-dom";
 
 import BitcoinSquareFeed from "../components/bitcoinSquareChat/BitcoinSquareFeed";
 import ErrorBoundary from "../components/ErrorBoundary";
@@ -15,7 +15,7 @@ import { useMediaUploader, type MediaUploadResult, type UseMediaUploaderReturn }
 import { useBitcoinSquareFeed } from "../hooks/useBitcoinSquareFeed";
 import { decryptBinary } from "../utils/aes";
 import { getCachedMediaBlob, getCachedPreview, setCachedMediaBlob, setCachedPreview } from "../utils/mediaCache";
-import { useProfileIdentity, shortenPubkey } from "../context/ProfileIdentityContext";
+import { useProfileIdentity } from "../context/ProfileIdentityContext";
 import type { ProfileSummary } from "../context/ProfileIdentityContext";
 import { useAuth } from "../context/AuthContext";
 import { useNostrAccount } from "../hooks/useNostrAccount";
@@ -525,6 +525,7 @@ const CommunityView: React.FC = () => {
     roomId,
     messages: rawMessages,
     sendMessage,
+    likeMessage,
     pubkey,
     ready,
     roomKeyError,
@@ -1431,14 +1432,17 @@ const CommunityView: React.FC = () => {
 
   const handleLikeMessage = useCallback(
     async (message: CasualChatMessage) => {
+      if (pubkey && message.likePubkeys.includes(pubkey)) {
+        return;
+      }
       try {
-        await sendMessage(`❤️ ${shortenPubkey(message.pubkey)}`);
+        await likeMessage(message);
       } catch (reactionError) {
         const messageText = reactionError instanceof Error ? reactionError.message : String(reactionError);
         setComposerError(messageText);
       }
     },
-    [sendMessage],
+    [likeMessage, pubkey],
   );
 
   const registerRow = useCallback(
@@ -1526,6 +1530,19 @@ const CommunityView: React.FC = () => {
           >
             {DESKTOP_VIEW_TABS.map((tab) => renderTabButton(tab, "desktop"))}
           </nav>
+          <NavLink
+            to="/messages"
+            className={({ isActive }) =>
+              `mt-3 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
+                isActive
+                  ? "border-brand bg-brand/10 text-brand shadow-sm"
+                  : "border-transparent text-[var(--fg-muted)] hover:border-brand hover:text-brand"
+              }`
+            }
+          >
+            <MessageCircle className="h-4 w-4" aria-hidden="true" />
+            <span>Direct Messages</span>
+          </NavLink>
           <div className="mt-8 flex-1 overflow-hidden">
             <h2 className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)]">{membersHeading}</h2>
             <div ref={memberScrollRef} className="mt-5 h-full overflow-y-auto pr-1">
@@ -1629,6 +1646,23 @@ const CommunityView: React.FC = () => {
                           const translationNoticeColor = isSelf
                             ? "text-white/70"
                             : "text-[var(--fg-muted)]";
+                          const likeCount = message.likePubkeys.length;
+                          const likedByCurrentUser = pubkey ? message.likePubkeys.includes(pubkey) : false;
+                          const likeDisabled = !ready || likedByCurrentUser;
+                          const likeButtonPalette = likedByCurrentUser
+                            ? isSelf
+                              ? "border-rose-200 text-rose-100 bg-rose-500/30"
+                              : "border-rose-300 text-rose-500 bg-rose-500/20"
+                            : isSelf
+                              ? "border-white/60 text-white hover:border-white"
+                              : "border-white/70 text-[var(--fg-muted)] hover:border-brand hover:text-brand";
+                          const likeBadgePalette = likedByCurrentUser
+                            ? isSelf
+                              ? "bg-rose-500/40 text-white"
+                              : "bg-rose-500/15 text-rose-500"
+                            : isSelf
+                              ? "bg-white/20 text-white"
+                              : "bg-brand/10 text-brand";
                           return (
                             <div
                               key={message.id}
@@ -1787,18 +1821,25 @@ const CommunityView: React.FC = () => {
                                     <button
                                       type="button"
                                       onClick={() => handleLikeMessage(message)}
-                                      disabled={!ready}
-                                      className={`inline-flex h-8 w-8 items-center justify-center rounded-full border ${
-                                        isSelf
-                                          ? "border-white/60 text-white hover:border-white"
-                                          : "border-white/70 text-[var(--fg-muted)] hover:border-brand hover:text-brand"
-                                      } disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60`}
-                                      title="Send a like"
+                                      disabled={likeDisabled}
+                                      aria-pressed={likedByCurrentUser}
+                                      className={`inline-flex h-8 w-8 items-center justify-center rounded-full border ${likeButtonPalette} disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60`}
+                                      title={likedByCurrentUser ? "You liked this message" : "Send a like"}
                                     >
-                                      <Heart className="h-4 w-4" />
+                                      <Heart className="h-4 w-4" fill={likedByCurrentUser ? "currentColor" : "none"} />
                                       <span className="sr-only">Like</span>
                                     </button>
                                   </div>
+                                  {likeCount > 0 && (
+                                    <div className={`mt-2 flex ${isSelf ? "justify-end" : ""}`}>
+                                      <span
+                                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.3em] ${likeBadgePalette}`}
+                                      >
+                                        <Heart className="h-3 w-3" fill="currentColor" />
+                                        <span>{likeCount === 1 ? "1 Like" : `${likeCount} Likes`}</span>
+                                      </span>
+                                    </div>
+                                  )}
                                   {message.status === "pending" && (
                                     <p className={`text-[10px] uppercase tracking-[0.24em] ${timestampColor}`}>Sending…</p>
                                   )}

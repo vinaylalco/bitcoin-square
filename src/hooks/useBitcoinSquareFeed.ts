@@ -378,53 +378,6 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
     [ensureOldestTimestamp],
   );
 
-  const hydrateFromCache = useCallback(async () => {
-    try {
-      const cached = await getCachedMessages(FEED_ROOM_ID, INITIAL_FETCH_LIMIT);
-      if (cached.length === 0) {
-        setHasMore(true);
-        setInitialLoading(true);
-        return;
-      }
-      const mapped = cached
-        .map((entry) => {
-          let payload: FeedPayload | string = entry.content;
-          if (entry.decrypted) {
-            try {
-              const parsed = JSON.parse(entry.decrypted) as FeedPayload;
-              if (parsed && typeof parsed.body === "string") {
-                payload = {
-                  body: parsed.body,
-                  attachments: Array.isArray(parsed.attachments)
-                    ? parsed.attachments.map((attachment) => normalizeAttachment(attachment)).filter(
-                        (attachment): attachment is FeedAttachment => Boolean(attachment),
-                      )
-                    : parseAttachments(entry.tags ?? []),
-                };
-              } else {
-                payload = entry.decrypted;
-              }
-            } catch {
-              payload = entry.decrypted;
-            }
-          }
-          return mapEventToPost(cachedToEvent(entry), false, payload);
-        })
-        .sort((a, b) => b.created_at - a.created_at)
-        .slice(0, MAX_POSTS);
-      setPosts(mapped);
-      ensureOldestTimestamp(mapped);
-      setHasMore(cached.length >= INITIAL_FETCH_LIMIT);
-      setInitialLoading(false);
-    } catch (cacheError) {
-      console.warn("Failed to hydrate feed cache", cacheError);
-    }
-  }, [ensureOldestTimestamp]);
-
-  useEffect(() => {
-    void hydrateFromCache();
-  }, [hydrateFromCache]);
-
   const decodeEventContent = useCallback(
     async (event: Event): Promise<FeedPayload> => {
       const parsedAttachments = parseAttachments(event.tags ?? []);
@@ -466,6 +419,53 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
     },
     [feedKeyAvailable],
   );
+
+  const hydrateFromCache = useCallback(async () => {
+    try {
+      const cached = await getCachedMessages(FEED_ROOM_ID, INITIAL_FETCH_LIMIT);
+      if (cached.length === 0) {
+        setHasMore(true);
+        setInitialLoading(true);
+        return;
+      }
+      const mapped = await Promise.all(
+        cached.map(async (entry) => {
+          const event = cachedToEvent(entry);
+          if (entry.decrypted) {
+            try {
+              const parsed = JSON.parse(entry.decrypted) as FeedPayload;
+              if (parsed && typeof parsed.body === "string") {
+                const attachments = Array.isArray(parsed.attachments)
+                  ? parsed.attachments
+                      .map((attachment) => normalizeAttachment(attachment))
+                      .filter((attachment): attachment is FeedAttachment => Boolean(attachment))
+                  : parseAttachments(entry.tags ?? []);
+                return mapEventToPost(event, false, { body: parsed.body, attachments });
+              }
+              return mapEventToPost(event, false, entry.decrypted);
+            } catch {
+              return mapEventToPost(event, false, entry.decrypted);
+            }
+          }
+
+          const body = await decodeEventContent(event);
+          return mapEventToPost(event, false, body);
+        }),
+      );
+
+      const sorted = mapped.sort((a, b) => b.created_at - a.created_at).slice(0, MAX_POSTS);
+      setPosts(sorted);
+      ensureOldestTimestamp(sorted);
+      setHasMore(cached.length >= INITIAL_FETCH_LIMIT);
+      setInitialLoading(false);
+    } catch (cacheError) {
+      console.warn("Failed to hydrate feed cache", cacheError);
+    }
+  }, [decodeEventContent, ensureOldestTimestamp]);
+
+  useEffect(() => {
+    void hydrateFromCache();
+  }, [hydrateFromCache]);
 
   useEffect(() => {
     if (feedKeyError) {

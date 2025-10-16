@@ -9,7 +9,7 @@ import { useCommunityTranslation } from "../../context/CommunityTranslationConte
 import ProfileCard from "../profile/ProfileCard";
 import ErrorBoundary from "../ErrorBoundary";
 import type { RoomDefinition } from "../RoomList";
-import { Heart, Image as ImageIcon, Loader2, MessageSquareQuote, Plus, X } from "lucide-react";
+import { Heart, Image as ImageIcon, Loader2, MessageCircle, Plus, X } from "lucide-react";
 import {
   createFeedActionHandlers,
   createOpenComposerDialog,
@@ -153,6 +153,15 @@ const extractPostReference = (
   }
   return null;
 };
+
+const referencesPost = (post: FeedPost, targetId: string) =>
+  post.tags?.some((tag) => {
+    if (!Array.isArray(tag)) return false;
+    const [type, value] = tag;
+    if (typeof value !== "string") return false;
+    if (value.trim().length === 0) return false;
+    return (type === "reply" || type === "e" || type === "q") && value.trim() === targetId;
+  }) ?? false;
 
 const formatAbsoluteTimestamp = (unixSeconds: number | null | undefined) => {
   if (!unixSeconds) {
@@ -548,6 +557,27 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     return map;
   }, [posts]);
 
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
+
+  const activeThreadPost = useMemo(() => {
+    if (!activeThreadId) return null;
+    return postsById.get(activeThreadId) ?? null;
+  }, [activeThreadId, postsById]);
+
+  const threadReplies = useMemo(() => {
+    if (!activeThreadId) return [] as FeedPost[];
+    return posts
+      .filter((post) => post.id !== activeThreadId && referencesPost(post, activeThreadId))
+      .sort((a, b) => a.created_at - b.created_at);
+  }, [activeThreadId, posts]);
+
+  useEffect(() => {
+    if (!activeThreadId) return;
+    if (!postsById.has(activeThreadId)) {
+      setActiveThreadId(null);
+    }
+  }, [activeThreadId, postsById]);
+
   const filterLabel = useMemo(() => {
     if (!activeFilter) return null;
     switch (activeFilter.type) {
@@ -602,6 +632,19 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       }
       return next;
     });
+  }, []);
+
+  const openThread = useCallback(
+    (post: FeedPost) => {
+      setActiveThreadId(post.id);
+      setHighlightedPostId(post.id);
+    },
+    [],
+  );
+
+  const closeThread = useCallback(() => {
+    setActiveThreadId(null);
+    setHighlightedPostId(null);
   }, []);
 
   const registerPost = useCallback(
@@ -743,7 +786,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     });
   }, []);
 
-  const { handlePost, handleQuote, handleLike } = useMemo(
+  const { handlePost, handleReply, handleLike } = useMemo(
     () =>
       createFeedActionHandlers({
         openComposerDialog,
@@ -788,6 +831,250 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     }
     focusPost(composerTarget.id);
   }, [composerTarget, focusPost]);
+
+  const handleThreadReply = useCallback(() => {
+    if (!activeThreadPost) return;
+    handleReply(activeThreadPost);
+  }, [activeThreadPost, handleReply]);
+
+  const renderPostCard = (
+    post: FeedPost,
+    {
+      variant = "list",
+      registerNode,
+      highlight = false,
+      onOpenThread,
+    }: {
+      variant?: "list" | "thread";
+      registerNode?: (node: HTMLDivElement | null) => void;
+      highlight?: boolean;
+      onOpenThread?: (post: FeedPost) => void;
+    } = {},
+  ) => {
+    const isPendingLike = pendingLikes.has(post.id);
+    const likeDisabled = !ready || isPendingLike;
+    const statusLabel =
+      post.status === "pending"
+        ? "Posting to relays…"
+        : post.status === "failed"
+          ? post.error ?? "Delivery failed."
+          : null;
+    const translationKey = `feed:${post.id}`;
+    const translationEntry = translationEnabled ? getTranslation(translationKey) : undefined;
+    const translationStatus = translationEntry?.status ?? "idle";
+    const rawTranslatedText =
+      translationEntry?.translatedText && translationEntry.translatedText.trim().length > 0
+        ? translationEntry.translatedText
+        : null;
+    const translationReady = translationEnabled && translationStatus === "ready" && !!rawTranslatedText;
+    const showOriginal = !translationEnabled || !translationReady || isOriginalVisible(translationKey);
+    const contentSource = !showOriginal && rawTranslatedText ? rawTranslatedText : post.content;
+    const longPost = isLongPost(contentSource);
+    const isThreadVariant = variant === "thread";
+    const isExpanded = isThreadVariant || expandedPosts.has(post.id);
+    const displayContent = isExpanded || !longPost ? contentSource : getCollapsedContent(contentSource);
+    const detectedLanguageLabel =
+      translationEntry?.detectedLanguage && translationEntry.detectedLanguage.trim().length > 0
+        ? formatLanguageName(translationEntry.detectedLanguage)
+        : null;
+    const reference = extractPostReference(post.tags);
+    const referencedId = reference?.id ?? null;
+    const referencedPost = referencedId ? postsById.get(referencedId) : undefined;
+    const referencedPubkeyTag = post.tags.find(
+      (tag) => Array.isArray(tag) && tag[0] === "p" && typeof tag[1] === "string" && tag[1].trim().length > 0,
+    );
+    const referencedPubkey =
+      referencedPost?.pubkey ?? (referencedPubkeyTag && typeof referencedPubkeyTag[1] === "string" ? referencedPubkeyTag[1] : null);
+    const referenceSummary = referencedPubkey ? resolveProfileSummary(referencedPubkey) : null;
+    const referenceSnippet =
+      referencedPost?.content && referencedPost.content.trim().length > 0
+        ? buildPostSnippet(referencedPost.content)
+        : "Referenced post";
+    const referenceTimestamp =
+      referencedPost?.created_at ? formatAbsoluteTimestamp(referencedPost.created_at) : null;
+    const interactive = typeof onOpenThread === "function" && (variant === "list" || variant === "thread");
+    const cardClassName = `rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-5 shadow-sm transition ${
+      interactive ? "hover:border-brand/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 cursor-pointer" : ""
+    } ${highlight ? "ring-2 ring-brand/60" : ""}`;
+
+    return (
+      <article
+        key={post.id}
+        ref={registerNode}
+        role={interactive ? "button" : undefined}
+        tabIndex={interactive ? 0 : undefined}
+        onClick={interactive ? () => onOpenThread?.(post) : undefined}
+        onKeyDown={
+          interactive
+            ? (event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onOpenThread?.(post);
+                }
+              }
+            : undefined
+        }
+        className={cardClassName}
+        title={interactive ? "View conversation" : undefined}
+      >
+        <header className="flex flex-wrap items-start justify-between gap-4">
+          <ProfileCard
+            pubkey={post.pubkey}
+            contentClassName="items-start"
+            className="flex-1"
+            subtitle={shortenPubkey(post.pubkey)}
+            meta={
+              <span className="text-xs uppercase tracking-[0.18em] text-[var(--fg-muted)]">
+                {formatRelativeTime(post.created_at)}
+              </span>
+            }
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              openProfile(post.pubkey);
+            }}
+          />
+        </header>
+
+        {reference && referencedId && (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              focusPost(referencedId);
+            }}
+            className="mt-4 w-full rounded-2xl border border-brand/30 bg-brand/10 px-4 py-3 text-left text-xs text-brand transition hover:border-brand/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+          >
+            <p className="font-semibold uppercase tracking-[0.24em] text-brand/80">
+              {reference.type === "quote" ? "Quoted post" : "Replying to"}{" "}
+              {referenceSummary?.displayName ?? (referencedPubkey ? shortenPubkey(referencedPubkey) : "Community member")}
+            </p>
+            <p className="mt-1 line-clamp-3 text-[11px] font-medium text-brand/90">{referenceSnippet}</p>
+            {referenceTimestamp && (
+              <p className="mt-2 text-[10px] uppercase tracking-[0.3em] text-brand/60">{referenceTimestamp}</p>
+            )}
+          </button>
+        )}
+
+        <div className="mt-4 whitespace-pre-wrap break-words text-sm leading-relaxed text-[var(--fg-default)]">
+          {renderContent(displayContent, handleTagClick, handleMentionClick)}
+        </div>
+
+        {translationEnabled && (
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.24em] text-[var(--fg-muted)]">
+            {translationStatus === "loading" ? (
+              <span>Translating…</span>
+            ) : translationStatus === "error" ? (
+              <>
+                <span>Translation unavailable</span>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    refreshTranslation(translationKey, post.content);
+                  }}
+                  className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.24em] text-brand transition hover:text-brand/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand/60"
+                >
+                  Retry
+                </button>
+              </>
+            ) : translationReady ? (
+              <>
+                <span>
+                  {showOriginal
+                    ? `Showing original${detectedLanguageLabel ? ` (${detectedLanguageLabel})` : ""}`
+                    : `Translated from ${detectedLanguageLabel ?? "original language"}`}
+                </span>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    toggleOriginal(translationKey);
+                  }}
+                  className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.24em] text-brand transition hover:text-brand/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand/60"
+                >
+                  {showOriginal ? "View translation" : "View original"}
+                </button>
+              </>
+            ) : null}
+          </div>
+        )}
+
+        {!isThreadVariant && longPost && (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              toggleExpanded(post.id);
+            }}
+            className="mt-2 text-xs font-semibold uppercase tracking-[0.18em] text-brand transition hover:text-brand/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+          >
+            {isExpanded ? "Show less" : "Show more"}
+          </button>
+        )}
+
+        {post.attachments.length > 0 && (
+          <div className="mt-4 space-y-3">
+            {post.attachments.map((attachment, index) => {
+              const metaParts: string[] = [];
+              if (attachment.width && attachment.height) {
+                metaParts.push(`${attachment.width}x${attachment.height}`);
+              } else if (attachment.dimensions) {
+                metaParts.push(attachment.dimensions);
+              }
+              if (attachment.size) {
+                metaParts.push(`${(attachment.size / 1024).toFixed(1)} KB`);
+              }
+              return (
+                <div
+                  key={`${post.id}-attachment-${index}`}
+                  className="overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  {attachment.mimeType.startsWith("video/") ? (
+                    <video src={attachment.url} controls className="max-h-80 w-full rounded-2xl" />
+                  ) : (
+                    <img src={attachment.url} alt="Feed attachment" className="w-full object-contain" loading="lazy" />
+                  )}
+                  {metaParts.length > 0 && (
+                    <p className="px-3 py-2 text-xs text-[var(--fg-muted)]">{metaParts.join(" • ")}</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {statusLabel && <p className="mt-3 text-xs text-[var(--fg-muted)]">{statusLabel}</p>}
+
+        <div className="mt-4 flex flex-wrap items-center gap-2 text-[var(--fg-muted)]">
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              handleLike(post);
+            }}
+            disabled={likeDisabled}
+            className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
+              isPendingLike
+                ? "border-brand text-brand"
+                : "border-[var(--border-subtle)] text-[var(--fg-muted)] hover:border-brand hover:text-brand"
+            } disabled:cursor-not-allowed disabled:opacity-60`}
+            title={isPendingLike ? "Sending like…" : "Like this post"}
+          >
+            {isPendingLike ? <Loader2 className="h-4 w-4 animate-spin" /> : <Heart className="h-4 w-4" />}
+            <span className="sr-only">Like</span>
+          </button>
+        </div>
+
+        {interactive && variant === "list" && (
+          <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)]">
+            Click to view conversation
+          </p>
+        )}
+      </article>
+    );
+  };
 
   return (
     <div className="relative flex flex-1 flex-col overflow-hidden">
@@ -855,208 +1142,15 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
               No posts yet{activeFilter ? " for this filter." : "."} Be the first to share what you’re working on!
             </p>
           ) : (
-            filteredPosts.map((post) => {
-            const profile = resolveProfileSummary(post.pubkey);
-            const isSelfPost = post.pubkey === pubkey;
-            const isPendingLike = pendingLikes.has(post.id);
-            const likeDisabled = !ready || isPendingLike;
-            const statusLabel =
-              post.status === "pending"
-                ? "Posting to relays…"
-                : post.status === "failed"
-                  ? post.error ?? "Delivery failed."
-                  : null;
-            const isExpanded = expandedPosts.has(post.id);
-            const translationKey = `feed:${post.id}`;
-            const translationEntry = translationEnabled ? getTranslation(translationKey) : undefined;
-            const translationStatus = translationEntry?.status ?? "idle";
-            const rawTranslatedText =
-              translationEntry?.translatedText && translationEntry.translatedText.trim().length > 0
-                ? translationEntry.translatedText
-                : null;
-            const translationReady = translationEnabled && translationStatus === "ready" && !!rawTranslatedText;
-            const showOriginal =
-              !translationEnabled || !translationReady || isOriginalVisible(translationKey);
-            const contentSource = !showOriginal && rawTranslatedText ? rawTranslatedText : post.content;
-            const longPost = isLongPost(contentSource);
-            const displayContent = isExpanded || !longPost ? contentSource : getCollapsedContent(contentSource);
-            const detectedLanguageLabel =
-              translationEntry?.detectedLanguage && translationEntry.detectedLanguage.trim().length > 0
-                ? formatLanguageName(translationEntry.detectedLanguage)
-                : null;
-            const reference = extractPostReference(post.tags);
-            const referencedId = reference?.id ?? null;
-            const referencedPost = referencedId ? postsById.get(referencedId) : undefined;
-            const referencedPubkeyTag = post.tags.find(
-              (tag) => Array.isArray(tag) && tag[0] === "p" && typeof tag[1] === "string" && tag[1].trim().length > 0,
-            );
-            const referencedPubkey =
-              referencedPost?.pubkey ??
-              (referencedPubkeyTag && typeof referencedPubkeyTag[1] === "string"
-                ? referencedPubkeyTag[1]
-                : null);
-            const referenceSummary = referencedPubkey ? resolveProfileSummary(referencedPubkey) : null;
-            const referenceSnippet =
-              referencedPost?.content && referencedPost.content.trim().length > 0
-                ? buildPostSnippet(referencedPost.content)
-                : "Referenced post";
-            const referenceTimestamp =
-              referencedPost?.created_at ? formatAbsoluteTimestamp(referencedPost.created_at) : null;
-
-            return (
-              <article
-                key={post.id}
-                ref={registerPost(post.id)}
-                className={`rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-5 shadow-sm transition hover:border-brand/60 ${
-                  highlightedPostId === post.id ? "ring-2 ring-brand/60" : ""
-                }`}
-              >
-                <header className="flex flex-wrap items-start justify-between gap-4">
-                  <ProfileCard
-                    pubkey={post.pubkey}
-                    contentClassName="items-start"
-                    className="flex-1"
-                    subtitle={shortenPubkey(post.pubkey)}
-                    meta={
-                      <span className="text-xs uppercase tracking-[0.18em] text-[var(--fg-muted)]">
-                        {formatRelativeTime(post.created_at)}
-                      </span>
-                    }
-                    onClick={(event) => {
-                      event.preventDefault();
-                      openProfile(post.pubkey);
-                    }}
-                  />
-                </header>
-
-                {reference && referencedId && (
-                  <button
-                    type="button"
-                    onClick={() => focusPost(referencedId)}
-                    className="mt-4 w-full rounded-2xl border border-brand/30 bg-brand/10 px-4 py-3 text-left text-xs text-brand transition hover:border-brand/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
-                  >
-                    <p className="font-semibold uppercase tracking-[0.24em] text-brand/80">
-                      {reference.type === "quote" ? "Quoted post" : "Replying to"}{" "}
-                      {referenceSummary?.displayName ?? (referencedPubkey ? shortenPubkey(referencedPubkey) : "Community member")}
-                    </p>
-                    <p className="mt-1 line-clamp-3 text-[11px] font-medium text-brand/90">{referenceSnippet}</p>
-                    {referenceTimestamp && (
-                      <p className="mt-2 text-[10px] uppercase tracking-[0.3em] text-brand/60">{referenceTimestamp}</p>
-                    )}
-                  </button>
-                )}
-
-                <div className="mt-4 whitespace-pre-wrap break-words text-sm leading-relaxed text-[var(--fg-default)]">
-                  {renderContent(displayContent, handleTagClick, handleMentionClick)}
-                </div>
-
-                {translationEnabled && (
-                  <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.24em] text-[var(--fg-muted)]">
-                    {translationStatus === "loading" ? (
-                      <span>Translating…</span>
-                    ) : translationStatus === "error" ? (
-                      <>
-                        <span>Translation unavailable</span>
-                        <button
-                          type="button"
-                          onClick={() => refreshTranslation(translationKey, post.content)}
-                          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.24em] text-brand transition hover:text-brand/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand/60"
-                        >
-                          Retry
-                        </button>
-                      </>
-                    ) : translationReady ? (
-                      <>
-                        <span>
-                          {showOriginal
-                            ? `Showing original${detectedLanguageLabel ? ` (${detectedLanguageLabel})` : ""}`
-                            : `Translated from ${detectedLanguageLabel ?? "original language"}`}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => toggleOriginal(translationKey)}
-                          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.24em] text-brand transition hover:text-brand/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand/60"
-                        >
-                          {showOriginal ? "View translation" : "View original"}
-                        </button>
-                      </>
-                    ) : null}
-                  </div>
-                )}
-
-                {longPost && (
-                  <button
-                    type="button"
-                    onClick={() => toggleExpanded(post.id)}
-                    className="mt-2 text-xs font-semibold uppercase tracking-[0.18em] text-brand transition hover:text-brand/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
-                  >
-                    {isExpanded ? "Show less" : "Show more"}
-                  </button>
-                )}
-
-                {post.attachments.length > 0 && (
-                  <div className="mt-4 space-y-3">
-                    {post.attachments.map((attachment, index) => {
-                      const metaParts: string[] = [];
-                      if (attachment.width && attachment.height) {
-                        metaParts.push(`${attachment.width}x${attachment.height}`);
-                      } else if (attachment.dimensions) {
-                        metaParts.push(attachment.dimensions);
-                      }
-                      if (attachment.size) {
-                        metaParts.push(`${(attachment.size / 1024).toFixed(1)} KB`);
-                      }
-                      return (
-                        <div
-                          key={`${post.id}-attachment-${index}`}
-                          className="overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60"
-                        >
-                          {attachment.mimeType.startsWith("video/") ? (
-                            <video src={attachment.url} controls className="max-h-80 w-full rounded-2xl" />
-                          ) : (
-                            <img src={attachment.url} alt="Feed attachment" className="w-full object-contain" loading="lazy" />
-                          )}
-                          {metaParts.length > 0 && (
-                            <p className="px-3 py-2 text-xs text-[var(--fg-muted)]">{metaParts.join(" • ")}</p>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {statusLabel && <p className="mt-3 text-xs text-[var(--fg-muted)]">{statusLabel}</p>}
-
-                <div className="mt-4 flex flex-wrap items-center gap-2 text-[var(--fg-muted)]">
-                  <button
-                    type="button"
-                    onClick={() => handleQuote(post)}
-                    disabled={!ready}
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 disabled:cursor-not-allowed disabled:opacity-60"
-                    title="Quote this post"
-                  >
-                    <MessageSquareQuote className="h-4 w-4" />
-                    <span className="sr-only">Quote</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleLike(post)}
-                    disabled={likeDisabled}
-                    className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
-                      isPendingLike
-                        ? "border-brand text-brand"
-                        : "border-[var(--border-subtle)] text-[var(--fg-muted)] hover:border-brand hover:text-brand"
-                    } disabled:cursor-not-allowed disabled:opacity-60`}
-                    title={isPendingLike ? "Sending like…" : "Like this post"}
-                  >
-                    {isPendingLike ? <Loader2 className="h-4 w-4 animate-spin" /> : <Heart className="h-4 w-4" />}
-                    <span className="sr-only">Like</span>
-                  </button>
-                </div>
-              </article>
-            );
-          })
-        )}
+            filteredPosts.map((post) =>
+              renderPostCard(post, {
+                variant: "list",
+                registerNode: registerPost(post.id),
+                highlight: highlightedPostId === post.id,
+                onOpenThread: openThread,
+              }),
+            )
+          )}
 
         {initialLoading && posts.length === 0 && (
           <div className="space-y-4">
@@ -1110,6 +1204,70 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         >
           New posts available — Jump
         </button>
+      )}
+
+      {activeThreadPost && (
+        <div className="fixed inset-0 z-[75] flex items-start justify-center overflow-y-auto bg-black/60 px-4 py-10 sm:py-16">
+          <div className="absolute inset-0" onClick={closeThread} aria-hidden="true" />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="feed-thread-heading"
+            className="relative z-[80] w-full max-w-3xl space-y-6 rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-2xl"
+          >
+            <header className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <h2
+                  id="feed-thread-heading"
+                  className="text-lg font-semibold uppercase tracking-[0.18em] text-[var(--fg-default)]"
+                >
+                  Post details
+                </h2>
+                <p className="mt-1 text-xs uppercase tracking-[0.3em] text-[var(--fg-muted)]">
+                  {formatAbsoluteTimestamp(activeThreadPost.created_at) ?? ""}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeThread}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+                aria-label="Close post details"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </header>
+
+            {renderPostCard(activeThreadPost, { variant: "thread" })}
+
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h3 className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)]">Replies</h3>
+              <button
+                type="button"
+                onClick={handleThreadReply}
+                className="inline-flex items-center gap-2 rounded-full bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-brand"
+                disabled={!ready}
+              >
+                <MessageCircle className="h-4 w-4" />
+                Reply to post
+              </button>
+            </div>
+
+            {threadReplies.length === 0 ? (
+              <p className="rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-4 text-sm text-[var(--fg-muted)]">
+                No replies yet. Share your thoughts to start the conversation.
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {threadReplies.map((reply) =>
+                  renderPostCard(reply, {
+                    variant: "thread",
+                    onOpenThread: openThread,
+                  }),
+                )}
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       <button

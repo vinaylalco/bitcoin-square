@@ -51,6 +51,7 @@ export interface CasualChatMessage {
   error?: string;
   quoteId?: string;
   quotePubkey?: string;
+  likePubkeys: string[];
 }
 
 export interface UseBitcoinSquareCasualChatResult {
@@ -62,6 +63,7 @@ export interface UseBitcoinSquareCasualChatResult {
     attachments?: CasualAttachmentMeta[],
     options?: { quoteId?: string | null; quotePubkey?: string | null },
   ) => Promise<void>;
+  likeMessage: (message: CasualChatMessage) => Promise<void>;
   pubkey: string | null;
   loading: boolean;
   ready: boolean;
@@ -89,20 +91,47 @@ const parsePayload = (plaintext: string): CasualPayload => {
   }
 };
 
+const dedupePubkeys = (values: string[] = []) =>
+  Array.from(
+    new Set(
+      values.filter((value): value is string => typeof value === "string" && value.trim().length > 0),
+    ),
+  );
+
+const mergeLikePubkeys = (existing: string[], incoming: string[] = []) => {
+  const combined = new Set(existing);
+  incoming.forEach((value) => {
+    if (typeof value === "string" && value.trim().length > 0) {
+      combined.add(value);
+    }
+  });
+  return Array.from(combined);
+};
+
 const upsertMessage = (messages: CasualChatMessage[], incoming: CasualChatMessage) => {
-  const index = messages.findIndex((message) => message.id === incoming.id);
+  const normalizedIncoming: CasualChatMessage = {
+    ...incoming,
+    likePubkeys: dedupePubkeys(incoming.likePubkeys),
+  };
+  const index = messages.findIndex((message) => message.id === normalizedIncoming.id);
   if (index >= 0) {
     const next = [...messages];
     next[index] = {
       ...next[index],
-      ...incoming,
-      status: incoming.status ?? next[index].status,
-      optimistic: incoming.optimistic,
+      ...normalizedIncoming,
+      likePubkeys: mergeLikePubkeys(next[index].likePubkeys, normalizedIncoming.likePubkeys),
+      status: normalizedIncoming.status ?? next[index].status,
+      optimistic: normalizedIncoming.optimistic,
     };
     return next.sort((a, b) => a.created_at - b.created_at).slice(-MAX_MESSAGES);
   }
 
-  return [...messages, incoming]
+  const normalized = {
+    ...normalizedIncoming,
+    likePubkeys: dedupePubkeys(normalizedIncoming.likePubkeys),
+  };
+
+  return [...messages, normalized]
     .sort((a, b) => a.created_at - b.created_at)
     .slice(-MAX_MESSAGES);
 };
@@ -132,7 +161,47 @@ const cachedToMessage = (cached: CachedMessage): CasualChatMessage | null => {
     optimistic: false,
     quoteId,
     quotePubkey,
+    likePubkeys: [],
   };
+};
+
+const isLikeReaction = (content: string | undefined) => {
+  if (!content) return false;
+  const trimmed = content.trim();
+  return trimmed === "+" || trimmed === "❤️" || trimmed === "❤" || trimmed === "♥" || trimmed === "♥️";
+};
+
+const addLikeToMessages = (messages: CasualChatMessage[], messageId: string, pubkey: string) => {
+  let found = false;
+  let changed = false;
+  const next = messages.map((message) => {
+    if (message.id !== messageId) return message;
+    found = true;
+    if (message.likePubkeys.includes(pubkey)) {
+      return message;
+    }
+    changed = true;
+    return { ...message, likePubkeys: [...message.likePubkeys, pubkey] };
+  });
+  return { next: changed ? next : messages, found, changed };
+};
+
+const removeLikeFromMessages = (messages: CasualChatMessage[], messageId: string, pubkey: string) => {
+  let found = false;
+  let changed = false;
+  const next = messages.map((message) => {
+    if (message.id !== messageId) return message;
+    found = true;
+    if (!message.likePubkeys.includes(pubkey)) {
+      return message;
+    }
+    changed = true;
+    return {
+      ...message,
+      likePubkeys: message.likePubkeys.filter((value) => value !== pubkey),
+    };
+  });
+  return { next: changed ? next : messages, found, changed };
 };
 
 export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult => {
@@ -148,6 +217,7 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
   const notificationGateRef = useRef(false);
   const refreshedKeyRef = useRef(false);
   const typingThrottleRef = useRef(0);
+  const pendingLikesRef = useRef(new Map<string, Set<string>>());
 
   const configuredRoomKey = getConfiguredRoomKey(ROOM_ID);
 
@@ -200,9 +270,47 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
     getCachedMessages(ROOM_ID, 60)
       .then((cached) => {
         if (cancelled) return;
-        const restored = cached
-          .map((item) => cachedToMessage(item))
-          .filter((item): item is CasualChatMessage => Boolean(item));
+        const pendingLikes = new Map<string, Set<string>>();
+        const messageMap = new Map<string, CasualChatMessage>();
+        const restored: CasualChatMessage[] = [];
+
+        cached.forEach((item) => {
+          if (item.kind === 7) {
+            if (!isLikeReaction(item.content)) {
+              return;
+            }
+            const targetTag = item.tags?.find((tag) => tag[0] === "e");
+            const targetId = targetTag && typeof targetTag[1] === "string" ? targetTag[1] : null;
+            if (!targetId) return;
+            const reactor = item.pubkey;
+            if (!reactor) return;
+            const existing = messageMap.get(targetId);
+            if (existing) {
+              if (!existing.likePubkeys.includes(reactor)) {
+                existing.likePubkeys = [...existing.likePubkeys, reactor];
+              }
+              return;
+            }
+            const set = pendingLikes.get(targetId) ?? new Set<string>();
+            set.add(reactor);
+            pendingLikes.set(targetId, set);
+            return;
+          }
+
+          const message = cachedToMessage(item);
+          if (!message) return;
+          const likes = pendingLikes.get(message.id);
+          const messageWithLikes = likes
+            ? { ...message, likePubkeys: Array.from(likes) }
+            : message;
+          if (likes) {
+            pendingLikes.delete(message.id);
+          }
+          restored.push(messageWithLikes);
+          messageMap.set(message.id, messageWithLikes);
+        });
+
+        pendingLikesRef.current = pendingLikes;
         setMessages(restored);
       })
       .catch((cacheError) => {
@@ -263,7 +371,14 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
               optimistic: false,
               quoteId,
               quotePubkey,
+              likePubkeys: [],
             };
+
+            const pendingLikes = pendingLikesRef.current.get(message.id);
+            if (pendingLikes && pendingLikes.size > 0) {
+              message.likePubkeys = Array.from(pendingLikes);
+              pendingLikesRef.current.delete(message.id);
+            }
 
             setMessages((prev) => upsertMessage(prev, message));
 
@@ -313,9 +428,57 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
       },
     );
 
+    const reactionSubscription = manager.subscribe(
+      {
+        kinds: [7],
+        "#t": [ROOM_TAG],
+      },
+      (event) => {
+        if (!isLikeReaction(event.content)) {
+          return;
+        }
+        const targetTag = event.tags?.find((tag) => tag[0] === "e");
+        const targetId = targetTag && typeof targetTag[1] === "string" ? targetTag[1] : null;
+        if (!targetId) return;
+        const reactor = event.pubkey;
+        if (!reactor) return;
+
+        let found = false;
+        setMessages((prev) => {
+          const { next, found: messageFound, changed } = addLikeToMessages(prev, targetId, reactor);
+          found = messageFound;
+          if (!changed) {
+            return prev;
+          }
+          return next;
+        });
+
+        if (!found) {
+          const pending = pendingLikesRef.current.get(targetId) ?? new Set<string>();
+          pending.add(reactor);
+          pendingLikesRef.current.set(targetId, pending);
+        }
+
+        const cached: CachedMessage = {
+          id: event.id,
+          roomId: ROOM_ID,
+          pubkey: event.pubkey,
+          content: event.content,
+          created_at: event.created_at,
+          kind: event.kind,
+          tags: event.tags,
+          sig: event.sig,
+        };
+        cacheMessage(cached).catch((cacheError) => {
+          console.warn("Failed to cache reaction", cacheError);
+        });
+      },
+    );
+
     return () => {
       subscription.close();
       typingSubscription.close();
+      reactionSubscription.close();
       manager.close();
       managerRef.current = null;
     };
@@ -413,6 +576,7 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
         optimistic: true,
         quoteId: options?.quoteId ?? undefined,
         quotePubkey: options?.quotePubkey ?? undefined,
+        likePubkeys: [],
       };
 
       setMessages((prev) => upsertMessage(prev, optimisticMessage));
@@ -464,6 +628,87 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
     [hasKey, signEvent],
   );
 
+  const likeMessage = useCallback(
+    async (message: CasualChatMessage) => {
+      if (!signEvent) {
+        throw new Error("Your Nostr keys are not ready yet");
+      }
+      if (!pubkey) {
+        throw new Error("Your Nostr keys are not ready yet");
+      }
+      if (message.likePubkeys.includes(pubkey)) {
+        return;
+      }
+      const manager = managerRef.current;
+      if (!manager) {
+        throw new Error("Relay manager not ready yet");
+      }
+
+      const template: EventTemplate = {
+        kind: 7,
+        created_at: Math.floor(Date.now() / 1000),
+        content: "+",
+        tags: [
+          ["e", message.id],
+          ["p", message.pubkey],
+          ["t", ROOM_TAG],
+          ["app", "BitcoinSquare"],
+          ["chat", ROOM_TAG],
+        ],
+      };
+
+      const signed = await signEvent(template);
+      const reactor = signed.pubkey;
+
+      let found = false;
+      setMessages((prev) => {
+        const { next, found: messageFound, changed } = addLikeToMessages(prev, message.id, reactor);
+        found = messageFound;
+        if (!changed) {
+          return prev;
+        }
+        return next;
+      });
+
+      if (!found) {
+        const pending = pendingLikesRef.current.get(message.id) ?? new Set<string>();
+        pending.add(reactor);
+        pendingLikesRef.current.set(message.id, pending);
+      }
+
+      setError(null);
+
+      const { ack } = manager.publish(signed);
+
+      try {
+        await ack;
+        const cached: CachedMessage = {
+          id: signed.id,
+          roomId: ROOM_ID,
+          pubkey: signed.pubkey,
+          content: signed.content,
+          created_at: signed.created_at,
+          kind: signed.kind,
+          tags: signed.tags,
+          sig: signed.sig,
+        };
+        cacheMessage(cached).catch((cacheError) => {
+          console.warn("Failed to cache like", cacheError);
+        });
+      } catch (publishError) {
+        setMessages((prev) => {
+          const { next, changed } = removeLikeFromMessages(prev, message.id, reactor);
+          if (!changed) {
+            return prev;
+          }
+          return next;
+        });
+        throw publishError;
+      }
+    },
+    [pubkey, signEvent],
+  );
+
   const ready = useMemo(
     () => hasKey && Boolean(pubkey) && Boolean(managerRef.current) && accountReady,
     [accountReady, hasKey, pubkey],
@@ -508,6 +753,7 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
     roomName: ROOM_NAME,
     messages,
     sendMessage,
+    likeMessage,
     pubkey,
     loading,
     ready,
