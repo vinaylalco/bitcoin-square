@@ -1117,62 +1117,6 @@ const CommunityView: React.FC = () => {
     );
   };
 
-  useEffect(() => {
-    const entries = new Map<string, number>();
-    feedPosts.forEach((post) => {
-      entries.set(`feed:${post.id}`, countZapReferences(post.tags));
-    });
-    messages.forEach((message) => {
-      entries.set(`chat:${message.id}`, 0);
-    });
-    contextMembers.forEach((member) => {
-      entries.set(`profile:${member.pubkey}`, 0);
-    });
-
-    setZapCounts((prev) => {
-      let changed = false;
-      const next: Record<string, number> = {};
-      entries.forEach((base, key) => {
-        const current = prev[key];
-        const value = current === undefined ? base : Math.max(current, base);
-        if (value !== current) {
-          changed = true;
-        }
-        if (current === undefined) {
-          changed = true;
-        }
-        next[key] = value;
-      });
-      if (Object.keys(prev).length !== entries.size) {
-        changed = true;
-      }
-      return changed ? next : prev;
-    });
-  }, [feedPosts, messages, contextMembers]);
-
-  useEffect(() => {
-    const validKeys = new Set<string>();
-    feedPosts.forEach((post) => validKeys.add(`feed:${post.id}`));
-    messages.forEach((message) => validKeys.add(`chat:${message.id}`));
-    contextMembers.forEach((member) => validKeys.add(`profile:${member.pubkey}`));
-
-    setPendingZaps((prev) => {
-      let changed = false;
-      const next = new Set<string>();
-      prev.forEach((key) => {
-        if (validKeys.has(key)) {
-          next.add(key);
-        } else {
-          changed = true;
-        }
-      });
-      if (!changed && next.size === prev.size) {
-        return prev;
-      }
-      return next;
-    });
-  }, [feedPosts, messages, contextMembers]);
-
   const authorAccents = useMemo(() => {
     const map = new Map<string, AuthorAccent>();
     messages.forEach((message) => {
