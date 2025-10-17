@@ -5,6 +5,7 @@ import {
   cacheMessage,
   cacheMessages,
   getCachedMessages,
+  removeCachedMessages,
   type CachedMessage,
 } from "../utils/chatCache";
 import { useNostrAccount } from "./useNostrAccount";
@@ -322,6 +323,7 @@ export interface UseBitcoinSquareFeedReturn {
   publishing: boolean;
   publishStatus: (content: string, context?: PublishContext | null) => Promise<PublishResult>;
   likePost: (post: FeedPost) => Promise<void>;
+  deletePost: (post: FeedPost) => Promise<void>;
   loadMore: () => Promise<void>;
   loadingMore: boolean;
   hasMore: boolean;
@@ -347,6 +349,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
   const oldestTimestampRef = useRef<number | null>(null);
   const initialLoadRef = useRef(false);
   const retryTimersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const deletedPostIdsRef = useRef<Set<string>>(new Set());
 
   const { ready: accountReady, pubkey, signEvent } = useNostrAccount();
   const configuredRoomKey = getConfiguredRoomKey(FEED_ROOM_ID);
@@ -369,6 +372,9 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
 
   const insertPost = useCallback(
     (post: FeedPost) => {
+      if (deletedPostIdsRef.current.has(post.id)) {
+        return;
+      }
       setPosts((prev) => {
         const next = upsertPost(prev, post);
         ensureOldestTimestamp(next);
@@ -454,8 +460,9 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
       );
 
       const sorted = mapped.sort((a, b) => b.created_at - a.created_at).slice(0, MAX_POSTS);
-      setPosts(sorted);
-      ensureOldestTimestamp(sorted);
+      const filtered = sorted.filter((post) => !deletedPostIdsRef.current.has(post.id));
+      setPosts(filtered);
+      ensureOldestTimestamp(filtered);
       setHasMore(cached.length >= INITIAL_FETCH_LIMIT);
       setInitialLoading(false);
     } catch (cacheError) {
@@ -475,7 +482,42 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
 
   const processEvent = useCallback(
     async (event: Event) => {
+      if (event.kind === 5) {
+        if (!hasFeedTag(event)) return;
+        const ids = event.tags
+          .filter((tag) => Array.isArray(tag) && tag[0] === "e" && typeof tag[1] === "string")
+          .map(([, value]) => value)
+          .filter((value) => value.trim().length > 0);
+        if (ids.length === 0) {
+          return;
+        }
+        ids.forEach((id) => {
+          deletedPostIdsRef.current.add(id);
+          pendingDecryptsRef.current.delete(id);
+          const timer = retryTimersRef.current.get(id);
+          if (timer) {
+            clearTimeout(timer);
+            retryTimersRef.current.delete(id);
+          }
+        });
+        setPosts((prev) => {
+          const targetIds = new Set(ids);
+          const next = prev.filter((post) => !targetIds.has(post.id));
+          ensureOldestTimestamp(next);
+          return next;
+        });
+        try {
+          await removeCachedMessages(FEED_ROOM_ID, ids);
+        } catch (cacheError) {
+          console.warn("Unable to clear deleted feed events", cacheError);
+        }
+        return;
+      }
+
       if (!hasFeedTag(event)) return;
+      if (deletedPostIdsRef.current.has(event.id)) {
+        return;
+      }
       const body = await decodeEventContent(event);
       insertPost(mapEventToPost(event, false, body));
       if (pendingDecryptsRef.current.has(event.id)) {
@@ -487,7 +529,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
         console.warn("Unable to persist feed event", cacheError);
       }
     },
-    [decodeEventContent, insertPost],
+    [decodeEventContent, ensureOldestTimestamp, insertPost],
   );
 
   const handleEvent = useCallback(
@@ -628,14 +670,20 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
         }),
       );
       setPosts((prev) => {
-        const merged = decoded.reduce((acc, entry) => upsertPost(acc, entry.post), prev);
+        const merged = decoded.reduce((acc, entry) => {
+          if (deletedPostIdsRef.current.has(entry.post.id)) {
+            return acc;
+          }
+          return upsertPost(acc, entry.post);
+        }, prev);
         ensureOldestTimestamp(merged);
         return merged;
       });
       setHasMore(filtered.length >= LOAD_MORE_BATCH);
+      const cacheable = decoded.filter((entry) => !deletedPostIdsRef.current.has(entry.post.id));
       await cacheMessages(
         FEED_ROOM_ID,
-        decoded.map((entry) => entry.cached),
+        cacheable.map((entry) => entry.cached),
       );
     } catch (loadError) {
       console.warn("Failed to load additional feed events", loadError);
@@ -660,6 +708,23 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
       retryTimersRef.current.delete(id);
     }
   }, []);
+
+  const removePost = useCallback(
+    (id: string) => {
+      pendingDecryptsRef.current.delete(id);
+      const existingTimer = retryTimersRef.current.get(id);
+      if (existingTimer) {
+        clearTimeout(existingTimer);
+        retryTimersRef.current.delete(id);
+      }
+      setPosts((prev) => {
+        const next = prev.filter((post) => post.id !== id);
+        ensureOldestTimestamp(next);
+        return next;
+      });
+    },
+    [ensureOldestTimestamp],
+  );
 
   const attemptPublish = useCallback(
     async (event: Event, payload: FeedPayload, attempt = 0): Promise<void> => {
@@ -716,6 +781,54 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
       }
     },
     [ensureOldestTimestamp, setError, stopRetryTimer],
+  );
+
+  const deletePost = useCallback(
+    async (post: FeedPost) => {
+      if (!signEvent) {
+        throw new Error("Your Nostr keys are not ready yet");
+      }
+      const pool = poolRef.current;
+      if (!pool) {
+        throw new Error("No relays available");
+      }
+
+      const id = post.id;
+      deletedPostIdsRef.current.add(id);
+      removePost(id);
+
+      try {
+        const template: EventTemplate = {
+          kind: 5,
+          created_at: Math.floor(Date.now() / 1000),
+          content: "",
+          tags: [
+            ["e", id],
+            ["p", post.pubkey],
+            ["t", FEED_TAG],
+            ["app", "BitcoinSquare"],
+            ["feed", FEED_TAG],
+          ],
+        };
+        const event = await signEvent(template);
+        await publishWithPool(pool, [FAST_RELAY], event);
+        if (RELAYS.length > 1) {
+          void replicateWithPool(pool, RELAYS.slice(1), event);
+        }
+        try {
+          await removeCachedMessages(FEED_ROOM_ID, [id]);
+        } catch (cacheError) {
+          console.warn("Unable to clear deleted feed event from cache", cacheError);
+        }
+      } catch (deleteError) {
+        deletedPostIdsRef.current.delete(id);
+        insertPost(post);
+        const message = deleteError instanceof Error ? deleteError.message : String(deleteError);
+        setError(message);
+        throw deleteError;
+      }
+    },
+    [insertPost, removePost, setError, signEvent],
   );
 
   const publishStatus = useCallback(
@@ -860,6 +973,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
     publishing,
     publishStatus,
     likePost,
+    deletePost,
     loadMore,
     loadingMore,
     hasMore,

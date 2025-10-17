@@ -9,7 +9,7 @@ import { useCommunityTranslation } from "../../context/CommunityTranslationConte
 import ProfileCard from "../profile/ProfileCard";
 import ErrorBoundary from "../ErrorBoundary";
 import type { RoomDefinition } from "../RoomList";
-import { Heart, Image as ImageIcon, Loader2, MessageCircle, Plus, X } from "lucide-react";
+import { Heart, Image as ImageIcon, Loader2, MessageCircle, Plus, Trash2, X } from "lucide-react";
 import {
   createFeedActionHandlers,
   createOpenComposerDialog,
@@ -29,6 +29,7 @@ interface BitcoinSquareFeedProps {
     },
   ) => Promise<{ eventId: string }>;
   likePost: (post: FeedPost) => Promise<void>;
+  deletePost: (post: FeedPost) => Promise<void>;
   loadMore: () => Promise<void>;
   loadingMore: boolean;
   hasMore: boolean;
@@ -198,6 +199,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   publishing,
   publishStatus,
   likePost,
+  deletePost,
   loadMore,
   loadingMore,
   hasMore,
@@ -212,6 +214,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   const [composerTarget, setComposerTarget] = useState<FeedPost | null>(null);
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>(null);
   const [pendingLikes, setPendingLikes] = useState<PendingMap>(() => new Set());
+  const [pendingDeletes, setPendingDeletes] = useState<PendingMap>(() => new Set());
   const [expandedPosts, setExpandedPosts] = useState<Set<string>>(() => new Set());
   const [showNewPostsToast, setShowNewPostsToast] = useState(false);
   const [isAtTop, setIsAtTop] = useState(true);
@@ -837,6 +840,159 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     handleReply(activeThreadPost);
   }, [activeThreadPost, handleReply]);
 
+  const handleDeletePost = useCallback(
+    async (post: FeedPost) => {
+      if (typeof window !== "undefined") {
+        const confirmed = window.confirm("Delete this post from all feeds?");
+        if (!confirmed) {
+          return;
+        }
+      }
+      updatePending(setPendingDeletes, post.id, true);
+      try {
+        await deletePost(post);
+      } catch (deleteError) {
+        console.warn("Unable to delete post", deleteError);
+        if (typeof window !== "undefined") {
+          const message =
+            deleteError instanceof Error ? deleteError.message : "We couldn't delete this post.";
+          window.alert(`Delete failed: ${message}`);
+        }
+      } finally {
+        updatePending(setPendingDeletes, post.id, false);
+      }
+    },
+    [deletePost, setPendingDeletes, updatePending],
+  );
+
+  const isThreadComposer =
+    composerOpen &&
+    composerMode === "reply" &&
+    composerTarget &&
+    activeThreadPost &&
+    composerTarget.id === activeThreadPost.id;
+
+  const composerContent = (
+    <>
+      <header className="flex items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold uppercase tracking-[0.18em] text-[var(--fg-default)]">{composerTitle}</h2>
+        <button
+          type="button"
+          onClick={resetComposer}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+          aria-label="Close composer"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </header>
+
+      {composerTarget && (
+        <div className="mt-4 rounded-2xl border border-brand/40 bg-brand/10 px-4 py-3 text-xs text-brand shadow-sm">
+          <div className="flex items-start gap-3">
+            <button
+              type="button"
+              onClick={handleComposerReferenceClick}
+              className="flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+            >
+              <p className="font-semibold uppercase tracking-[0.24em] text-brand/80">
+                {composerReferenceLabel}{" "}
+                {composerTargetSummary?.displayName ?? shortenPubkey(composerTarget.pubkey)}
+              </p>
+              <p className="mt-1 line-clamp-3 text-[11px] font-medium text-brand/90">
+                {composerPreviewSnippet || "Referenced post"}
+              </p>
+              {composerTimestampLabel && (
+                <p className="mt-2 text-[10px] uppercase tracking-[0.3em] text-brand/60">{composerTimestampLabel}</p>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={clearComposerTarget}
+              className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-brand/40 text-brand transition hover:bg-brand hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+              aria-label="Remove referenced post"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+        <textarea
+          ref={textareaRef}
+          value={content}
+          onChange={(event) => setContent(event.target.value.slice(0, 500))}
+          className="min-h-[160px] w-full resize-y rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-4 text-sm text-[var(--fg-default)] shadow-inner focus:border-brand focus:outline-none"
+          placeholder={
+            composerMode === "reply"
+              ? "Share your thoughts…"
+              : composerMode === "quote"
+                ? "Add your perspective…"
+                : "What’s happening in your corner of BitcoinSquare?"
+          }
+          disabled={!ready || publishing}
+        />
+        {pendingMedia.length > 0 && (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {pendingMedia.map((media) => (
+              <div
+                key={media.cacheKey}
+                className="relative overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60"
+              >
+                <img
+                  src={media.previewUrl ?? media.url}
+                  alt="Selected attachment"
+                  className="h-40 w-full object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleRemoveMedia(media.cacheKey)}
+                  className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur transition hover:bg-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+                  aria-label="Remove attachment"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-[var(--fg-muted)]">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={triggerFilePicker}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+              disabled={!ready || publishing || uploadStatus === "uploading"}
+              title="Attach media"
+            >
+              {uploadStatus === "uploading" ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
+              <span className="sr-only">Attach media</span>
+            </button>
+            {uploadStatus === "uploading" && <span>Uploading… {uploadProgress}%</span>}
+            {uploadError && <span className="text-red-500">{uploadError}</span>}
+          </div>
+          <span>{content.length}/500</span>
+        </div>
+        {composerError && <p className="text-xs text-red-500">{composerError}</p>}
+        <button
+          type="submit"
+          disabled={!ready || publishing}
+          className="w-full rounded-full bg-brand px-6 py-2 text-sm font-semibold uppercase tracking-[0.24em] text-white transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:bg-brand/40"
+        >
+          {submitLabel}
+        </button>
+        {error && <p className="text-center text-xs text-red-500">{error}</p>}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*,video/*"
+          className="hidden"
+          onChange={handleFileChange}
+        />
+      </form>
+    </>
+  );
+
   const renderPostCard = (
     post: FeedPost,
     {
@@ -844,15 +1000,21 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       registerNode,
       highlight = false,
       onOpenThread,
+      suppressReferencePreview = false,
     }: {
       variant?: "list" | "thread";
       registerNode?: (node: HTMLDivElement | null) => void;
       highlight?: boolean;
       onOpenThread?: (post: FeedPost) => void;
+      suppressReferencePreview?: boolean;
     } = {},
   ) => {
     const isPendingLike = pendingLikes.has(post.id);
     const likeDisabled = !ready || isPendingLike;
+    const isPendingDelete = pendingDeletes.has(post.id);
+    const canDelete =
+      typeof pubkey === "string" && post.pubkey.toLowerCase() === pubkey.toLowerCase();
+    const deleteDisabled = !ready || isPendingDelete;
     const statusLabel =
       post.status === "pending"
         ? "Posting to relays…"
@@ -892,6 +1054,8 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         : "Referenced post";
     const referenceTimestamp =
       referencedPost?.created_at ? formatAbsoluteTimestamp(referencedPost.created_at) : null;
+    const showReferencePreview =
+      !!reference && !!referencedId && !suppressReferencePreview;
     const interactive = typeof onOpenThread === "function" && (variant === "list" || variant === "thread");
     const cardClassName = `rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-5 shadow-sm transition ${
       interactive ? "hover:border-brand/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 cursor-pointer" : ""
@@ -936,7 +1100,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
           />
         </header>
 
-        {reference && referencedId && (
+        {showReferencePreview && (
           <button
             type="button"
             onClick={(event) => {
@@ -1065,6 +1229,25 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
             {isPendingLike ? <Loader2 className="h-4 w-4 animate-spin" /> : <Heart className="h-4 w-4" />}
             <span className="sr-only">Like</span>
           </button>
+          {canDelete && (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                void handleDeletePost(post);
+              }}
+              disabled={deleteDisabled}
+              className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
+                isPendingDelete
+                  ? "border-red-500 text-red-500"
+                  : "border-[var(--border-subtle)] text-[var(--fg-muted)] hover:border-red-500 hover:text-red-500"
+              } disabled:cursor-not-allowed disabled:opacity-60`}
+              title={isPendingDelete ? "Deleting…" : "Delete this post"}
+            >
+              {isPendingDelete ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              <span className="sr-only">Delete</span>
+            </button>
+          )}
         </div>
 
         {interactive && variant === "list" && (
@@ -1262,8 +1445,15 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
                   renderPostCard(reply, {
                     variant: "thread",
                     onOpenThread: openThread,
+                    suppressReferencePreview: true,
                   }),
                 )}
+              </div>
+            )}
+
+            {isThreadComposer && (
+              <div className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)]/90 p-5 shadow-sm">
+                {composerContent}
               </div>
             )}
           </div>
@@ -1280,132 +1470,11 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         <Plus className="h-6 w-6" />
       </button>
 
-      {composerOpen && (
+      {composerOpen && !isThreadComposer && (
         <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/60 px-4 py-8 sm:items-center">
           <div className="absolute inset-0" onClick={resetComposer} aria-hidden="true" />
           <div className="relative w-full max-w-xl rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-2xl">
-            <header className="flex items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold uppercase tracking-[0.18em] text-[var(--fg-default)]">{composerTitle}</h2>
-              <button
-                type="button"
-                onClick={resetComposer}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
-                aria-label="Close composer"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </header>
-
-            {composerTarget && (
-              <div className="mt-4 rounded-2xl border border-brand/40 bg-brand/10 px-4 py-3 text-xs text-brand shadow-sm">
-                <div className="flex items-start gap-3">
-                  <button
-                    type="button"
-                    onClick={handleComposerReferenceClick}
-                    className="flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
-                  >
-                    <p className="font-semibold uppercase tracking-[0.24em] text-brand/80">
-                      {composerReferenceLabel}{" "}
-                      {composerTargetSummary?.displayName ?? shortenPubkey(composerTarget.pubkey)}
-                    </p>
-                    <p className="mt-1 line-clamp-3 text-[11px] font-medium text-brand/90">
-                      {composerPreviewSnippet || "Referenced post"}
-                    </p>
-                    {composerTimestampLabel && (
-                      <p className="mt-2 text-[10px] uppercase tracking-[0.3em] text-brand/60">
-                        {composerTimestampLabel}
-                      </p>
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={clearComposerTarget}
-                    className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-brand/40 text-brand transition hover:bg-brand hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
-                    aria-label="Remove referenced post"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-              <textarea
-                ref={textareaRef}
-                value={content}
-                onChange={(event) => setContent(event.target.value.slice(0, 500))}
-                className="min-h-[160px] w-full resize-y rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-4 text-sm text-[var(--fg-default)] shadow-inner focus:border-brand focus:outline-none"
-                placeholder={
-                  composerMode === "reply"
-                    ? "Share your thoughts…"
-                    : composerMode === "quote"
-                      ? "Add your perspective…"
-                      : "What’s happening in your corner of BitcoinSquare?"
-                }
-                disabled={!ready || publishing}
-              />
-              {pendingMedia.length > 0 && (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {pendingMedia.map((media) => (
-                    <div
-                      key={media.cacheKey}
-                      className="relative overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60"
-                    >
-                      <img
-                        src={media.previewUrl ?? media.url}
-                        alt="Selected attachment"
-                        className="h-40 w-full object-cover"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveMedia(media.cacheKey)}
-                        className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur transition hover:bg-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
-                        aria-label="Remove attachment"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-[var(--fg-muted)]">
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={triggerFilePicker}
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
-                    disabled={!ready || publishing || uploadStatus === "uploading"}
-                    title="Attach media"
-                  >
-                    {uploadStatus === "uploading" ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
-                    <span className="sr-only">Attach media</span>
-                  </button>
-                  {uploadStatus === "uploading" && (
-                    <span>Uploading… {uploadProgress}%</span>
-                  )}
-                  {uploadError && <span className="text-red-500">{uploadError}</span>}
-                </div>
-                <span>{content.length}/500</span>
-              </div>
-              {composerError && <p className="text-xs text-red-500">{composerError}</p>}
-              <button
-                type="submit"
-                disabled={!ready || publishing}
-                className="w-full rounded-full bg-brand px-6 py-2 text-sm font-semibold uppercase tracking-[0.24em] text-white transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:bg-brand/40"
-              >
-                {submitLabel}
-              </button>
-              {error && (
-                <p className="text-center text-xs text-red-500">{error}</p>
-              )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*,video/*"
-                className="hidden"
-                onChange={handleFileChange}
-              />
-            </form>
+            {composerContent}
           </div>
         </div>
       )}

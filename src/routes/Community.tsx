@@ -542,6 +542,7 @@ const CommunityView: React.FC = () => {
     publishing: feedPublishing,
     publishStatus: publishFeedStatus,
     likePost: likeFeedPost,
+    deletePost: deleteFeedPost,
     loadMore: loadMoreFeed,
     loadingMore: feedLoadingMore,
     hasMore: feedHasMore,
@@ -550,6 +551,10 @@ const CommunityView: React.FC = () => {
     initialLoading: feedInitialLoading,
   } = useBitcoinSquareFeed();
   const { user, refreshNostrKeys } = useAuth();
+
+  const directMessagesPath = user?.nostrPublicKey?.trim()
+    ? `/profile/${user.nostrPublicKey.trim()}/messages`
+    : "/messages";
   const {
     ready: accountReady,
     loading: accountLoading,
@@ -1531,7 +1536,7 @@ const CommunityView: React.FC = () => {
             {DESKTOP_VIEW_TABS.map((tab) => renderTabButton(tab, "desktop"))}
           </nav>
           <NavLink
-            to="/messages"
+            to={directMessagesPath}
             className={({ isActive }) =>
               `mt-3 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
                 isActive
@@ -1906,6 +1911,7 @@ const CommunityView: React.FC = () => {
                         publishing={feedPublishing}
                         publishStatus={publishFeedStatus}
                         likePost={likeFeedPost}
+                        deletePost={deleteFeedPost}
                         loadMore={loadMoreFeed}
                         loadingMore={feedLoadingMore}
                         hasMore={feedHasMore}
@@ -1932,6 +1938,7 @@ const CommunityView: React.FC = () => {
                         publishing={feedPublishing}
                         publishStatus={publishFeedStatus}
                         likePost={likeFeedPost}
+                        deletePost={deleteFeedPost}
                         loadMore={loadMoreFeed}
                         loadingMore={feedLoadingMore}
                         hasMore={feedHasMore}
