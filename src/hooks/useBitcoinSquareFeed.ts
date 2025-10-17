@@ -31,6 +31,10 @@ const BASE_BACKOFF = 1000;
 const MAX_BACKOFF = 30_000;
 const RETRY_BASE_DELAY = 2000;
 const MAX_PUBLISH_ATTEMPTS = 5;
+const DECRYPT_RETRY_BASE_DELAY = 1500;
+const MAX_DECRYPT_RETRIES = 6;
+const DECRYPTING_PLACEHOLDER = "Decrypting message…";
+const DECRYPT_FAILURE_PLACEHOLDER = "Unable to decrypt message";
 
 export interface FeedAttachment {
   url: string;
@@ -344,6 +348,9 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
   const poolRef = useRef<SimplePool | null>(null);
   const subRef = useRef<ReturnType<SimplePool["subscribeMany"]> | null>(null);
   const pendingDecryptsRef = useRef<Map<string, Event>>(new Map());
+  const decryptRetryTimersRef = useRef(
+    new Map<string, { timer: ReturnType<typeof setTimeout> | null; attempts: number }>(),
+  );
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const backoffRef = useRef(BASE_BACKOFF);
   const oldestTimestampRef = useRef<number | null>(null);
@@ -391,7 +398,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
       if (!feedKeyAvailable) {
         if (encryptedPayload) {
           pendingDecryptsRef.current.set(event.id, event);
-          return { body: "Decrypting message…", attachments: parsedAttachments };
+          return { body: DECRYPTING_PLACEHOLDER, attachments: parsedAttachments };
         }
         return { body: event.content, attachments: parsedAttachments };
       }
@@ -418,13 +425,21 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
       }
       if (encryptedPayload) {
         pendingDecryptsRef.current.set(event.id, event);
-        return { body: "Decrypting message…", attachments: parsedAttachments };
+        return { body: DECRYPTING_PLACEHOLDER, attachments: parsedAttachments };
       }
       pendingDecryptsRef.current.delete(event.id);
       return { body: event.content, attachments: parsedAttachments };
     },
     [feedKeyAvailable],
   );
+
+  const stopDecryptRetry = useCallback((id: string) => {
+    const existing = decryptRetryTimersRef.current.get(id);
+    if (existing?.timer) {
+      clearTimeout(existing.timer);
+    }
+    decryptRetryTimersRef.current.delete(id);
+  }, []);
 
   const hydrateFromCache = useCallback(async () => {
     try {
@@ -494,6 +509,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
         ids.forEach((id) => {
           deletedPostIdsRef.current.add(id);
           pendingDecryptsRef.current.delete(id);
+          stopDecryptRetry(id);
           const timer = retryTimersRef.current.get(id);
           if (timer) {
             clearTimeout(timer);
@@ -521,15 +537,41 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
       const body = await decodeEventContent(event);
       insertPost(mapEventToPost(event, false, body));
       if (pendingDecryptsRef.current.has(event.id)) {
+        const retryState = decryptRetryTimersRef.current.get(event.id);
+        const attempts = retryState?.attempts ?? 0;
+        if (attempts >= MAX_DECRYPT_RETRIES) {
+          pendingDecryptsRef.current.delete(event.id);
+          stopDecryptRetry(event.id);
+          insertPost(
+            mapEventToPost(event, false, {
+              body: DECRYPT_FAILURE_PLACEHOLDER,
+              attachments: body.attachments ?? [],
+            }),
+          );
+          return;
+        }
+
+        if (retryState?.timer) {
+          return;
+        }
+
+        const delay = Math.min(DECRYPT_RETRY_BASE_DELAY * 2 ** attempts, MAX_BACKOFF);
+        const nextAttempts = attempts + 1;
+        const timer = setTimeout(() => {
+          decryptRetryTimersRef.current.set(event.id, { attempts: nextAttempts, timer: null });
+          void processEvent(event);
+        }, delay);
+        decryptRetryTimersRef.current.set(event.id, { attempts: nextAttempts, timer });
         return;
       }
+      stopDecryptRetry(event.id);
       try {
         await cacheMessage(eventToCached(event, body));
       } catch (cacheError) {
         console.warn("Unable to persist feed event", cacheError);
       }
     },
-    [decodeEventContent, ensureOldestTimestamp, insertPost],
+    [decodeEventContent, ensureOldestTimestamp, insertPost, stopDecryptRetry],
   );
 
   const handleEvent = useCallback(
@@ -545,9 +587,10 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
     const pending = Array.from(pendingDecryptsRef.current.values());
     pendingDecryptsRef.current.clear();
     pending.forEach((event) => {
+      stopDecryptRetry(event.id);
       void processEvent(event);
     });
-  }, [feedKeyAvailable, processEvent]);
+  }, [feedKeyAvailable, processEvent, stopDecryptRetry]);
 
   const startSubscription = useCallback(() => {
     if (!feedKeyAvailable) return;
@@ -712,6 +755,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
   const removePost = useCallback(
     (id: string) => {
       pendingDecryptsRef.current.delete(id);
+      stopDecryptRetry(id);
       const existingTimer = retryTimersRef.current.get(id);
       if (existingTimer) {
         clearTimeout(existingTimer);
@@ -723,7 +767,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
         return next;
       });
     },
-    [ensureOldestTimestamp],
+    [ensureOldestTimestamp, stopDecryptRetry],
   );
 
   const attemptPublish = useCallback(
@@ -935,6 +979,12 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
       clearTimeout(timer);
     });
     retryTimersRef.current.clear();
+    decryptRetryTimersRef.current.forEach(({ timer }) => {
+      if (timer) {
+        clearTimeout(timer);
+      }
+    });
+    decryptRetryTimersRef.current.clear();
   }, []);
 
   const likePost = useCallback(
