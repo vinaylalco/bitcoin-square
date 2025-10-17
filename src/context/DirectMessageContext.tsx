@@ -490,6 +490,7 @@ const DirectMessageOverlay: React.FC = () => {
   const { resolveProfileSummary, shortenPubkey } = useProfileIdentity();
   const [sending, setSending] = useState(false);
   const [composerError, setComposerError] = useState<string | null>(null);
+  const [composerFocused, setComposerFocused] = useState(false);
   const listRef = useRef<HTMLDivElement | null>(null);
 
   const conversation = activeConversation ? conversations[activeConversation] : undefined;
@@ -521,6 +522,10 @@ const DirectMessageOverlay: React.FC = () => {
       setSending(false);
     }
   };
+
+  useEffect(() => {
+    setComposerFocused(false);
+  }, [activeConversation]);
 
   const formatTimestamp = (seconds: number) => {
     if (!Number.isFinite(seconds)) {
@@ -627,9 +632,15 @@ const DirectMessageOverlay: React.FC = () => {
                 value={draft}
                 onChange={(event) => setDraft(activeConversation, event.target.value)}
                 placeholder="Write a message…"
-                className="min-h-[2.5rem] max-h-32 flex-1 resize-none rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/80 px-3 py-2 text-sm text-[var(--fg-default)] outline-none focus:border-brand"
+                onFocus={() => setComposerFocused(true)}
+                onBlur={() => {
+                  if (draft.trim().length === 0) {
+                    setComposerFocused(false);
+                  }
+                }}
+                className="max-h-32 flex-1 resize-none rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/80 px-3 py-2 text-sm leading-relaxed text-[var(--fg-default)] outline-none focus:border-brand"
                 disabled={!ready || sending}
-                rows={2}
+                rows={composerFocused || draft.trim().length > 0 ? 3 : 1}
               />
               <button
                 type="submit"

@@ -326,6 +326,7 @@ const Composer: React.FC<{
   onJumpToQuote,
 }) => {
   const [value, setValue] = useState("");
+  const [isTextareaFocused, setIsTextareaFocused] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -395,6 +396,8 @@ const Composer: React.FC<{
     }
   };
 
+  const composerExpanded = isTextareaFocused || value.trim().length > 0;
+
   return (
     <div className="space-y-3">
       {quoteContext && (
@@ -432,10 +435,18 @@ const Composer: React.FC<{
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           disabled={disabled || isSending}
-          rows={3}
+          onFocus={() => setIsTextareaFocused(true)}
+          onBlur={() => {
+            if (value.trim().length === 0) {
+              setIsTextareaFocused(false);
+            }
+          }}
+          rows={composerExpanded ? 4 : 1}
           maxLength={CHAT_CHARACTER_LIMIT}
           placeholder={disabled ? "Your BitcoinSquare keys must be ready before posting" : "Share an update…"}
-          className="w-full resize-none rounded-2xl border-none bg-transparent px-4 pb-14 pr-28 text-sm leading-relaxed text-[var(--fg-default)] focus:outline-none focus:ring-0"
+          className={`w-full resize-none rounded-2xl border-none bg-transparent px-4 pr-28 text-sm leading-relaxed text-[var(--fg-default)] focus:outline-none focus:ring-0 ${
+            composerExpanded ? "pb-16" : "pb-12"
+          }`}
         />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-between px-4 pb-3">
           <div className="pointer-events-auto flex items-center gap-2">
@@ -1527,7 +1538,7 @@ const CommunityView: React.FC = () => {
         aria-hidden="true"
       />
       <div className="relative z-0 flex min-h-screen w-full flex-col">
-        <aside className="hidden border-r border-[var(--border-subtle)] bg-[var(--bg-card)]/70 px-5 py-8 backdrop-blur lg:fixed lg:inset-y-0 lg:left-0 lg:flex lg:w-80 lg:flex-col">
+        <aside className="hidden border-r border-[var(--border-subtle)] bg-[var(--bg-card)]/70 px-5 pb-8 pt-16 backdrop-blur lg:fixed lg:inset-y-0 lg:left-0 lg:flex lg:w-80 lg:flex-col">
           <nav
             aria-label="Community navigation"
             role="tablist"

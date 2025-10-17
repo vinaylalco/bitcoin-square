@@ -9,6 +9,7 @@ interface MessageInputProps {
 const MessageInput: React.FC<MessageInputProps> = ({ onSend, onTyping, disabled }) => {
   const [value, setValue] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
 
   const handleSubmit = useCallback(async () => {
     const trimmed = value.trim();
@@ -39,9 +40,15 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSend, onTyping, disabled 
         }}
         onKeyDown={handleKeyDown}
         disabled={disabled || isSending}
-        rows={2}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => {
+          if (value.trim().length === 0) {
+            setIsFocused(false);
+          }
+        }}
+        rows={isFocused || value.trim().length > 0 ? 3 : 1}
         placeholder={disabled ? "Connect with Nostr to start chatting" : "Message"}
-        className="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-4 py-3 text-sm leading-relaxed text-[var(--fg-default)] shadow-sm focus:border-brand focus:outline-none"
+        className="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-4 py-2.5 text-sm leading-relaxed text-[var(--fg-default)] shadow-sm focus:border-brand focus:outline-none"
       />
       <div className="flex items-center justify-between">
         <span className="text-xs text-[var(--fg-muted)]">

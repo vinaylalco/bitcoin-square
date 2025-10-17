@@ -208,6 +208,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   initialLoading,
 }) => {
   const [content, setContent] = useState("");
+  const [composerFocused, setComposerFocused] = useState(false);
   const [composerError, setComposerError] = useState<string | null>(null);
   const [composerOpen, setComposerOpen] = useState(false);
   const [composerMode, setComposerMode] = useState<ComposerMode>("new");
@@ -376,6 +377,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       window.localStorage.removeItem(COMPOSER_STORAGE_KEY);
     }
     resetUpload();
+    setComposerFocused(false);
   }, [resetUpload]);
 
   const triggerFilePicker = useCallback(() => {
@@ -872,6 +874,14 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     activeThreadPost &&
     composerTarget.id === activeThreadPost.id;
 
+  useEffect(() => {
+    if (!composerOpen) {
+      setComposerFocused(false);
+    }
+  }, [composerOpen]);
+
+  const composerExpanded = composerFocused || content.trim().length > 0;
+
   const composerContent = (
     <>
       <header className="flex items-center justify-between gap-3">
@@ -922,7 +932,14 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
           ref={textareaRef}
           value={content}
           onChange={(event) => setContent(event.target.value.slice(0, 500))}
-          className="min-h-[160px] w-full resize-y rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-4 text-sm text-[var(--fg-default)] shadow-inner focus:border-brand focus:outline-none"
+          onFocus={() => setComposerFocused(true)}
+          onBlur={() => {
+            if (content.trim().length === 0) {
+              setComposerFocused(false);
+            }
+          }}
+          rows={composerExpanded ? 6 : 1}
+          className={`w-full rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 px-4 py-3 text-sm leading-relaxed text-[var(--fg-default)] shadow-inner focus:border-brand focus:outline-none ${composerExpanded ? "resize-y" : "resize-none"}`}
           placeholder={
             composerMode === "reply"
               ? "Share your thoughts…"
