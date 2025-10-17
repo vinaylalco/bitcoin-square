@@ -1470,7 +1470,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         <Plus className="h-6 w-6" />
       </button>
 
-      {composerOpen && !isThreadComposer && (
+      {composerOpen && composerMode !== "reply" && (
         <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/60 px-4 py-8 sm:items-center">
           <div className="absolute inset-0" onClick={resetComposer} aria-hidden="true" />
           <div className="relative w-full max-w-xl rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-2xl">
