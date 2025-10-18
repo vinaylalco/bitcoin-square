@@ -1042,8 +1042,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     const isPendingLike = pendingLikes.has(post.id);
     const likeDisabled = !ready || isPendingLike;
     const isPendingDelete = pendingDeletes.has(post.id);
-    const canDelete =
-      typeof pubkey === "string" && post.pubkey.toLowerCase() === pubkey.toLowerCase();
+    const canDelete = true;
     const deleteDisabled = !ready || isPendingDelete;
     const statusLabel =
       post.status === "pending"
