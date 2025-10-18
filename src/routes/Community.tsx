@@ -25,7 +25,19 @@ import {
   useCommunityTranslation,
 } from "../context/CommunityTranslationContext";
 import type { LucideIcon } from "lucide-react";
-import { ArrowUp, Heart, Loader2, MessageCircle, MessageSquareQuote, Newspaper, Send, Sparkles, Users, X } from "lucide-react";
+import {
+  ArrowUp,
+  Heart,
+  Loader2,
+  MessageCircle,
+  MessageSquareQuote,
+  Newspaper,
+  Send,
+  Sparkles,
+  Trash2,
+  Users,
+  X,
+} from "lucide-react";
 import { markdownToHtml } from "../utils/markdown";
 
 type ActiveView = "casual" | "feed" | "personal" | "members";
@@ -451,6 +463,7 @@ const CommunityView: React.FC = () => {
     messages: rawMessages,
     sendMessage,
     likeMessage,
+    deleteMessage,
     pubkey,
     ready,
     roomKeyError,
@@ -507,6 +520,7 @@ const CommunityView: React.FC = () => {
   const [composerError, setComposerError] = useState<string | null>(null);
   const [composerDraft, setComposerDraft] = useState<string | undefined>(undefined);
   const [quoteContext, setQuoteContext] = useState<QuoteContextState | null>(null);
+  const [pendingDeletes, setPendingDeletes] = useState<Set<string>>(new Set());
   const [isAtTop, setIsAtTop] = useState(true);
   const [newMessageAnchor, setNewMessageAnchor] = useState<string | null>(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
@@ -1320,6 +1334,18 @@ const CommunityView: React.FC = () => {
     [estimatedRowHeight, messageIndexMap, messages, startHighlight],
   );
 
+  const updatePendingDelete = useCallback((messageId: string, add: boolean) => {
+    setPendingDeletes((prev) => {
+      const next = new Set(prev);
+      if (add) {
+        next.add(messageId);
+      } else {
+        next.delete(messageId);
+      }
+      return next;
+    });
+  }, []);
+
   const handleLikeMessage = useCallback(
     async (message: CasualChatMessage) => {
       if (pubkey && message.likePubkeys.includes(pubkey)) {
@@ -1333,6 +1359,28 @@ const CommunityView: React.FC = () => {
       }
     },
     [likeMessage, pubkey],
+  );
+
+  const handleDeleteMessage = useCallback(
+    async (message: CasualChatMessage) => {
+      if (typeof window !== "undefined") {
+        const confirmed = window.confirm("Delete this message from casual chat?");
+        if (!confirmed) {
+          return;
+        }
+      }
+
+      updatePendingDelete(message.id, true);
+      try {
+        await deleteMessage(message);
+      } catch (deleteError) {
+        const messageText = deleteError instanceof Error ? deleteError.message : String(deleteError);
+        setComposerError(messageText);
+      } finally {
+        updatePendingDelete(message.id, false);
+      }
+    },
+    [deleteMessage, updatePendingDelete, setComposerError],
   );
 
   const registerRow = useCallback(
@@ -1553,6 +1601,11 @@ const CommunityView: React.FC = () => {
                             : isSelf
                               ? "bg-white/20 text-white"
                               : "bg-brand/10 text-brand";
+                          const isPendingDelete = pendingDeletes.has(message.id);
+                          const deleteDisabled = !ready || isPendingDelete;
+                          const deleteButtonPalette = isSelf
+                            ? "border-white/60 text-white hover:border-red-300 hover:text-red-100"
+                            : "border-white/70 text-[var(--fg-muted)] hover:border-red-500 hover:text-red-500";
                           return (
                             <div
                               key={message.id}
@@ -1707,6 +1760,20 @@ const CommunityView: React.FC = () => {
                                     >
                                       <MessageSquareQuote className="h-4 w-4" />
                                       <span className="sr-only">Quote</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => void handleDeleteMessage(message)}
+                                      disabled={deleteDisabled}
+                                      className={`inline-flex h-8 w-8 items-center justify-center rounded-full border ${deleteButtonPalette} disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60`}
+                                      title={isPendingDelete ? "Deleting…" : "Delete"}
+                                    >
+                                      {isPendingDelete ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <Trash2 className="h-4 w-4" />
+                                      )}
+                                      <span className="sr-only">Delete</span>
                                     </button>
                                     <button
                                       type="button"

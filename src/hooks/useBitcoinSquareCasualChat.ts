@@ -3,7 +3,7 @@ import type { EventTemplate } from "../lib/nostrToolsShim";
 
 import { NostrRelayManager } from "../lib/nostrRelayManager";
 import { getConfiguredRoomKey } from "../config/nostr";
-import { cacheMessage, getCachedMessages, type CachedMessage } from "../utils/chatCache";
+import { cacheMessage, getCachedMessages, removeCachedMessages, type CachedMessage } from "../utils/chatCache";
 import { decryptChannelText, encryptChannelText } from "../utils/channelEncryption";
 import { markdownToHtml } from "../utils/markdown";
 import { useRoomKey } from "./useRoomKey";
@@ -64,6 +64,7 @@ export interface UseBitcoinSquareCasualChatResult {
     options?: { quoteId?: string | null; quotePubkey?: string | null },
   ) => Promise<void>;
   likeMessage: (message: CasualChatMessage) => Promise<void>;
+  deleteMessage: (message: CasualChatMessage) => Promise<void>;
   pubkey: string | null;
   loading: boolean;
   ready: boolean;
@@ -218,6 +219,7 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
   const refreshedKeyRef = useRef(false);
   const typingThrottleRef = useRef(0);
   const pendingLikesRef = useRef(new Map<string, Set<string>>());
+  const deletedMessageIdsRef = useRef(new Set<string>());
 
   const configuredRoomKey = getConfiguredRoomKey(ROOM_ID);
 
@@ -374,6 +376,10 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
               likePubkeys: [],
             };
 
+            if (deletedMessageIdsRef.current.has(message.id)) {
+              return;
+            }
+
             const pendingLikes = pendingLikesRef.current.get(message.id);
             if (pendingLikes && pendingLikes.size > 0) {
               message.likePubkeys = Array.from(pendingLikes);
@@ -475,10 +481,45 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
       },
     );
 
+    const deletionSubscription = manager.subscribe(
+      {
+        kinds: [5],
+        "#t": [ROOM_TAG],
+      },
+      (event) => {
+        const targetIds = event.tags
+          ?.filter((tag) => Array.isArray(tag) && tag[0] === "e" && typeof tag[1] === "string")
+          .map((tag) => tag[1].trim())
+          .filter((value) => value.length > 0);
+        if (!targetIds || targetIds.length === 0) {
+          return;
+        }
+
+        const targets = new Set(targetIds);
+        targetIds.forEach((id) => {
+          deletedMessageIdsRef.current.add(id);
+          pendingLikesRef.current.delete(id);
+        });
+
+        setMessages((prev) => {
+          const filtered = prev.filter((message) => !targets.has(message.id));
+          if (filtered.length === prev.length) {
+            return prev;
+          }
+          return filtered;
+        });
+
+        removeCachedMessages(ROOM_ID, targetIds).catch((cacheError) => {
+          console.warn("Failed to remove deleted casual chat messages", cacheError);
+        });
+      },
+    );
+
     return () => {
       subscription.close();
       typingSubscription.close();
       reactionSubscription.close();
+      deletionSubscription.close();
       manager.close();
       managerRef.current = null;
     };
@@ -709,6 +750,52 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
     [pubkey, signEvent],
   );
 
+  const deleteMessage = useCallback(
+    async (message: CasualChatMessage) => {
+      if (!signEvent) {
+        throw new Error("Your Nostr keys are not ready yet");
+      }
+      const manager = managerRef.current;
+      if (!manager) {
+        throw new Error("Relay manager not ready yet");
+      }
+
+      const id = message.id;
+      deletedMessageIdsRef.current.add(id);
+      pendingLikesRef.current.delete(id);
+      setMessages((prev) => prev.filter((entry) => entry.id !== id));
+
+      try {
+        const template: EventTemplate = {
+          kind: 5,
+          created_at: Math.floor(Date.now() / 1000),
+          content: "",
+          tags: [
+            ["e", id],
+            ["p", message.pubkey],
+            ["t", ROOM_TAG],
+            ["app", "BitcoinSquare"],
+            ["chat", ROOM_TAG],
+          ],
+        };
+
+        const signed = await signEvent(template);
+        const { ack } = manager.publish(signed);
+        await ack;
+
+        removeCachedMessages(ROOM_ID, [id]).catch((cacheError) => {
+          console.warn("Failed to clear deleted casual chat message from cache", cacheError);
+        });
+      } catch (deleteError) {
+        deletedMessageIdsRef.current.delete(id);
+        setMessages((prev) => upsertMessage(prev, message));
+        setError(deleteError instanceof Error ? deleteError.message : String(deleteError));
+        throw deleteError;
+      }
+    },
+    [signEvent],
+  );
+
   const ready = useMemo(
     () => hasKey && Boolean(pubkey) && Boolean(managerRef.current) && accountReady,
     [accountReady, hasKey, pubkey],
@@ -754,6 +841,7 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
     messages,
     sendMessage,
     likeMessage,
+    deleteMessage,
     pubkey,
     loading,
     ready,
