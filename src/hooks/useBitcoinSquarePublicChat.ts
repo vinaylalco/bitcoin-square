@@ -20,6 +20,8 @@ const FOOTER_TEXT =
 const ROOM_ID = "bitcoinsquare-public";
 const ROOM_TAG = `room:${ROOM_ID}`;
 const MAX_MESSAGES = 400;
+const ENCRYPTED_PLACEHOLDER = "Encrypted message (unlock to view)";
+const DECRYPT_FAILURE_PLACEHOLDER = "Unable to decrypt message";
 
 const extractBody = (content: string) => {
   if (!content) return "";
@@ -97,7 +99,7 @@ export const useBitcoinSquarePublicChat = () => {
   const [poolReady, setPoolReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const poolRef = useRef<SimplePool | null>(null);
-  const pendingDecryptsRef = useRef<Map<string, Event>>(new Map());
+  const eventsRef = useRef<Map<string, Event>>(new Map());
   const { ready: accountReady, pubkey, signEvent } = useNostrAccount();
   const configuredRoomKey = getConfiguredRoomKey(ROOM_ID);
   const {
@@ -120,58 +122,95 @@ export const useBitcoinSquarePublicChat = () => {
     }
   }, [roomKeyAvailable, roomKeyError]);
 
+  const decodeEvent = useCallback(
+    async (event: Event): Promise<{ body: string; error: string | null }> => {
+      const encryptedPayload = typeof event.content === "string" && event.content.startsWith("v44:");
+
+      if (!encryptedPayload) {
+        return { body: event.content, error: null };
+      }
+
+      if (!roomKeyAvailable) {
+        return { body: ENCRYPTED_PLACEHOLDER, error: null };
+      }
+
+      try {
+        const plaintext = await decryptChannelText(ROOM_ID, event.content);
+        return { body: plaintext, error: null };
+      } catch (decryptError) {
+        console.warn("Failed to decrypt public chat message", decryptError);
+        const message =
+          decryptError instanceof Error
+            ? decryptError.message
+            : "Unable to decrypt public chat message";
+        return { body: DECRYPT_FAILURE_PLACEHOLDER, error: message };
+      }
+    },
+    [roomKeyAvailable],
+  );
+
   const processEvent = useCallback(
     async (event: Event) => {
       if (!event.tags.some((tag) => tag[0] === "t" && tag[1] === ROOM_TAG)) {
         return;
       }
 
-      const encryptedPayload = typeof event.content === "string" && event.content.startsWith("v44:");
+      eventsRef.current.set(event.id, event);
 
-      if (!roomKeyAvailable) {
-        if (encryptedPayload) {
-          pendingDecryptsRef.current.set(event.id, event);
-          setMessages((prev) => upsertMessage(prev, mapEventToMessage(event, "Decrypting message…")));
-        } else {
-          pendingDecryptsRef.current.delete(event.id);
-          setMessages((prev) => upsertMessage(prev, mapEventToMessage(event, event.content)));
-        }
-        return;
-      }
+      const { body, error: decodeError } = await decodeEvent(event);
+      setMessages((prev) => upsertMessage(prev, mapEventToMessage(event, body)));
 
-      try {
-        const plaintext = await decryptChannelText(ROOM_ID, event.content);
-        pendingDecryptsRef.current.delete(event.id);
-        setMessages((prev) => upsertMessage(prev, mapEventToMessage(event, plaintext)));
+      if (decodeError) {
+        setError(decodeError);
+      } else {
         setError(null);
-      } catch (decryptError) {
-        console.warn("Failed to decrypt public chat message", decryptError);
-        if (encryptedPayload) {
-          pendingDecryptsRef.current.set(event.id, event);
-          setMessages((prev) => upsertMessage(prev, mapEventToMessage(event, "Decrypting message…")));
-        } else {
-          pendingDecryptsRef.current.delete(event.id);
-          setMessages((prev) => upsertMessage(prev, mapEventToMessage(event, event.content)));
-        }
-        setError(
-          decryptError instanceof Error
-            ? decryptError.message
-            : "Unable to decrypt public chat message",
-        );
       }
     },
-    [roomKeyAvailable],
+    [decodeEvent],
   );
 
   useEffect(() => {
     if (!roomKeyAvailable) return;
-    if (pendingDecryptsRef.current.size === 0) return;
-    const pending = Array.from(pendingDecryptsRef.current.values());
-    pendingDecryptsRef.current.clear();
-    pending.forEach((event) => {
-      void processEvent(event);
-    });
-  }, [processEvent, roomKeyAvailable]);
+    const encryptedEvents = Array.from(eventsRef.current.values()).filter((event) =>
+      typeof event.content === "string" ? event.content.startsWith("v44:") : false,
+    );
+    if (encryptedEvents.length === 0) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const upgrade = async () => {
+      const decoded = await Promise.all(
+        encryptedEvents.map(async (event) => ({ event, result: await decodeEvent(event) })),
+      );
+
+      if (cancelled) return;
+
+      setMessages((prev) =>
+        decoded.reduce(
+          (acc, entry) => upsertMessage(acc, mapEventToMessage(entry.event, entry.result.body)),
+          prev,
+        ),
+      );
+
+      const errors = decoded
+        .map((entry) => entry.result.error)
+        .filter((value): value is string => Boolean(value));
+
+      if (errors.length > 0) {
+        setError(errors[errors.length - 1] ?? null);
+      } else {
+        setError(null);
+      }
+    };
+
+    void upgrade();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [decodeEvent, roomKeyAvailable]);
 
   useEffect(() => {
     if (roomKeyAvailable || roomKeyLoading) return;
@@ -229,6 +268,7 @@ export const useBitcoinSquarePublicChat = () => {
       pool.close(RELAYS);
       poolRef.current = null;
       setPoolReady(false);
+      eventsRef.current.clear();
     };
   }, [processEvent]);
 
@@ -263,6 +303,7 @@ export const useBitcoinSquarePublicChat = () => {
       };
 
       const event = await signEvent(template);
+      eventsRef.current.set(event.id, event);
 
       setMessages((prev) =>
         upsertMessage(prev, {
