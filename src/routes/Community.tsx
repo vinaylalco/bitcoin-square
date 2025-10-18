@@ -1525,7 +1525,7 @@ const CommunityView: React.FC = () => {
             <nav
               aria-label="Community navigation"
               role="tablist"
-              className="-mx-5 flex snap-x snap-mandatory gap-2 overflow-x-auto px-5 pl-20 pb-2 text-sm scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:pl-5"
+              className="-mx-5 ml-[60px] flex snap-x snap-mandatory gap-2 overflow-x-auto px-5 pl-20 pb-2 text-sm scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:ml-0 sm:pl-5"
               style={{ WebkitOverflowScrolling: "touch" }}
             >
               {MOBILE_VIEW_TABS.map((tab) => renderTabButton(tab, "mobile"))}
