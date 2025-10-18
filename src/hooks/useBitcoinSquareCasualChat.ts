@@ -3,7 +3,7 @@ import type { EventTemplate } from "../lib/nostrToolsShim";
 
 import { NostrRelayManager } from "../lib/nostrRelayManager";
 import { getConfiguredRoomKey } from "../config/nostr";
-import { cacheMessage, getCachedMessages, type CachedMessage } from "../utils/chatCache";
+import { cacheMessage, getCachedMessages, removeCachedMessages, type CachedMessage } from "../utils/chatCache";
 import { decryptChannelText, encryptChannelText } from "../utils/channelEncryption";
 import { markdownToHtml } from "../utils/markdown";
 import { useRoomKey } from "./useRoomKey";
@@ -11,7 +11,8 @@ import { useNostrAccount } from "./useNostrAccount";
 
 const ROOM_ID = "bitcoinsquare-casual";
 const ROOM_TAG = `room:${ROOM_ID}`;
-const ROOM_NAME = "BitcoinSquare Casual Chat";
+const ROOM_NAME = "BitcoinSquare Chat";
+const DELETED_MESSAGE_STORAGE_KEY = "bitcoinsquare-chat-deleted";
 
 const FAST_RELAY = "wss://relay.damus.io";
 const ADDITIONAL_RELAYS = ["wss://relay.primal.net", "wss://nos.lol", "wss://relay.nostr.band"];
@@ -51,6 +52,7 @@ export interface CasualChatMessage {
   error?: string;
   quoteId?: string;
   quotePubkey?: string;
+  likePubkeys: string[];
 }
 
 export interface UseBitcoinSquareCasualChatResult {
@@ -62,6 +64,8 @@ export interface UseBitcoinSquareCasualChatResult {
     attachments?: CasualAttachmentMeta[],
     options?: { quoteId?: string | null; quotePubkey?: string | null },
   ) => Promise<void>;
+  likeMessage: (message: CasualChatMessage) => Promise<void>;
+  deleteMessage: (message: CasualChatMessage) => Promise<void>;
   pubkey: string | null;
   loading: boolean;
   ready: boolean;
@@ -89,20 +93,47 @@ const parsePayload = (plaintext: string): CasualPayload => {
   }
 };
 
+const dedupePubkeys = (values: string[] = []) =>
+  Array.from(
+    new Set(
+      values.filter((value): value is string => typeof value === "string" && value.trim().length > 0),
+    ),
+  );
+
+const mergeLikePubkeys = (existing: string[], incoming: string[] = []) => {
+  const combined = new Set(existing);
+  incoming.forEach((value) => {
+    if (typeof value === "string" && value.trim().length > 0) {
+      combined.add(value);
+    }
+  });
+  return Array.from(combined);
+};
+
 const upsertMessage = (messages: CasualChatMessage[], incoming: CasualChatMessage) => {
-  const index = messages.findIndex((message) => message.id === incoming.id);
+  const normalizedIncoming: CasualChatMessage = {
+    ...incoming,
+    likePubkeys: dedupePubkeys(incoming.likePubkeys),
+  };
+  const index = messages.findIndex((message) => message.id === normalizedIncoming.id);
   if (index >= 0) {
     const next = [...messages];
     next[index] = {
       ...next[index],
-      ...incoming,
-      status: incoming.status ?? next[index].status,
-      optimistic: incoming.optimistic,
+      ...normalizedIncoming,
+      likePubkeys: mergeLikePubkeys(next[index].likePubkeys, normalizedIncoming.likePubkeys),
+      status: normalizedIncoming.status ?? next[index].status,
+      optimistic: normalizedIncoming.optimistic,
     };
     return next.sort((a, b) => a.created_at - b.created_at).slice(-MAX_MESSAGES);
   }
 
-  return [...messages, incoming]
+  const normalized = {
+    ...normalizedIncoming,
+    likePubkeys: dedupePubkeys(normalizedIncoming.likePubkeys),
+  };
+
+  return [...messages, normalized]
     .sort((a, b) => a.created_at - b.created_at)
     .slice(-MAX_MESSAGES);
 };
@@ -132,7 +163,47 @@ const cachedToMessage = (cached: CachedMessage): CasualChatMessage | null => {
     optimistic: false,
     quoteId,
     quotePubkey,
+    likePubkeys: [],
   };
+};
+
+const isLikeReaction = (content: string | undefined) => {
+  if (!content) return false;
+  const trimmed = content.trim();
+  return trimmed === "+" || trimmed === "❤️" || trimmed === "❤" || trimmed === "♥" || trimmed === "♥️";
+};
+
+const addLikeToMessages = (messages: CasualChatMessage[], messageId: string, pubkey: string) => {
+  let found = false;
+  let changed = false;
+  const next = messages.map((message) => {
+    if (message.id !== messageId) return message;
+    found = true;
+    if (message.likePubkeys.includes(pubkey)) {
+      return message;
+    }
+    changed = true;
+    return { ...message, likePubkeys: [...message.likePubkeys, pubkey] };
+  });
+  return { next: changed ? next : messages, found, changed };
+};
+
+const removeLikeFromMessages = (messages: CasualChatMessage[], messageId: string, pubkey: string) => {
+  let found = false;
+  let changed = false;
+  const next = messages.map((message) => {
+    if (message.id !== messageId) return message;
+    found = true;
+    if (!message.likePubkeys.includes(pubkey)) {
+      return message;
+    }
+    changed = true;
+    return {
+      ...message,
+      likePubkeys: message.likePubkeys.filter((value) => value !== pubkey),
+    };
+  });
+  return { next: changed ? next : messages, found, changed };
 };
 
 export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult => {
@@ -148,6 +219,9 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
   const notificationGateRef = useRef(false);
   const refreshedKeyRef = useRef(false);
   const typingThrottleRef = useRef(0);
+  const pendingLikesRef = useRef(new Map<string, Set<string>>());
+  const deletedMessageIdsRef = useRef(new Set<string>());
+  const deletedMessageStorageHydratedRef = useRef(false);
 
   const configuredRoomKey = getConfiguredRoomKey(ROOM_ID);
 
@@ -158,6 +232,48 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
   });
 
   const { ready: accountReady, pubkey, signEvent } = useNostrAccount();
+
+  const ensureDeletedMessagesHydrated = useCallback(() => {
+    if (deletedMessageStorageHydratedRef.current) {
+      return;
+    }
+    if (typeof window === "undefined") {
+      return;
+    }
+    try {
+      const raw = window.localStorage.getItem(DELETED_MESSAGE_STORAGE_KEY);
+      if (!raw) {
+        return;
+      }
+      const parsed = JSON.parse(raw) as unknown;
+      if (Array.isArray(parsed)) {
+        parsed.forEach((value) => {
+          if (typeof value === "string") {
+            const trimmed = value.trim();
+            if (trimmed.length > 0) {
+              deletedMessageIdsRef.current.add(trimmed);
+            }
+          }
+        });
+      }
+    } catch (storageError) {
+      console.warn("Failed to restore deleted chat messages", storageError);
+    } finally {
+      deletedMessageStorageHydratedRef.current = true;
+    }
+  }, []);
+
+  const persistDeletedMessages = useCallback(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    try {
+      const serialized = JSON.stringify(Array.from(deletedMessageIdsRef.current));
+      window.localStorage.setItem(DELETED_MESSAGE_STORAGE_KEY, serialized);
+    } catch (storageError) {
+      console.warn("Failed to persist deleted chat messages", storageError);
+    }
+  }, []);
 
   useEffect(() => {
     if (!configuredRoomKey) {
@@ -195,14 +311,56 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
   }, []);
 
   useEffect(() => {
+    ensureDeletedMessagesHydrated();
     let cancelled = false;
     setLoading(true);
     getCachedMessages(ROOM_ID, 60)
       .then((cached) => {
         if (cancelled) return;
-        const restored = cached
-          .map((item) => cachedToMessage(item))
-          .filter((item): item is CasualChatMessage => Boolean(item));
+        const pendingLikes = new Map<string, Set<string>>();
+        const messageMap = new Map<string, CasualChatMessage>();
+        const restored: CasualChatMessage[] = [];
+
+        cached.forEach((item) => {
+          if (item.kind === 7) {
+            if (!isLikeReaction(item.content)) {
+              return;
+            }
+            const targetTag = item.tags?.find((tag) => tag[0] === "e");
+            const targetId = targetTag && typeof targetTag[1] === "string" ? targetTag[1] : null;
+            if (!targetId) return;
+            const reactor = item.pubkey;
+            if (!reactor) return;
+            const existing = messageMap.get(targetId);
+            if (existing) {
+              if (!existing.likePubkeys.includes(reactor)) {
+                existing.likePubkeys = [...existing.likePubkeys, reactor];
+              }
+              return;
+            }
+            const set = pendingLikes.get(targetId) ?? new Set<string>();
+            set.add(reactor);
+            pendingLikes.set(targetId, set);
+            return;
+          }
+
+          const message = cachedToMessage(item);
+          if (!message) return;
+          if (deletedMessageIdsRef.current.has(message.id)) {
+            return;
+          }
+          const likes = pendingLikes.get(message.id);
+          const messageWithLikes = likes
+            ? { ...message, likePubkeys: Array.from(likes) }
+            : message;
+          if (likes) {
+            pendingLikes.delete(message.id);
+          }
+          restored.push(messageWithLikes);
+          messageMap.set(message.id, messageWithLikes);
+        });
+
+        pendingLikesRef.current = pendingLikes;
         setMessages(restored);
       })
       .catch((cacheError) => {
@@ -217,9 +375,10 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [ensureDeletedMessagesHydrated]);
 
   useEffect(() => {
+    ensureDeletedMessagesHydrated();
     const manager = new NostrRelayManager({
       fastRelay: FAST_RELAY,
       additionalRelays: ADDITIONAL_RELAYS,
@@ -232,6 +391,7 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
         "#t": [ROOM_TAG],
       },
       (event) => {
+        ensureDeletedMessagesHydrated();
         void (async () => {
           if (!event.tags.some((tag) => tag[0] === "t" && tag[1] === ROOM_TAG)) {
             return;
@@ -263,7 +423,18 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
               optimistic: false,
               quoteId,
               quotePubkey,
+              likePubkeys: [],
             };
+
+            if (deletedMessageIdsRef.current.has(message.id)) {
+              return;
+            }
+
+            const pendingLikes = pendingLikesRef.current.get(message.id);
+            if (pendingLikes && pendingLikes.size > 0) {
+              message.likePubkeys = Array.from(pendingLikes);
+              pendingLikesRef.current.delete(message.id);
+            }
 
             setMessages((prev) => upsertMessage(prev, message));
 
@@ -313,13 +484,102 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
       },
     );
 
+    const reactionSubscription = manager.subscribe(
+      {
+        kinds: [7],
+        "#t": [ROOM_TAG],
+      },
+      (event) => {
+        ensureDeletedMessagesHydrated();
+        if (!isLikeReaction(event.content)) {
+          return;
+        }
+        const targetTag = event.tags?.find((tag) => tag[0] === "e");
+        const targetId = targetTag && typeof targetTag[1] === "string" ? targetTag[1] : null;
+        if (!targetId) return;
+        const reactor = event.pubkey;
+        if (!reactor) return;
+        if (deletedMessageIdsRef.current.has(targetId)) {
+          return;
+        }
+
+        let found = false;
+        setMessages((prev) => {
+          const { next, found: messageFound, changed } = addLikeToMessages(prev, targetId, reactor);
+          found = messageFound;
+          if (!changed) {
+            return prev;
+          }
+          return next;
+        });
+
+        if (!found) {
+          const pending = pendingLikesRef.current.get(targetId) ?? new Set<string>();
+          pending.add(reactor);
+          pendingLikesRef.current.set(targetId, pending);
+        }
+
+        const cached: CachedMessage = {
+          id: event.id,
+          roomId: ROOM_ID,
+          pubkey: event.pubkey,
+          content: event.content,
+          created_at: event.created_at,
+          kind: event.kind,
+          tags: event.tags,
+          sig: event.sig,
+        };
+        cacheMessage(cached).catch((cacheError) => {
+          console.warn("Failed to cache reaction", cacheError);
+        });
+      },
+    );
+
+    const deletionSubscription = manager.subscribe(
+      {
+        kinds: [5],
+        "#t": [ROOM_TAG],
+      },
+      (event) => {
+        ensureDeletedMessagesHydrated();
+        const targetIds = event.tags
+          ?.filter((tag) => Array.isArray(tag) && tag[0] === "e" && typeof tag[1] === "string")
+          .map((tag) => tag[1].trim())
+          .filter((value) => value.length > 0);
+        if (!targetIds || targetIds.length === 0) {
+          return;
+        }
+
+        const targets = new Set(targetIds);
+        targetIds.forEach((id) => {
+          deletedMessageIdsRef.current.add(id);
+          pendingLikesRef.current.delete(id);
+        });
+        persistDeletedMessages();
+
+        setMessages((prev) => {
+          const filtered = prev.filter((message) => !targets.has(message.id));
+          if (filtered.length === prev.length) {
+            return prev;
+          }
+          return filtered;
+        });
+
+        removeCachedMessages(ROOM_ID, targetIds).catch((cacheError) => {
+          console.warn("Failed to remove deleted casual chat messages", cacheError);
+        });
+      },
+    );
+
     return () => {
       subscription.close();
       typingSubscription.close();
+      reactionSubscription.close();
+      deletionSubscription.close();
       manager.close();
       managerRef.current = null;
     };
-  }, [pubkey]);
+  }, [ensureDeletedMessagesHydrated, persistDeletedMessages, pubkey]);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -413,6 +673,7 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
         optimistic: true,
         quoteId: options?.quoteId ?? undefined,
         quotePubkey: options?.quotePubkey ?? undefined,
+        likePubkeys: [],
       };
 
       setMessages((prev) => upsertMessage(prev, optimisticMessage));
@@ -464,6 +725,136 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
     [hasKey, signEvent],
   );
 
+  const likeMessage = useCallback(
+    async (message: CasualChatMessage) => {
+      if (!signEvent) {
+        throw new Error("Your Nostr keys are not ready yet");
+      }
+      if (!pubkey) {
+        throw new Error("Your Nostr keys are not ready yet");
+      }
+      if (message.likePubkeys.includes(pubkey)) {
+        return;
+      }
+      const manager = managerRef.current;
+      if (!manager) {
+        throw new Error("Relay manager not ready yet");
+      }
+
+      const template: EventTemplate = {
+        kind: 7,
+        created_at: Math.floor(Date.now() / 1000),
+        content: "+",
+        tags: [
+          ["e", message.id],
+          ["p", message.pubkey],
+          ["t", ROOM_TAG],
+          ["app", "BitcoinSquare"],
+          ["chat", ROOM_TAG],
+        ],
+      };
+
+      const signed = await signEvent(template);
+      const reactor = signed.pubkey;
+
+      let found = false;
+      setMessages((prev) => {
+        const { next, found: messageFound, changed } = addLikeToMessages(prev, message.id, reactor);
+        found = messageFound;
+        if (!changed) {
+          return prev;
+        }
+        return next;
+      });
+
+      if (!found) {
+        const pending = pendingLikesRef.current.get(message.id) ?? new Set<string>();
+        pending.add(reactor);
+        pendingLikesRef.current.set(message.id, pending);
+      }
+
+      setError(null);
+
+      const { ack } = manager.publish(signed);
+
+      try {
+        await ack;
+        const cached: CachedMessage = {
+          id: signed.id,
+          roomId: ROOM_ID,
+          pubkey: signed.pubkey,
+          content: signed.content,
+          created_at: signed.created_at,
+          kind: signed.kind,
+          tags: signed.tags,
+          sig: signed.sig,
+        };
+        cacheMessage(cached).catch((cacheError) => {
+          console.warn("Failed to cache like", cacheError);
+        });
+      } catch (publishError) {
+        setMessages((prev) => {
+          const { next, changed } = removeLikeFromMessages(prev, message.id, reactor);
+          if (!changed) {
+            return prev;
+          }
+          return next;
+        });
+        throw publishError;
+      }
+    },
+    [pubkey, signEvent],
+  );
+
+  const deleteMessage = useCallback(
+    async (message: CasualChatMessage) => {
+      if (!signEvent) {
+        throw new Error("Your Nostr keys are not ready yet");
+      }
+      const manager = managerRef.current;
+      if (!manager) {
+        throw new Error("Relay manager not ready yet");
+      }
+
+      ensureDeletedMessagesHydrated();
+      const id = message.id;
+      deletedMessageIdsRef.current.add(id);
+      pendingLikesRef.current.delete(id);
+      setMessages((prev) => prev.filter((entry) => entry.id !== id));
+      persistDeletedMessages();
+
+      try {
+        const template: EventTemplate = {
+          kind: 5,
+          created_at: Math.floor(Date.now() / 1000),
+          content: "",
+          tags: [
+            ["e", id],
+            ["p", message.pubkey],
+            ["t", ROOM_TAG],
+            ["app", "BitcoinSquare"],
+            ["chat", ROOM_TAG],
+          ],
+        };
+
+        const signed = await signEvent(template);
+        const { ack } = manager.publish(signed);
+        await ack;
+
+        removeCachedMessages(ROOM_ID, [id]).catch((cacheError) => {
+          console.warn("Failed to clear deleted casual chat message from cache", cacheError);
+        });
+      } catch (deleteError) {
+        deletedMessageIdsRef.current.delete(id);
+        setMessages((prev) => upsertMessage(prev, message));
+        persistDeletedMessages();
+        setError(deleteError instanceof Error ? deleteError.message : String(deleteError));
+        throw deleteError;
+      }
+    },
+    [ensureDeletedMessagesHydrated, persistDeletedMessages, signEvent],
+  );
+
   const ready = useMemo(
     () => hasKey && Boolean(pubkey) && Boolean(managerRef.current) && accountReady,
     [accountReady, hasKey, pubkey],
@@ -508,6 +899,8 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
     roomName: ROOM_NAME,
     messages,
     sendMessage,
+    likeMessage,
+    deleteMessage,
     pubkey,
     loading,
     ready,

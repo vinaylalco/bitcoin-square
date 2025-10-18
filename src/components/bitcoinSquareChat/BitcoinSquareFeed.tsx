@@ -4,12 +4,11 @@ import type { FeedPost, PublishContext } from "../../hooks/useBitcoinSquareFeed"
 import { useProfileIdentity, shortenPubkey } from "../../context/ProfileIdentityContext";
 import type { ProfileSummary } from "../../context/ProfileIdentityContext";
 import { CASUAL_ROOM_ID, CASUAL_ROOM_NAME } from "../../hooks/useBitcoinSquareCasualChat";
-import { useMediaUploader, type MediaUploadResult } from "../../hooks/useMediaUploader";
 import { useCommunityTranslation } from "../../context/CommunityTranslationContext";
 import ProfileCard from "../profile/ProfileCard";
 import ErrorBoundary from "../ErrorBoundary";
 import type { RoomDefinition } from "../RoomList";
-import { Heart, Image as ImageIcon, Loader2, MessageSquareQuote, Plus, X } from "lucide-react";
+import { Heart, Loader2, MessageCircle, Plus, Trash2, X } from "lucide-react";
 import {
   createFeedActionHandlers,
   createOpenComposerDialog,
@@ -29,6 +28,7 @@ interface BitcoinSquareFeedProps {
     },
   ) => Promise<{ eventId: string }>;
   likePost: (post: FeedPost) => Promise<void>;
+  deletePost: (post: FeedPost) => Promise<void>;
   loadMore: () => Promise<void>;
   loadingMore: boolean;
   hasMore: boolean;
@@ -154,6 +154,15 @@ const extractPostReference = (
   return null;
 };
 
+const referencesPost = (post: FeedPost, targetId: string) =>
+  post.tags?.some((tag) => {
+    if (!Array.isArray(tag)) return false;
+    const [type, value] = tag;
+    if (typeof value !== "string") return false;
+    if (value.trim().length === 0) return false;
+    return (type === "reply" || type === "e" || type === "q") && value.trim() === targetId;
+  }) ?? false;
+
 const formatAbsoluteTimestamp = (unixSeconds: number | null | undefined) => {
   if (!unixSeconds) {
     return null;
@@ -189,6 +198,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   publishing,
   publishStatus,
   likePost,
+  deletePost,
   loadMore,
   loadingMore,
   hasMore,
@@ -197,22 +207,23 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   initialLoading,
 }) => {
   const [content, setContent] = useState("");
+  const [composerFocused, setComposerFocused] = useState(false);
   const [composerError, setComposerError] = useState<string | null>(null);
   const [composerOpen, setComposerOpen] = useState(false);
   const [composerMode, setComposerMode] = useState<ComposerMode>("new");
   const [composerTarget, setComposerTarget] = useState<FeedPost | null>(null);
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>(null);
   const [pendingLikes, setPendingLikes] = useState<PendingMap>(() => new Set());
+  const [pendingDeletes, setPendingDeletes] = useState<PendingMap>(() => new Set());
   const [expandedPosts, setExpandedPosts] = useState<Set<string>>(() => new Set());
+  const [expandedEventDetails, setExpandedEventDetails] = useState<Set<string>>(() => new Set());
   const [showNewPostsToast, setShowNewPostsToast] = useState(false);
   const [isAtTop, setIsAtTop] = useState(true);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const latestKnownPostRef = useRef<string | null>(null);
   const persistedComposerTargetIdRef = useRef<string | null>(null);
-  const [pendingMedia, setPendingMedia] = useState<MediaUploadResult[]>([]);
   const postRefs = useRef(new Map<string, HTMLDivElement>());
   const highlightTimerRef = useRef<number | null>(null);
   const [highlightedPostId, setHighlightedPostId] = useState<string | null>(null);
@@ -239,14 +250,6 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     }),
     [],
   );
-
-  const {
-    uploadFile: uploadMedia,
-    progress: uploadProgress,
-    status: uploadStatus,
-    error: uploadError,
-    reset: resetUpload,
-  } = useMediaUploader({ room: feedRoom, pubkey });
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -358,52 +361,11 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     setComposerMode("new");
     setContent("");
     setComposerError(null);
-    setPendingMedia([]);
     persistedComposerTargetIdRef.current = null;
     if (typeof window !== "undefined") {
       window.localStorage.removeItem(COMPOSER_STORAGE_KEY);
     }
-    resetUpload();
-  }, [resetUpload]);
-
-  const triggerFilePicker = useCallback(() => {
-    fileInputRef.current?.click();
-  }, []);
-
-  const handleMediaUpload = useCallback(
-    async (file: File) => {
-      try {
-        const result = await uploadMedia(file);
-        setPendingMedia((prev) => [...prev, result]);
-        setComposerError(null);
-      } catch (mediaError) {
-        const message = mediaError instanceof Error ? mediaError.message : String(mediaError);
-        setComposerError(message);
-        throw mediaError;
-      } finally {
-        resetUpload();
-      }
-    },
-    [resetUpload, uploadMedia],
-  );
-
-  const handleFileChange = useCallback(
-    async (event: React.ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0];
-      if (!file) return;
-      try {
-        await handleMediaUpload(file);
-      } catch {
-        // handled in handleMediaUpload
-      } finally {
-        event.target.value = "";
-      }
-    },
-    [handleMediaUpload],
-  );
-
-  const handleRemoveMedia = useCallback((cacheKey: string) => {
-    setPendingMedia((prev) => prev.filter((item) => item.cacheKey !== cacheKey));
+    setComposerFocused(false);
   }, []);
 
   const clearComposerTarget = useCallback(() => {
@@ -461,8 +423,8 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       event.preventDefault();
       if (!ready) return;
       const trimmed = content.trim();
-      if (!trimmed && pendingMedia.length === 0) {
-        setComposerError("Add a message or attach an image to post");
+      if (!trimmed) {
+        setComposerError("Add a message to post");
         return;
       }
       if (trimmed.length > 500) {
@@ -470,23 +432,11 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         return;
       }
 
-      const attachments = pendingMedia.map((media) => ({
-        url: media.url,
-        mimeType: media.mimeType,
-        size: media.size,
-        width: media.width,
-        height: media.height,
-        digest: media.digest,
-        iv: media.iv ?? null,
-        eventId: media.eventId,
-      }));
-
       try {
         setComposerError(null);
         await publishStatus({
           content: trimmed,
           context: composerTarget ? { type: composerMode, post: composerTarget } : undefined,
-          attachments,
         });
         resetComposer();
       } catch (publishError) {
@@ -497,7 +447,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         );
       }
     },
-    [composerMode, composerTarget, content, pendingMedia, publishStatus, ready, resetComposer],
+    [composerMode, composerTarget, content, publishStatus, ready, resetComposer],
   );
 
   const filteredPosts = useMemo(() => {
@@ -547,6 +497,27 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     });
     return map;
   }, [posts]);
+
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
+
+  const activeThreadPost = useMemo(() => {
+    if (!activeThreadId) return null;
+    return postsById.get(activeThreadId) ?? null;
+  }, [activeThreadId, postsById]);
+
+  const threadReplies = useMemo(() => {
+    if (!activeThreadId) return [] as FeedPost[];
+    return posts
+      .filter((post) => post.id !== activeThreadId && referencesPost(post, activeThreadId))
+      .sort((a, b) => a.created_at - b.created_at);
+  }, [activeThreadId, posts]);
+
+  useEffect(() => {
+    if (!activeThreadId) return;
+    if (!postsById.has(activeThreadId)) {
+      setActiveThreadId(null);
+    }
+  }, [activeThreadId, postsById]);
 
   const filterLabel = useMemo(() => {
     if (!activeFilter) return null;
@@ -602,6 +573,19 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       }
       return next;
     });
+  }, []);
+
+  const openThread = useCallback(
+    (post: FeedPost) => {
+      setActiveThreadId(post.id);
+      setHighlightedPostId(post.id);
+    },
+    [],
+  );
+
+  const closeThread = useCallback(() => {
+    setActiveThreadId(null);
+    setHighlightedPostId(null);
   }, []);
 
   const registerPost = useCallback(
@@ -743,7 +727,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     });
   }, []);
 
-  const { handlePost, handleQuote, handleLike } = useMemo(
+  const { handlePost, handleReply, handleLike } = useMemo(
     () =>
       createFeedActionHandlers({
         openComposerDialog,
@@ -788,6 +772,429 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     }
     focusPost(composerTarget.id);
   }, [composerTarget, focusPost]);
+
+  const handleThreadReply = useCallback(() => {
+    if (!activeThreadPost) return;
+    handleReply(activeThreadPost);
+  }, [activeThreadPost, handleReply]);
+
+  const toggleEventDetails = useCallback((postId: string) => {
+    setExpandedEventDetails((previous) => {
+      const next = new Set(previous);
+      if (next.has(postId)) {
+        next.delete(postId);
+      } else {
+        next.add(postId);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleDeletePost = useCallback(
+    async (post: FeedPost) => {
+      if (typeof window !== "undefined") {
+        const confirmed = window.confirm("Delete this post from all feeds?");
+        if (!confirmed) {
+          return;
+        }
+      }
+      updatePending(setPendingDeletes, post.id, true);
+      try {
+        await deletePost(post);
+      } catch (deleteError) {
+        console.warn("Unable to delete post", deleteError);
+        if (typeof window !== "undefined") {
+          const message =
+            deleteError instanceof Error ? deleteError.message : "We couldn't delete this post.";
+          window.alert(`Delete failed: ${message}`);
+        }
+      } finally {
+        updatePending(setPendingDeletes, post.id, false);
+      }
+    },
+    [deletePost, setPendingDeletes, updatePending],
+  );
+
+  const isThreadComposer =
+    composerOpen &&
+    composerMode === "reply" &&
+    composerTarget &&
+    activeThreadPost &&
+    composerTarget.id === activeThreadPost.id;
+
+  useEffect(() => {
+    if (!composerOpen) {
+      setComposerFocused(false);
+    }
+  }, [composerOpen]);
+
+  const composerExpanded = composerFocused || content.trim().length > 0;
+
+  const composerContent = (
+    <>
+      <header className="flex items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold uppercase tracking-[0.18em] text-[var(--fg-default)]">{composerTitle}</h2>
+        <button
+          type="button"
+          onClick={resetComposer}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+          aria-label="Close composer"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </header>
+
+      {composerTarget && (
+        <div className="mt-4 rounded-2xl border border-brand/40 bg-brand/10 px-4 py-3 text-xs text-brand shadow-sm">
+          <div className="flex items-start gap-3">
+            <button
+              type="button"
+              onClick={handleComposerReferenceClick}
+              className="flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+            >
+              <p className="font-semibold uppercase tracking-[0.24em] text-brand/80">
+                {composerReferenceLabel}{" "}
+                {composerTargetSummary?.displayName ?? shortenPubkey(composerTarget.pubkey)}
+              </p>
+              <p className="mt-1 line-clamp-3 text-[11px] font-medium text-brand/90">
+                {composerPreviewSnippet || "Referenced post"}
+              </p>
+              {composerTimestampLabel && (
+                <p className="mt-2 text-[10px] uppercase tracking-[0.3em] text-brand/60">{composerTimestampLabel}</p>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={clearComposerTarget}
+              className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-brand/40 text-brand transition hover:bg-brand hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+              aria-label="Remove referenced post"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+        <textarea
+          ref={textareaRef}
+          value={content}
+          onChange={(event) => setContent(event.target.value.slice(0, 500))}
+          onFocus={() => setComposerFocused(true)}
+          onBlur={() => {
+            if (content.trim().length === 0) {
+              setComposerFocused(false);
+            }
+          }}
+          rows={composerExpanded ? 6 : 1}
+          className={`w-full rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 px-4 py-3 text-sm leading-relaxed text-[var(--fg-default)] shadow-inner focus:border-brand focus:outline-none ${composerExpanded ? "resize-y" : "resize-none"}`}
+          placeholder={
+            composerMode === "reply"
+              ? "Share your thoughts…"
+              : composerMode === "quote"
+                ? "Add your perspective…"
+                : "What’s happening in your corner of BitcoinSquare?"
+          }
+          disabled={!ready || publishing}
+        />
+        <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-[var(--fg-muted)]">
+          <span>{content.length}/500</span>
+        </div>
+        {composerError && <p className="text-xs text-red-500">{composerError}</p>}
+        <button
+          type="submit"
+          disabled={!ready || publishing}
+          className="w-full rounded-full bg-brand px-6 py-2 text-sm font-semibold uppercase tracking-[0.24em] text-white transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:bg-brand/40"
+        >
+          {submitLabel}
+        </button>
+        {error && <p className="text-center text-xs text-red-500">{error}</p>}
+      </form>
+    </>
+  );
+
+  const renderPostCard = (
+    post: FeedPost,
+    {
+      variant = "list",
+      registerNode,
+      highlight = false,
+      onOpenThread,
+      suppressReferencePreview = false,
+    }: {
+      variant?: "list" | "thread";
+      registerNode?: (node: HTMLDivElement | null) => void;
+      highlight?: boolean;
+      onOpenThread?: (post: FeedPost) => void;
+      suppressReferencePreview?: boolean;
+    } = {},
+  ) => {
+    const isPendingLike = pendingLikes.has(post.id);
+    const likeDisabled = !ready || isPendingLike;
+    const isPendingDelete = pendingDeletes.has(post.id);
+    const canDelete = true;
+    const deleteDisabled = !ready || isPendingDelete;
+    const statusLabel =
+      post.status === "pending"
+        ? "Posting to relays…"
+        : post.status === "failed"
+          ? post.error ?? "Delivery failed."
+          : null;
+    const translationKey = `feed:${post.id}`;
+    const translationEntry = translationEnabled ? getTranslation(translationKey) : undefined;
+    const translationStatus = translationEntry?.status ?? "idle";
+    const rawTranslatedText =
+      translationEntry?.translatedText && translationEntry.translatedText.trim().length > 0
+        ? translationEntry.translatedText
+        : null;
+    const translationReady = translationEnabled && translationStatus === "ready" && !!rawTranslatedText;
+    const showOriginal = !translationEnabled || !translationReady || isOriginalVisible(translationKey);
+    const contentSource = !showOriginal && rawTranslatedText ? rawTranslatedText : post.content;
+    const longPost = isLongPost(contentSource);
+    const isThreadVariant = variant === "thread";
+    const isExpanded = isThreadVariant || expandedPosts.has(post.id);
+    const displayContent = isExpanded || !longPost ? contentSource : getCollapsedContent(contentSource);
+    const detectedLanguageLabel =
+      translationEntry?.detectedLanguage && translationEntry.detectedLanguage.trim().length > 0
+        ? formatLanguageName(translationEntry.detectedLanguage)
+        : null;
+    const reference = extractPostReference(post.tags);
+    const referencedId = reference?.id ?? null;
+    const referencedPost = referencedId ? postsById.get(referencedId) : undefined;
+    const referencedPubkeyTag = post.tags.find(
+      (tag) => Array.isArray(tag) && tag[0] === "p" && typeof tag[1] === "string" && tag[1].trim().length > 0,
+    );
+    const referencedPubkey =
+      referencedPost?.pubkey ?? (referencedPubkeyTag && typeof referencedPubkeyTag[1] === "string" ? referencedPubkeyTag[1] : null);
+    const referenceSummary = referencedPubkey ? resolveProfileSummary(referencedPubkey) : null;
+    const referenceSnippet =
+      referencedPost?.content && referencedPost.content.trim().length > 0
+        ? buildPostSnippet(referencedPost.content)
+        : "Referenced post";
+    const referenceTimestamp =
+      referencedPost?.created_at ? formatAbsoluteTimestamp(referencedPost.created_at) : null;
+    const showReferencePreview =
+      !!reference && !!referencedId && !suppressReferencePreview;
+    const interactive = typeof onOpenThread === "function" && (variant === "list" || variant === "thread");
+    const cardClassName = `rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-5 shadow-sm transition ${
+      interactive ? "hover:border-brand/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 cursor-pointer" : ""
+    } ${highlight ? "ring-2 ring-brand/60" : ""}`;
+    const showEventDetails = expandedEventDetails.has(post.id);
+    const eventDetailsLabel = showEventDetails ? "Hide event data" : "More info";
+
+    return (
+      <article
+        key={post.id}
+        ref={registerNode}
+        role={interactive ? "button" : undefined}
+        tabIndex={interactive ? 0 : undefined}
+        onClick={interactive ? () => onOpenThread?.(post) : undefined}
+        onKeyDown={
+          interactive
+            ? (event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onOpenThread?.(post);
+                }
+              }
+            : undefined
+        }
+        className={cardClassName}
+        title={interactive ? "View conversation" : undefined}
+      >
+        <header className="flex flex-wrap items-start justify-between gap-4">
+          <ProfileCard
+            pubkey={post.pubkey}
+            contentClassName="items-start lg:w-1/4"
+            className="flex-1 lg:flex-none lg:w-1/4"
+            subtitle={shortenPubkey(post.pubkey)}
+            meta={
+              <span className="text-xs uppercase tracking-[0.18em] text-[var(--fg-muted)]">
+                {formatRelativeTime(post.created_at)}
+              </span>
+            }
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              openProfile(post.pubkey);
+            }}
+          />
+        </header>
+
+        {showReferencePreview && (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              focusPost(referencedId);
+            }}
+            className="mt-4 w-full rounded-2xl border border-brand/30 bg-brand/10 px-4 py-3 text-left text-xs text-brand transition hover:border-brand/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+          >
+            <p className="font-semibold uppercase tracking-[0.24em] text-brand/80">
+              {reference.type === "quote" ? "Quoted post" : "Replying to"}{" "}
+              {referenceSummary?.displayName ?? (referencedPubkey ? shortenPubkey(referencedPubkey) : "Community member")}
+            </p>
+            <p className="mt-1 line-clamp-3 text-[11px] font-medium text-brand/90">{referenceSnippet}</p>
+            {referenceTimestamp && (
+              <p className="mt-2 text-[10px] uppercase tracking-[0.3em] text-brand/60">{referenceTimestamp}</p>
+            )}
+          </button>
+        )}
+
+        <div className="mt-4 whitespace-pre-wrap break-words text-sm leading-relaxed text-[var(--fg-default)]">
+          {renderContent(displayContent, handleTagClick, handleMentionClick)}
+        </div>
+
+        {translationEnabled && (
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.24em] text-[var(--fg-muted)]">
+            {translationStatus === "loading" ? (
+              <span>Translating…</span>
+            ) : translationStatus === "error" ? (
+              <>
+                <span>Translation unavailable</span>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    refreshTranslation(translationKey, post.content);
+                  }}
+                  className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.24em] text-brand transition hover:text-brand/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand/60"
+                >
+                  Retry
+                </button>
+              </>
+            ) : translationReady ? (
+              <>
+                <span>
+                  {showOriginal
+                    ? `Showing original${detectedLanguageLabel ? ` (${detectedLanguageLabel})` : ""}`
+                    : `Translated from ${detectedLanguageLabel ?? "original language"}`}
+                </span>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    toggleOriginal(translationKey);
+                  }}
+                  className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.24em] text-brand transition hover:text-brand/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand/60"
+                >
+                  {showOriginal ? "View translation" : "View original"}
+                </button>
+              </>
+            ) : null}
+          </div>
+        )}
+
+        {!isThreadVariant && longPost && (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              toggleExpanded(post.id);
+            }}
+            className="mt-2 text-xs font-semibold uppercase tracking-[0.18em] text-brand transition hover:text-brand/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+          >
+            {isExpanded ? "Show less" : "Show more"}
+          </button>
+        )}
+
+        {post.attachments.length > 0 && (
+          <div className="mt-4 space-y-3">
+            {post.attachments.map((attachment, index) => {
+              const metaParts: string[] = [];
+              if (attachment.width && attachment.height) {
+                metaParts.push(`${attachment.width}x${attachment.height}`);
+              } else if (attachment.dimensions) {
+                metaParts.push(attachment.dimensions);
+              }
+              if (attachment.size) {
+                metaParts.push(`${(attachment.size / 1024).toFixed(1)} KB`);
+              }
+              return (
+                <div
+                  key={`${post.id}-attachment-${index}`}
+                  className="overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  {attachment.mimeType.startsWith("video/") ? (
+                    <video src={attachment.url} controls className="max-h-80 w-full rounded-2xl" />
+                  ) : (
+                    <img src={attachment.url} alt="Feed attachment" className="w-full object-contain" loading="lazy" />
+                  )}
+                  {metaParts.length > 0 && (
+                    <p className="px-3 py-2 text-xs text-[var(--fg-muted)]">{metaParts.join(" • ")}</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {statusLabel && <p className="mt-3 text-xs text-[var(--fg-muted)]">{statusLabel}</p>}
+
+        <div className="mt-4 flex flex-wrap items-center gap-2 text-[var(--fg-muted)]">
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              handleLike(post);
+            }}
+            disabled={likeDisabled}
+            className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
+              isPendingLike
+                ? "border-brand text-brand"
+                : "border-[var(--border-subtle)] text-[var(--fg-muted)] hover:border-brand hover:text-brand"
+            } disabled:cursor-not-allowed disabled:opacity-60`}
+            title={isPendingLike ? "Sending like…" : "Like this post"}
+          >
+            {isPendingLike ? <Loader2 className="h-4 w-4 animate-spin" /> : <Heart className="h-4 w-4" />}
+            <span className="sr-only">Like</span>
+          </button>
+          {canDelete && (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                void handleDeletePost(post);
+              }}
+              disabled={deleteDisabled}
+              className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
+                isPendingDelete
+                  ? "border-red-500 text-red-500"
+                  : "border-[var(--border-subtle)] text-[var(--fg-muted)] hover:border-red-500 hover:text-red-500"
+              } disabled:cursor-not-allowed disabled:opacity-60`}
+              title={isPendingDelete ? "Deleting…" : "Delete this post"}
+            >
+              {isPendingDelete ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              <span className="sr-only">Delete</span>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              toggleEventDetails(post.id);
+            }}
+            className="inline-flex h-9 items-center rounded-full border border-[var(--border-subtle)] px-4 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+            aria-expanded={showEventDetails}
+            title={showEventDetails ? "Hide raw event data" : "View raw event data"}
+          >
+            {eventDetailsLabel}
+          </button>
+        </div>
+
+        {showEventDetails && (
+          <div className="mt-4 space-y-2 rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-4 text-xs text-[var(--fg-muted)]">
+            <p className="font-semibold uppercase tracking-[0.24em] text-[var(--fg-muted)]">Raw event</p>
+            <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-all rounded-xl bg-[var(--bg-card)]/70 p-3 text-[11px] leading-relaxed text-[var(--fg-muted)]">
+              {JSON.stringify(post.event, null, 2)}
+            </pre>
+          </div>
+        )}
+
+      </article>
+    );
+  };
 
   return (
     <div className="relative flex flex-1 flex-col overflow-hidden">
@@ -846,6 +1253,12 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
             </div>
           )}
 
+          {composerOpen && composerMode !== "reply" && (
+            <div className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)]/90 p-5 shadow-sm">
+              {composerContent}
+            </div>
+          )}
+
           {error && !composerOpen && (
             <p className="rounded-2xl border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-500">{error}</p>
           )}
@@ -855,208 +1268,15 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
               No posts yet{activeFilter ? " for this filter." : "."} Be the first to share what you’re working on!
             </p>
           ) : (
-            filteredPosts.map((post) => {
-            const profile = resolveProfileSummary(post.pubkey);
-            const isSelfPost = post.pubkey === pubkey;
-            const isPendingLike = pendingLikes.has(post.id);
-            const likeDisabled = !ready || isPendingLike;
-            const statusLabel =
-              post.status === "pending"
-                ? "Posting to relays…"
-                : post.status === "failed"
-                  ? post.error ?? "Delivery failed."
-                  : null;
-            const isExpanded = expandedPosts.has(post.id);
-            const translationKey = `feed:${post.id}`;
-            const translationEntry = translationEnabled ? getTranslation(translationKey) : undefined;
-            const translationStatus = translationEntry?.status ?? "idle";
-            const rawTranslatedText =
-              translationEntry?.translatedText && translationEntry.translatedText.trim().length > 0
-                ? translationEntry.translatedText
-                : null;
-            const translationReady = translationEnabled && translationStatus === "ready" && !!rawTranslatedText;
-            const showOriginal =
-              !translationEnabled || !translationReady || isOriginalVisible(translationKey);
-            const contentSource = !showOriginal && rawTranslatedText ? rawTranslatedText : post.content;
-            const longPost = isLongPost(contentSource);
-            const displayContent = isExpanded || !longPost ? contentSource : getCollapsedContent(contentSource);
-            const detectedLanguageLabel =
-              translationEntry?.detectedLanguage && translationEntry.detectedLanguage.trim().length > 0
-                ? formatLanguageName(translationEntry.detectedLanguage)
-                : null;
-            const reference = extractPostReference(post.tags);
-            const referencedId = reference?.id ?? null;
-            const referencedPost = referencedId ? postsById.get(referencedId) : undefined;
-            const referencedPubkeyTag = post.tags.find(
-              (tag) => Array.isArray(tag) && tag[0] === "p" && typeof tag[1] === "string" && tag[1].trim().length > 0,
-            );
-            const referencedPubkey =
-              referencedPost?.pubkey ??
-              (referencedPubkeyTag && typeof referencedPubkeyTag[1] === "string"
-                ? referencedPubkeyTag[1]
-                : null);
-            const referenceSummary = referencedPubkey ? resolveProfileSummary(referencedPubkey) : null;
-            const referenceSnippet =
-              referencedPost?.content && referencedPost.content.trim().length > 0
-                ? buildPostSnippet(referencedPost.content)
-                : "Referenced post";
-            const referenceTimestamp =
-              referencedPost?.created_at ? formatAbsoluteTimestamp(referencedPost.created_at) : null;
-
-            return (
-              <article
-                key={post.id}
-                ref={registerPost(post.id)}
-                className={`rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-5 shadow-sm transition hover:border-brand/60 ${
-                  highlightedPostId === post.id ? "ring-2 ring-brand/60" : ""
-                }`}
-              >
-                <header className="flex flex-wrap items-start justify-between gap-4">
-                  <ProfileCard
-                    pubkey={post.pubkey}
-                    contentClassName="items-start"
-                    className="flex-1"
-                    subtitle={shortenPubkey(post.pubkey)}
-                    meta={
-                      <span className="text-xs uppercase tracking-[0.18em] text-[var(--fg-muted)]">
-                        {formatRelativeTime(post.created_at)}
-                      </span>
-                    }
-                    onClick={(event) => {
-                      event.preventDefault();
-                      openProfile(post.pubkey);
-                    }}
-                  />
-                </header>
-
-                {reference && referencedId && (
-                  <button
-                    type="button"
-                    onClick={() => focusPost(referencedId)}
-                    className="mt-4 w-full rounded-2xl border border-brand/30 bg-brand/10 px-4 py-3 text-left text-xs text-brand transition hover:border-brand/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
-                  >
-                    <p className="font-semibold uppercase tracking-[0.24em] text-brand/80">
-                      {reference.type === "quote" ? "Quoted post" : "Replying to"}{" "}
-                      {referenceSummary?.displayName ?? (referencedPubkey ? shortenPubkey(referencedPubkey) : "Community member")}
-                    </p>
-                    <p className="mt-1 line-clamp-3 text-[11px] font-medium text-brand/90">{referenceSnippet}</p>
-                    {referenceTimestamp && (
-                      <p className="mt-2 text-[10px] uppercase tracking-[0.3em] text-brand/60">{referenceTimestamp}</p>
-                    )}
-                  </button>
-                )}
-
-                <div className="mt-4 whitespace-pre-wrap break-words text-sm leading-relaxed text-[var(--fg-default)]">
-                  {renderContent(displayContent, handleTagClick, handleMentionClick)}
-                </div>
-
-                {translationEnabled && (
-                  <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.24em] text-[var(--fg-muted)]">
-                    {translationStatus === "loading" ? (
-                      <span>Translating…</span>
-                    ) : translationStatus === "error" ? (
-                      <>
-                        <span>Translation unavailable</span>
-                        <button
-                          type="button"
-                          onClick={() => refreshTranslation(translationKey, post.content)}
-                          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.24em] text-brand transition hover:text-brand/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand/60"
-                        >
-                          Retry
-                        </button>
-                      </>
-                    ) : translationReady ? (
-                      <>
-                        <span>
-                          {showOriginal
-                            ? `Showing original${detectedLanguageLabel ? ` (${detectedLanguageLabel})` : ""}`
-                            : `Translated from ${detectedLanguageLabel ?? "original language"}`}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => toggleOriginal(translationKey)}
-                          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.24em] text-brand transition hover:text-brand/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand/60"
-                        >
-                          {showOriginal ? "View translation" : "View original"}
-                        </button>
-                      </>
-                    ) : null}
-                  </div>
-                )}
-
-                {longPost && (
-                  <button
-                    type="button"
-                    onClick={() => toggleExpanded(post.id)}
-                    className="mt-2 text-xs font-semibold uppercase tracking-[0.18em] text-brand transition hover:text-brand/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
-                  >
-                    {isExpanded ? "Show less" : "Show more"}
-                  </button>
-                )}
-
-                {post.attachments.length > 0 && (
-                  <div className="mt-4 space-y-3">
-                    {post.attachments.map((attachment, index) => {
-                      const metaParts: string[] = [];
-                      if (attachment.width && attachment.height) {
-                        metaParts.push(`${attachment.width}x${attachment.height}`);
-                      } else if (attachment.dimensions) {
-                        metaParts.push(attachment.dimensions);
-                      }
-                      if (attachment.size) {
-                        metaParts.push(`${(attachment.size / 1024).toFixed(1)} KB`);
-                      }
-                      return (
-                        <div
-                          key={`${post.id}-attachment-${index}`}
-                          className="overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60"
-                        >
-                          {attachment.mimeType.startsWith("video/") ? (
-                            <video src={attachment.url} controls className="max-h-80 w-full rounded-2xl" />
-                          ) : (
-                            <img src={attachment.url} alt="Feed attachment" className="w-full object-contain" loading="lazy" />
-                          )}
-                          {metaParts.length > 0 && (
-                            <p className="px-3 py-2 text-xs text-[var(--fg-muted)]">{metaParts.join(" • ")}</p>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {statusLabel && <p className="mt-3 text-xs text-[var(--fg-muted)]">{statusLabel}</p>}
-
-                <div className="mt-4 flex flex-wrap items-center gap-2 text-[var(--fg-muted)]">
-                  <button
-                    type="button"
-                    onClick={() => handleQuote(post)}
-                    disabled={!ready}
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 disabled:cursor-not-allowed disabled:opacity-60"
-                    title="Quote this post"
-                  >
-                    <MessageSquareQuote className="h-4 w-4" />
-                    <span className="sr-only">Quote</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleLike(post)}
-                    disabled={likeDisabled}
-                    className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
-                      isPendingLike
-                        ? "border-brand text-brand"
-                        : "border-[var(--border-subtle)] text-[var(--fg-muted)] hover:border-brand hover:text-brand"
-                    } disabled:cursor-not-allowed disabled:opacity-60`}
-                    title={isPendingLike ? "Sending like…" : "Like this post"}
-                  >
-                    {isPendingLike ? <Loader2 className="h-4 w-4 animate-spin" /> : <Heart className="h-4 w-4" />}
-                    <span className="sr-only">Like</span>
-                  </button>
-                </div>
-              </article>
-            );
-          })
-        )}
+            filteredPosts.map((post) =>
+              renderPostCard(post, {
+                variant: "list",
+                registerNode: registerPost(post.id),
+                highlight: highlightedPostId === post.id,
+                onOpenThread: openThread,
+              }),
+            )
+          )}
 
         {initialLoading && posts.length === 0 && (
           <div className="space-y-4">
@@ -1112,6 +1332,77 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         </button>
       )}
 
+      {activeThreadPost && (
+        <div className="fixed inset-0 z-[75] flex items-start justify-center overflow-y-auto bg-black/60 px-4 py-10 sm:py-16">
+          <div className="absolute inset-0" onClick={closeThread} aria-hidden="true" />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="feed-thread-heading"
+            className="relative z-[80] w-full max-w-3xl space-y-6 rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-2xl"
+          >
+            <header className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <h2
+                  id="feed-thread-heading"
+                  className="text-lg font-semibold uppercase tracking-[0.18em] text-[var(--fg-default)]"
+                >
+                  Post details
+                </h2>
+                <p className="mt-1 text-xs uppercase tracking-[0.3em] text-[var(--fg-muted)]">
+                  {formatAbsoluteTimestamp(activeThreadPost.created_at) ?? ""}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeThread}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+                aria-label="Close post details"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </header>
+
+            {renderPostCard(activeThreadPost, { variant: "thread" })}
+
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h3 className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)]">Replies</h3>
+              <button
+                type="button"
+                onClick={handleThreadReply}
+                className="inline-flex items-center gap-2 rounded-full bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-brand"
+                disabled={!ready}
+              >
+                <MessageCircle className="h-4 w-4" />
+                Reply to post
+              </button>
+            </div>
+
+            {threadReplies.length === 0 ? (
+              <p className="rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-4 text-sm text-[var(--fg-muted)]">
+                No replies yet. Share your thoughts to start the conversation.
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {threadReplies.map((reply) =>
+                  renderPostCard(reply, {
+                    variant: "thread",
+                    onOpenThread: openThread,
+                    suppressReferencePreview: true,
+                  }),
+                )}
+              </div>
+            )}
+
+            {isThreadComposer && (
+              <div className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)]/90 p-5 shadow-sm">
+                {composerContent}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <button
         type="button"
         onClick={handlePost}
@@ -1121,136 +1412,6 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       >
         <Plus className="h-6 w-6" />
       </button>
-
-      {composerOpen && (
-        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/60 px-4 py-8 sm:items-center">
-          <div className="absolute inset-0" onClick={resetComposer} aria-hidden="true" />
-          <div className="relative w-full max-w-xl rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-2xl">
-            <header className="flex items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold uppercase tracking-[0.18em] text-[var(--fg-default)]">{composerTitle}</h2>
-              <button
-                type="button"
-                onClick={resetComposer}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
-                aria-label="Close composer"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </header>
-
-            {composerTarget && (
-              <div className="mt-4 rounded-2xl border border-brand/40 bg-brand/10 px-4 py-3 text-xs text-brand shadow-sm">
-                <div className="flex items-start gap-3">
-                  <button
-                    type="button"
-                    onClick={handleComposerReferenceClick}
-                    className="flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
-                  >
-                    <p className="font-semibold uppercase tracking-[0.24em] text-brand/80">
-                      {composerReferenceLabel}{" "}
-                      {composerTargetSummary?.displayName ?? shortenPubkey(composerTarget.pubkey)}
-                    </p>
-                    <p className="mt-1 line-clamp-3 text-[11px] font-medium text-brand/90">
-                      {composerPreviewSnippet || "Referenced post"}
-                    </p>
-                    {composerTimestampLabel && (
-                      <p className="mt-2 text-[10px] uppercase tracking-[0.3em] text-brand/60">
-                        {composerTimestampLabel}
-                      </p>
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={clearComposerTarget}
-                    className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-brand/40 text-brand transition hover:bg-brand hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
-                    aria-label="Remove referenced post"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-              <textarea
-                ref={textareaRef}
-                value={content}
-                onChange={(event) => setContent(event.target.value.slice(0, 500))}
-                className="min-h-[160px] w-full resize-y rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-4 text-sm text-[var(--fg-default)] shadow-inner focus:border-brand focus:outline-none"
-                placeholder={
-                  composerMode === "reply"
-                    ? "Share your thoughts…"
-                    : composerMode === "quote"
-                      ? "Add your perspective…"
-                      : "What’s happening in your corner of BitcoinSquare?"
-                }
-                disabled={!ready || publishing}
-              />
-              {pendingMedia.length > 0 && (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {pendingMedia.map((media) => (
-                    <div
-                      key={media.cacheKey}
-                      className="relative overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60"
-                    >
-                      <img
-                        src={media.previewUrl ?? media.url}
-                        alt="Selected attachment"
-                        className="h-40 w-full object-cover"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveMedia(media.cacheKey)}
-                        className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur transition hover:bg-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
-                        aria-label="Remove attachment"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-[var(--fg-muted)]">
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={triggerFilePicker}
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
-                    disabled={!ready || publishing || uploadStatus === "uploading"}
-                    title="Attach media"
-                  >
-                    {uploadStatus === "uploading" ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
-                    <span className="sr-only">Attach media</span>
-                  </button>
-                  {uploadStatus === "uploading" && (
-                    <span>Uploading… {uploadProgress}%</span>
-                  )}
-                  {uploadError && <span className="text-red-500">{uploadError}</span>}
-                </div>
-                <span>{content.length}/500</span>
-              </div>
-              {composerError && <p className="text-xs text-red-500">{composerError}</p>}
-              <button
-                type="submit"
-                disabled={!ready || publishing}
-                className="w-full rounded-full bg-brand px-6 py-2 text-sm font-semibold uppercase tracking-[0.24em] text-white transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:bg-brand/40"
-              >
-                {submitLabel}
-              </button>
-              {error && (
-                <p className="text-center text-xs text-red-500">{error}</p>
-              )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*,video/*"
-                className="hidden"
-                onChange={handleFileChange}
-              />
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

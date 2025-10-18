@@ -5,6 +5,7 @@ import {
   cacheMessage,
   cacheMessages,
   getCachedMessages,
+  removeCachedMessages,
   type CachedMessage,
 } from "../utils/chatCache";
 import { useNostrAccount } from "./useNostrAccount";
@@ -30,6 +31,10 @@ const BASE_BACKOFF = 1000;
 const MAX_BACKOFF = 30_000;
 const RETRY_BASE_DELAY = 2000;
 const MAX_PUBLISH_ATTEMPTS = 5;
+const ENCRYPTED_PLACEHOLDER = "Encrypted message (unlock to view)";
+const DECRYPT_FAILURE_PLACEHOLDER = "Unable to decrypt message";
+const LEGACY_DECRYPTING_PLACEHOLDER = "Decrypting message…";
+const DELETED_POST_STORAGE_KEY = "bitcoinsquare-forum-deleted";
 
 export interface FeedAttachment {
   url: string;
@@ -322,6 +327,7 @@ export interface UseBitcoinSquareFeedReturn {
   publishing: boolean;
   publishStatus: (content: string, context?: PublishContext | null) => Promise<PublishResult>;
   likePost: (post: FeedPost) => Promise<void>;
+  deletePost: (post: FeedPost) => Promise<void>;
   loadMore: () => Promise<void>;
   loadingMore: boolean;
   hasMore: boolean;
@@ -341,12 +347,14 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
 
   const poolRef = useRef<SimplePool | null>(null);
   const subRef = useRef<ReturnType<SimplePool["subscribeMany"]> | null>(null);
-  const pendingDecryptsRef = useRef<Map<string, Event>>(new Map());
+  const eventsRef = useRef<Map<string, Event>>(new Map());
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const backoffRef = useRef(BASE_BACKOFF);
   const oldestTimestampRef = useRef<number | null>(null);
   const initialLoadRef = useRef(false);
   const retryTimersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const deletedPostIdsRef = useRef<Set<string>>(new Set());
+  const deletedPostStorageHydratedRef = useRef(false);
 
   const { ready: accountReady, pubkey, signEvent } = useNostrAccount();
   const configuredRoomKey = getConfiguredRoomKey(FEED_ROOM_ID);
@@ -359,6 +367,48 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
 
   const ready = useMemo(() => accountReady && poolReady && feedKeyAvailable, [accountReady, feedKeyAvailable, poolReady]);
 
+  const ensureDeletedPostsHydrated = useCallback(() => {
+    if (deletedPostStorageHydratedRef.current) {
+      return;
+    }
+    if (typeof window === "undefined") {
+      return;
+    }
+    try {
+      const raw = window.localStorage.getItem(DELETED_POST_STORAGE_KEY);
+      if (!raw) {
+        return;
+      }
+      const parsed = JSON.parse(raw) as unknown;
+      if (Array.isArray(parsed)) {
+        parsed.forEach((value) => {
+          if (typeof value === "string") {
+            const trimmed = value.trim();
+            if (trimmed.length > 0) {
+              deletedPostIdsRef.current.add(trimmed);
+            }
+          }
+        });
+      }
+    } catch (storageError) {
+      console.warn("Failed to restore deleted forum posts", storageError);
+    } finally {
+      deletedPostStorageHydratedRef.current = true;
+    }
+  }, []);
+
+  const persistDeletedPosts = useCallback(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    try {
+      const serialized = JSON.stringify(Array.from(deletedPostIdsRef.current));
+      window.localStorage.setItem(DELETED_POST_STORAGE_KEY, serialized);
+    } catch (storageError) {
+      console.warn("Failed to persist deleted forum posts", storageError);
+    }
+  }, []);
+
   const ensureOldestTimestamp = useCallback((nextPosts: FeedPost[]) => {
     if (nextPosts.length === 0) {
       oldestTimestampRef.current = null;
@@ -369,73 +419,32 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
 
   const insertPost = useCallback(
     (post: FeedPost) => {
+      ensureDeletedPostsHydrated();
+      if (deletedPostIdsRef.current.has(post.id)) {
+        return;
+      }
       setPosts((prev) => {
         const next = upsertPost(prev, post);
         ensureOldestTimestamp(next);
         return next;
       });
     },
-    [ensureOldestTimestamp],
+    [ensureDeletedPostsHydrated, ensureOldestTimestamp],
   );
-
-  const hydrateFromCache = useCallback(async () => {
-    try {
-      const cached = await getCachedMessages(FEED_ROOM_ID, INITIAL_FETCH_LIMIT);
-      if (cached.length === 0) {
-        setHasMore(true);
-        setInitialLoading(true);
-        return;
-      }
-      const mapped = cached
-        .map((entry) => {
-          let payload: FeedPayload | string = entry.content;
-          if (entry.decrypted) {
-            try {
-              const parsed = JSON.parse(entry.decrypted) as FeedPayload;
-              if (parsed && typeof parsed.body === "string") {
-                payload = {
-                  body: parsed.body,
-                  attachments: Array.isArray(parsed.attachments)
-                    ? parsed.attachments.map((attachment) => normalizeAttachment(attachment)).filter(
-                        (attachment): attachment is FeedAttachment => Boolean(attachment),
-                      )
-                    : parseAttachments(entry.tags ?? []),
-                };
-              } else {
-                payload = entry.decrypted;
-              }
-            } catch {
-              payload = entry.decrypted;
-            }
-          }
-          return mapEventToPost(cachedToEvent(entry), false, payload);
-        })
-        .sort((a, b) => b.created_at - a.created_at)
-        .slice(0, MAX_POSTS);
-      setPosts(mapped);
-      ensureOldestTimestamp(mapped);
-      setHasMore(cached.length >= INITIAL_FETCH_LIMIT);
-      setInitialLoading(false);
-    } catch (cacheError) {
-      console.warn("Failed to hydrate feed cache", cacheError);
-    }
-  }, [ensureOldestTimestamp]);
-
-  useEffect(() => {
-    void hydrateFromCache();
-  }, [hydrateFromCache]);
 
   const decodeEventContent = useCallback(
     async (event: Event): Promise<FeedPayload> => {
       const parsedAttachments = parseAttachments(event.tags ?? []);
       const encryptedPayload = typeof event.content === "string" && event.content.startsWith("v44:");
-      if (!feedKeyAvailable) {
-        if (encryptedPayload) {
-          pendingDecryptsRef.current.set(event.id, event);
-          return { body: "Decrypting message…", attachments: parsedAttachments };
-        }
+
+      if (!encryptedPayload) {
         return { body: event.content, attachments: parsedAttachments };
       }
+
+      if (!feedKeyAvailable) {
+        return { body: ENCRYPTED_PLACEHOLDER, attachments: parsedAttachments };
+      }
+
       try {
         const payload = await decryptChannelJson<FeedPayload>(FEED_ROOM_ID, event.content);
         if (payload && typeof payload.body === "string") {
@@ -444,28 +453,86 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
                 .map((attachment) => normalizeAttachment(attachment))
                 .filter((attachment): attachment is FeedAttachment => Boolean(attachment))
             : parsedAttachments;
-          pendingDecryptsRef.current.delete(event.id);
           return {
             body: payload.body,
             attachments,
           };
         }
+
         if (typeof (payload as unknown) === "string") {
-          pendingDecryptsRef.current.delete(event.id);
           return { body: payload as unknown as string, attachments: parsedAttachments };
         }
       } catch (decodeError) {
         console.warn("Failed to decrypt feed event", decodeError);
       }
-      if (encryptedPayload) {
-        pendingDecryptsRef.current.set(event.id, event);
-        return { body: "Decrypting message…", attachments: parsedAttachments };
-      }
-      pendingDecryptsRef.current.delete(event.id);
-      return { body: event.content, attachments: parsedAttachments };
+
+      return { body: DECRYPT_FAILURE_PLACEHOLDER, attachments: parsedAttachments };
     },
     [feedKeyAvailable],
   );
+
+  const hydrateFromCache = useCallback(async () => {
+    ensureDeletedPostsHydrated();
+    try {
+      const cached = await getCachedMessages(FEED_ROOM_ID, INITIAL_FETCH_LIMIT);
+      if (cached.length === 0) {
+        setHasMore(true);
+        setInitialLoading(true);
+        return;
+      }
+      const mapped = await Promise.all(
+        cached.map(async (entry) => {
+          const event = cachedToEvent(entry);
+          eventsRef.current.set(event.id, event);
+          let cachedPayload: FeedPayload | null = null;
+
+          if (entry.decrypted) {
+            try {
+              const parsed = JSON.parse(entry.decrypted) as FeedPayload;
+              if (parsed && typeof parsed.body === "string") {
+                const attachments = Array.isArray(parsed.attachments)
+                  ? parsed.attachments
+                      .map((attachment) => normalizeAttachment(attachment))
+                      .filter((attachment): attachment is FeedAttachment => Boolean(attachment))
+                  : parseAttachments(event.tags ?? []);
+                cachedPayload = { body: parsed.body, attachments };
+              }
+            } catch {
+              cachedPayload = {
+                body: entry.decrypted,
+                attachments: parseAttachments(event.tags ?? []),
+              };
+            }
+          }
+
+          if (
+            cachedPayload &&
+            cachedPayload.body !== LEGACY_DECRYPTING_PLACEHOLDER &&
+            cachedPayload.body !== ENCRYPTED_PLACEHOLDER &&
+            cachedPayload.body !== DECRYPT_FAILURE_PLACEHOLDER
+          ) {
+            return mapEventToPost(event, false, cachedPayload);
+          }
+
+          const body = await decodeEventContent(event);
+          return mapEventToPost(event, false, body);
+        }),
+      );
+
+      const sorted = mapped.sort((a, b) => b.created_at - a.created_at).slice(0, MAX_POSTS);
+      const filtered = sorted.filter((post) => !deletedPostIdsRef.current.has(post.id));
+      setPosts(filtered);
+      ensureOldestTimestamp(filtered);
+      setHasMore(cached.length >= INITIAL_FETCH_LIMIT);
+      setInitialLoading(false);
+    } catch (cacheError) {
+      console.warn("Failed to hydrate feed cache", cacheError);
+    }
+  }, [decodeEventContent, ensureDeletedPostsHydrated, ensureOldestTimestamp]);
+
+  useEffect(() => {
+    void hydrateFromCache();
+  }, [hydrateFromCache]);
 
   useEffect(() => {
     if (feedKeyError) {
@@ -475,19 +542,58 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
 
   const processEvent = useCallback(
     async (event: Event) => {
-      if (!hasFeedTag(event)) return;
-      const body = await decodeEventContent(event);
-      insertPost(mapEventToPost(event, false, body));
-      if (pendingDecryptsRef.current.has(event.id)) {
+      ensureDeletedPostsHydrated();
+      if (event.kind === 5) {
+        if (!hasFeedTag(event)) return;
+        const ids = event.tags
+          .filter((tag) => Array.isArray(tag) && tag[0] === "e" && typeof tag[1] === "string")
+          .map(([, value]) => value)
+          .filter((value) => value.trim().length > 0);
+        if (ids.length === 0) {
+          return;
+        }
+        ids.forEach((id) => {
+          deletedPostIdsRef.current.add(id);
+          eventsRef.current.delete(id);
+          const timer = retryTimersRef.current.get(id);
+          if (timer) {
+            clearTimeout(timer);
+            retryTimersRef.current.delete(id);
+          }
+        });
+        persistDeletedPosts();
+        setPosts((prev) => {
+          const targetIds = new Set(ids);
+          const next = prev.filter((post) => !targetIds.has(post.id));
+          ensureOldestTimestamp(next);
+          return next;
+        });
+        try {
+          await removeCachedMessages(FEED_ROOM_ID, ids);
+        } catch (cacheError) {
+          console.warn("Unable to clear deleted feed events", cacheError);
+        }
         return;
       }
+
+      if (!hasFeedTag(event)) return;
+      if (deletedPostIdsRef.current.has(event.id)) {
+        return;
+      }
+      const body = await decodeEventContent(event);
+      insertPost(mapEventToPost(event, false, body));
+      eventsRef.current.set(event.id, event);
       try {
-        await cacheMessage(eventToCached(event, body));
+        const payloadToPersist =
+          body.body === ENCRYPTED_PLACEHOLDER || body.body === DECRYPT_FAILURE_PLACEHOLDER
+            ? undefined
+            : body;
+        await cacheMessage(eventToCached(event, payloadToPersist));
       } catch (cacheError) {
         console.warn("Unable to persist feed event", cacheError);
       }
-    },
-    [decodeEventContent, insertPost],
+  },
+    [decodeEventContent, ensureDeletedPostsHydrated, ensureOldestTimestamp, insertPost, persistDeletedPosts],
   );
 
   const handleEvent = useCallback(
@@ -499,13 +605,61 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
 
   useEffect(() => {
     if (!feedKeyAvailable) return;
-    if (pendingDecryptsRef.current.size === 0) return;
-    const pending = Array.from(pendingDecryptsRef.current.values());
-    pendingDecryptsRef.current.clear();
-    pending.forEach((event) => {
-      void processEvent(event);
-    });
-  }, [feedKeyAvailable, processEvent]);
+    const encryptedEvents = Array.from(eventsRef.current.values()).filter((event) =>
+      typeof event.content === "string" ? event.content.startsWith("v44:") : false,
+    );
+    if (encryptedEvents.length === 0) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const upgrade = async () => {
+      const decoded = await Promise.all(
+        encryptedEvents.map(async (event) => {
+          const body = await decodeEventContent(event);
+          if (body.body === ENCRYPTED_PLACEHOLDER) {
+            return null;
+          }
+          return { event, body };
+        }),
+      );
+
+      if (cancelled) return;
+
+      const valid = decoded.filter((entry): entry is { event: Event; body: FeedPayload } => Boolean(entry));
+      if (valid.length === 0) {
+        return;
+      }
+
+      setPosts((prev) => {
+        const next = valid.reduce((acc, entry) => upsertPost(acc, mapEventToPost(entry.event, false, entry.body)), prev);
+        ensureOldestTimestamp(next);
+        return next;
+      });
+
+      const cacheable = valid.filter(
+        (entry) =>
+          entry.body.body !== ENCRYPTED_PLACEHOLDER && entry.body.body !== DECRYPT_FAILURE_PLACEHOLDER,
+      );
+      if (cacheable.length > 0) {
+        try {
+          await cacheMessages(
+            FEED_ROOM_ID,
+            cacheable.map((entry) => eventToCached(entry.event, entry.body)),
+          );
+        } catch (cacheError) {
+          console.warn("Failed to persist upgraded feed decryptions", cacheError);
+        }
+      }
+    };
+
+    void upgrade();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [decodeEventContent, ensureOldestTimestamp, feedKeyAvailable]);
 
   const startSubscription = useCallback(() => {
     if (!feedKeyAvailable) return;
@@ -585,6 +739,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
   }, [feedKeyAvailable, setError, startSubscription]);
 
   const loadMore = useCallback(async () => {
+    ensureDeletedPostsHydrated();
     if (loadingMore || !hasMore) {
       if (!hasMore) {
         setInitialLoading(false);
@@ -614,7 +769,9 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
         setLoadingMore(false);
         return;
       }
-      const filtered = events.filter(hasFeedTag);
+      const filtered = events
+        .filter(hasFeedTag)
+        .filter((event) => !deletedPostIdsRef.current.has(event.id));
       if (filtered.length === 0) {
         setHasMore(false);
         setLoadingMore(false);
@@ -623,20 +780,39 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
       const limited = filtered.slice(0, LOAD_MORE_BATCH);
       const decoded = await Promise.all(
         limited.map(async (event) => {
+          eventsRef.current.set(event.id, event);
           const body = await decodeEventContent(event);
-          return { post: mapEventToPost(event, false, body), cached: eventToCached(event, body) };
+          const cachedPayload =
+            body.body === ENCRYPTED_PLACEHOLDER || body.body === DECRYPT_FAILURE_PLACEHOLDER
+              ? undefined
+              : body;
+          return {
+            post: mapEventToPost(event, false, body),
+            cached: eventToCached(event, cachedPayload),
+          };
         }),
       );
       setPosts((prev) => {
-        const merged = decoded.reduce((acc, entry) => upsertPost(acc, entry.post), prev);
+        const merged = decoded.reduce((acc, entry) => {
+          if (deletedPostIdsRef.current.has(entry.post.id)) {
+            return acc;
+          }
+          return upsertPost(acc, entry.post);
+        }, prev);
         ensureOldestTimestamp(merged);
         return merged;
       });
       setHasMore(filtered.length >= LOAD_MORE_BATCH);
-      await cacheMessages(
-        FEED_ROOM_ID,
-        decoded.map((entry) => entry.cached),
+      const cacheable = decoded.filter(
+        (entry): entry is { post: FeedPost; cached: CachedMessage } =>
+          !deletedPostIdsRef.current.has(entry.post.id),
       );
+      if (cacheable.length > 0) {
+        await cacheMessages(
+          FEED_ROOM_ID,
+          cacheable.map((entry) => entry.cached),
+        );
+      }
     } catch (loadError) {
       console.warn("Failed to load additional feed events", loadError);
     } finally {
@@ -645,7 +821,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
         setInitialLoading(false);
       }
     }
-  }, [ensureOldestTimestamp, hasMore, loadingMore]);
+  }, [decodeEventContent, ensureDeletedPostsHydrated, ensureOldestTimestamp, hasMore, loadingMore]);
 
   useEffect(() => {
     if (initialLoadRef.current) return;
@@ -660,6 +836,23 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
       retryTimersRef.current.delete(id);
     }
   }, []);
+
+  const removePost = useCallback(
+    (id: string) => {
+      eventsRef.current.delete(id);
+      const existingTimer = retryTimersRef.current.get(id);
+      if (existingTimer) {
+        clearTimeout(existingTimer);
+        retryTimersRef.current.delete(id);
+      }
+      setPosts((prev) => {
+        const next = prev.filter((post) => post.id !== id);
+        ensureOldestTimestamp(next);
+        return next;
+      });
+    },
+    [ensureOldestTimestamp],
+  );
 
   const attemptPublish = useCallback(
     async (event: Event, payload: FeedPayload, attempt = 0): Promise<void> => {
@@ -677,6 +870,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
 
       try {
         await publishWithPool(pool, [FAST_RELAY], event);
+        eventsRef.current.set(event.id, event);
         setPosts((prev) => {
           const next = updatePostStatus(prev, event.id, "ok");
           ensureOldestTimestamp(next);
@@ -716,6 +910,57 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
       }
     },
     [ensureOldestTimestamp, setError, stopRetryTimer],
+  );
+
+  const deletePost = useCallback(
+    async (post: FeedPost) => {
+      if (!signEvent) {
+        throw new Error("Your Nostr keys are not ready yet");
+      }
+      const pool = poolRef.current;
+      if (!pool) {
+        throw new Error("No relays available");
+      }
+
+      ensureDeletedPostsHydrated();
+      const id = post.id;
+      deletedPostIdsRef.current.add(id);
+      removePost(id);
+      persistDeletedPosts();
+
+      try {
+        const template: EventTemplate = {
+          kind: 5,
+          created_at: Math.floor(Date.now() / 1000),
+          content: "",
+          tags: [
+            ["e", id],
+            ["p", post.pubkey],
+            ["t", FEED_TAG],
+            ["app", "BitcoinSquare"],
+            ["feed", FEED_TAG],
+          ],
+        };
+        const event = await signEvent(template);
+        await publishWithPool(pool, [FAST_RELAY], event);
+        if (RELAYS.length > 1) {
+          void replicateWithPool(pool, RELAYS.slice(1), event);
+        }
+        try {
+          await removeCachedMessages(FEED_ROOM_ID, [id]);
+        } catch (cacheError) {
+          console.warn("Unable to clear deleted feed event from cache", cacheError);
+        }
+      } catch (deleteError) {
+        deletedPostIdsRef.current.delete(id);
+        insertPost(post);
+        persistDeletedPosts();
+        const message = deleteError instanceof Error ? deleteError.message : String(deleteError);
+        setError(message);
+        throw deleteError;
+      }
+    },
+    [ensureDeletedPostsHydrated, insertPost, persistDeletedPosts, removePost, setError, signEvent],
   );
 
   const publishStatus = useCallback(
@@ -805,6 +1050,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
         };
 
         const event = await signEvent(template);
+        eventsRef.current.set(event.id, event);
         insertPost(mapEventToPost(event, true, payload));
         setError(null);
 
@@ -860,6 +1106,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
     publishing,
     publishStatus,
     likePost,
+    deletePost,
     loadMore,
     loadingMore,
     hasMore,

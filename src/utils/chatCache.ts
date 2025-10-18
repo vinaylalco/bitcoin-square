@@ -69,3 +69,16 @@ export const preloadRoomsMessages = async (roomIds: string[], limit = 20) => {
   );
   return results;
 };
+
+export const removeCachedMessages = async (roomId: string, ids: string[]) => {
+  if (ids.length === 0) return;
+  const key = `room:${roomId}`;
+  const existing = await readMessages(key);
+  if (existing.length === 0) return;
+  const targetIds = new Set(ids);
+  const filtered = existing.filter((message) => !targetIds.has(message.id));
+  if (filtered.length === existing.length) {
+    return;
+  }
+  await set(key, filtered, messageStore);
+};

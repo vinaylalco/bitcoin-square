@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, NavLink } from "react-router-dom";
 
 import BitcoinSquareFeed from "../components/bitcoinSquareChat/BitcoinSquareFeed";
 import ErrorBoundary from "../components/ErrorBoundary";
@@ -11,11 +11,10 @@ import {
   type CasualChatMessage,
 } from "../hooks/useBitcoinSquareCasualChat";
 import type { CasualAttachmentMeta } from "../hooks/useBitcoinSquareCasualChat";
-import { useMediaUploader, type MediaUploadResult, type UseMediaUploaderReturn } from "../hooks/useMediaUploader";
 import { useBitcoinSquareFeed } from "../hooks/useBitcoinSquareFeed";
 import { decryptBinary } from "../utils/aes";
 import { getCachedMediaBlob, getCachedPreview, setCachedMediaBlob, setCachedPreview } from "../utils/mediaCache";
-import { useProfileIdentity, shortenPubkey } from "../context/ProfileIdentityContext";
+import { useProfileIdentity } from "../context/ProfileIdentityContext";
 import type { ProfileSummary } from "../context/ProfileIdentityContext";
 import { useAuth } from "../context/AuthContext";
 import { useNostrAccount } from "../hooks/useNostrAccount";
@@ -26,7 +25,19 @@ import {
   useCommunityTranslation,
 } from "../context/CommunityTranslationContext";
 import type { LucideIcon } from "lucide-react";
-import { ArrowUp, Heart, Loader2, MessageCircle, MessageSquareQuote, Newspaper, Paperclip, Send, Sparkles, Users, X } from "lucide-react";
+import {
+  ArrowUp,
+  Heart,
+  Loader2,
+  MessageCircle,
+  MessageSquareQuote,
+  Newspaper,
+  Send,
+  Sparkles,
+  Trash2,
+  Users,
+  X,
+} from "lucide-react";
 import { markdownToHtml } from "../utils/markdown";
 
 type ActiveView = "casual" | "feed" | "personal" | "members";
@@ -34,8 +45,8 @@ type ActiveView = "casual" | "feed" | "personal" | "members";
 type ViewTab = { key: ActiveView; label: string; icon: LucideIcon };
 
 const DESKTOP_VIEW_TABS: ViewTab[] = [
-  { key: "casual", label: "Casual Chat", icon: MessageCircle },
-  { key: "feed", label: "Public Feed", icon: Newspaper },
+  { key: "casual", label: "Chat", icon: MessageCircle },
+  { key: "feed", label: "Forum", icon: Newspaper },
   { key: "personal", label: "Your Feed", icon: Sparkles },
 ];
 
@@ -50,8 +61,6 @@ const CASUAL_ROOM: RoomDefinition = {
   type: "private",
   hasLocalKey: true,
 };
-
-type PendingAttachment = MediaUploadResult & { previewUrl?: string | null };
 
 type AttachmentStatus = "idle" | "loading" | "ready" | "error";
 
@@ -299,12 +308,6 @@ const AttachmentPreview: React.FC<{ attachment: CasualAttachmentMeta }> = ({ att
 const Composer: React.FC<{
   disabled: boolean;
   onSend: (text: string) => Promise<void>;
-  onUploadFile: (file: File) => Promise<void>;
-  pendingAttachments: PendingAttachment[];
-  onRemoveAttachment: (cacheKey: string) => void;
-  uploadStatus: UseMediaUploaderReturn["status"];
-  uploadProgress: number;
-  uploadError: string | null;
   draft?: string;
   onTyping?: () => void;
   quoteContext?: QuoteContextState | null;
@@ -313,12 +316,6 @@ const Composer: React.FC<{
 }> = ({
   disabled,
   onSend,
-  onUploadFile,
-  pendingAttachments,
-  onRemoveAttachment,
-  uploadStatus,
-  uploadProgress,
-  uploadError,
   draft,
   onTyping,
   quoteContext,
@@ -326,9 +323,9 @@ const Composer: React.FC<{
   onJumpToQuote,
 }) => {
   const [value, setValue] = useState("");
+  const [isTextareaFocused, setIsTextareaFocused] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const typingEmitRef = useRef(0);
 
   const characterCount = value.length;
@@ -382,18 +379,7 @@ const Composer: React.FC<{
     emitTyping();
   };
 
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    try {
-      await onUploadFile(file);
-    } catch (uploadErr) {
-      const message = uploadErr instanceof Error ? uploadErr.message : String(uploadErr);
-      setError(message);
-    } finally {
-      event.target.value = "";
-    }
-  };
+  const composerExpanded = isTextareaFocused || value.trim().length > 0;
 
   return (
     <div className="space-y-3">
@@ -432,28 +418,20 @@ const Composer: React.FC<{
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           disabled={disabled || isSending}
-          rows={3}
+          onFocus={() => setIsTextareaFocused(true)}
+          onBlur={() => {
+            if (value.trim().length === 0) {
+              setIsTextareaFocused(false);
+            }
+          }}
+          rows={composerExpanded ? 4 : 1}
           maxLength={CHAT_CHARACTER_LIMIT}
           placeholder={disabled ? "Your BitcoinSquare keys must be ready before posting" : "Share an update…"}
-          className="w-full resize-none rounded-2xl border-none bg-transparent px-4 pb-14 pr-28 text-sm leading-relaxed text-[var(--fg-default)] focus:outline-none focus:ring-0"
+          className={`w-full resize-none rounded-2xl border-none bg-transparent px-4 pr-16 text-sm leading-relaxed text-[var(--fg-default)] focus:outline-none focus:ring-0 ${
+            composerExpanded ? "pb-16" : "pb-12"
+          }`}
         />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-between px-4 pb-3">
-          <div className="pointer-events-auto flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={disabled || uploadStatus === "uploading"}
-              className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--fg-muted)] shadow-sm transition hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-60"
-              title={uploadStatus === "uploading" ? `Uploading… ${uploadProgress}%` : "Add media"}
-            >
-              {uploadStatus === "uploading" ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-              ) : (
-                <Paperclip className="h-4 w-4" aria-hidden />
-              )}
-              <span className="sr-only">Add media</span>
-            </button>
-          </div>
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-end px-4 pb-3">
           <div className="pointer-events-auto flex items-center gap-2">
             <button
               type="button"
@@ -472,49 +450,8 @@ const Composer: React.FC<{
         <span className={`font-semibold ${characterStatusClass}`} aria-live="polite">
           {`${characterCount} / ${CHAT_CHARACTER_LIMIT}`}
         </span>
-        <span className="font-semibold text-[var(--fg-muted)]" aria-live="polite">
-          {uploadStatus === "uploading" ? `Uploading… ${uploadProgress}%` : ""}
-        </span>
       </div>
-
-      {pendingAttachments.length > 0 && (
-        <div className="space-y-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">Attachments</p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {pendingAttachments.map((attachment) => (
-              <div key={attachment.cacheKey} className="relative overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3">
-                {attachment.previewUrl ? (
-                  <img
-                    src={attachment.previewUrl}
-                    alt="Pending attachment"
-                    className="max-h-48 w-full rounded-lg object-cover"
-                  />
-                ) : (
-                  <p className="text-xs text-[var(--fg-muted)]">Preview not available yet…</p>
-                )}
-                <button
-                  type="button"
-                  onClick={() => onRemoveAttachment(attachment.cacheKey)}
-                  className="absolute right-3 top-3 rounded-full border border-[var(--border-subtle)] bg-black/50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white backdrop-blur transition hover:bg-brand"
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {uploadError && uploadStatus === "error" && <p className="text-xs text-red-500">{uploadError}</p>}
       {error && <p className="text-xs text-red-500">{error}</p>}
-
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*,video/*"
-        className="hidden"
-        onChange={handleFileChange}
-      />
     </div>
   );
 };
@@ -525,6 +462,8 @@ const CommunityView: React.FC = () => {
     roomId,
     messages: rawMessages,
     sendMessage,
+    likeMessage,
+    deleteMessage,
     pubkey,
     ready,
     roomKeyError,
@@ -541,6 +480,7 @@ const CommunityView: React.FC = () => {
     publishing: feedPublishing,
     publishStatus: publishFeedStatus,
     likePost: likeFeedPost,
+    deletePost: deleteFeedPost,
     loadMore: loadMoreFeed,
     loadingMore: feedLoadingMore,
     hasMore: feedHasMore,
@@ -549,6 +489,10 @@ const CommunityView: React.FC = () => {
     initialLoading: feedInitialLoading,
   } = useBitcoinSquareFeed();
   const { user, refreshNostrKeys } = useAuth();
+
+  const directMessagesPath = user?.nostrPublicKey?.trim()
+    ? `/profile/${user.nostrPublicKey.trim()}/messages`
+    : "/messages";
   const {
     ready: accountReady,
     loading: accountLoading,
@@ -573,18 +517,10 @@ const CommunityView: React.FC = () => {
   const listRef = useRef<HTMLDivElement | null>(null);
   const composerContainerRef = useRef<HTMLDivElement | null>(null);
   const scrollUpdateFrameRef = useRef<number | null>(null);
-  const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
-  const {
-    uploadFile,
-    progress: uploadProgress,
-    status: uploadStatus,
-    previewUrl: latestPreview,
-    error: uploadError,
-    reset: resetUpload,
-  } = useMediaUploader({ room: CASUAL_ROOM, pubkey });
   const [composerError, setComposerError] = useState<string | null>(null);
   const [composerDraft, setComposerDraft] = useState<string | undefined>(undefined);
   const [quoteContext, setQuoteContext] = useState<QuoteContextState | null>(null);
+  const [pendingDeletes, setPendingDeletes] = useState<Set<string>>(new Set());
   const [isAtTop, setIsAtTop] = useState(true);
   const [newMessageAnchor, setNewMessageAnchor] = useState<string | null>(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
@@ -1151,9 +1087,9 @@ const CommunityView: React.FC = () => {
     [typingPubkeys, pubkey, resolveProfileSummary],
   );
   const membersHeading = isCasualView
-    ? "Casual Chat members"
+    ? "Chat members"
     : isPublicFeedView
-      ? "Public Feed members"
+      ? "Forum members"
       : isPersonalFeedView
         ? "Your Feed members"
         : "Community members";
@@ -1305,43 +1241,12 @@ const CommunityView: React.FC = () => {
   }, [estimatedRowHeight, isCasualView, messages, virtualVersion]);
   const showJumpToLatest = isCasualView && !isAtTop && messages.length > 0;
 
-  const handleUploadFile = useCallback(
-    async (file: File) => {
-      const result = await uploadFile(file);
-      const preview = latestPreview ?? result.previewUrl ?? (await getCachedPreview(roomId, result.digest));
-      setPendingAttachments((prev) => [
-        ...prev,
-        {
-          ...result,
-          previewUrl: preview ?? null,
-        },
-      ]);
-      resetUpload();
-    },
-    [latestPreview, resetUpload, roomId, uploadFile],
-  );
-
-  const handleRemoveAttachment = useCallback((cacheKey: string) => {
-    setPendingAttachments((prev) => prev.filter((item) => item.cacheKey !== cacheKey));
-  }, []);
-
   const handleSend = useCallback(
     async (text: string, options?: { quoteId?: string | null; quotePubkey?: string | null }) => {
-      const attachments: CasualAttachmentMeta[] = pendingAttachments.map((attachment) => ({
-        eventId: attachment.eventId,
-        url: attachment.url,
-        mimeType: attachment.mimeType,
-        size: attachment.size,
-        width: attachment.width,
-        height: attachment.height,
-        digest: attachment.digest,
-        iv: attachment.iv,
-      }));
-      await sendMessage(text, attachments, options);
-      setPendingAttachments([]);
+      await sendMessage(text, [], options);
       setComposerError(null);
     },
-    [pendingAttachments, sendMessage],
+    [sendMessage],
   );
 
   const handleComposerSend = useCallback(
@@ -1429,16 +1334,53 @@ const CommunityView: React.FC = () => {
     [estimatedRowHeight, messageIndexMap, messages, startHighlight],
   );
 
+  const updatePendingDelete = useCallback((messageId: string, add: boolean) => {
+    setPendingDeletes((prev) => {
+      const next = new Set(prev);
+      if (add) {
+        next.add(messageId);
+      } else {
+        next.delete(messageId);
+      }
+      return next;
+    });
+  }, []);
+
   const handleLikeMessage = useCallback(
     async (message: CasualChatMessage) => {
+      if (pubkey && message.likePubkeys.includes(pubkey)) {
+        return;
+      }
       try {
-        await sendMessage(`❤️ ${shortenPubkey(message.pubkey)}`);
+        await likeMessage(message);
       } catch (reactionError) {
         const messageText = reactionError instanceof Error ? reactionError.message : String(reactionError);
         setComposerError(messageText);
       }
     },
-    [sendMessage],
+    [likeMessage, pubkey],
+  );
+
+  const handleDeleteMessage = useCallback(
+    async (message: CasualChatMessage) => {
+      if (typeof window !== "undefined") {
+        const confirmed = window.confirm("Delete this message from chat?");
+        if (!confirmed) {
+          return;
+        }
+      }
+
+      updatePendingDelete(message.id, true);
+      try {
+        await deleteMessage(message);
+      } catch (deleteError) {
+        const messageText = deleteError instanceof Error ? deleteError.message : String(deleteError);
+        setComposerError(messageText);
+      } finally {
+        updatePendingDelete(message.id, false);
+      }
+    },
+    [deleteMessage, updatePendingDelete, setComposerError],
   );
 
   const registerRow = useCallback(
@@ -1518,7 +1460,7 @@ const CommunityView: React.FC = () => {
         aria-hidden="true"
       />
       <div className="relative z-0 flex min-h-screen w-full flex-col">
-        <aside className="hidden border-r border-[var(--border-subtle)] bg-[var(--bg-card)]/70 px-5 py-8 backdrop-blur lg:fixed lg:inset-y-0 lg:left-0 lg:flex lg:w-80 lg:flex-col">
+        <aside className="hidden border-r border-[var(--border-subtle)] bg-[var(--bg-card)]/70 px-5 pb-8 pt-24 backdrop-blur lg:fixed lg:inset-y-0 lg:left-0 lg:flex lg:w-80 lg:flex-col">
           <nav
             aria-label="Community navigation"
             role="tablist"
@@ -1526,6 +1468,19 @@ const CommunityView: React.FC = () => {
           >
             {DESKTOP_VIEW_TABS.map((tab) => renderTabButton(tab, "desktop"))}
           </nav>
+          <NavLink
+            to={directMessagesPath}
+            className={({ isActive }) =>
+              `mt-3 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
+                isActive
+                  ? "border-brand bg-brand/10 text-brand shadow-sm"
+                  : "border-transparent text-[var(--fg-muted)] hover:border-brand hover:text-brand"
+              }`
+            }
+          >
+            <MessageCircle className="h-4 w-4" aria-hidden="true" />
+            <span>Messages</span>
+          </NavLink>
           <div className="mt-8 flex-1 overflow-hidden">
             <h2 className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)]">{membersHeading}</h2>
             <div ref={memberScrollRef} className="mt-5 h-full overflow-y-auto pr-1">
@@ -1629,6 +1584,28 @@ const CommunityView: React.FC = () => {
                           const translationNoticeColor = isSelf
                             ? "text-white/70"
                             : "text-[var(--fg-muted)]";
+                          const likeCount = message.likePubkeys.length;
+                          const likedByCurrentUser = pubkey ? message.likePubkeys.includes(pubkey) : false;
+                          const likeDisabled = !ready || likedByCurrentUser;
+                          const likeButtonPalette = likedByCurrentUser
+                            ? isSelf
+                              ? "border-rose-200 text-rose-100 bg-rose-500/30"
+                              : "border-rose-300 text-rose-500 bg-rose-500/20"
+                            : isSelf
+                              ? "border-white/60 text-white hover:border-white"
+                              : "border-white/70 text-[var(--fg-muted)] hover:border-brand hover:text-brand";
+                          const likeBadgePalette = likedByCurrentUser
+                            ? isSelf
+                              ? "bg-rose-500/40 text-white"
+                              : "bg-rose-500/15 text-rose-500"
+                            : isSelf
+                              ? "bg-white/20 text-white"
+                              : "bg-brand/10 text-brand";
+                          const isPendingDelete = pendingDeletes.has(message.id);
+                          const deleteDisabled = !ready || isPendingDelete;
+                          const deleteButtonPalette = isSelf
+                            ? "border-white/60 text-white hover:border-red-300 hover:text-red-100"
+                            : "border-white/70 text-[var(--fg-muted)] hover:border-red-500 hover:text-red-500";
                           return (
                             <div
                               key={message.id}
@@ -1786,19 +1763,40 @@ const CommunityView: React.FC = () => {
                                     </button>
                                     <button
                                       type="button"
-                                      onClick={() => handleLikeMessage(message)}
-                                      disabled={!ready}
-                                      className={`inline-flex h-8 w-8 items-center justify-center rounded-full border ${
-                                        isSelf
-                                          ? "border-white/60 text-white hover:border-white"
-                                          : "border-white/70 text-[var(--fg-muted)] hover:border-brand hover:text-brand"
-                                      } disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60`}
-                                      title="Send a like"
+                                      onClick={() => void handleDeleteMessage(message)}
+                                      disabled={deleteDisabled}
+                                      className={`inline-flex h-8 w-8 items-center justify-center rounded-full border ${deleteButtonPalette} disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60`}
+                                      title={isPendingDelete ? "Deleting…" : "Delete"}
                                     >
-                                      <Heart className="h-4 w-4" />
+                                      {isPendingDelete ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <Trash2 className="h-4 w-4" />
+                                      )}
+                                      <span className="sr-only">Delete</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleLikeMessage(message)}
+                                      disabled={likeDisabled}
+                                      aria-pressed={likedByCurrentUser}
+                                      className={`inline-flex h-8 w-8 items-center justify-center rounded-full border ${likeButtonPalette} disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60`}
+                                      title={likedByCurrentUser ? "You liked this message" : "Send a like"}
+                                    >
+                                      <Heart className="h-4 w-4" fill={likedByCurrentUser ? "currentColor" : "none"} />
                                       <span className="sr-only">Like</span>
                                     </button>
                                   </div>
+                                  {likeCount > 0 && (
+                                    <div className={`mt-2 flex ${isSelf ? "justify-end" : ""}`}>
+                                      <span
+                                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.3em] ${likeBadgePalette}`}
+                                      >
+                                        <Heart className="h-3 w-3" fill="currentColor" />
+                                        <span>{likeCount === 1 ? "1 Like" : `${likeCount} Likes`}</span>
+                                      </span>
+                                    </div>
+                                  )}
                                   {message.status === "pending" && (
                                     <p className={`text-[10px] uppercase tracking-[0.24em] ${timestampColor}`}>Sending…</p>
                                   )}
@@ -1835,12 +1833,6 @@ const CommunityView: React.FC = () => {
                     <Composer
                       disabled={!ready}
                       onSend={handleComposerSend}
-                      onUploadFile={handleUploadFile}
-                      pendingAttachments={pendingAttachments}
-                      onRemoveAttachment={handleRemoveAttachment}
-                      uploadStatus={uploadStatus}
-                      uploadProgress={uploadProgress}
-                      uploadError={uploadError}
                       draft={composerDraft}
                       onTyping={sendTyping}
                       quoteContext={quoteContext}
@@ -1865,6 +1857,7 @@ const CommunityView: React.FC = () => {
                         publishing={feedPublishing}
                         publishStatus={publishFeedStatus}
                         likePost={likeFeedPost}
+                        deletePost={deleteFeedPost}
                         loadMore={loadMoreFeed}
                         loadingMore={feedLoadingMore}
                         hasMore={feedHasMore}
@@ -1891,6 +1884,7 @@ const CommunityView: React.FC = () => {
                         publishing={feedPublishing}
                         publishStatus={publishFeedStatus}
                         likePost={likeFeedPost}
+                        deletePost={deleteFeedPost}
                         loadMore={loadMoreFeed}
                         loadingMore={feedLoadingMore}
                         hasMore={feedHasMore}
@@ -1916,7 +1910,7 @@ const CommunityView: React.FC = () => {
                             </div>
                           ) : (
                             <p className="text-xs text-[var(--fg-muted)]">
-                              Browse the Public Feed to discover people to follow.
+                              Browse the Forum to discover people to follow.
                             </p>
                           )}
                         </div>

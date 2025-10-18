@@ -86,6 +86,13 @@ type SimplePoolModule = {
 
 const MODULE_URL = "https://esm.sh/nostr-tools@2.10.4?bundle";
 
+const isBenignCloseError = (error: unknown) => {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  return error.message.includes("WebSocket is already in CLOSING or CLOSED state");
+};
+
 declare global {
   interface Window {
     NostrTools?: Partial<SimplePoolModule>;
@@ -182,6 +189,9 @@ export class SimplePool {
         subscriptionPromise
           .then((subscription) => subscription.close())
           .catch((error) => {
+            if (isBenignCloseError(error)) {
+              return;
+            }
             if (opts.onerror) {
               opts.onerror(error);
             } else {
@@ -210,6 +220,9 @@ export class SimplePool {
     void this.poolPromise
       .then((pool) => pool.close(relays))
       .catch((error) => {
+        if (isBenignCloseError(error)) {
+          return;
+        }
         console.warn("Failed to close Nostr pool", error);
       });
   }
