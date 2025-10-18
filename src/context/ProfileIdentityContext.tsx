@@ -702,6 +702,7 @@ export const ProfileIdentityProvider: React.FC<React.PropsWithChildren> = ({ chi
   const profilesRef = useRef(profiles);
   const inflight = useRef(new Map<string, Promise<BitcoinSquareProfile | null>>() );
   const readingRelaysRef = useRef(readingRelays);
+  const previousViewerPubkeyRef = useRef<string | null>(viewerPubkey);
   const initialFollowStateRef = useRef(loadFollowState());
   const [following, setFollowing] = useState<Set<string>>(
     () => new Set(initialFollowStateRef.current.following.map((value) => value.trim()).filter(isNonEmptyString)),
@@ -729,6 +730,84 @@ export const ProfileIdentityProvider: React.FC<React.PropsWithChildren> = ({ chi
   useEffect(() => {
     persistFollowState(following, followersMap);
   }, [following, followersMap]);
+
+  useEffect(() => {
+    const previous = previousViewerPubkeyRef.current;
+    if (previous && previous !== viewerPubkey) {
+      setProfiles((prev) => {
+        if (!(previous in prev)) {
+          return prev;
+        }
+        const next = { ...prev };
+        delete next[previous];
+        return next;
+      });
+    }
+    previousViewerPubkeyRef.current = viewerPubkey;
+  }, [viewerPubkey]);
+
+  useEffect(() => {
+    if (!viewerPubkey || !user) {
+      return;
+    }
+
+    const normalizedScreenName = normalizeScreenName(user.screenName, viewerPubkey);
+    const displayName =
+      normalizedScreenName ||
+      (typeof user.username === "string" && user.username.trim().length > 0
+        ? user.username.trim()
+        : typeof user.email === "string" && user.email.trim().length > 0
+          ? user.email.trim()
+          : generateScreenName(viewerPubkey));
+    const normalizedAvatar = normalizeAvatarUrl(user.avatarUrl, viewerPubkey);
+    const lightningAddress = user.lnWalletAddress ?? null;
+
+    setProfiles((prev) => {
+      const entry = prev[viewerPubkey];
+      const previousData = entry?.data ?? null;
+      const nextData: BitcoinSquareProfile = {
+        pubkey: viewerPubkey,
+        displayName,
+        screenName: normalizedScreenName,
+        avatarUrl: normalizedAvatar,
+        joined: previousData?.joined ?? null,
+        totalPosts: previousData?.totalPosts ?? null,
+        badges: previousData?.badges ?? [],
+        achievements: previousData?.achievements,
+        lightningAddress: lightningAddress ?? previousData?.lightningAddress ?? null,
+        followers: previousData?.followers ?? [],
+        following: previousData?.following ?? [],
+      };
+
+      if (
+        previousData &&
+        previousData.displayName === nextData.displayName &&
+        previousData.screenName === nextData.screenName &&
+        previousData.avatarUrl === nextData.avatarUrl &&
+        previousData.lightningAddress === nextData.lightningAddress
+      ) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        [viewerPubkey]: {
+          status: "success",
+          data: nextData,
+          error: null,
+          fetchedAt: entry?.fetchedAt ?? Date.now(),
+          stale: false,
+        },
+      };
+    });
+  }, [
+    user?.avatarUrl,
+    user?.email,
+    user?.lnWalletAddress,
+    user?.screenName,
+    user?.username,
+    viewerPubkey,
+  ]);
 
   const mutateProfileData = useCallback(
     (pubkey: string, updater: (profile: BitcoinSquareProfile) => BitcoinSquareProfile | null) => {

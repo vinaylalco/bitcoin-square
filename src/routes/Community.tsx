@@ -521,6 +521,7 @@ const CommunityView: React.FC = () => {
   const [composerDraft, setComposerDraft] = useState<string | undefined>(undefined);
   const [quoteContext, setQuoteContext] = useState<QuoteContextState | null>(null);
   const [pendingDeletes, setPendingDeletes] = useState<Set<string>>(new Set());
+  const [openMessageMenuId, setOpenMessageMenuId] = useState<string | null>(null);
   const [isAtTop, setIsAtTop] = useState(true);
   const [newMessageAnchor, setNewMessageAnchor] = useState<string | null>(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
@@ -580,6 +581,36 @@ const CommunityView: React.FC = () => {
       window.removeEventListener("resize", measure);
     };
   }, [isCasualView]);
+
+  useEffect(() => {
+    if (!openMessageMenuId) return;
+    if (typeof document === "undefined") return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) {
+        setOpenMessageMenuId(null);
+        return;
+      }
+      const container = target.closest<HTMLElement>("[data-message-menu-root]");
+      if (!container || container.dataset.messageMenuRoot !== openMessageMenuId) {
+        setOpenMessageMenuId(null);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpenMessageMenuId(null);
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [openMessageMenuId]);
 
   const chatSpacing = useMemo(() => {
     const safeInset = "env(safe-area-inset-bottom, 0px)";
@@ -1363,6 +1394,7 @@ const CommunityView: React.FC = () => {
 
   const handleDeleteMessage = useCallback(
     async (message: CasualChatMessage) => {
+      setOpenMessageMenuId(null);
       if (typeof window !== "undefined") {
         const confirmed = window.confirm("Delete this message from chat?");
         if (!confirmed) {
@@ -1380,7 +1412,7 @@ const CommunityView: React.FC = () => {
         updatePendingDelete(message.id, false);
       }
     },
-    [deleteMessage, updatePendingDelete, setComposerError],
+    [deleteMessage, setOpenMessageMenuId, updatePendingDelete, setComposerError],
   );
 
   const registerRow = useCallback(
@@ -1493,7 +1525,7 @@ const CommunityView: React.FC = () => {
             <nav
               aria-label="Community navigation"
               role="tablist"
-              className="-mx-5 flex snap-x snap-mandatory gap-2 overflow-x-auto px-5 pb-2 text-sm scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              className="-mx-5 flex snap-x snap-mandatory gap-2 overflow-x-auto px-5 pl-16 pb-2 text-sm scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:pl-5"
               style={{ WebkitOverflowScrolling: "touch" }}
             >
               {MOBILE_VIEW_TABS.map((tab) => renderTabButton(tab, "mobile"))}
@@ -1603,9 +1635,17 @@ const CommunityView: React.FC = () => {
                               : "bg-brand/10 text-brand";
                           const isPendingDelete = pendingDeletes.has(message.id);
                           const deleteDisabled = !ready || isPendingDelete;
-                          const deleteButtonPalette = isSelf
-                            ? "border-white/60 text-white hover:border-red-300 hover:text-red-100"
-                            : "border-white/70 text-[var(--fg-muted)] hover:border-red-500 hover:text-red-500";
+                          const isMessageMenuOpen = openMessageMenuId === message.id;
+                          const messageMenuButtonPalette = isSelf
+                            ? "border-white/60 text-white hover:border-white"
+                            : "border-white/70 text-[var(--fg-muted)] hover:border-brand hover:text-brand";
+                          const deleteOptionClasses = deleteDisabled
+                            ? isSelf
+                              ? "cursor-not-allowed text-white/50"
+                              : "cursor-not-allowed text-[var(--fg-muted)]/60"
+                            : isSelf
+                              ? "text-red-200 hover:bg-red-500/20"
+                              : "text-red-400 hover:bg-red-500/15";
                           return (
                             <div
                               key={message.id}
@@ -1761,20 +1801,52 @@ const CommunityView: React.FC = () => {
                                       <MessageSquareQuote className="h-4 w-4" />
                                       <span className="sr-only">Quote</span>
                                     </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => void handleDeleteMessage(message)}
-                                      disabled={deleteDisabled}
-                                      className={`inline-flex h-8 w-8 items-center justify-center rounded-full border ${deleteButtonPalette} disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60`}
-                                      title={isPendingDelete ? "Deleting…" : "Delete"}
-                                    >
-                                      {isPendingDelete ? (
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                      ) : (
-                                        <Trash2 className="h-4 w-4" />
+                                    <div className="relative" data-message-menu-root={message.id}>
+                                      <button
+                                        type="button"
+                                        onClick={(event) => {
+                                          event.stopPropagation();
+                                          setOpenMessageMenuId((current) =>
+                                            current === message.id ? null : message.id,
+                                          );
+                                        }}
+                                        className={`inline-flex h-8 w-8 items-center justify-center rounded-full border text-sm font-semibold ${messageMenuButtonPalette} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60`}
+                                        aria-expanded={isMessageMenuOpen}
+                                        aria-haspopup="menu"
+                                        aria-label="Message options"
+                                        title="Message options"
+                                      >
+                                        ...
+                                      </button>
+                                      {isMessageMenuOpen && (
+                                        <div
+                                          role="menu"
+                                          className="absolute right-0 z-30 mt-2 w-44 rounded-2xl border border-white/40 bg-[var(--bg-card)]/95 p-1 text-xs shadow-xl backdrop-blur"
+                                        >
+                                          <button
+                                            type="button"
+                                            role="menuitem"
+                                            disabled={deleteDisabled}
+                                            onClick={(event) => {
+                                              event.stopPropagation();
+                                              if (deleteDisabled) {
+                                                return;
+                                              }
+                                              setOpenMessageMenuId(null);
+                                              void handleDeleteMessage(message);
+                                            }}
+                                            className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 disabled:cursor-not-allowed disabled:opacity-60 ${deleteOptionClasses}`}
+                                          >
+                                            {isPendingDelete ? (
+                                              <Loader2 className="h-4 w-4 animate-spin" />
+                                            ) : (
+                                              <Trash2 className="h-4 w-4" />
+                                            )}
+                                            <span>Delete message</span>
+                                          </button>
+                                        </div>
                                       )}
-                                      <span className="sr-only">Delete</span>
-                                    </button>
+                                    </div>
                                     <button
                                       type="button"
                                       onClick={() => handleLikeMessage(message)}

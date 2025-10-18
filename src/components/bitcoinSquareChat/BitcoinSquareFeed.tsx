@@ -217,6 +217,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   const [pendingDeletes, setPendingDeletes] = useState<PendingMap>(() => new Set());
   const [expandedPosts, setExpandedPosts] = useState<Set<string>>(() => new Set());
   const [expandedEventDetails, setExpandedEventDetails] = useState<Set<string>>(() => new Set());
+  const [openPostMenuId, setOpenPostMenuId] = useState<string | null>(null);
   const [showNewPostsToast, setShowNewPostsToast] = useState(false);
   const [isAtTop, setIsAtTop] = useState(true);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -354,6 +355,36 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       ensureTranslation(`feed:${post.id}`, post.content);
     });
   }, [ensureTranslation, posts, translationEnabled]);
+
+  useEffect(() => {
+    if (!openPostMenuId) return;
+    if (typeof document === "undefined") return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) {
+        setOpenPostMenuId(null);
+        return;
+      }
+      const container = target.closest<HTMLElement>("[data-post-menu-root]");
+      if (!container || container.dataset.postMenuRoot !== openPostMenuId) {
+        setOpenPostMenuId(null);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpenPostMenuId(null);
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [openPostMenuId]);
 
   const resetComposer = useCallback(() => {
     setComposerOpen(false);
@@ -980,7 +1011,8 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       interactive ? "hover:border-brand/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 cursor-pointer" : ""
     } ${highlight ? "ring-2 ring-brand/60" : ""}`;
     const showEventDetails = expandedEventDetails.has(post.id);
-    const eventDetailsLabel = showEventDetails ? "Hide event data" : "More info";
+    const eventDetailsLabel = showEventDetails ? "Hide event data" : "View event data";
+    const isMenuOpen = openPostMenuId === post.id;
 
     return (
       <article
@@ -1150,37 +1182,64 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
             {isPendingLike ? <Loader2 className="h-4 w-4 animate-spin" /> : <Heart className="h-4 w-4" />}
             <span className="sr-only">Like</span>
           </button>
-          {canDelete && (
+          <div className="relative" data-post-menu-root={post.id}>
             <button
               type="button"
               onClick={(event) => {
                 event.stopPropagation();
-                void handleDeletePost(post);
+                setOpenPostMenuId((current) => (current === post.id ? null : post.id));
               }}
-              disabled={deleteDisabled}
-              className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
-                isPendingDelete
-                  ? "border-red-500 text-red-500"
-                  : "border-[var(--border-subtle)] text-[var(--fg-muted)] hover:border-red-500 hover:text-red-500"
-              } disabled:cursor-not-allowed disabled:opacity-60`}
-              title={isPendingDelete ? "Deleting…" : "Delete this post"}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-subtle)] text-lg font-semibold text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+              aria-expanded={isMenuOpen}
+              aria-haspopup="menu"
+              aria-label="Post options"
+              title="Post options"
             >
-              {isPendingDelete ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-              <span className="sr-only">Delete</span>
+              ...
             </button>
-          )}
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              toggleEventDetails(post.id);
-            }}
-            className="inline-flex h-9 items-center rounded-full border border-[var(--border-subtle)] px-4 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
-            aria-expanded={showEventDetails}
-            title={showEventDetails ? "Hide raw event data" : "View raw event data"}
-          >
-            {eventDetailsLabel}
-          </button>
+            {isMenuOpen && (
+              <div
+                role="menu"
+                className="absolute right-0 z-20 mt-2 w-48 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-1 text-sm shadow-xl"
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    toggleEventDetails(post.id);
+                    setOpenPostMenuId(null);
+                  }}
+                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-medium text-[var(--fg-muted)] transition hover:bg-[var(--bg-muted)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+                >
+                  {eventDetailsLabel}
+                </button>
+                {canDelete && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={deleteDisabled}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setOpenPostMenuId(null);
+                      if (deleteDisabled) {
+                        return;
+                      }
+                      void handleDeletePost(post);
+                    }}
+                    className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
+                      deleteDisabled
+                        ? "cursor-not-allowed text-[var(--fg-muted)]/60"
+                        : "text-red-500 hover:bg-red-500/10"
+                    }`}
+                  >
+                    {isPendingDelete ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                    <span>Delete post</span>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {showEventDetails && (
