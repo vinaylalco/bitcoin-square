@@ -1200,7 +1200,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
             {isMenuOpen && (
               <div
                 role="menu"
-                className="absolute right-0 z-20 mt-2 w-48 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-1 text-sm shadow-xl"
+                className="absolute left-full top-full z-20 ml-2 mt-2 w-48 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-1 text-sm shadow-xl"
               >
                 <button
                   type="button"
