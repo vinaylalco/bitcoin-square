@@ -1005,8 +1005,8 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         <header className="flex flex-wrap items-start justify-between gap-4">
           <ProfileCard
             pubkey={post.pubkey}
-            contentClassName="items-start"
-            className="flex-1"
+            contentClassName="items-start lg:w-1/4"
+            className="flex-1 lg:flex-none lg:w-1/4"
             subtitle={shortenPubkey(post.pubkey)}
             meta={
               <span className="text-xs uppercase tracking-[0.18em] text-[var(--fg-muted)]">
@@ -1192,11 +1192,6 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
           </div>
         )}
 
-        {interactive && variant === "list" && (
-          <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)]">
-            Click to view conversation
-          </p>
-        )}
       </article>
     );
   };

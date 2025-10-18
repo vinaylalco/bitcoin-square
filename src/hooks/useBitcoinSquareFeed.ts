@@ -34,6 +34,7 @@ const MAX_PUBLISH_ATTEMPTS = 5;
 const ENCRYPTED_PLACEHOLDER = "Encrypted message (unlock to view)";
 const DECRYPT_FAILURE_PLACEHOLDER = "Unable to decrypt message";
 const LEGACY_DECRYPTING_PLACEHOLDER = "Decrypting message…";
+const DELETED_POST_STORAGE_KEY = "bitcoinsquare-forum-deleted";
 
 export interface FeedAttachment {
   url: string;
@@ -353,6 +354,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
   const initialLoadRef = useRef(false);
   const retryTimersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const deletedPostIdsRef = useRef<Set<string>>(new Set());
+  const deletedPostStorageHydratedRef = useRef(false);
 
   const { ready: accountReady, pubkey, signEvent } = useNostrAccount();
   const configuredRoomKey = getConfiguredRoomKey(FEED_ROOM_ID);
@@ -365,6 +367,48 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
 
   const ready = useMemo(() => accountReady && poolReady && feedKeyAvailable, [accountReady, feedKeyAvailable, poolReady]);
 
+  const ensureDeletedPostsHydrated = useCallback(() => {
+    if (deletedPostStorageHydratedRef.current) {
+      return;
+    }
+    if (typeof window === "undefined") {
+      return;
+    }
+    try {
+      const raw = window.localStorage.getItem(DELETED_POST_STORAGE_KEY);
+      if (!raw) {
+        return;
+      }
+      const parsed = JSON.parse(raw) as unknown;
+      if (Array.isArray(parsed)) {
+        parsed.forEach((value) => {
+          if (typeof value === "string") {
+            const trimmed = value.trim();
+            if (trimmed.length > 0) {
+              deletedPostIdsRef.current.add(trimmed);
+            }
+          }
+        });
+      }
+    } catch (storageError) {
+      console.warn("Failed to restore deleted forum posts", storageError);
+    } finally {
+      deletedPostStorageHydratedRef.current = true;
+    }
+  }, []);
+
+  const persistDeletedPosts = useCallback(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    try {
+      const serialized = JSON.stringify(Array.from(deletedPostIdsRef.current));
+      window.localStorage.setItem(DELETED_POST_STORAGE_KEY, serialized);
+    } catch (storageError) {
+      console.warn("Failed to persist deleted forum posts", storageError);
+    }
+  }, []);
+
   const ensureOldestTimestamp = useCallback((nextPosts: FeedPost[]) => {
     if (nextPosts.length === 0) {
       oldestTimestampRef.current = null;
@@ -375,6 +419,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
 
   const insertPost = useCallback(
     (post: FeedPost) => {
+      ensureDeletedPostsHydrated();
       if (deletedPostIdsRef.current.has(post.id)) {
         return;
       }
@@ -384,7 +429,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
         return next;
       });
     },
-    [ensureOldestTimestamp],
+    [ensureDeletedPostsHydrated, ensureOldestTimestamp],
   );
 
   const decodeEventContent = useCallback(
@@ -427,6 +472,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
   );
 
   const hydrateFromCache = useCallback(async () => {
+    ensureDeletedPostsHydrated();
     try {
       const cached = await getCachedMessages(FEED_ROOM_ID, INITIAL_FETCH_LIMIT);
       if (cached.length === 0) {
@@ -482,7 +528,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
     } catch (cacheError) {
       console.warn("Failed to hydrate feed cache", cacheError);
     }
-  }, [decodeEventContent, ensureOldestTimestamp]);
+  }, [decodeEventContent, ensureDeletedPostsHydrated, ensureOldestTimestamp]);
 
   useEffect(() => {
     void hydrateFromCache();
@@ -496,6 +542,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
 
   const processEvent = useCallback(
     async (event: Event) => {
+      ensureDeletedPostsHydrated();
       if (event.kind === 5) {
         if (!hasFeedTag(event)) return;
         const ids = event.tags
@@ -514,6 +561,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
             retryTimersRef.current.delete(id);
           }
         });
+        persistDeletedPosts();
         setPosts((prev) => {
           const targetIds = new Set(ids);
           const next = prev.filter((post) => !targetIds.has(post.id));
@@ -544,8 +592,8 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
       } catch (cacheError) {
         console.warn("Unable to persist feed event", cacheError);
       }
-    },
-    [decodeEventContent, ensureOldestTimestamp, insertPost],
+  },
+    [decodeEventContent, ensureDeletedPostsHydrated, ensureOldestTimestamp, insertPost, persistDeletedPosts],
   );
 
   const handleEvent = useCallback(
@@ -691,6 +739,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
   }, [feedKeyAvailable, setError, startSubscription]);
 
   const loadMore = useCallback(async () => {
+    ensureDeletedPostsHydrated();
     if (loadingMore || !hasMore) {
       if (!hasMore) {
         setInitialLoading(false);
@@ -720,7 +769,9 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
         setLoadingMore(false);
         return;
       }
-      const filtered = events.filter(hasFeedTag);
+      const filtered = events
+        .filter(hasFeedTag)
+        .filter((event) => !deletedPostIdsRef.current.has(event.id));
       if (filtered.length === 0) {
         setHasMore(false);
         setLoadingMore(false);
@@ -770,7 +821,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
         setInitialLoading(false);
       }
     }
-  }, [ensureOldestTimestamp, hasMore, loadingMore]);
+  }, [decodeEventContent, ensureDeletedPostsHydrated, ensureOldestTimestamp, hasMore, loadingMore]);
 
   useEffect(() => {
     if (initialLoadRef.current) return;
@@ -871,9 +922,11 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
         throw new Error("No relays available");
       }
 
+      ensureDeletedPostsHydrated();
       const id = post.id;
       deletedPostIdsRef.current.add(id);
       removePost(id);
+      persistDeletedPosts();
 
       try {
         const template: EventTemplate = {
@@ -901,12 +954,13 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
       } catch (deleteError) {
         deletedPostIdsRef.current.delete(id);
         insertPost(post);
+        persistDeletedPosts();
         const message = deleteError instanceof Error ? deleteError.message : String(deleteError);
         setError(message);
         throw deleteError;
       }
     },
-    [insertPost, removePost, setError, signEvent],
+    [ensureDeletedPostsHydrated, insertPost, persistDeletedPosts, removePost, setError, signEvent],
   );
 
   const publishStatus = useCallback(

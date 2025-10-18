@@ -45,8 +45,8 @@ type ActiveView = "casual" | "feed" | "personal" | "members";
 type ViewTab = { key: ActiveView; label: string; icon: LucideIcon };
 
 const DESKTOP_VIEW_TABS: ViewTab[] = [
-  { key: "casual", label: "Casual Chat", icon: MessageCircle },
-  { key: "feed", label: "Public Feed", icon: Newspaper },
+  { key: "casual", label: "Chat", icon: MessageCircle },
+  { key: "feed", label: "Forum", icon: Newspaper },
   { key: "personal", label: "Your Feed", icon: Sparkles },
 ];
 
@@ -1087,9 +1087,9 @@ const CommunityView: React.FC = () => {
     [typingPubkeys, pubkey, resolveProfileSummary],
   );
   const membersHeading = isCasualView
-    ? "Casual Chat members"
+    ? "Chat members"
     : isPublicFeedView
-      ? "Public Feed members"
+      ? "Forum members"
       : isPersonalFeedView
         ? "Your Feed members"
         : "Community members";
@@ -1364,7 +1364,7 @@ const CommunityView: React.FC = () => {
   const handleDeleteMessage = useCallback(
     async (message: CasualChatMessage) => {
       if (typeof window !== "undefined") {
-        const confirmed = window.confirm("Delete this message from casual chat?");
+        const confirmed = window.confirm("Delete this message from chat?");
         if (!confirmed) {
           return;
         }
@@ -1460,7 +1460,7 @@ const CommunityView: React.FC = () => {
         aria-hidden="true"
       />
       <div className="relative z-0 flex min-h-screen w-full flex-col">
-        <aside className="hidden border-r border-[var(--border-subtle)] bg-[var(--bg-card)]/70 px-5 pb-8 pt-16 backdrop-blur lg:fixed lg:inset-y-0 lg:left-0 lg:flex lg:w-80 lg:flex-col">
+        <aside className="hidden border-r border-[var(--border-subtle)] bg-[var(--bg-card)]/70 px-5 pb-8 pt-24 backdrop-blur lg:fixed lg:inset-y-0 lg:left-0 lg:flex lg:w-80 lg:flex-col">
           <nav
             aria-label="Community navigation"
             role="tablist"
@@ -1479,7 +1479,7 @@ const CommunityView: React.FC = () => {
             }
           >
             <MessageCircle className="h-4 w-4" aria-hidden="true" />
-            <span>Direct Messages</span>
+            <span>Messages</span>
           </NavLink>
           <div className="mt-8 flex-1 overflow-hidden">
             <h2 className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)]">{membersHeading}</h2>
@@ -1910,7 +1910,7 @@ const CommunityView: React.FC = () => {
                             </div>
                           ) : (
                             <p className="text-xs text-[var(--fg-muted)]">
-                              Browse the Public Feed to discover people to follow.
+                              Browse the Forum to discover people to follow.
                             </p>
                           )}
                         </div>

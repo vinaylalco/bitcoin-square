@@ -11,7 +11,8 @@ import { useNostrAccount } from "./useNostrAccount";
 
 const ROOM_ID = "bitcoinsquare-casual";
 const ROOM_TAG = `room:${ROOM_ID}`;
-const ROOM_NAME = "BitcoinSquare Casual Chat";
+const ROOM_NAME = "BitcoinSquare Chat";
+const DELETED_MESSAGE_STORAGE_KEY = "bitcoinsquare-chat-deleted";
 
 const FAST_RELAY = "wss://relay.damus.io";
 const ADDITIONAL_RELAYS = ["wss://relay.primal.net", "wss://nos.lol", "wss://relay.nostr.band"];
@@ -220,6 +221,7 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
   const typingThrottleRef = useRef(0);
   const pendingLikesRef = useRef(new Map<string, Set<string>>());
   const deletedMessageIdsRef = useRef(new Set<string>());
+  const deletedMessageStorageHydratedRef = useRef(false);
 
   const configuredRoomKey = getConfiguredRoomKey(ROOM_ID);
 
@@ -230,6 +232,48 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
   });
 
   const { ready: accountReady, pubkey, signEvent } = useNostrAccount();
+
+  const ensureDeletedMessagesHydrated = useCallback(() => {
+    if (deletedMessageStorageHydratedRef.current) {
+      return;
+    }
+    if (typeof window === "undefined") {
+      return;
+    }
+    try {
+      const raw = window.localStorage.getItem(DELETED_MESSAGE_STORAGE_KEY);
+      if (!raw) {
+        return;
+      }
+      const parsed = JSON.parse(raw) as unknown;
+      if (Array.isArray(parsed)) {
+        parsed.forEach((value) => {
+          if (typeof value === "string") {
+            const trimmed = value.trim();
+            if (trimmed.length > 0) {
+              deletedMessageIdsRef.current.add(trimmed);
+            }
+          }
+        });
+      }
+    } catch (storageError) {
+      console.warn("Failed to restore deleted chat messages", storageError);
+    } finally {
+      deletedMessageStorageHydratedRef.current = true;
+    }
+  }, []);
+
+  const persistDeletedMessages = useCallback(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    try {
+      const serialized = JSON.stringify(Array.from(deletedMessageIdsRef.current));
+      window.localStorage.setItem(DELETED_MESSAGE_STORAGE_KEY, serialized);
+    } catch (storageError) {
+      console.warn("Failed to persist deleted chat messages", storageError);
+    }
+  }, []);
 
   useEffect(() => {
     if (!configuredRoomKey) {
@@ -267,6 +311,7 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
   }, []);
 
   useEffect(() => {
+    ensureDeletedMessagesHydrated();
     let cancelled = false;
     setLoading(true);
     getCachedMessages(ROOM_ID, 60)
@@ -301,6 +346,9 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
 
           const message = cachedToMessage(item);
           if (!message) return;
+          if (deletedMessageIdsRef.current.has(message.id)) {
+            return;
+          }
           const likes = pendingLikes.get(message.id);
           const messageWithLikes = likes
             ? { ...message, likePubkeys: Array.from(likes) }
@@ -327,9 +375,10 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [ensureDeletedMessagesHydrated]);
 
   useEffect(() => {
+    ensureDeletedMessagesHydrated();
     const manager = new NostrRelayManager({
       fastRelay: FAST_RELAY,
       additionalRelays: ADDITIONAL_RELAYS,
@@ -342,6 +391,7 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
         "#t": [ROOM_TAG],
       },
       (event) => {
+        ensureDeletedMessagesHydrated();
         void (async () => {
           if (!event.tags.some((tag) => tag[0] === "t" && tag[1] === ROOM_TAG)) {
             return;
@@ -440,6 +490,7 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
         "#t": [ROOM_TAG],
       },
       (event) => {
+        ensureDeletedMessagesHydrated();
         if (!isLikeReaction(event.content)) {
           return;
         }
@@ -448,6 +499,9 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
         if (!targetId) return;
         const reactor = event.pubkey;
         if (!reactor) return;
+        if (deletedMessageIdsRef.current.has(targetId)) {
+          return;
+        }
 
         let found = false;
         setMessages((prev) => {
@@ -487,6 +541,7 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
         "#t": [ROOM_TAG],
       },
       (event) => {
+        ensureDeletedMessagesHydrated();
         const targetIds = event.tags
           ?.filter((tag) => Array.isArray(tag) && tag[0] === "e" && typeof tag[1] === "string")
           .map((tag) => tag[1].trim())
@@ -500,6 +555,7 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
           deletedMessageIdsRef.current.add(id);
           pendingLikesRef.current.delete(id);
         });
+        persistDeletedMessages();
 
         setMessages((prev) => {
           const filtered = prev.filter((message) => !targets.has(message.id));
@@ -523,7 +579,7 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
       manager.close();
       managerRef.current = null;
     };
-  }, [pubkey]);
+  }, [ensureDeletedMessagesHydrated, persistDeletedMessages, pubkey]);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -760,10 +816,12 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
         throw new Error("Relay manager not ready yet");
       }
 
+      ensureDeletedMessagesHydrated();
       const id = message.id;
       deletedMessageIdsRef.current.add(id);
       pendingLikesRef.current.delete(id);
       setMessages((prev) => prev.filter((entry) => entry.id !== id));
+      persistDeletedMessages();
 
       try {
         const template: EventTemplate = {
@@ -789,11 +847,12 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
       } catch (deleteError) {
         deletedMessageIdsRef.current.delete(id);
         setMessages((prev) => upsertMessage(prev, message));
+        persistDeletedMessages();
         setError(deleteError instanceof Error ? deleteError.message : String(deleteError));
         throw deleteError;
       }
     },
-    [signEvent],
+    [ensureDeletedMessagesHydrated, persistDeletedMessages, signEvent],
   );
 
   const ready = useMemo(
