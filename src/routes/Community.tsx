@@ -11,7 +11,6 @@ import {
   type CasualChatMessage,
 } from "../hooks/useBitcoinSquareCasualChat";
 import type { CasualAttachmentMeta } from "../hooks/useBitcoinSquareCasualChat";
-import { useMediaUploader, type MediaUploadResult, type UseMediaUploaderReturn } from "../hooks/useMediaUploader";
 import { useBitcoinSquareFeed } from "../hooks/useBitcoinSquareFeed";
 import { decryptBinary } from "../utils/aes";
 import { getCachedMediaBlob, getCachedPreview, setCachedMediaBlob, setCachedPreview } from "../utils/mediaCache";
@@ -26,7 +25,7 @@ import {
   useCommunityTranslation,
 } from "../context/CommunityTranslationContext";
 import type { LucideIcon } from "lucide-react";
-import { ArrowUp, Heart, Loader2, MessageCircle, MessageSquareQuote, Newspaper, Paperclip, Send, Sparkles, Users, X } from "lucide-react";
+import { ArrowUp, Heart, Loader2, MessageCircle, MessageSquareQuote, Newspaper, Send, Sparkles, Users, X } from "lucide-react";
 import { markdownToHtml } from "../utils/markdown";
 
 type ActiveView = "casual" | "feed" | "personal" | "members";
@@ -50,8 +49,6 @@ const CASUAL_ROOM: RoomDefinition = {
   type: "private",
   hasLocalKey: true,
 };
-
-type PendingAttachment = MediaUploadResult & { previewUrl?: string | null };
 
 type AttachmentStatus = "idle" | "loading" | "ready" | "error";
 
@@ -299,12 +296,6 @@ const AttachmentPreview: React.FC<{ attachment: CasualAttachmentMeta }> = ({ att
 const Composer: React.FC<{
   disabled: boolean;
   onSend: (text: string) => Promise<void>;
-  onUploadFile: (file: File) => Promise<void>;
-  pendingAttachments: PendingAttachment[];
-  onRemoveAttachment: (cacheKey: string) => void;
-  uploadStatus: UseMediaUploaderReturn["status"];
-  uploadProgress: number;
-  uploadError: string | null;
   draft?: string;
   onTyping?: () => void;
   quoteContext?: QuoteContextState | null;
@@ -313,12 +304,6 @@ const Composer: React.FC<{
 }> = ({
   disabled,
   onSend,
-  onUploadFile,
-  pendingAttachments,
-  onRemoveAttachment,
-  uploadStatus,
-  uploadProgress,
-  uploadError,
   draft,
   onTyping,
   quoteContext,
@@ -329,7 +314,6 @@ const Composer: React.FC<{
   const [isTextareaFocused, setIsTextareaFocused] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const typingEmitRef = useRef(0);
 
   const characterCount = value.length;
@@ -383,19 +367,6 @@ const Composer: React.FC<{
     emitTyping();
   };
 
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    try {
-      await onUploadFile(file);
-    } catch (uploadErr) {
-      const message = uploadErr instanceof Error ? uploadErr.message : String(uploadErr);
-      setError(message);
-    } finally {
-      event.target.value = "";
-    }
-  };
-
   const composerExpanded = isTextareaFocused || value.trim().length > 0;
 
   return (
@@ -444,27 +415,11 @@ const Composer: React.FC<{
           rows={composerExpanded ? 4 : 1}
           maxLength={CHAT_CHARACTER_LIMIT}
           placeholder={disabled ? "Your BitcoinSquare keys must be ready before posting" : "Share an update…"}
-          className={`w-full resize-none rounded-2xl border-none bg-transparent px-4 pr-28 text-sm leading-relaxed text-[var(--fg-default)] focus:outline-none focus:ring-0 ${
+          className={`w-full resize-none rounded-2xl border-none bg-transparent px-4 pr-16 text-sm leading-relaxed text-[var(--fg-default)] focus:outline-none focus:ring-0 ${
             composerExpanded ? "pb-16" : "pb-12"
           }`}
         />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-between px-4 pb-3">
-          <div className="pointer-events-auto flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={disabled || uploadStatus === "uploading"}
-              className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--fg-muted)] shadow-sm transition hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-60"
-              title={uploadStatus === "uploading" ? `Uploading… ${uploadProgress}%` : "Add media"}
-            >
-              {uploadStatus === "uploading" ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-              ) : (
-                <Paperclip className="h-4 w-4" aria-hidden />
-              )}
-              <span className="sr-only">Add media</span>
-            </button>
-          </div>
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-end px-4 pb-3">
           <div className="pointer-events-auto flex items-center gap-2">
             <button
               type="button"
@@ -483,49 +438,8 @@ const Composer: React.FC<{
         <span className={`font-semibold ${characterStatusClass}`} aria-live="polite">
           {`${characterCount} / ${CHAT_CHARACTER_LIMIT}`}
         </span>
-        <span className="font-semibold text-[var(--fg-muted)]" aria-live="polite">
-          {uploadStatus === "uploading" ? `Uploading… ${uploadProgress}%` : ""}
-        </span>
       </div>
-
-      {pendingAttachments.length > 0 && (
-        <div className="space-y-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">Attachments</p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {pendingAttachments.map((attachment) => (
-              <div key={attachment.cacheKey} className="relative overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3">
-                {attachment.previewUrl ? (
-                  <img
-                    src={attachment.previewUrl}
-                    alt="Pending attachment"
-                    className="max-h-48 w-full rounded-lg object-cover"
-                  />
-                ) : (
-                  <p className="text-xs text-[var(--fg-muted)]">Preview not available yet…</p>
-                )}
-                <button
-                  type="button"
-                  onClick={() => onRemoveAttachment(attachment.cacheKey)}
-                  className="absolute right-3 top-3 rounded-full border border-[var(--border-subtle)] bg-black/50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white backdrop-blur transition hover:bg-brand"
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {uploadError && uploadStatus === "error" && <p className="text-xs text-red-500">{uploadError}</p>}
       {error && <p className="text-xs text-red-500">{error}</p>}
-
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*,video/*"
-        className="hidden"
-        onChange={handleFileChange}
-      />
     </div>
   );
 };
@@ -590,15 +504,6 @@ const CommunityView: React.FC = () => {
   const listRef = useRef<HTMLDivElement | null>(null);
   const composerContainerRef = useRef<HTMLDivElement | null>(null);
   const scrollUpdateFrameRef = useRef<number | null>(null);
-  const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
-  const {
-    uploadFile,
-    progress: uploadProgress,
-    status: uploadStatus,
-    previewUrl: latestPreview,
-    error: uploadError,
-    reset: resetUpload,
-  } = useMediaUploader({ room: CASUAL_ROOM, pubkey });
   const [composerError, setComposerError] = useState<string | null>(null);
   const [composerDraft, setComposerDraft] = useState<string | undefined>(undefined);
   const [quoteContext, setQuoteContext] = useState<QuoteContextState | null>(null);
@@ -1322,43 +1227,12 @@ const CommunityView: React.FC = () => {
   }, [estimatedRowHeight, isCasualView, messages, virtualVersion]);
   const showJumpToLatest = isCasualView && !isAtTop && messages.length > 0;
 
-  const handleUploadFile = useCallback(
-    async (file: File) => {
-      const result = await uploadFile(file);
-      const preview = latestPreview ?? result.previewUrl ?? (await getCachedPreview(roomId, result.digest));
-      setPendingAttachments((prev) => [
-        ...prev,
-        {
-          ...result,
-          previewUrl: preview ?? null,
-        },
-      ]);
-      resetUpload();
-    },
-    [latestPreview, resetUpload, roomId, uploadFile],
-  );
-
-  const handleRemoveAttachment = useCallback((cacheKey: string) => {
-    setPendingAttachments((prev) => prev.filter((item) => item.cacheKey !== cacheKey));
-  }, []);
-
   const handleSend = useCallback(
     async (text: string, options?: { quoteId?: string | null; quotePubkey?: string | null }) => {
-      const attachments: CasualAttachmentMeta[] = pendingAttachments.map((attachment) => ({
-        eventId: attachment.eventId,
-        url: attachment.url,
-        mimeType: attachment.mimeType,
-        size: attachment.size,
-        width: attachment.width,
-        height: attachment.height,
-        digest: attachment.digest,
-        iv: attachment.iv,
-      }));
-      await sendMessage(text, attachments, options);
-      setPendingAttachments([]);
+      await sendMessage(text, [], options);
       setComposerError(null);
     },
-    [pendingAttachments, sendMessage],
+    [sendMessage],
   );
 
   const handleComposerSend = useCallback(
@@ -1892,12 +1766,6 @@ const CommunityView: React.FC = () => {
                     <Composer
                       disabled={!ready}
                       onSend={handleComposerSend}
-                      onUploadFile={handleUploadFile}
-                      pendingAttachments={pendingAttachments}
-                      onRemoveAttachment={handleRemoveAttachment}
-                      uploadStatus={uploadStatus}
-                      uploadProgress={uploadProgress}
-                      uploadError={uploadError}
                       draft={composerDraft}
                       onTyping={sendTyping}
                       quoteContext={quoteContext}

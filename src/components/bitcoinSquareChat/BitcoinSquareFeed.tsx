@@ -4,12 +4,11 @@ import type { FeedPost, PublishContext } from "../../hooks/useBitcoinSquareFeed"
 import { useProfileIdentity, shortenPubkey } from "../../context/ProfileIdentityContext";
 import type { ProfileSummary } from "../../context/ProfileIdentityContext";
 import { CASUAL_ROOM_ID, CASUAL_ROOM_NAME } from "../../hooks/useBitcoinSquareCasualChat";
-import { useMediaUploader, type MediaUploadResult } from "../../hooks/useMediaUploader";
 import { useCommunityTranslation } from "../../context/CommunityTranslationContext";
 import ProfileCard from "../profile/ProfileCard";
 import ErrorBoundary from "../ErrorBoundary";
 import type { RoomDefinition } from "../RoomList";
-import { Heart, Image as ImageIcon, Loader2, MessageCircle, Plus, Trash2, X } from "lucide-react";
+import { Heart, Loader2, MessageCircle, Plus, Trash2, X } from "lucide-react";
 import {
   createFeedActionHandlers,
   createOpenComposerDialog,
@@ -222,11 +221,9 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   const [isAtTop, setIsAtTop] = useState(true);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const latestKnownPostRef = useRef<string | null>(null);
   const persistedComposerTargetIdRef = useRef<string | null>(null);
-  const [pendingMedia, setPendingMedia] = useState<MediaUploadResult[]>([]);
   const postRefs = useRef(new Map<string, HTMLDivElement>());
   const highlightTimerRef = useRef<number | null>(null);
   const [highlightedPostId, setHighlightedPostId] = useState<string | null>(null);
@@ -253,14 +250,6 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     }),
     [],
   );
-
-  const {
-    uploadFile: uploadMedia,
-    progress: uploadProgress,
-    status: uploadStatus,
-    error: uploadError,
-    reset: resetUpload,
-  } = useMediaUploader({ room: feedRoom, pubkey });
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -372,53 +361,11 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     setComposerMode("new");
     setContent("");
     setComposerError(null);
-    setPendingMedia([]);
     persistedComposerTargetIdRef.current = null;
     if (typeof window !== "undefined") {
       window.localStorage.removeItem(COMPOSER_STORAGE_KEY);
     }
-    resetUpload();
     setComposerFocused(false);
-  }, [resetUpload]);
-
-  const triggerFilePicker = useCallback(() => {
-    fileInputRef.current?.click();
-  }, []);
-
-  const handleMediaUpload = useCallback(
-    async (file: File) => {
-      try {
-        const result = await uploadMedia(file);
-        setPendingMedia((prev) => [...prev, result]);
-        setComposerError(null);
-      } catch (mediaError) {
-        const message = mediaError instanceof Error ? mediaError.message : String(mediaError);
-        setComposerError(message);
-        throw mediaError;
-      } finally {
-        resetUpload();
-      }
-    },
-    [resetUpload, uploadMedia],
-  );
-
-  const handleFileChange = useCallback(
-    async (event: React.ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0];
-      if (!file) return;
-      try {
-        await handleMediaUpload(file);
-      } catch {
-        // handled in handleMediaUpload
-      } finally {
-        event.target.value = "";
-      }
-    },
-    [handleMediaUpload],
-  );
-
-  const handleRemoveMedia = useCallback((cacheKey: string) => {
-    setPendingMedia((prev) => prev.filter((item) => item.cacheKey !== cacheKey));
   }, []);
 
   const clearComposerTarget = useCallback(() => {
@@ -476,8 +423,8 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       event.preventDefault();
       if (!ready) return;
       const trimmed = content.trim();
-      if (!trimmed && pendingMedia.length === 0) {
-        setComposerError("Add a message or attach an image to post");
+      if (!trimmed) {
+        setComposerError("Add a message to post");
         return;
       }
       if (trimmed.length > 500) {
@@ -485,23 +432,11 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         return;
       }
 
-      const attachments = pendingMedia.map((media) => ({
-        url: media.url,
-        mimeType: media.mimeType,
-        size: media.size,
-        width: media.width,
-        height: media.height,
-        digest: media.digest,
-        iv: media.iv ?? null,
-        eventId: media.eventId,
-      }));
-
       try {
         setComposerError(null);
         await publishStatus({
           content: trimmed,
           context: composerTarget ? { type: composerMode, post: composerTarget } : undefined,
-          attachments,
         });
         resetComposer();
       } catch (publishError) {
@@ -512,7 +447,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         );
       }
     },
-    [composerMode, composerTarget, content, pendingMedia, publishStatus, ready, resetComposer],
+    [composerMode, composerTarget, content, publishStatus, ready, resetComposer],
   );
 
   const filteredPosts = useMemo(() => {
@@ -962,45 +897,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
           }
           disabled={!ready || publishing}
         />
-        {pendingMedia.length > 0 && (
-          <div className="grid gap-3 sm:grid-cols-2">
-            {pendingMedia.map((media) => (
-              <div
-                key={media.cacheKey}
-                className="relative overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60"
-              >
-                <img
-                  src={media.previewUrl ?? media.url}
-                  alt="Selected attachment"
-                  className="h-40 w-full object-cover"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleRemoveMedia(media.cacheKey)}
-                  className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur transition hover:bg-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
-                  aria-label="Remove attachment"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
         <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-[var(--fg-muted)]">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={triggerFilePicker}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
-              disabled={!ready || publishing || uploadStatus === "uploading"}
-              title="Attach media"
-            >
-              {uploadStatus === "uploading" ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
-              <span className="sr-only">Attach media</span>
-            </button>
-            {uploadStatus === "uploading" && <span>Uploading… {uploadProgress}%</span>}
-            {uploadError && <span className="text-red-500">{uploadError}</span>}
-          </div>
           <span>{content.length}/500</span>
         </div>
         {composerError && <p className="text-xs text-red-500">{composerError}</p>}
@@ -1012,13 +909,6 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
           {submitLabel}
         </button>
         {error && <p className="text-center text-xs text-red-500">{error}</p>}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*,video/*"
-          className="hidden"
-          onChange={handleFileChange}
-        />
       </form>
     </>
   );
