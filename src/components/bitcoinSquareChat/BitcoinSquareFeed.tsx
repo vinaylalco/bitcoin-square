@@ -217,6 +217,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   const [pendingLikes, setPendingLikes] = useState<PendingMap>(() => new Set());
   const [pendingDeletes, setPendingDeletes] = useState<PendingMap>(() => new Set());
   const [expandedPosts, setExpandedPosts] = useState<Set<string>>(() => new Set());
+  const [expandedEventDetails, setExpandedEventDetails] = useState<Set<string>>(() => new Set());
   const [showNewPostsToast, setShowNewPostsToast] = useState(false);
   const [isAtTop, setIsAtTop] = useState(true);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -842,6 +843,18 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     handleReply(activeThreadPost);
   }, [activeThreadPost, handleReply]);
 
+  const toggleEventDetails = useCallback((postId: string) => {
+    setExpandedEventDetails((previous) => {
+      const next = new Set(previous);
+      if (next.has(postId)) {
+        next.delete(postId);
+      } else {
+        next.add(postId);
+      }
+      return next;
+    });
+  }, []);
+
   const handleDeletePost = useCallback(
     async (post: FeedPost) => {
       if (typeof window !== "undefined") {
@@ -1077,6 +1090,8 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     const cardClassName = `rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-5 shadow-sm transition ${
       interactive ? "hover:border-brand/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 cursor-pointer" : ""
     } ${highlight ? "ring-2 ring-brand/60" : ""}`;
+    const showEventDetails = expandedEventDetails.has(post.id);
+    const eventDetailsLabel = showEventDetails ? "Hide event data" : "More info";
 
     return (
       <article
@@ -1265,7 +1280,28 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
               <span className="sr-only">Delete</span>
             </button>
           )}
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              toggleEventDetails(post.id);
+            }}
+            className="inline-flex h-9 items-center rounded-full border border-[var(--border-subtle)] px-4 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+            aria-expanded={showEventDetails}
+            title={showEventDetails ? "Hide raw event data" : "View raw event data"}
+          >
+            {eventDetailsLabel}
+          </button>
         </div>
+
+        {showEventDetails && (
+          <div className="mt-4 space-y-2 rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-4 text-xs text-[var(--fg-muted)]">
+            <p className="font-semibold uppercase tracking-[0.24em] text-[var(--fg-muted)]">Raw event</p>
+            <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-all rounded-xl bg-[var(--bg-card)]/70 p-3 text-[11px] leading-relaxed text-[var(--fg-muted)]">
+              {JSON.stringify(post.event, null, 2)}
+            </pre>
+          </div>
+        )}
 
         {interactive && variant === "list" && (
           <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)]">
