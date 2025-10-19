@@ -503,7 +503,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const hydrateProfile = async () => {
       try {
         const me = await strapiFetch<any>(
-          '/api/users/me?populate[role][fields][0]=type&populate[role][fields][1]=name&populate[role][fields][2]=code',
+          '/api/users/me?populate=role',
           {
             headers: { Authorization: `Bearer ${token}` },
           },
