@@ -22,7 +22,7 @@ import {
   encryptPrivateKey,
   generateNostrKeyPair,
 } from '../utils/nostr';
-import { fetchAccountNostrKeys } from '../api/nostrAccount';
+import { fetchAccountNostrKeys, type AccountNostrKeyResponse } from '../api/nostrAccount';
 import { normalizeAvatarUrl, normalizeScreenName } from '../utils/profileDefaults';
 
 interface LessonCompletionMap {
@@ -50,6 +50,12 @@ export interface User {
   preferences?: UserPreferences;
   isAdmin: boolean;
 }
+
+type NostrKeyPayload = {
+  nostrPublicKey?: string | null;
+  nostrPrivateKey?: string | null;
+  nostrEncryptedKey?: string | null;
+};
 
 const ADMIN_ROLE_KEYWORDS = ['admin', 'administrator', 'super-admin', 'superadmin', 'moderator'];
 
@@ -312,34 +318,87 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const persistNostrPrivKey = useCallback((priv: string) => {
+    setNostrPrivKey(priv);
+    try {
+      localStorage.setItem('nostrPrivKey', priv);
+    } catch {}
+  }, []);
+
+  const applyFetchedNostrKeys = useCallback(
+    async (
+      response: (AccountNostrKeyResponse | NostrKeyPayload) | null | undefined,
+      options: { passphrases?: string[]; fallbackUser?: AuthResponse['user'] | null } = {},
+    ): Promise<boolean> => {
+      if (!response) {
+        return false;
+      }
+
+      const { passphrases = [], fallbackUser = null } = options;
+      const normalizedPassphrases = passphrases
+        .map((value) => value?.trim())
+        .filter((value, index, array): value is string => !!value && array.indexOf(value) === index);
+
+      const { nostrPublicKey, nostrEncryptedKey, nostrPrivateKey } = response;
+
+      if (nostrPublicKey || nostrEncryptedKey) {
+        updateUser((prev) => {
+          if (prev) {
+            const next: User = { ...prev };
+            if (nostrPublicKey) {
+              next.nostrPublicKey = nostrPublicKey;
+            }
+            if (nostrEncryptedKey) {
+              next.nostrEncryptedKey = nostrEncryptedKey;
+            }
+            return next;
+          }
+          if (!fallbackUser) {
+            return prev;
+          }
+          return normalizeUser({
+            ...fallbackUser,
+            ...(nostrPublicKey ? { nostrPublicKey } : {}),
+            ...(nostrEncryptedKey ? { nostrEncryptedKey } : {}),
+          });
+        });
+      }
+
+      if (typeof nostrPrivateKey === 'string' && nostrPrivateKey.trim().length > 0) {
+        const priv = nostrPrivateKey.trim();
+        persistNostrPrivKey(priv);
+        return true;
+      }
+
+      if (typeof nostrEncryptedKey === 'string' && nostrEncryptedKey.trim().length > 0) {
+        let lastError: unknown = null;
+        for (const candidate of normalizedPassphrases) {
+          try {
+            const priv = await decryptPrivateKey(nostrEncryptedKey, candidate);
+            if (priv && priv.trim().length > 0) {
+              persistNostrPrivKey(priv.trim());
+              return true;
+            }
+          } catch (error) {
+            lastError = error;
+          }
+        }
+        if (lastError && normalizedPassphrases.length > 0) {
+          console.warn('Failed to decrypt nostr key with provided passphrases', lastError);
+        }
+      }
+
+      return false;
+    },
+    [persistNostrPrivKey, updateUser],
+  );
+
   const refreshNostrKeys = useCallback(async () => {
     if (!user || !token) return;
     setNostrKeyLoading(true);
     try {
       const response = await fetchAccountNostrKeys(user.id, token);
-      if (!response) {
-        return;
-      }
-      if (response?.nostrPublicKey && response.nostrPublicKey !== user.nostrPublicKey) {
-        updateUser((prev) => (prev ? { ...prev, nostrPublicKey: response.nostrPublicKey } : prev));
-      }
-      if (response?.nostrPrivateKey) {
-        setNostrPrivKey(response.nostrPrivateKey);
-        try {
-          localStorage.setItem('nostrPrivKey', response.nostrPrivateKey);
-        } catch {}
-      }
-      if (!response?.nostrPrivateKey && response?.nostrEncryptedKey) {
-        try {
-          const priv = await decryptPrivateKey(response.nostrEncryptedKey, token);
-          setNostrPrivKey(priv);
-          try {
-            localStorage.setItem('nostrPrivKey', priv);
-          } catch {}
-        } catch (error) {
-          console.warn('Failed to decrypt nostr key from response', error);
-        }
-      }
+      await applyFetchedNostrKeys(response, { passphrases: token ? [token] : undefined });
     } catch (error) {
       if (error instanceof StrapiNetworkError) {
         console.info('Skipping nostr key refresh: Strapi API is unreachable.');
@@ -349,7 +408,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setNostrKeyLoading(false);
     }
-  }, [token, updateUser, user]);
+  }, [applyFetchedNostrKeys, token, user]);
 
   function applyAuth(res: AuthResponse) {
     const normalized = normalizeUser(res.user);
@@ -366,19 +425,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function login(email: string, password: string) {
-    const res = await apiLogin(email, password);
-    applyAuth(res);
-    if (res.user.nostrEncryptedKey) {
-      try {
-        const priv = await decryptPrivateKey(res.user.nostrEncryptedKey, password);
-        setNostrPrivKey(priv);
-        try {
-          localStorage.setItem('nostrPrivKey', priv);
-        } catch {}
-        setNostrKeyLoading(false);
-      } catch {}
-    } else {
-      await refreshNostrKeys();
+    setNostrKeyLoading(true);
+    try {
+      const res = await apiLogin(email, password);
+      applyAuth(res);
+      const passphrases = [password, res.jwt].filter(
+        (value): value is string => typeof value === 'string' && value.trim().length > 0,
+      );
+      let applied = await applyFetchedNostrKeys(res.user, {
+        passphrases,
+        fallbackUser: res.user,
+      });
+      if (!applied) {
+        const fetched = await fetchAccountNostrKeys(res.user.id, res.jwt);
+        applied = await applyFetchedNostrKeys(fetched, { passphrases, fallbackUser: res.user });
+        if (!applied) {
+          console.warn('Unable to hydrate BitcoinSquare Nostr keys after login.');
+        }
+      }
+    } finally {
+      setNostrKeyLoading(false);
     }
   }
 
@@ -386,11 +452,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const res = await apiRegister(email, password);
     applyAuth(res);
     const { pub, priv } = generateNostrKeyPair();
-    setNostrPrivKey(priv);
+    persistNostrPrivKey(priv);
     setNostrKeyLoading(false);
-    try {
-      localStorage.setItem('nostrPrivKey', priv);
-    } catch {}
     const body: Record<string, unknown> = {
       nostrPublicKey: pub,
       nostrEncryptedKey: await encryptPrivateKey(priv, password),
