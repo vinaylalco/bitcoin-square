@@ -12,6 +12,7 @@ import {
   resetPassword as apiReset,
 } from '../api/auth';
 import {
+  StrapiConfigError,
   StrapiNetworkError,
   strapiFetch,
 } from '../api/strapi-client';
@@ -48,6 +49,52 @@ export interface User {
   lastStudyDate: string | null;
   preferences?: UserPreferences;
   isAdmin: boolean;
+}
+
+const ADMIN_ROLE_KEYWORDS = ['admin', 'administrator', 'super-admin', 'superadmin', 'moderator'];
+
+function matchesAdminKeyword(value: unknown): boolean {
+  if (typeof value !== 'string') {
+    return false;
+  }
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+  return ADMIN_ROLE_KEYWORDS.some((keyword) =>
+    normalized === keyword || normalized.includes(keyword),
+  );
+}
+
+function hasAdminRole(candidate: unknown): boolean {
+  if (!candidate) {
+    return false;
+  }
+  if (Array.isArray(candidate)) {
+    return candidate.some((entry) => hasAdminRole(entry));
+  }
+  if (typeof candidate === 'object') {
+    const record = candidate as Record<string, unknown>;
+    const directKeys = ['type', 'name', 'code', 'key', 'title', 'slug', 'value'];
+    for (const key of directKeys) {
+      if (matchesAdminKeyword(record[key])) {
+        return true;
+      }
+    }
+    if (matchesAdminKeyword(record.role)) {
+      return true;
+    }
+    if (record.attributes && hasAdminRole(record.attributes)) {
+      return true;
+    }
+    if (record.data && hasAdminRole(record.data)) {
+      return true;
+    }
+    return Object.values(record).some((value) =>
+      typeof value === 'string' ? matchesAdminKeyword(value) : false,
+    );
+  }
+  return matchesAdminKeyword(candidate);
 }
 
 function normalizePoints(value: unknown): number {
@@ -144,6 +191,28 @@ function normalizeBoolean(value: unknown): boolean {
   return false;
 }
 
+function computeIsAdmin(raw: any): boolean {
+  if (!raw || typeof raw !== 'object') {
+    return false;
+  }
+  const booleanCandidates = [
+    raw.isAdmin,
+    raw.admin,
+    raw.is_admin,
+    raw.isModerator,
+    raw.moderator,
+    raw.canModerate,
+  ];
+  if (booleanCandidates.some((candidate) => normalizeBoolean(candidate))) {
+    return true;
+  }
+  const roleCandidates = [raw.role, raw.roles, raw.userRole, raw.userRoles];
+  if (roleCandidates.some((candidate) => hasAdminRole(candidate))) {
+    return true;
+  }
+  return false;
+}
+
 function normalizeUser(raw: any | null | undefined): User | null {
   if (!raw) return null;
   const seedSource =
@@ -154,7 +223,7 @@ function normalizeUser(raw: any | null | undefined): User | null {
     (typeof raw.email === 'string' ? raw.email : '');
   const normalized: User = {
     ...raw,
-    isAdmin: normalizeBoolean(raw?.isAdmin),
+    isAdmin: computeIsAdmin(raw),
     points: normalizePoints(raw.points),
     lessonCompletions: normalizeLessonCompletions(raw.lessonCompletions),
     studyStreak: normalizeStudyStreak(raw.studyStreak),
@@ -218,10 +287,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   });
   const [nostrKeyLoading, setNostrKeyLoading] = useState(false);
+  const [profileHydrated, setProfileHydrated] = useState(false);
 
   useEffect(() => {
     if (!token) return;
     // In a full implementation we could verify the token here.
+  }, [token]);
+
+  useEffect(() => {
+    setProfileHydrated(false);
   }, [token]);
 
   const updateUser = useCallback((updater: (prev: User | null) => User | null) => {
@@ -339,6 +413,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setToken(null);
     setNostrPrivKey(null);
     setNostrKeyLoading(false);
+    setProfileHydrated(false);
     try {
       localStorage.removeItem('jwt');
       localStorage.removeItem('user');
@@ -351,6 +426,63 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (nostrPrivKey || nostrKeyLoading) return;
     refreshNostrKeys().catch(() => undefined);
   }, [nostrPrivKey, nostrKeyLoading, refreshNostrKeys, token, user]);
+
+  useEffect(() => {
+    if (!user || !token) {
+      return;
+    }
+    if (profileHydrated) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const hydrateProfile = async () => {
+      try {
+        const me = await strapiFetch<any>(
+          '/api/users/me?populate[role][fields][0]=type&populate[role][fields][1]=name&populate[role][fields][2]=code',
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        );
+        if (cancelled) {
+          return;
+        }
+        if (me && typeof me === 'object') {
+          updateUser((prev) => {
+            if (!prev) {
+              return me;
+            }
+            const merged: Record<string, unknown> = { ...prev };
+            Object.entries(me as Record<string, unknown>).forEach(([key, value]) => {
+              if (value !== undefined) {
+                merged[key] = value;
+              }
+            });
+            return merged;
+          });
+        }
+      } catch (error) {
+        if (error instanceof StrapiConfigError) {
+          console.info('Skipping user hydration: Strapi base URL is not configured.');
+        } else if (error instanceof StrapiNetworkError) {
+          console.info('Skipping user hydration: Strapi API is unreachable.');
+        } else {
+          console.warn('Failed to hydrate authenticated user', error);
+        }
+      } finally {
+        if (!cancelled) {
+          setProfileHydrated(true);
+        }
+      }
+    };
+
+    hydrateProfile().catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [profileHydrated, token, updateUser, user]);
 
   return (
     <AuthCtx.Provider
