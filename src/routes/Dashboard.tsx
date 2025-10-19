@@ -185,6 +185,8 @@ export default function Dashboard() {
     avatarInputRef.current?.click();
   }, []);
 
+  const showAvatarAdvancedOptions = false;
+
   const isLightningSaving = lightningStatus === 'saving';
   const isProfileSaving = profileStatus === 'saving';
 
@@ -221,7 +223,7 @@ export default function Dashboard() {
                 Welcome back
               </span>
               <h2 className="mt-6 text-3xl font-semibold leading-tight sm:text-4xl lg:text-5xl">
-                Ready for your next breakthrough, {user.username || user.email}?
+                Ready for your next breakthrough, {user.screenName || user.username || user.email}?
               </h2>
               <p className="mt-4 max-w-2xl text-base text-neutral-600 dark:text-neutral-300">
                 Keep stacking knowledge, unlocking modules, and building a streak that sticks. Your progress lives here.
@@ -336,41 +338,45 @@ export default function Dashboard() {
                     maxLength={40}
                     autoComplete="off"
                   />
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleRandomizeName}
-                      className="rounded-full border border-neutral-300 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-600 transition hover:border-brand hover:text-brand dark:border-neutral-700 dark:text-neutral-200"
-                    >
-                      Randomise
-                    </button>
-                    <button
-                      type="button"
-                      onClick={openAvatarPicker}
-                      className="rounded-full border border-brand/40 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-brand transition hover:border-brand"
-                    >
-                      Upload photo
-                    </button>
-                  </div>
-                  <div className="space-y-2">
-                    <label htmlFor="avatar-url" className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">
-                      Avatar image URL
-                    </label>
-                    <input
-                      id="avatar-url"
-                      value={avatarUrl}
-                      onChange={handleAvatarUrlInput}
-                      className="w-full rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 transition focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
-                      placeholder="https://"
-                      autoComplete="off"
-                    />
-                    {avatarUploadStatus === 'uploading' && (
-                      <p className="text-xs text-neutral-500">Uploading photo…</p>
-                    )}
-                    {avatarUploadStatus === 'error' && avatarUploadError && (
-                      <p className="text-xs text-red-500">{avatarUploadError}</p>
-                    )}
-                  </div>
+                  {showAvatarAdvancedOptions && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleRandomizeName}
+                        className="rounded-full border border-neutral-300 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-600 transition hover:border-brand hover:text-brand dark:border-neutral-700 dark:text-neutral-200"
+                      >
+                        Randomise
+                      </button>
+                      <button
+                        type="button"
+                        onClick={openAvatarPicker}
+                        className="rounded-full border border-brand/40 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-brand transition hover:border-brand"
+                      >
+                        Upload photo
+                      </button>
+                    </div>
+                  )}
+                  {showAvatarAdvancedOptions && (
+                    <div className="space-y-2">
+                      <label htmlFor="avatar-url" className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">
+                        Avatar image URL
+                      </label>
+                      <input
+                        id="avatar-url"
+                        value={avatarUrl}
+                        onChange={handleAvatarUrlInput}
+                        className="w-full rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 transition focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+                        placeholder="https://"
+                        autoComplete="off"
+                      />
+                      {avatarUploadStatus === 'uploading' && (
+                        <p className="text-xs text-neutral-500">Uploading photo…</p>
+                      )}
+                      {avatarUploadStatus === 'error' && avatarUploadError && (
+                        <p className="text-xs text-red-500">{avatarUploadError}</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
               {profileError && <p className="text-xs text-red-500">{profileError}</p>}

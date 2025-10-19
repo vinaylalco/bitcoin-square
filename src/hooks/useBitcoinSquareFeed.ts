@@ -13,6 +13,7 @@ import { publishWithPool, replicateWithPool } from "../lib/nostrPublish";
 import { decryptChannelJson, encryptChannelJson } from "../utils/channelEncryption";
 import { getConfiguredRoomKey } from "../config/nostr";
 import { useRoomKey } from "./useRoomKey";
+import { useAuth } from "../context/AuthContext";
 
 const RELAYS = [
   "wss://relay.damus.io",
@@ -357,6 +358,8 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
   const deletedPostStorageHydratedRef = useRef(false);
 
   const { ready: accountReady, pubkey, signEvent } = useNostrAccount();
+  const { user } = useAuth();
+  const canModerate = user?.isAdmin === true;
   const configuredRoomKey = getConfiguredRoomKey(FEED_ROOM_ID);
   const {
     hasKey: feedKeyAvailable,
@@ -914,6 +917,9 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
 
   const deletePost = useCallback(
     async (post: FeedPost) => {
+      if (!canModerate) {
+        throw new Error("Only admins can delete posts.");
+      }
       if (!signEvent) {
         throw new Error("Your Nostr keys are not ready yet");
       }
@@ -960,7 +966,15 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
         throw deleteError;
       }
     },
-    [ensureDeletedPostsHydrated, insertPost, persistDeletedPosts, removePost, setError, signEvent],
+    [
+      canModerate,
+      ensureDeletedPostsHydrated,
+      insertPost,
+      persistDeletedPosts,
+      removePost,
+      setError,
+      signEvent,
+    ],
   );
 
   const publishStatus = useCallback(

@@ -47,6 +47,7 @@ export interface User {
   studyStreak: number;
   lastStudyDate: string | null;
   preferences?: UserPreferences;
+  isAdmin: boolean;
 }
 
 function normalizePoints(value: unknown): number {
@@ -131,6 +132,7 @@ function normalizeUser(raw: any | null | undefined): User | null {
     (typeof raw.email === 'string' ? raw.email : '');
   const normalized: User = {
     ...raw,
+    isAdmin: raw?.isAdmin === true,
     points: normalizePoints(raw.points),
     lessonCompletions: normalizeLessonCompletions(raw.lessonCompletions),
     studyStreak: normalizeStudyStreak(raw.studyStreak),
