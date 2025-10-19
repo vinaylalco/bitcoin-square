@@ -27,12 +27,9 @@ export function fetchAccountNostrKeys(
   if (!getStrapiBaseUrl()) {
     return Promise.resolve(null);
   }
-  const params = new URLSearchParams();
-  params.append('fields[0]', 'nostrPublicKey');
-  params.append('fields[1]', 'nostrPrivateKey');
-  params.append('fields[2]', 'nostrEncryptedKey');
+  const query = 'fields[0]=nostrPublicKey&fields[2]=nostrEncryptedKey';
   return strapiFetch<Record<string, unknown> | null>(
-    `/api/users/${userId}?${params.toString()}`,
+    `/api/users/${userId}?${query}`,
     {
       method: 'GET',
       headers: {
