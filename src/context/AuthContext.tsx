@@ -122,6 +122,28 @@ function normalizeLightningAddress(value: unknown): string | null {
   return null;
 }
 
+function normalizeBoolean(value: unknown): boolean {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'true' || normalized === '1' || normalized === 'yes') {
+      return true;
+    }
+    if (normalized === 'false' || normalized === '0' || normalized === 'no') {
+      return false;
+    }
+  }
+  if (typeof value === 'number') {
+    if (Number.isFinite(value)) {
+      return value !== 0;
+    }
+    return false;
+  }
+  return false;
+}
+
 function normalizeUser(raw: any | null | undefined): User | null {
   if (!raw) return null;
   const seedSource =
@@ -132,7 +154,7 @@ function normalizeUser(raw: any | null | undefined): User | null {
     (typeof raw.email === 'string' ? raw.email : '');
   const normalized: User = {
     ...raw,
-    isAdmin: raw?.isAdmin === true,
+    isAdmin: normalizeBoolean(raw?.isAdmin),
     points: normalizePoints(raw.points),
     lessonCompletions: normalizeLessonCompletions(raw.lessonCompletions),
     studyStreak: normalizeStudyStreak(raw.studyStreak),
