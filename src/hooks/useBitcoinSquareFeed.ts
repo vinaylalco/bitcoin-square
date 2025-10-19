@@ -543,39 +543,46 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
     }
   }, [feedKeyError]);
 
+  const applyDeletionEvent = useCallback(
+    async (event: Event) => {
+      if (!hasFeedTag(event)) return;
+      const ids = event.tags
+        .filter((tag) => Array.isArray(tag) && tag[0] === "e" && typeof tag[1] === "string")
+        .map(([, value]) => value.trim())
+        .filter((value) => value.length > 0);
+      if (ids.length === 0) {
+        return;
+      }
+      ids.forEach((id) => {
+        deletedPostIdsRef.current.add(id);
+        eventsRef.current.delete(id);
+        const timer = retryTimersRef.current.get(id);
+        if (timer) {
+          clearTimeout(timer);
+          retryTimersRef.current.delete(id);
+        }
+      });
+      persistDeletedPosts();
+      setPosts((prev) => {
+        const targetIds = new Set(ids);
+        const next = prev.filter((post) => !targetIds.has(post.id));
+        ensureOldestTimestamp(next);
+        return next;
+      });
+      try {
+        await removeCachedMessages(FEED_ROOM_ID, ids);
+      } catch (cacheError) {
+        console.warn("Unable to clear deleted feed events", cacheError);
+      }
+    },
+    [ensureOldestTimestamp, persistDeletedPosts],
+  );
+
   const processEvent = useCallback(
     async (event: Event) => {
       ensureDeletedPostsHydrated();
       if (event.kind === 5) {
-        if (!hasFeedTag(event)) return;
-        const ids = event.tags
-          .filter((tag) => Array.isArray(tag) && tag[0] === "e" && typeof tag[1] === "string")
-          .map(([, value]) => value)
-          .filter((value) => value.trim().length > 0);
-        if (ids.length === 0) {
-          return;
-        }
-        ids.forEach((id) => {
-          deletedPostIdsRef.current.add(id);
-          eventsRef.current.delete(id);
-          const timer = retryTimersRef.current.get(id);
-          if (timer) {
-            clearTimeout(timer);
-            retryTimersRef.current.delete(id);
-          }
-        });
-        persistDeletedPosts();
-        setPosts((prev) => {
-          const targetIds = new Set(ids);
-          const next = prev.filter((post) => !targetIds.has(post.id));
-          ensureOldestTimestamp(next);
-          return next;
-        });
-        try {
-          await removeCachedMessages(FEED_ROOM_ID, ids);
-        } catch (cacheError) {
-          console.warn("Unable to clear deleted feed events", cacheError);
-        }
+        await applyDeletionEvent(event);
         return;
       }
 
@@ -595,8 +602,13 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
       } catch (cacheError) {
         console.warn("Unable to persist feed event", cacheError);
       }
-  },
-    [decodeEventContent, ensureDeletedPostsHydrated, ensureOldestTimestamp, insertPost, persistDeletedPosts],
+    },
+    [
+      applyDeletionEvent,
+      decodeEventContent,
+      ensureDeletedPostsHydrated,
+      insertPost,
+    ],
   );
 
   const handleEvent = useCallback(
@@ -676,7 +688,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
       RELAYS,
       [
         {
-          kinds: [1],
+          kinds: [1, 5],
           "#t": [FEED_TAG],
           since,
         },
@@ -761,10 +773,10 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
       const until = oldestTimestampRef.current ? oldestTimestampRef.current - 1 : Math.floor(Date.now() / 1000);
       const events = await listFromRelays(pool, RELAYS, [
         {
-          kinds: [1],
+          kinds: [1, 5],
           "#t": [FEED_TAG],
           until,
-          limit: LOAD_MORE_BATCH,
+          limit: LOAD_MORE_BATCH * 2,
         },
       ]);
       if (events.length === 0) {
@@ -772,12 +784,21 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
         setLoadingMore(false);
         return;
       }
-      const filtered = events
+      const deletionEvents = events.filter((event) => event.kind === 5);
+      if (deletionEvents.length > 0) {
+        await Promise.all(deletionEvents.map((event) => applyDeletionEvent(event)));
+      }
+      const postEvents = events.filter((event) => event.kind !== 5);
+      const filtered = postEvents
         .filter(hasFeedTag)
         .filter((event) => !deletedPostIdsRef.current.has(event.id));
       if (filtered.length === 0) {
-        setHasMore(false);
+        const moreAvailable = events.length >= LOAD_MORE_BATCH * 2;
+        setHasMore(moreAvailable);
         setLoadingMore(false);
+        if (isInitialLoad) {
+          setInitialLoading(false);
+        }
         return;
       }
       const limited = filtered.slice(0, LOAD_MORE_BATCH);
@@ -805,7 +826,11 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
         ensureOldestTimestamp(merged);
         return merged;
       });
-      setHasMore(filtered.length >= LOAD_MORE_BATCH);
+      const moreAvailable =
+        filtered.length > LOAD_MORE_BATCH ||
+        postEvents.length > limited.length ||
+        events.length >= LOAD_MORE_BATCH * 2;
+      setHasMore(moreAvailable);
       const cacheable = decoded.filter(
         (entry): entry is { post: FeedPost; cached: CachedMessage } =>
           !deletedPostIdsRef.current.has(entry.post.id),
@@ -824,7 +849,14 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
         setInitialLoading(false);
       }
     }
-  }, [decodeEventContent, ensureDeletedPostsHydrated, ensureOldestTimestamp, hasMore, loadingMore]);
+  }, [
+    applyDeletionEvent,
+    decodeEventContent,
+    ensureDeletedPostsHydrated,
+    ensureOldestTimestamp,
+    hasMore,
+    loadingMore,
+  ]);
 
   useEffect(() => {
     if (initialLoadRef.current) return;
