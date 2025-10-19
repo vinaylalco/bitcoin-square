@@ -6,13 +6,6 @@ export interface AccountNostrKeyResponse {
   nostrEncryptedKey?: string;
 }
 
-interface StrapiCollectionResponse<T> {
-  data?: Array<{
-    id?: number | string;
-    attributes?: T;
-  } & T>;
-}
-
 function coerceString(
   source: Record<string, unknown> | null | undefined,
   ...keys: string[]
@@ -35,10 +28,11 @@ export function fetchAccountNostrKeys(
     return Promise.resolve(null);
   }
   const params = new URLSearchParams();
-  params.set('filters[user][id][$eq]', String(userId));
-  params.set('pagination[pageSize]', '1');
-  return strapiFetch<StrapiCollectionResponse<AccountNostrKeyResponse>>(
-    `/api/nostr-keys?${params.toString()}`,
+  params.append('fields[0]', 'nostrPublicKey');
+  params.append('fields[1]', 'nostrPrivateKey');
+  params.append('fields[2]', 'nostrEncryptedKey');
+  return strapiFetch<Record<string, unknown> | null>(
+    `/api/users/${userId}?${params.toString()}`,
     {
       method: 'GET',
       headers: {
@@ -47,15 +41,13 @@ export function fetchAccountNostrKeys(
     },
   )
     .then((response) => {
-      const firstEntry = response?.data?.[0];
-      const attributes =
-        (firstEntry && 'attributes' in firstEntry && firstEntry.attributes
-          ? firstEntry.attributes
-          : firstEntry) ?? null;
-      if (!attributes || typeof attributes !== 'object') {
+      if (!response || typeof response !== 'object') {
         return null;
       }
-      const record = attributes as Record<string, unknown>;
+      if ('error' in response && typeof response.error === 'object') {
+        return null;
+      }
+      const record = response as Record<string, unknown>;
       const normalized: AccountNostrKeyResponse = {
         nostrPublicKey: coerceString(
           record,
