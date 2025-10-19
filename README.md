@@ -2,6 +2,10 @@
 
 React + Strapi integration demo. The frontend uses Vite and TanStack Query to consume content from a Strapi v5 instance.
 
+```bash
+npm i @tanstack/react-query zustand
+```
+
 ## Setup
 
 1. Copy `.env.example` to `.env` and fill in your Strapi URL and token.
