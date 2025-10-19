@@ -36,6 +36,7 @@ import Messages from "./routes/Messages";
 import { ProfileIdentityProvider } from "./context/ProfileIdentityContext";
 import { DirectMessageProvider } from "./context/DirectMessageContext";
 import { ToastProvider } from "./context/ToastContext";
+import TranslationDemo from "./routes/TranslationDemo";
 
 const router = createBrowserRouter([
   {
@@ -67,6 +68,7 @@ const router = createBrowserRouter([
       { path: "profile/:pubkey/messages", element: <Messages /> },
       { path: "profile/:pubkey", element: <Profile /> },
       { path: "messages", element: <Messages /> },
+      { path: "translations", element: <TranslationDemo /> },
     ],
   },
 ]);
