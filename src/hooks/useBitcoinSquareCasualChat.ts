@@ -8,6 +8,7 @@ import { decryptChannelText, encryptChannelText } from "../utils/channelEncrypti
 import { markdownToHtml } from "../utils/markdown";
 import { useRoomKey } from "./useRoomKey";
 import { useNostrAccount } from "./useNostrAccount";
+import { useAuth } from "../context/AuthContext";
 
 const ROOM_ID = "bitcoinsquare-casual";
 const ROOM_TAG = `room:${ROOM_ID}`;
@@ -232,6 +233,8 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
   });
 
   const { ready: accountReady, pubkey, signEvent } = useNostrAccount();
+  const { user } = useAuth();
+  const canModerate = user?.isAdmin === true;
 
   const ensureDeletedMessagesHydrated = useCallback(() => {
     if (deletedMessageStorageHydratedRef.current) {
@@ -808,6 +811,9 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
 
   const deleteMessage = useCallback(
     async (message: CasualChatMessage) => {
+      if (!canModerate) {
+        throw new Error("Only admins can delete messages.");
+      }
       if (!signEvent) {
         throw new Error("Your Nostr keys are not ready yet");
       }
@@ -852,7 +858,7 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
         throw deleteError;
       }
     },
-    [ensureDeletedMessagesHydrated, persistDeletedMessages, signEvent],
+    [canModerate, ensureDeletedMessagesHydrated, persistDeletedMessages, signEvent],
   );
 
   const ready = useMemo(

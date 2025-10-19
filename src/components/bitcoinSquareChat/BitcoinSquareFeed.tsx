@@ -5,10 +5,12 @@ import { useProfileIdentity, shortenPubkey } from "../../context/ProfileIdentity
 import type { ProfileSummary } from "../../context/ProfileIdentityContext";
 import { CASUAL_ROOM_ID, CASUAL_ROOM_NAME } from "../../hooks/useBitcoinSquareCasualChat";
 import { useCommunityTranslation } from "../../context/CommunityTranslationContext";
+import { useToast } from "../../context/ToastContext";
+import { useAuth } from "../../context/AuthContext";
 import ProfileCard from "../profile/ProfileCard";
 import ErrorBoundary from "../ErrorBoundary";
 import type { RoomDefinition } from "../RoomList";
-import { Heart, Loader2, MessageCircle, Plus, Trash2, X } from "lucide-react";
+import { Heart, Loader2, MessageCircle, Plus, Share2, Trash2, X } from "lucide-react";
 import {
   createFeedActionHandlers,
   createOpenComposerDialog,
@@ -35,6 +37,8 @@ interface BitcoinSquareFeedProps {
   error: string | null;
   pubkey: string | null;
   initialLoading: boolean;
+  initialThreadId?: string | null;
+  onThreadChange?: (postId: string | null) => void;
 }
 
 type ActiveFilter =
@@ -205,6 +209,8 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   error,
   pubkey,
   initialLoading,
+  initialThreadId = null,
+  onThreadChange,
 }) => {
   const [content, setContent] = useState("");
   const [composerFocused, setComposerFocused] = useState(false);
@@ -227,10 +233,15 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   const persistedComposerTargetIdRef = useRef<string | null>(null);
   const postRefs = useRef(new Map<string, HTMLDivElement>());
   const highlightTimerRef = useRef<number | null>(null);
+  const unresolvedThreadRef = useRef<string | null>(null);
+  const lastThreadLoadAttemptRef = useRef<{ id: string; timestamp: number } | null>(null);
   const [highlightedPostId, setHighlightedPostId] = useState<string | null>(null);
   const relativeFormatter = useMemo(() => createRelativeFormatter(), []);
   const now = useRelativeNow();
   const { requestProfile, resolveProfileSummary, openProfile } = useProfileIdentity();
+  const { showToast } = useToast();
+  const { user } = useAuth();
+  const canModerate = user?.isAdmin === true;
   const {
     isSupported: translationSupported,
     autoTranslateEnabled,
@@ -550,6 +561,58 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     }
   }, [activeThreadId, postsById]);
 
+  useEffect(() => {
+    if (!initialThreadId) {
+      setActiveThreadId((current) => (current !== null ? null : current));
+      if (activeThreadId !== null) {
+        setHighlightedPostId((current) => (current !== null ? null : current));
+      }
+      lastThreadLoadAttemptRef.current = null;
+      return;
+    }
+
+    if (postsById.has(initialThreadId)) {
+      setActiveThreadId((current) => {
+        if (current === initialThreadId) {
+          return current;
+        }
+        setHighlightedPostId(initialThreadId);
+        return initialThreadId;
+      });
+      lastThreadLoadAttemptRef.current = null;
+      return;
+    }
+
+    if (hasMore && !loadingMore) {
+      const nowMs = Date.now();
+      const lastAttempt = lastThreadLoadAttemptRef.current;
+      if (lastAttempt && lastAttempt.id === initialThreadId && nowMs - lastAttempt.timestamp < 5000) {
+        return;
+      }
+      lastThreadLoadAttemptRef.current = { id: initialThreadId, timestamp: nowMs };
+      void loadMore().catch((error) => {
+        console.warn("Failed to load more posts while resolving a shared post", error);
+      });
+    }
+  }, [initialThreadId, postsById, hasMore, loadingMore, loadMore, activeThreadId]);
+
+  useEffect(() => {
+    if (!initialThreadId) {
+      unresolvedThreadRef.current = null;
+      return;
+    }
+
+    if (postsById.has(initialThreadId)) {
+      unresolvedThreadRef.current = null;
+      return;
+    }
+
+    if (!hasMore && !loadingMore && unresolvedThreadRef.current !== initialThreadId) {
+      unresolvedThreadRef.current = initialThreadId;
+      showToast("We couldn't find that post. It may have been removed.", { tone: "error" });
+    }
+  }, [initialThreadId, postsById, hasMore, loadingMore, showToast]);
+
   const filterLabel = useMemo(() => {
     if (!activeFilter) return null;
     switch (activeFilter.type) {
@@ -610,14 +673,20 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     (post: FeedPost) => {
       setActiveThreadId(post.id);
       setHighlightedPostId(post.id);
+      if (onThreadChange) {
+        onThreadChange(post.id);
+      }
     },
-    [],
+    [onThreadChange],
   );
 
   const closeThread = useCallback(() => {
     setActiveThreadId(null);
     setHighlightedPostId(null);
-  }, []);
+    if (onThreadChange) {
+      onThreadChange(null);
+    }
+  }, [onThreadChange]);
 
   const registerPost = useCallback(
     (id: string) => (node: HTMLDivElement | null) => {
@@ -809,6 +878,47 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     handleReply(activeThreadPost);
   }, [activeThreadPost, handleReply]);
 
+  const handleSharePost = useCallback(
+    async (post: FeedPost) => {
+      if (typeof window === "undefined") {
+        return;
+      }
+
+      const shareUrl = `${window.location.origin}/community/forum/${post.id}`;
+      const attemptFallbackCopy = () => {
+        if (typeof window === "undefined") {
+          return false;
+        }
+        const result = window.prompt("Copy this post link", shareUrl);
+        if (result !== null) {
+          showToast("Post link ready to share", { tone: "success" });
+          return true;
+        }
+        return false;
+      };
+
+      try {
+        if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(shareUrl);
+          showToast("Post link copied to clipboard", { tone: "success" });
+          return;
+        }
+      } catch (error) {
+        console.warn("Failed to copy post link", error);
+        if (attemptFallbackCopy()) {
+          return;
+        }
+        showToast("Copy the link manually to share this post.", { tone: "error" });
+        return;
+      }
+
+      if (!attemptFallbackCopy()) {
+        showToast("Copy the link manually to share this post.", { tone: "info" });
+      }
+    },
+    [showToast],
+  );
+
   const toggleEventDetails = useCallback((postId: string) => {
     setExpandedEventDetails((previous) => {
       const next = new Set(previous);
@@ -823,6 +933,10 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
 
   const handleDeletePost = useCallback(
     async (post: FeedPost) => {
+      if (!canModerate) {
+        showToast("Only admins can delete posts.", { tone: "error" });
+        return;
+      }
       if (typeof window !== "undefined") {
         const confirmed = window.confirm("Delete this post from all feeds?");
         if (!confirmed) {
@@ -843,7 +957,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         updatePending(setPendingDeletes, post.id, false);
       }
     },
-    [deletePost, setPendingDeletes, updatePending],
+    [canModerate, deletePost, setPendingDeletes, showToast, updatePending],
   );
 
   const isThreadComposer =
@@ -963,7 +1077,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     const isPendingLike = pendingLikes.has(post.id);
     const likeDisabled = !ready || isPendingLike;
     const isPendingDelete = pendingDeletes.has(post.id);
-    const canDelete = true;
+    const canDelete = canModerate;
     const deleteDisabled = !ready || isPendingDelete;
     const statusLabel =
       post.status === "pending"
@@ -1181,6 +1295,18 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
           >
             {isPendingLike ? <Loader2 className="h-4 w-4 animate-spin" /> : <Heart className="h-4 w-4" />}
             <span className="sr-only">Like</span>
+          </button>
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              void handleSharePost(post);
+            }}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+            title="Copy link to post"
+          >
+            <Share2 className="h-4 w-4" />
+            <span className="sr-only">Share</span>
           </button>
           <div className="relative" data-post-menu-root={post.id}>
             <button

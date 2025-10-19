@@ -221,7 +221,7 @@ export default function Dashboard() {
                 Welcome back
               </span>
               <h2 className="mt-6 text-3xl font-semibold leading-tight sm:text-4xl lg:text-5xl">
-                Ready for your next breakthrough, {user.username || user.email}?
+                Ready for your next breakthrough, {user.screenName || user.username || user.email}?
               </h2>
               <p className="mt-4 max-w-2xl text-base text-neutral-600 dark:text-neutral-300">
                 Keep stacking knowledge, unlocking modules, and building a streak that sticks. Your progress lives here.

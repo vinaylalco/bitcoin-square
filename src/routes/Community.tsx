@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Navigate, NavLink } from "react-router-dom";
+import { Navigate, NavLink, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import BitcoinSquareFeed from "../components/bitcoinSquareChat/BitcoinSquareFeed";
 import ErrorBoundary from "../components/ErrorBoundary";
@@ -489,6 +489,40 @@ const CommunityView: React.FC = () => {
     initialLoading: feedInitialLoading,
   } = useBitcoinSquareFeed();
   const { user, refreshNostrKeys } = useAuth();
+  const canModerate = user?.isAdmin === true;
+
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { postId: routePostIdParam } = useParams<{ postId?: string }>();
+  const routePostId = routePostIdParam ?? null;
+  const cameFromCommunity = Boolean(
+    (location.state as { fromCommunity?: boolean } | null)?.fromCommunity,
+  );
+
+  const handleThreadRouteChange = useCallback(
+    (nextId: string | null) => {
+      if (nextId) {
+        if (routePostId === nextId) {
+          return;
+        }
+        navigate(`/community/forum/${nextId}`, {
+          state: { fromCommunity: true },
+        });
+        return;
+      }
+
+      if (!routePostId) {
+        return;
+      }
+
+      if (cameFromCommunity) {
+        navigate(-1);
+      } else {
+        navigate("/community", { replace: true });
+      }
+    },
+    [cameFromCommunity, navigate, routePostId],
+  );
 
   const directMessagesPath = user?.nostrPublicKey?.trim()
     ? `/profile/${user.nostrPublicKey.trim()}/messages`
@@ -514,6 +548,12 @@ const CommunityView: React.FC = () => {
   const translationEnabled = translationSupported && autoTranslateEnabled;
 
   const [activeView, setActiveView] = useState<ActiveView>("casual");
+
+  useEffect(() => {
+    if (routePostId) {
+      setActiveView("feed");
+    }
+  }, [routePostId]);
   const listRef = useRef<HTMLDivElement | null>(null);
   const composerContainerRef = useRef<HTMLDivElement | null>(null);
   const scrollUpdateFrameRef = useRef<number | null>(null);
@@ -1209,6 +1249,9 @@ const CommunityView: React.FC = () => {
         tabIndex={isActive ? 0 : -1}
         onClick={() => {
           setActiveView(tab.key);
+          if (routePostId && tab.key !== "feed") {
+            handleThreadRouteChange(null);
+          }
         }}
         className={`${baseClasses} ${layoutClass} ${paletteClasses}`}
       >
@@ -1394,6 +1437,10 @@ const CommunityView: React.FC = () => {
 
   const handleDeleteMessage = useCallback(
     async (message: CasualChatMessage) => {
+      if (!canModerate) {
+        setComposerError("Only admins can delete messages.");
+        return;
+      }
       setOpenMessageMenuId(null);
       if (typeof window !== "undefined") {
         const confirmed = window.confirm("Delete this message from chat?");
@@ -1412,7 +1459,7 @@ const CommunityView: React.FC = () => {
         updatePendingDelete(message.id, false);
       }
     },
-    [deleteMessage, setOpenMessageMenuId, updatePendingDelete, setComposerError],
+    [canModerate, deleteMessage, setOpenMessageMenuId, updatePendingDelete, setComposerError],
   );
 
   const registerRow = useCallback(
@@ -1801,52 +1848,54 @@ const CommunityView: React.FC = () => {
                                       <MessageSquareQuote className="h-4 w-4" />
                                       <span className="sr-only">Quote</span>
                                     </button>
-                                    <div className="relative" data-message-menu-root={message.id}>
-                                      <button
-                                        type="button"
-                                        onClick={(event) => {
-                                          event.stopPropagation();
-                                          setOpenMessageMenuId((current) =>
-                                            current === message.id ? null : message.id,
-                                          );
-                                        }}
-                                        className={`inline-flex h-8 w-8 items-center justify-center rounded-full border text-sm font-semibold ${messageMenuButtonPalette} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60`}
-                                        aria-expanded={isMessageMenuOpen}
-                                        aria-haspopup="menu"
-                                        aria-label="Message options"
-                                        title="Message options"
-                                      >
-                                        ...
-                                      </button>
-                                      {isMessageMenuOpen && (
-                                        <div
-                                          role="menu"
-                                          className="absolute right-0 z-30 mt-2 w-44 rounded-2xl border border-white/40 bg-[var(--bg-card)]/95 p-1 text-xs shadow-xl backdrop-blur"
+                                    {canModerate && (
+                                      <div className="relative" data-message-menu-root={message.id}>
+                                        <button
+                                          type="button"
+                                          onClick={(event) => {
+                                            event.stopPropagation();
+                                            setOpenMessageMenuId((current) =>
+                                              current === message.id ? null : message.id,
+                                            );
+                                          }}
+                                          className={`inline-flex h-8 w-8 items-center justify-center rounded-full border text-sm font-semibold ${messageMenuButtonPalette} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60`}
+                                          aria-expanded={isMessageMenuOpen}
+                                          aria-haspopup="menu"
+                                          aria-label="Message options"
+                                          title="Message options"
                                         >
-                                          <button
-                                            type="button"
-                                            role="menuitem"
-                                            disabled={deleteDisabled}
-                                            onClick={(event) => {
-                                              event.stopPropagation();
-                                              if (deleteDisabled) {
-                                                return;
-                                              }
-                                              setOpenMessageMenuId(null);
-                                              void handleDeleteMessage(message);
-                                            }}
-                                            className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 disabled:cursor-not-allowed disabled:opacity-60 ${deleteOptionClasses}`}
+                                          ...
+                                        </button>
+                                        {isMessageMenuOpen && (
+                                          <div
+                                            role="menu"
+                                            className="absolute right-0 z-30 mt-2 w-44 rounded-2xl border border-white/40 bg-[var(--bg-card)]/95 p-1 text-xs shadow-xl backdrop-blur"
                                           >
-                                            {isPendingDelete ? (
-                                              <Loader2 className="h-4 w-4 animate-spin" />
-                                            ) : (
-                                              <Trash2 className="h-4 w-4" />
-                                            )}
-                                            <span>Delete message</span>
-                                          </button>
-                                        </div>
-                                      )}
-                                    </div>
+                                            <button
+                                              type="button"
+                                              role="menuitem"
+                                              disabled={deleteDisabled}
+                                              onClick={(event) => {
+                                                event.stopPropagation();
+                                                if (deleteDisabled) {
+                                                  return;
+                                                }
+                                                setOpenMessageMenuId(null);
+                                                void handleDeleteMessage(message);
+                                              }}
+                                              className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 disabled:cursor-not-allowed disabled:opacity-60 ${deleteOptionClasses}`}
+                                            >
+                                              {isPendingDelete ? (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                              ) : (
+                                                <Trash2 className="h-4 w-4" />
+                                              )}
+                                              <span>Delete message</span>
+                                            </button>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
                                     <button
                                       type="button"
                                       onClick={() => handleLikeMessage(message)}
@@ -1936,6 +1985,8 @@ const CommunityView: React.FC = () => {
                         error={feedError}
                         pubkey={feedPubkey}
                         initialLoading={feedInitialLoading}
+                        initialThreadId={routePostId}
+                        onThreadChange={handleThreadRouteChange}
                       />
                     </div>
                   </ErrorBoundary>
@@ -1963,6 +2014,8 @@ const CommunityView: React.FC = () => {
                         error={feedError}
                         pubkey={feedPubkey}
                         initialLoading={feedInitialLoading}
+                        initialThreadId={routePostId}
+                        onThreadChange={handleThreadRouteChange}
                       />
                     ) : (
                       <div className="flex flex-1 items-center justify-center px-6 py-12">
