@@ -106,6 +106,14 @@ const buildQuoteSnippet = (markdown: string) => {
   return `${condensed.slice(0, 137)}…`;
 };
 
+const normalizeLanguageCode = (value?: string | null) => {
+  if (!value) return undefined;
+  const trimmed = value.trim().toLowerCase();
+  if (!trimmed) return undefined;
+  const [primary] = trimmed.split(/[-_]/);
+  return (primary ?? trimmed) || undefined;
+};
+
 const computeAuthorAccent = (pubkey: string): AuthorAccent => {
   let hash = 0;
   for (let i = 0; i < pubkey.length; i += 1) {
@@ -544,8 +552,14 @@ const CommunityView: React.FC = () => {
     isOriginalVisible,
     toggleOriginal,
     formatLanguageName,
+    targetLanguage,
+    targetLanguageLabel,
   } = useCommunityTranslation();
   const translationEnabled = translationSupported && autoTranslateEnabled;
+  const normalizedTargetLanguage = useMemo(
+    () => normalizeLanguageCode(targetLanguage),
+    [targetLanguage],
+  );
 
   const [activeView, setActiveView] = useState<ActiveView>("casual");
 
@@ -1660,9 +1674,27 @@ const CommunityView: React.FC = () => {
                             translationEntry.detectedLanguage.trim().length > 0
                               ? formatLanguageName(translationEntry.detectedLanguage)
                               : null;
+                          const normalizedDetectedLanguage = normalizeLanguageCode(
+                            translationEntry?.detectedLanguage,
+                          );
                           const translationNoticeColor = isSelf
                             ? "text-white/70"
                             : "text-[var(--fg-muted)]";
+                          const isPendingTranslation =
+                            translationStatus === "idle" || translationStatus === "loading";
+                          const languageNote = translationEnabled
+                            ? translationStatus === "error"
+                              ? `Translation unavailable; showing original content (browser language: ${targetLanguageLabel})`
+                              : isPendingTranslation
+                                ? `Preparing ${targetLanguageLabel} version (browser language)`
+                                : normalizedDetectedLanguage &&
+                                    normalizedTargetLanguage &&
+                                    normalizedDetectedLanguage !== normalizedTargetLanguage
+                                  ? `Auto-translated to ${targetLanguageLabel} (your browser language) from ${
+                                      detectedLanguageLabel ?? "another language"
+                                    }`
+                                  : `Original message already matches your browser language (${targetLanguageLabel})`
+                            : `Message shown in ${targetLanguageLabel} (your browser language)`;
                           const likeCount = message.likePubkeys.length;
                           const likedByCurrentUser = pubkey ? message.likePubkeys.includes(pubkey) : false;
                           const likeDisabled = !ready || likedByCurrentUser;
@@ -1821,6 +1853,13 @@ const CommunityView: React.FC = () => {
                                       ) : null}
                                     </div>
                                   )}
+                                  <p
+                                    className={`text-[9px] uppercase tracking-[0.3em] ${
+                                      isSelf ? "text-white/60" : "text-[var(--fg-muted)]"
+                                    }`}
+                                  >
+                                    {languageNote}
+                                  </p>
                                   {message.attachments.length > 0 && (
                                     <div className="space-y-3">
                                       {message.attachments.map((attachment) => (

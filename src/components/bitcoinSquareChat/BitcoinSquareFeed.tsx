@@ -132,6 +132,14 @@ const buildPostSnippet = (content: string) => {
   return `${condensed.slice(0, 217)}…`;
 };
 
+const normalizeLanguageCode = (value?: string | null) => {
+  if (!value) return undefined;
+  const trimmed = value.trim().toLowerCase();
+  if (!trimmed) return undefined;
+  const [primary] = trimmed.split(/[-_]/);
+  return (primary ?? trimmed) || undefined;
+};
+
 const extractPostReference = (
   tags: string[][],
 ): { type: "quote" | "reply"; id: string } | null => {
@@ -251,8 +259,14 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     isOriginalVisible,
     toggleOriginal,
     formatLanguageName,
+    targetLanguage,
+    targetLanguageLabel,
   } = useCommunityTranslation();
   const translationEnabled = translationSupported && autoTranslateEnabled;
+  const normalizedTargetLanguage = useMemo(
+    () => normalizeLanguageCode(targetLanguage),
+    [targetLanguage],
+  );
   const feedRoom = useMemo<RoomDefinition>(
     () => ({
       id: CASUAL_ROOM_ID,
@@ -1103,6 +1117,21 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       translationEntry?.detectedLanguage && translationEntry.detectedLanguage.trim().length > 0
         ? formatLanguageName(translationEntry.detectedLanguage)
         : null;
+    const normalizedDetectedLanguage = normalizeLanguageCode(translationEntry?.detectedLanguage);
+    const isPendingTranslation = translationStatus === "idle" || translationStatus === "loading";
+    const languageNote = translationEnabled
+      ? translationStatus === "error"
+        ? `Translation unavailable; showing original content (browser language: ${targetLanguageLabel})`
+        : isPendingTranslation
+          ? `Preparing ${targetLanguageLabel} version (browser language)`
+          : normalizedDetectedLanguage &&
+              normalizedTargetLanguage &&
+              normalizedDetectedLanguage !== normalizedTargetLanguage
+            ? `Auto-translated to ${targetLanguageLabel} (your browser language) from ${
+                detectedLanguageLabel ?? "another language"
+              }`
+            : `Original note already matches your browser language (${targetLanguageLabel})`
+      : `Note shown in ${targetLanguageLabel} (your browser language)`;
     const reference = extractPostReference(post.tags);
     const referencedId = reference?.id ?? null;
     const referencedPost = referencedId ? postsById.get(referencedId) : undefined;
@@ -1230,6 +1259,8 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
             ) : null}
           </div>
         )}
+
+        <p className="mt-2 text-[10px] uppercase tracking-[0.24em] text-[var(--fg-muted)]">{languageNote}</p>
 
         {!isThreadVariant && longPost && (
           <button

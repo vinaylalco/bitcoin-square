@@ -18,6 +18,7 @@ export function Translator() {
   const [text, setText] = useState("");
   const [targetLang, setTargetLang] = useState("es");
   const [translatedText, setTranslatedText] = useState("");
+  const [detectedLanguage, setDetectedLanguage] = useState<string | null>(null);
   const { translate, loading, error } = useTranslate();
 
   // Submit handler coordinates the translation call and updates UI state when
@@ -32,10 +33,12 @@ export function Translator() {
 
     try {
       const result = await translate(text, targetLang);
-      setTranslatedText(result);
+      setTranslatedText(result.translatedText);
+      setDetectedLanguage(result.detectedLanguage ?? null);
     } catch (err) {
       // Errors are surfaced via the hook's error state, so no-op here.
       setTranslatedText("");
+      setDetectedLanguage(null);
     }
   };
 
@@ -93,7 +96,14 @@ export function Translator() {
           {error ? (
             <p className="text-sm text-rose-600">{error}</p>
           ) : translatedText ? (
-            <p className="whitespace-pre-wrap text-sm leading-relaxed">{translatedText}</p>
+            <div className="space-y-2">
+              <p className="whitespace-pre-wrap text-sm leading-relaxed">{translatedText}</p>
+              {detectedLanguage && (
+                <p className="text-xs font-medium uppercase tracking-[0.24em] text-slate-500">
+                  {`Detected source language: ${detectedLanguage.toUpperCase()}`}
+                </p>
+              )}
+            </div>
           ) : (
             <p className="text-sm text-slate-500">Your translated text will appear here.</p>
           )}

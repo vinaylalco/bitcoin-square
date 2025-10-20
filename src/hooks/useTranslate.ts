@@ -1,5 +1,11 @@
 import { useCallback, useState } from "react";
 
+export interface TranslateResult {
+  translatedText: string;
+  detectedLanguage?: string;
+  provider?: string;
+}
+
 /**
  * Custom hook that wraps the LibreTranslate API and exposes a convenient helper
  * for the UI. The hook tracks loading and error state so components can render
@@ -18,7 +24,7 @@ export function useTranslate() {
    * to the LibreTranslate backend.
    */
   const translate = useCallback(
-    async (text: string, targetLang: string): Promise<string> => {
+    async (text: string, targetLang: string): Promise<TranslateResult> => {
       setLoading(true);
       setError(null);
 
@@ -41,14 +47,35 @@ export function useTranslate() {
           throw new Error(`Translation request failed with status ${response.status}`);
         }
 
-        const data: { translatedText?: string } = await response.json();
+        const data: {
+          translatedText?: string;
+          detectedLanguage?:
+            | string
+            | { language?: string }
+            | Array<{ language?: string }>;
+          provider?: string;
+        } = await response.json();
 
         if (!data.translatedText) {
           // Guard against unexpected payload shapes from the API.
           throw new Error("The translation service returned an unexpected response.");
         }
 
-        return data.translatedText;
+        let detectedLanguage: string | undefined;
+        const rawDetected = data.detectedLanguage;
+        if (typeof rawDetected === "string") {
+          detectedLanguage = rawDetected;
+        } else if (Array.isArray(rawDetected)) {
+          detectedLanguage = rawDetected.find((entry) => entry?.language)?.language;
+        } else if (rawDetected && typeof rawDetected === "object") {
+          detectedLanguage = rawDetected.language;
+        }
+
+        return {
+          translatedText: data.translatedText,
+          detectedLanguage,
+          provider: data.provider,
+        };
       } catch (err) {
         const message = err instanceof Error ? err.message : "Unknown error";
         setError(message);
