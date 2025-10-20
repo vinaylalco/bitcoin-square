@@ -1,6 +1,7 @@
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_IMAGE_WIDTH = 1080;
-const API_ENDPOINT = "https://freeimage.host/api/1/upload";
+const PRIMARY_ENDPOINT = "https://freeimage.host/api/1/upload";
+const SECONDARY_ENDPOINT = "https://api.imgbb.com/1/upload";
 const API_KEY = "6d207e02198a847aa98d0a2a901485a5";
 const DEFAULT_PROXY = "https://cors.isomorphic-git.org/";
 
@@ -183,7 +184,12 @@ export const processImageFile = async (file: File): Promise<ProcessedImage> => {
   };
 };
 
-const baseUploadUrl = `${API_ENDPOINT}?key=${API_KEY}&action=upload&format=json`;
+const normalizeEndpoint = (endpoint?: string | null) => {
+  if (!endpoint) return null;
+  const trimmed = endpoint.trim();
+  if (!trimmed) return null;
+  return trimmed.replace(/\/$/, "");
+};
 
 const normalizeProxy = (proxy?: string | null) => {
   if (!proxy) return null;
@@ -192,17 +198,17 @@ const normalizeProxy = (proxy?: string | null) => {
   return trimmed.endsWith("/") ? trimmed : `${trimmed}/`;
 };
 
-const buildUploadUrl = () => baseUploadUrl;
+const buildUploadUrl = (endpoint: string) => `${endpoint}?key=${API_KEY}&action=upload&format=json`;
 
-const buildProxiedUploadUrl = () => {
+const buildProxiedUploadUrl = (url: string) => {
   const configured = normalizeProxy(import.meta.env?.VITE_FREEIMAGE_PROXY as string | undefined);
   if (configured && configured.includes("{url}")) {
-    return configured.replace("{url}", encodeURIComponent(baseUploadUrl));
+    return configured.replace("{url}", encodeURIComponent(url));
   }
 
   const prefix = configured ?? normalizeProxy(DEFAULT_PROXY);
   if (!prefix) return null;
-  return `${prefix}${baseUploadUrl}`;
+  return `${prefix}${url}`;
 };
 
 const createFormData = (base64: string, fileName: string) => {
@@ -214,6 +220,63 @@ const createFormData = (base64: string, fileName: string) => {
 
 const isLikelyCorsError = (error: unknown) =>
   error instanceof TypeError && typeof error.message === "string" && error.message.includes("fetch");
+
+const parseUploadPayload = (payload: any, processed: ProcessedImage): UploadedImage => {
+  const image = payload?.image ?? payload?.data ?? {};
+
+  const width =
+    typeof image.width === "number" ? image.width : Number.parseInt(image.width ?? "", 10);
+  const height =
+    typeof image.height === "number" ? image.height : Number.parseInt(image.height ?? "", 10);
+  const size = typeof image.size === "number" ? image.size : Number.parseInt(image.size ?? "", 10);
+
+  const url = image.url ?? image.image?.url ?? image.display_url ?? image.url_viewer ?? null;
+  const displayUrl = image.display_url ?? image.url ?? image.image?.url ?? url;
+  const viewerUrl = image.url_viewer ?? image.display_url ?? image.url ?? displayUrl;
+  const thumbUrl = image.thumb?.url ?? image.medium?.url ?? image.thumb_url ?? null;
+
+  if (!url && !displayUrl && !viewerUrl) {
+    throw new ImageProcessingError("Image upload returned an unexpected response");
+  }
+
+  return {
+    url: (url ?? displayUrl ?? viewerUrl) as string,
+    displayUrl: (displayUrl ?? url ?? viewerUrl) as string,
+    viewerUrl: (viewerUrl ?? displayUrl ?? url) as string,
+    thumbUrl,
+    width: Number.isFinite(width) ? (width as number) : processed.width,
+    height: Number.isFinite(height) ? (height as number) : processed.height,
+    size: Number.isFinite(size) ? (size as number) : processed.size,
+    mimeType: processed.mimeType,
+    digest: processed.digest,
+    name: image.name ?? image.title ?? processed.fileName,
+  };
+};
+
+const validatePayload = (payload: any) => {
+  if (!payload || typeof payload !== "object") {
+    throw new ImageProcessingError("Unexpected upload response");
+  }
+
+  const success = payload.success ?? payload.data;
+  const statusCode =
+    payload.status_code ??
+    payload.status?.code ??
+    payload.status?.status_code ??
+    (typeof payload.status === "number" ? payload.status : null);
+
+  if (statusCode && Number(statusCode) !== 200) {
+    const errorMessage =
+      (payload.error && typeof payload.error.message === "string" && payload.error.message) ||
+      (payload.status && typeof payload.status.txt === "string" && payload.status.txt) ||
+      "Image upload failed";
+    throw new ImageProcessingError(errorMessage);
+  }
+
+  if (!success) {
+    throw new ImageProcessingError("Image upload failed");
+  }
+};
 
 export const uploadProcessedImage = async (processed: ProcessedImage): Promise<UploadedImage> => {
   const dataUrl = await readAsDataUrl(processed.blob);
@@ -233,46 +296,43 @@ export const uploadProcessedImage = async (processed: ProcessedImage): Promise<U
     }
 
     const payload = await response.json();
-    if (!payload || typeof payload !== "object") {
-      throw new ImageProcessingError("Unexpected upload response");
-    }
-
-    if (payload.status_code !== 200 || !payload.success) {
-      const errorMessage =
-        (payload.error && typeof payload.error.message === "string" && payload.error.message) ||
-        "Image upload failed";
-      throw new ImageProcessingError(errorMessage);
-    }
-
-    const image = payload.image ?? {};
-    const width = typeof image.width === "number" ? image.width : Number.parseInt(image.width ?? "", 10);
-    const height = typeof image.height === "number" ? image.height : Number.parseInt(image.height ?? "", 10);
-    const size = typeof image.size === "number" ? image.size : Number.parseInt(image.size ?? "", 10);
-
-    return {
-      url: image.url ?? image.display_url ?? image.url_viewer,
-      displayUrl: image.display_url ?? image.url,
-      viewerUrl: image.url_viewer ?? image.display_url ?? image.url,
-      thumbUrl: image.thumb?.url ?? null,
-      width: Number.isFinite(width) ? (width as number) : processed.width,
-      height: Number.isFinite(height) ? (height as number) : processed.height,
-      size: Number.isFinite(size) ? (size as number) : processed.size,
-      mimeType: processed.mimeType,
-      digest: processed.digest,
-      name: image.name ?? processed.fileName,
-    };
+    validatePayload(payload);
+    return parseUploadPayload(payload, processed);
   };
 
-  try {
-    return await attemptUpload(buildUploadUrl());
-  } catch (error) {
-    const proxiedUrl = buildProxiedUploadUrl();
-    if (!proxiedUrl || !isLikelyCorsError(error)) {
-      throw error;
-    }
+  const customEndpoint = normalizeEndpoint(
+    import.meta.env?.VITE_FREEIMAGE_UPLOAD_ENDPOINT as string | undefined,
+  );
+  const endpoints = [
+    customEndpoint,
+    PRIMARY_ENDPOINT,
+    SECONDARY_ENDPOINT,
+  ]
+    .filter(Boolean)
+    .filter((value, index, self) => self.indexOf(value) === index) as string[];
 
-    return attemptUpload(proxiedUrl);
+  let lastError: unknown = null;
+
+  for (const endpoint of endpoints) {
+    const uploadUrl = buildUploadUrl(endpoint);
+    try {
+      return await attemptUpload(uploadUrl);
+    } catch (error) {
+      lastError = error;
+      const proxiedUrl = buildProxiedUploadUrl(uploadUrl);
+      if (!proxiedUrl || !isLikelyCorsError(error)) {
+        continue;
+      }
+
+      try {
+        return await attemptUpload(proxiedUrl);
+      } catch (proxiedError) {
+        lastError = proxiedError;
+      }
+    }
   }
+
+  throw lastError instanceof Error ? lastError : new ImageProcessingError("Image upload failed");
 };
 
 export class UploadError extends ImageProcessingError {}
