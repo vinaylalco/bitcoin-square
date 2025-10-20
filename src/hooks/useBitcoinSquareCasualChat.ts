@@ -614,7 +614,7 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
       options?: { quoteId?: string | null },
     ) => {
       const trimmed = body.trim();
-      if (!trimmed) {
+      if (!trimmed && attachments.length === 0) {
         throw new Error("Message cannot be empty");
       }
       if (trimmed.length > 500) {
