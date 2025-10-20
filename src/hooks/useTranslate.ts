@@ -16,8 +16,18 @@ export function useTranslate() {
   const [error, setError] = useState<string | null>(null);
 
   // Resolve the base API URL from environment variables with a sensible default
-  // for local development.
-  const apiBase = import.meta.env.VITE_TRANSLATE_API_URL ?? "http://localhost:5000";
+  // for local development. When no explicit base URL is provided we fall back to
+  // the local proxy configured in `vite.config.ts`, which avoids CORS issues by
+  // routing `/translate` requests through the Vite dev server.
+  const rawBase = import.meta.env.VITE_TRANSLATE_API_URL?.trim();
+  const normalizedBase = rawBase ? rawBase.replace(/\/$/, "") : undefined;
+  const defaultBase = "http://localhost:5000";
+  const resolvedBase = normalizedBase ?? defaultBase;
+  const shouldUseRelativeEndpoint =
+    !normalizedBase && typeof window !== "undefined";
+  const endpoint = shouldUseRelativeEndpoint
+    ? "/translate"
+    : `${resolvedBase}/translate`;
 
   /**
    * Translate arbitrary text into the requested target language by delegating
@@ -29,7 +39,7 @@ export function useTranslate() {
       setError(null);
 
       try {
-        const response = await fetch(`${apiBase}/translate`, {
+        const response = await fetch(endpoint, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -84,7 +94,7 @@ export function useTranslate() {
         setLoading(false);
       }
     },
-    [apiBase],
+    [endpoint],
   );
 
   return { translate, loading, error };
