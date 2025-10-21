@@ -36,7 +36,6 @@ import Messages from "./routes/Messages";
 import { ProfileIdentityProvider } from "./context/ProfileIdentityContext";
 import { DirectMessageProvider } from "./context/DirectMessageContext";
 import { ToastProvider } from "./context/ToastContext";
-import TranslateTest from "./routes/TranslateTest";
 
 const router = createBrowserRouter([
   {
@@ -65,7 +64,6 @@ const router = createBrowserRouter([
       { path: "checkout/cancel", element: <CheckoutCancel /> },
       { path: "community", element: <Community /> },
       { path: "community/forum/:postId", element: <Community /> },
-      { path: "translate-test", element: <TranslateTest /> },
       { path: "profile/:pubkey/messages", element: <Messages /> },
       { path: "profile/:pubkey", element: <Profile /> },
       { path: "messages", element: <Messages /> },

@@ -14,6 +14,7 @@ import { decryptChannelJson, encryptChannelJson } from "../utils/channelEncrypti
 import { getConfiguredRoomKey } from "../config/nostr";
 import { useRoomKey } from "./useRoomKey";
 import { useAuth } from "../context/AuthContext";
+import { getBrowserLanguageTag } from "../utils/browserLanguage";
 
 const RELAYS = [
   "wss://relay.damus.io",
@@ -36,6 +37,7 @@ const ENCRYPTED_PLACEHOLDER = "Encrypted message (unlock to view)";
 const DECRYPT_FAILURE_PLACEHOLDER = "Unable to decrypt message";
 const LEGACY_DECRYPTING_PLACEHOLDER = "Decrypting message…";
 const DELETED_POST_STORAGE_KEY = "bitcoinsquare-forum-deleted";
+const BROWSER_LANGUAGE_TAG = getBrowserLanguageTag();
 
 export interface FeedAttachment {
   url: string;
@@ -1046,6 +1048,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
           ["t", FEED_TAG],
           ["app", "BitcoinSquare"],
           ["feed", FEED_TAG],
+          ["lang", BROWSER_LANGUAGE_TAG],
         ];
 
         if (context?.post) {

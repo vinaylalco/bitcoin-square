@@ -12,47 +12,6 @@ export interface TranslateTextResult {
 
 const DEFAULT_ENDPOINT = "/api/translate";
 
-// Keep local LibreTranslate instances routed through the frontend proxy by
-// default so that browsers permit requests without extra CORS configuration.
-const LOCAL_TRANSLATE_PROXY_ORIGINS = new Set([
-  "http://localhost:5000",
-  "http://127.0.0.1:5000",
-]);
-
-const resolveConfiguredEndpoint = () => {
-  const metaEnv = typeof import.meta !== "undefined" ? (import.meta as any).env : undefined;
-  const candidate =
-    metaEnv?.VITE_TRANSLATION_API_URL ??
-    metaEnv?.VITE_TRANSLATE_API_URL ??
-    (typeof process !== "undefined"
-      ? process.env?.VITE_TRANSLATION_API_URL ?? process.env?.VITE_TRANSLATE_API_URL
-      : undefined);
-
-  const trimmed = typeof candidate === "string" ? candidate.trim() : "";
-  if (!trimmed) {
-    return DEFAULT_ENDPOINT;
-  }
-
-  try {
-    const parsed = new URL(trimmed);
-    if (LOCAL_TRANSLATE_PROXY_ORIGINS.has(parsed.origin) && typeof window !== "undefined") {
-      return DEFAULT_ENDPOINT;
-    }
-    const cleanedPath = parsed.pathname.replace(/\/$/, "");
-    const base = `${parsed.origin}${cleanedPath}`;
-    if (trimmed.endsWith("/translate") || cleanedPath.endsWith("/translate")) {
-      return trimmed;
-    }
-    return `${base}/translate`;
-  } catch {
-    const sanitized = trimmed.replace(/\/$/, "");
-    if (sanitized.endsWith("/translate")) {
-      return sanitized;
-    }
-    return `${sanitized}/translate`;
-  }
-};
-
 const extractTranslation = (payload: unknown): TranslateTextResult | null => {
   if (!payload || typeof payload !== "object") {
     return null;
@@ -133,7 +92,9 @@ export const translateText = async ({
     return { text: "" };
   }
 
-  const endpoint = resolveConfiguredEndpoint();
+  const endpoint =
+    (typeof import.meta !== "undefined" && import.meta.env?.VITE_TRANSLATION_API_URL) ||
+    DEFAULT_ENDPOINT;
   const apiKey =
     typeof import.meta !== "undefined" ? import.meta.env?.VITE_TRANSLATION_API_KEY : undefined;
 

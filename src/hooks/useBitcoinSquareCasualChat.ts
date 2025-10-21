@@ -9,11 +9,13 @@ import { markdownToHtml } from "../utils/markdown";
 import { useRoomKey } from "./useRoomKey";
 import { useNostrAccount } from "./useNostrAccount";
 import { useAuth } from "../context/AuthContext";
+import { getBrowserLanguageTag } from "../utils/browserLanguage";
 
 const ROOM_ID = "bitcoinsquare-casual";
 const ROOM_TAG = `room:${ROOM_ID}`;
 const ROOM_NAME = "BitcoinSquare Chat";
 const DELETED_MESSAGE_STORAGE_KEY = "bitcoinsquare-chat-deleted";
+const BROWSER_LANGUAGE_TAG = getBrowserLanguageTag();
 
 const FAST_RELAY = "wss://relay.damus.io";
 const ADDITIONAL_RELAYS = ["wss://relay.primal.net", "wss://nos.lol", "wss://relay.nostr.band"];
@@ -640,7 +642,10 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
       const content = await encryptChannelText(ROOM_ID, plaintext);
 
       const created_at = Math.floor(Date.now() / 1000);
-      const tags: string[][] = [["t", ROOM_TAG]];
+      const tags: string[][] = [
+        ["t", ROOM_TAG],
+        ["lang", BROWSER_LANGUAGE_TAG],
+      ];
 
       if (options?.quoteId) {
         tags.push(["e", options.quoteId, "", "reply"]);
