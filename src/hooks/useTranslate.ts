@@ -1,5 +1,12 @@
 import { useCallback, useState } from "react";
 
+// Allowlist of LibreTranslate origins that should be routed through the local Vite
+// proxy so browsers don't block requests during development due to CORS.
+const LOCAL_TRANSLATE_PROXY_ORIGINS = new Set([
+  "http://localhost:5000",
+  "http://127.0.0.1:5000",
+]);
+
 export interface TranslateResult {
   translatedText: string;
   detectedLanguage?: string;
@@ -20,11 +27,26 @@ export function useTranslate() {
   // the local proxy configured in `vite.config.ts`, which avoids CORS issues by
   // routing `/translate` requests through the Vite dev server.
   const rawBase = import.meta.env.VITE_TRANSLATE_API_URL?.trim();
-  const normalizedBase = rawBase ? rawBase.replace(/\/$/, "") : undefined;
+  let normalizedBase = rawBase ? rawBase.replace(/\/$/, "") : undefined;
+  let normalizedOrigin: string | undefined;
+
+  if (rawBase) {
+    try {
+      const parsed = new URL(rawBase);
+      normalizedOrigin = parsed.origin;
+      const cleanedPath = parsed.pathname.replace(/\/$/, "");
+      normalizedBase = `${parsed.origin}${cleanedPath}`;
+    } catch {
+      // Keep the fallback normalization when the provided base URL cannot be parsed.
+    }
+  }
+
   const defaultBase = "http://localhost:5000";
   const resolvedBase = normalizedBase ?? defaultBase;
   const shouldUseRelativeEndpoint =
-    !normalizedBase && typeof window !== "undefined";
+    typeof window !== "undefined" &&
+    (!normalizedBase ||
+      (normalizedOrigin && LOCAL_TRANSLATE_PROXY_ORIGINS.has(normalizedOrigin)));
   const endpoint = shouldUseRelativeEndpoint
     ? "/translate"
     : `${resolvedBase}/translate`;

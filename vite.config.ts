@@ -19,6 +19,24 @@ export default defineConfig(({ mode }) => {
           target: translateTarget,
           changeOrigin: true,
         },
+        "/api/translate": {
+          target: translateTarget,
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api\//, "/"),
+        },
+      },
+    },
+    preview: {
+      proxy: {
+        "/translate": {
+          target: translateTarget,
+          changeOrigin: true,
+        },
+        "/api/translate": {
+          target: translateTarget,
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api\//, "/"),
+        },
       },
     },
   };
