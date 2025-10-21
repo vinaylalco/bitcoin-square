@@ -29,7 +29,17 @@ const extractTranslation = (payload: unknown): TranslateTextResult | null => {
       map.detected_source_language ??
       map.source_language ??
       map.sourceLanguage;
-    return typeof value === "string" && value.trim().length > 0 ? value : undefined;
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value;
+    }
+    if (value && typeof value === "object") {
+      const nested = value as Record<string, unknown>;
+      const nestedValue = nested.language ?? nested.lang ?? nested.code;
+      if (typeof nestedValue === "string" && nestedValue.trim().length > 0) {
+        return nestedValue;
+      }
+    }
+    return undefined;
   };
 
   const directText = root.translatedText ?? root.translation ?? root.text;
@@ -93,7 +103,8 @@ export const translateText = async ({
   }
 
   const endpoint =
-    (typeof import.meta !== "undefined" && import.meta.env?.VITE_TRANSLATION_API_URL) ||
+    (typeof import.meta !== "undefined" &&
+      (import.meta.env?.VITE_TRANSLATE_API_URL || import.meta.env?.VITE_TRANSLATION_API_URL)) ||
     DEFAULT_ENDPOINT;
   const apiKey =
     typeof import.meta !== "undefined" ? import.meta.env?.VITE_TRANSLATION_API_KEY : undefined;
@@ -111,7 +122,9 @@ export const translateText = async ({
     headers,
     body: JSON.stringify({
       q: trimmed,
+      source: "auto",
       target: targetLanguage,
+      format: "text",
     }),
     signal,
   });
