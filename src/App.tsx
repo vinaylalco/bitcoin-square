@@ -87,7 +87,7 @@ export default function App() {
   });
 
   return (
-    <div className="min-h-screen min-h-mobile-fill bg-[var(--bg-app)] text-[var(--fg-default)] transition-colors duration-300">
+    <div className="gpu-accelerated scroll-smooth min-h-screen min-h-mobile-fill bg-[var(--bg-app)] text-[var(--fg-default)] transition-colors duration-300">
       {isCommunityRoute ? (
         <button
           ref={triggerRef}
