@@ -6,6 +6,7 @@ import { publishWithPool } from "../lib/nostrPublish";
 import { encryptChannelText, decryptChannelText } from "../utils/channelEncryption";
 import { useRoomKey } from "./useRoomKey";
 import { getConfiguredRoomKey } from "../config/nostr";
+import { getBrowserLanguageTag } from "../utils/browserLanguage";
 
 const RELAYS = [
   "wss://relay.damus.io",
@@ -22,6 +23,7 @@ const ROOM_TAG = `room:${ROOM_ID}`;
 const MAX_MESSAGES = 400;
 const ENCRYPTED_PLACEHOLDER = "Encrypted message (unlock to view)";
 const DECRYPT_FAILURE_PLACEHOLDER = "Unable to decrypt message";
+const BROWSER_LANGUAGE_TAG = getBrowserLanguageTag();
 
 const extractBody = (content: string) => {
   if (!content) return "";
@@ -297,6 +299,7 @@ export const useBitcoinSquarePublicChat = () => {
         created_at: now,
         tags: [
           ["t", ROOM_TAG],
+          ["lang", BROWSER_LANGUAGE_TAG],
           ["client", "BitcoinSquarePublicChat"],
         ],
         content,
