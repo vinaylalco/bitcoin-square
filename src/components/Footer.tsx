@@ -4,10 +4,15 @@ import { Instagram } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 export default function Footer() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const location = useLocation();
 
   const isCommunityRoute = /^\/community(?:\/|$)/i.test(location.pathname);
+
+  const lang = (i18n.language || "en").toLowerCase().startsWith("es") ? "es" : "en";
+  const changeLanguage = (lng: "en" | "es") => {
+    void i18n.changeLanguage(lng);
+  };
 
   if (isCommunityRoute) {
     return null;
@@ -36,6 +41,29 @@ export default function Footer() {
             {t("nav.settings")}
           </NavLink>
         </nav>
+        <div className="flex flex-col items-center gap-3">
+          <p className="text-[0.65rem] font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">
+            {t("common.language")}
+          </p>
+          <div className="inline-flex overflow-hidden rounded-full border border-[var(--border-subtle)]">
+            <button
+              onClick={() => changeLanguage("en")}
+              className={`px-4 py-2 text-[0.65rem] font-semibold uppercase tracking-[0.32em] transition ${
+                lang === "en" ? "bg-brand text-white" : "text-[var(--fg-muted)] hover:text-brand"
+              }`}
+            >
+              EN
+            </button>
+            <button
+              onClick={() => changeLanguage("es")}
+              className={`px-4 py-2 text-[0.65rem] font-semibold uppercase tracking-[0.32em] transition ${
+                lang === "es" ? "bg-brand text-white" : "text-[var(--fg-muted)] hover:text-brand"
+              }`}
+            >
+              ES
+            </button>
+          </div>
+        </div>
         <p className="text-[var(--fg-muted)]">
           &copy; {new Date().getFullYear()} Bitcoin Square. {t("app.brandTagline")}
         </p>

@@ -1,5 +1,6 @@
 import type { LessonPlan } from "../types/lesson-plan";
 import type { Product } from "../types/product";
+import { resolveLocale, type AppLocale } from "../utils/locale";
 
 // Support both Node and browser environments. In the browser, Vite exposes env
 // variables on `import.meta.env` while in Node tests we rely on `process.env`.
@@ -254,23 +255,32 @@ export function resolveExternal(url?: string): string {
     : `https://${url}`;
 }
 
-export async function fetchProducts(
-  page = 1,
-  pageSize = 12,
-): Promise<Product[]> {
+export interface FetchProductsOptions {
+  page?: number;
+  pageSize?: number;
+  locale?: AppLocale | string | null;
+}
+
+export async function fetchProducts(options: FetchProductsOptions = {}): Promise<Product[]> {
+  const { page = 1, pageSize = 12, locale } = options;
   const params = new URLSearchParams();
   params.set("populate", "ProductImages");
   params.set("pagination[page]", String(page));
   params.set("pagination[pageSize]", String(pageSize));
+  params.set("locale", resolveLocale(locale));
   const json = await strapiFetch(`/api/products?${params.toString()}`);
   return json?.data || [];
 }
 
-export async function fetchProduct(documentId: string): Promise<Product | null> {
+export async function fetchProduct(
+  documentId: string,
+  locale?: AppLocale | string | null,
+): Promise<Product | null> {
   try {
     const params = new URLSearchParams();
     params.set("filters[documentId][$eq]", documentId);
     params.set("populate", "ProductImages");
+    params.set("locale", resolveLocale(locale));
     const json = await strapiFetch(`/api/products?${params.toString()}`);
     return json?.data?.[0] || null;
   } catch (err: any) {

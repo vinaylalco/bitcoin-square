@@ -3,12 +3,14 @@ import { useTranslation } from "react-i18next";
 import ShopSkeleton from "../components/shop/ShopSkeleton";
 import ProductCard from "../components/shop/ProductCard";
 import { fetchProducts } from "../lib/strapi";
+import { resolveLocale } from "../utils/locale";
 
 export default function Shop() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const locale = resolveLocale(i18n.language);
   const { data, isLoading, error } = useQuery({
-    queryKey: ["products"],
-    queryFn: () => fetchProducts(),
+    queryKey: ["products", locale],
+    queryFn: () => fetchProducts({ locale }),
   });
   const description = t("shop.description");
 

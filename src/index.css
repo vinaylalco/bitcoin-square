@@ -14,6 +14,9 @@
   html {
     scroll-behavior: smooth;
     font-feature-settings: "liga" 1, "kern" 1;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    height: 100%;
   }
 
   :root {
@@ -55,7 +58,25 @@
     color: var(--fg-default);
     min-height: 100vh;
     text-rendering: optimizeLegibility;
+    scroll-behavior: smooth;
+    scrollbar-gutter: stable both-edges;
     -webkit-overflow-scrolling: touch;
+    will-change: scroll-position;
+  }
+
+  #root {
+    min-height: 100%;
+    isolation: isolate;
+    backface-visibility: hidden;
+    transform: translate3d(0, 0, 0);
+    will-change: transform;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html,
+    body {
+      scroll-behavior: auto;
+    }
   }
 
   body::selection,
@@ -122,6 +143,12 @@
 
   .min-h-mobile-fill {
     min-height: 100vh;
+  }
+
+  .gpu-accelerated {
+    backface-visibility: hidden;
+    transform: translate3d(0, 0, 0);
+    will-change: transform;
   }
 }
 
