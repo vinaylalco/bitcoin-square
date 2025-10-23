@@ -96,6 +96,14 @@ const LIGHT_BACKGROUND_TEXTURE =
 const DARK_BACKGROUND_TEXTURE =
   "radial-gradient(circle at top, rgba(59,130,246,0.16), transparent 55%), radial-gradient(circle at bottom right, rgba(16,185,129,0.14), transparent 50%)";
 
+// Proxy endpoint served by our Cloudflare Worker to keep upload secrets server-side.
+const SITE_UPLOAD_ENDPOINT = "/api/upload";
+const MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024;
+const MAX_COMPRESSED_SIZE_BYTES = 1 * 1024 * 1024;
+const MAX_IMAGE_DIMENSION = 1080;
+const ALLOWED_IMAGE_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+const QUALITY_STEPS = [0.92, 0.85, 0.75, 0.65, 0.55];
+
 const MEMBER_LIST_INITIAL_LIMIT = 20;
 const MEMBER_LIST_PAGE_SIZE = 20;
 const MEMBER_SCROLL_THRESHOLD_PX = 120;
@@ -207,6 +215,138 @@ const createPreviewFromBlob = async (blob: Blob) => {
     console.warn("Failed to create preview", error);
     return null;
   }
+};
+
+const extractMarkdownImageUrls = (markdown: string) => {
+  const urls = new Set<string>();
+  const regex = /!\[[^\]]*\]\(((?:https?:\/\/[^\s)]+|\/?api\/img\/[^\s)]+))\)/g;
+  let match: RegExpExecArray | null = null;
+  while ((match = regex.exec(markdown)) !== null) {
+    if (match[1]) {
+      urls.add(match[1]);
+    }
+  }
+  return Array.from(urls);
+};
+
+const extensionFromMimeType = (type: string) => {
+  switch (type) {
+    case "image/jpeg":
+      return "jpg";
+    case "image/png":
+      return "png";
+    case "image/webp":
+      return "webp";
+    default:
+      return null;
+  }
+};
+
+const replaceFileExtension = (name: string, extension: string) => {
+  if (!extension) return name;
+  const base = name.replace(/\.[^./\\]+$/, "");
+  return `${base}.${extension}`;
+};
+
+const canvasToBlob = (canvas: HTMLCanvasElement, type: string, quality?: number) =>
+  new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          reject(new Error("We couldn't compress the image for upload."));
+          return;
+        }
+        resolve(blob);
+      },
+      type,
+      quality,
+    );
+  });
+
+const loadImageElement = (file: File) =>
+  new Promise<HTMLImageElement>((resolve, reject) => {
+    if (typeof window === "undefined") {
+      reject(new Error("Image uploads are only supported in the browser."));
+      return;
+    }
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(image);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("We couldn't read that image."));
+    };
+    image.src = objectUrl;
+  });
+
+const createOptimizedImageFile = async (file: File) => {
+  if (!ALLOWED_IMAGE_MIME_TYPES.includes(file.type as (typeof ALLOWED_IMAGE_MIME_TYPES)[number])) {
+    throw new Error("Only JPEG, PNG, or WebP images are supported.");
+  }
+  if (typeof window === "undefined") return file;
+
+  const imageElement = await loadImageElement(file);
+  if (
+    imageElement.width <= MAX_IMAGE_DIMENSION &&
+    imageElement.height <= MAX_IMAGE_DIMENSION &&
+    file.size <= MAX_COMPRESSED_SIZE_BYTES
+  ) {
+    return file;
+  }
+  const scale = Math.min(1, MAX_IMAGE_DIMENSION / Math.max(imageElement.width, imageElement.height));
+  const targetWidth = Math.max(1, Math.round(imageElement.width * scale));
+  const targetHeight = Math.max(1, Math.round(imageElement.height * scale));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+  const context = canvas.getContext("2d");
+  if (!context) {
+    throw new Error("We couldn't prepare the image for upload.");
+  }
+
+  context.drawImage(imageElement, 0, 0, targetWidth, targetHeight);
+
+  const typePriority = (() => {
+    if (file.type === "image/png") {
+      return ["image/png", "image/webp", "image/jpeg"] as const;
+    }
+    if (file.type === "image/webp") {
+      return ["image/webp", "image/jpeg"] as const;
+    }
+    return ["image/jpeg", "image/webp"] as const;
+  })();
+
+  let bestBlob: Blob | null = null;
+  let bestType: string | null = null;
+
+  for (const candidateType of typePriority) {
+    const qualities = candidateType === "image/png" ? [undefined] : QUALITY_STEPS;
+    for (const quality of qualities) {
+      const blob = await canvasToBlob(canvas, candidateType, quality);
+      if (!bestBlob || blob.size < bestBlob.size) {
+        bestBlob = blob;
+        bestType = candidateType;
+      }
+      if (blob.size <= MAX_COMPRESSED_SIZE_BYTES) {
+        const extension = extensionFromMimeType(candidateType) ?? "jpg";
+        return new File([blob], replaceFileExtension(file.name, extension), { type: candidateType, lastModified: Date.now() });
+      }
+    }
+  }
+
+  if (!bestBlob || !bestType) {
+    throw new Error("We couldn't optimize the image for upload.");
+  }
+
+  const fallbackExtension = extensionFromMimeType(bestType) ?? "jpg";
+  return new File([bestBlob], replaceFileExtension(file.name, fallbackExtension), {
+    type: bestType,
+    lastModified: Date.now(),
+  });
 };
 
 const AttachmentPreview: React.FC<{ attachment: CasualAttachmentMeta }> = ({ attachment }) => {
