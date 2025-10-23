@@ -9,6 +9,14 @@ export const escapeHtml = (value: string): string =>
     .replace(/'/g, "&#39;");
 
 const MARKDOWN_IMAGE_PATTERN = /!\[([^\]]*)\]\(((?:https?:\/\/[^\s)]+|\/?api\/img\/[^\s)]+))\)/g;
+const IMAGE_PLACEHOLDER_TOKEN_PATTERN = /__IMAGE_PLACEHOLDER_\d+__/g;
+
+export const stripImagePlaceholders = (value: string): string => {
+  if (typeof value !== "string" || value.length === 0) {
+    return value;
+  }
+  return value.replace(IMAGE_PLACEHOLDER_TOKEN_PATTERN, "");
+};
 
 export const extractMarkdownImageUrls = (markdown: string): string[] => {
   if (typeof markdown !== "string" || markdown.trim().length === 0) {
@@ -84,9 +92,11 @@ export const markdownToHtml = (input: string): string => {
 
   const withLineBreaks = withAutoLinks.replace(/\n/g, "<br />");
 
-  return imagePlaceholders.reduce(
+  const withImages = imagePlaceholders.reduce(
     (html, placeholder, index) =>
       html.replace(`__IMAGE_PLACEHOLDER_${index}__`, placeholder),
     withLineBreaks,
   );
+
+  return stripImagePlaceholders(withImages);
 };

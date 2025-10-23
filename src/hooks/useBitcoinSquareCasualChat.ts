@@ -5,7 +5,7 @@ import { NostrRelayManager } from "../lib/nostrRelayManager";
 import { getConfiguredRoomKey } from "../config/nostr";
 import { cacheMessage, getCachedMessages, removeCachedMessages, type CachedMessage } from "../utils/chatCache";
 import { decryptChannelText, encryptChannelText } from "../utils/channelEncryption";
-import { markdownToHtml } from "../utils/markdown";
+import { markdownToHtml, stripImagePlaceholders } from "../utils/markdown";
 import { useRoomKey } from "./useRoomKey";
 import { useNostrAccount } from "./useNostrAccount";
 import { useAuth } from "../context/AuthContext";
@@ -144,7 +144,8 @@ const upsertMessage = (messages: CasualChatMessage[], incoming: CasualChatMessag
 const cachedToMessage = (cached: CachedMessage): CasualChatMessage | null => {
   if (!cached.decrypted) return null;
   const payload = parsePayload(cached.decrypted);
-  const body = payload.body.trim();
+  const sanitizedBody = stripImagePlaceholders(payload.body);
+  const body = sanitizedBody.trim();
   const html = markdownToHtml(body);
   const quoteTag =
     cached.tags?.find((tag) => tag[0] === "e" && tag[3] === "reply") ??
@@ -404,7 +405,8 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
           try {
             const plaintext = await decryptChannelText(ROOM_ID, event.content);
             const payload = parsePayload(plaintext);
-            const body = payload.body.trim();
+            const sanitizedBody = stripImagePlaceholders(payload.body);
+            const body = sanitizedBody.trim();
             const html = markdownToHtml(body);
             const attachments = payload.attachments ?? [];
             const quoteTag =
@@ -616,10 +618,11 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
       options?: { quoteId?: string | null },
     ) => {
       const trimmed = body.trim();
-      if (!trimmed && attachments.length === 0) {
+      const cleanedBody = stripImagePlaceholders(trimmed);
+      if (!cleanedBody && attachments.length === 0) {
         throw new Error("Message cannot be empty");
       }
-      if (trimmed.length > 500) {
+      if (cleanedBody.length > 500) {
         throw new Error("Messages are limited to 500 characters");
       }
       if (!signEvent) {
@@ -635,7 +638,7 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
 
       const payload: CasualPayload = {
         version: 1,
-        body: trimmed,
+        body: cleanedBody,
         attachments,
       };
       const plaintext = JSON.stringify(payload);
@@ -691,9 +694,9 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
         id: signed.id,
         pubkey: signed.pubkey,
         created_at,
-        markdown: trimmed,
-        body: trimmed,
-        html: markdownToHtml(trimmed),
+        markdown: cleanedBody,
+        body: cleanedBody,
+        html: markdownToHtml(cleanedBody),
         attachments,
         tags: signed.tags ?? tags,
         status: "pending",

@@ -15,6 +15,7 @@ import { getConfiguredRoomKey } from "../config/nostr";
 import { useRoomKey } from "./useRoomKey";
 import { useAuth } from "../context/AuthContext";
 import { getBrowserLanguageTag } from "../utils/browserLanguage";
+import { stripImagePlaceholders } from "../utils/markdown";
 
 const RELAYS = [
   "wss://relay.damus.io",
@@ -214,12 +215,13 @@ const mapEventToPost = (
     decrypted && typeof decrypted !== "string"
       ? decrypted
       : { body: typeof decrypted === "string" ? decrypted : event.content };
+  const normalizedBody = stripImagePlaceholders(payload.body);
   const attachments = extractAttachments(payload, event.tags ?? []);
   return {
     id: event.id,
     pubkey: event.pubkey,
     created_at: event.created_at,
-    content: payload.body,
+    content: normalizedBody,
     tags: event.tags ?? [],
     attachments,
     status: optimistic ? "pending" : "ok",
@@ -443,7 +445,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
       const encryptedPayload = typeof event.content === "string" && event.content.startsWith("v44:");
 
       if (!encryptedPayload) {
-        return { body: event.content, attachments: parsedAttachments };
+        return { body: stripImagePlaceholders(event.content), attachments: parsedAttachments };
       }
 
       if (!feedKeyAvailable) {
@@ -459,13 +461,16 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
                 .filter((attachment): attachment is FeedAttachment => Boolean(attachment))
             : parsedAttachments;
           return {
-            body: payload.body,
+            body: stripImagePlaceholders(payload.body),
             attachments,
           };
         }
 
         if (typeof (payload as unknown) === "string") {
-          return { body: payload as unknown as string, attachments: parsedAttachments };
+          return {
+            body: stripImagePlaceholders(payload as unknown as string),
+            attachments: parsedAttachments,
+          };
         }
       } catch (decodeError) {
         console.warn("Failed to decrypt feed event", decodeError);
@@ -500,11 +505,11 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
                       .map((attachment) => normalizeAttachment(attachment))
                       .filter((attachment): attachment is FeedAttachment => Boolean(attachment))
                   : parseAttachments(event.tags ?? []);
-                cachedPayload = { body: parsed.body, attachments };
+                cachedPayload = { body: stripImagePlaceholders(parsed.body), attachments };
               }
             } catch {
               cachedPayload = {
-                body: entry.decrypted,
+                body: stripImagePlaceholders(entry.decrypted),
                 attachments: parseAttachments(event.tags ?? []),
               };
             }
@@ -1023,11 +1028,12 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
     }): Promise<PublishResult> => {
       setPublishing(true);
       const trimmed = content.trim();
-      if (!trimmed && attachments.length === 0) {
+      const cleanedContent = stripImagePlaceholders(trimmed);
+      if (!cleanedContent && attachments.length === 0) {
         setPublishing(false);
         throw new Error("Status update cannot be empty");
       }
-      if (trimmed.length > 500) {
+      if (cleanedContent.length > 500) {
         setPublishing(false);
         throw new Error("Status updates are limited to 500 characters");
       }
@@ -1085,7 +1091,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
         });
 
         const payload: FeedPayload = {
-          body: trimmed,
+          body: cleanedContent,
           attachments: normalizedAttachments,
         };
 
