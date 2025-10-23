@@ -28,6 +28,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   ArrowUp,
   Heart,
+  ImagePlus,
   Loader2,
   MessageCircle,
   MessageSquareQuote,
@@ -39,6 +40,7 @@ import {
   X,
 } from "lucide-react";
 import { markdownToHtml } from "../utils/markdown";
+import { rewriteImgBbUrlToProxy } from "../utils/imageProxy";
 
 type ActiveView = "casual" | "feed" | "personal" | "members";
 
@@ -84,6 +86,14 @@ const LIGHT_BACKGROUND_TEXTURE =
   "radial-gradient(circle at top, rgba(148,163,184,0.16), transparent 60%), radial-gradient(circle at bottom right, rgba(129,140,248,0.12), transparent 55%)";
 const DARK_BACKGROUND_TEXTURE =
   "radial-gradient(circle at top, rgba(59,130,246,0.16), transparent 55%), radial-gradient(circle at bottom right, rgba(16,185,129,0.14), transparent 50%)";
+
+// Proxy endpoint served by our Cloudflare Worker to keep upload secrets server-side.
+const SITE_UPLOAD_ENDPOINT = "/api/upload";
+const MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024;
+const MAX_COMPRESSED_SIZE_BYTES = 1 * 1024 * 1024;
+const MAX_IMAGE_DIMENSION = 1080;
+const ALLOWED_IMAGE_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+const QUALITY_STEPS = [0.92, 0.85, 0.75, 0.65, 0.55];
 
 const MEMBER_LIST_INITIAL_LIMIT = 20;
 const MEMBER_LIST_PAGE_SIZE = 20;
@@ -196,6 +206,138 @@ const createPreviewFromBlob = async (blob: Blob) => {
     console.warn("Failed to create preview", error);
     return null;
   }
+};
+
+const extractMarkdownImageUrls = (markdown: string) => {
+  const urls = new Set<string>();
+  const regex = /!\[[^\]]*\]\((https?:\/\/[^\s)]+)\)/g;
+  let match: RegExpExecArray | null = null;
+  while ((match = regex.exec(markdown)) !== null) {
+    if (match[1]) {
+      urls.add(match[1]);
+    }
+  }
+  return Array.from(urls);
+};
+
+const extensionFromMimeType = (type: string) => {
+  switch (type) {
+    case "image/jpeg":
+      return "jpg";
+    case "image/png":
+      return "png";
+    case "image/webp":
+      return "webp";
+    default:
+      return null;
+  }
+};
+
+const replaceFileExtension = (name: string, extension: string) => {
+  if (!extension) return name;
+  const base = name.replace(/\.[^./\\]+$/, "");
+  return `${base}.${extension}`;
+};
+
+const canvasToBlob = (canvas: HTMLCanvasElement, type: string, quality?: number) =>
+  new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          reject(new Error("We couldn't compress the image for upload."));
+          return;
+        }
+        resolve(blob);
+      },
+      type,
+      quality,
+    );
+  });
+
+const loadImageElement = (file: File) =>
+  new Promise<HTMLImageElement>((resolve, reject) => {
+    if (typeof window === "undefined") {
+      reject(new Error("Image uploads are only supported in the browser."));
+      return;
+    }
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(image);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("We couldn't read that image."));
+    };
+    image.src = objectUrl;
+  });
+
+const createOptimizedImageFile = async (file: File) => {
+  if (!ALLOWED_IMAGE_MIME_TYPES.includes(file.type as (typeof ALLOWED_IMAGE_MIME_TYPES)[number])) {
+    throw new Error("Only JPEG, PNG, or WebP images are supported.");
+  }
+  if (typeof window === "undefined") return file;
+
+  const imageElement = await loadImageElement(file);
+  if (
+    imageElement.width <= MAX_IMAGE_DIMENSION &&
+    imageElement.height <= MAX_IMAGE_DIMENSION &&
+    file.size <= MAX_COMPRESSED_SIZE_BYTES
+  ) {
+    return file;
+  }
+  const scale = Math.min(1, MAX_IMAGE_DIMENSION / Math.max(imageElement.width, imageElement.height));
+  const targetWidth = Math.max(1, Math.round(imageElement.width * scale));
+  const targetHeight = Math.max(1, Math.round(imageElement.height * scale));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+  const context = canvas.getContext("2d");
+  if (!context) {
+    throw new Error("We couldn't prepare the image for upload.");
+  }
+
+  context.drawImage(imageElement, 0, 0, targetWidth, targetHeight);
+
+  const typePriority = (() => {
+    if (file.type === "image/png") {
+      return ["image/png", "image/webp", "image/jpeg"] as const;
+    }
+    if (file.type === "image/webp") {
+      return ["image/webp", "image/jpeg"] as const;
+    }
+    return ["image/jpeg", "image/webp"] as const;
+  })();
+
+  let bestBlob: Blob | null = null;
+  let bestType: string | null = null;
+
+  for (const candidateType of typePriority) {
+    const qualities = candidateType === "image/png" ? [undefined] : QUALITY_STEPS;
+    for (const quality of qualities) {
+      const blob = await canvasToBlob(canvas, candidateType, quality);
+      if (!bestBlob || blob.size < bestBlob.size) {
+        bestBlob = blob;
+        bestType = candidateType;
+      }
+      if (blob.size <= MAX_COMPRESSED_SIZE_BYTES) {
+        const extension = extensionFromMimeType(candidateType) ?? "jpg";
+        return new File([blob], replaceFileExtension(file.name, extension), { type: candidateType, lastModified: Date.now() });
+      }
+    }
+  }
+
+  if (!bestBlob || !bestType) {
+    throw new Error("We couldn't optimize the image for upload.");
+  }
+
+  const fallbackExtension = extensionFromMimeType(bestType) ?? "jpg";
+  return new File([bestBlob], replaceFileExtension(file.name, fallbackExtension), {
+    type: bestType,
+    lastModified: Date.now(),
+  });
 };
 
 const AttachmentPreview: React.FC<{ attachment: CasualAttachmentMeta }> = ({ attachment }) => {
@@ -322,11 +464,18 @@ const Composer: React.FC<{
   onClearQuote,
   onJumpToQuote,
 }) => {
-  const [value, setValue] = useState("");
+  const [value, setValue] = useState(() => draft ?? "");
   const [isTextareaFocused, setIsTextareaFocused] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadedImages, setUploadedImages] = useState<string[]>(() =>
+    extractMarkdownImageUrls(draft ?? ""),
+  );
   const typingEmitRef = useRef(0);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const characterCount = value.length;
   const characterStatusClass =
@@ -339,8 +488,28 @@ const Composer: React.FC<{
   useEffect(() => {
     if (typeof draft === "string") {
       setValue(draft);
+      const urls = extractMarkdownImageUrls(draft);
+      setUploadedImages((prev) => {
+        if (prev.length === urls.length && prev.every((url, index) => url === urls[index])) {
+          return prev;
+        }
+        return urls;
+      });
+    } else {
+      setValue("");
+      setUploadedImages((prev) => (prev.length === 0 ? prev : []));
     }
   }, [draft]);
+
+  useEffect(() => {
+    const urls = extractMarkdownImageUrls(value);
+    setUploadedImages((prev) => {
+      if (prev.length === urls.length && prev.every((url, index) => url === urls[index])) {
+        return prev;
+      }
+      return urls;
+    });
+  }, [value]);
 
   const emitTyping = useCallback(() => {
     if (!onTyping) return;
@@ -352,19 +521,20 @@ const Composer: React.FC<{
 
   const handleSubmit = useCallback(async () => {
     const trimmed = value.trim();
-    if (!trimmed || disabled || isSending) return;
+    if (!trimmed || disabled || isSending || isUploading) return;
     setIsSending(true);
     try {
       await onSend(trimmed);
       setValue("");
       setError(null);
+      setUploadError(null);
     } catch (sendError) {
       const message = sendError instanceof Error ? sendError.message : String(sendError);
       setError(message);
     } finally {
       setIsSending(false);
     }
-  }, [disabled, isSending, onSend, value]);
+  }, [disabled, isSending, isUploading, onSend, value]);
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     emitTyping();
@@ -377,9 +547,135 @@ const Composer: React.FC<{
   const handleChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
     setValue(event.target.value);
     emitTyping();
+    if (uploadError) {
+      setUploadError(null);
+    }
   };
 
-  const composerExpanded = isTextareaFocused || value.trim().length > 0;
+  const handleUploadClick = useCallback(() => {
+    if (disabled || isSending || isUploading) return;
+    fileInputRef.current?.click();
+  }, [disabled, isSending, isUploading]);
+
+  const handleFileChange = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      event.target.value = "";
+      if (disabled || isSending || isUploading) {
+        return;
+      }
+      setUploadError(null);
+      if (!ALLOWED_IMAGE_MIME_TYPES.includes(file.type as (typeof ALLOWED_IMAGE_MIME_TYPES)[number])) {
+        setUploadError("Only JPEG, PNG, or WebP images are supported.");
+        return;
+      }
+      if (file.size > MAX_UPLOAD_SIZE_BYTES) {
+        setUploadError("Images must be 5 MB or smaller.");
+        return;
+      }
+
+      setIsUploading(true);
+      try {
+        const optimizedFile = await createOptimizedImageFile(file);
+        const formData = new FormData();
+        formData.append("source", optimizedFile, optimizedFile.name);
+        formData.append("action", "upload");
+
+        const response = await fetch(SITE_UPLOAD_ENDPOINT, {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error(`Upload failed with status ${response.status}`);
+        }
+
+        const data = (await response.json()) as {
+          success?: boolean | null;
+          display_url?: string | null;
+          data?: { display_url?: string | null } | null;
+          error?: { message?: string | null } | string | null;
+          status_txt?: string | null;
+        };
+
+        const imageUrl =
+          data?.display_url ??
+          data?.data?.display_url ??
+          null;
+
+        if (!imageUrl || typeof imageUrl !== "string" || imageUrl.trim().length === 0) {
+          const message =
+            (typeof data?.error === "string" ? data.error : data?.error?.message) ??
+            data?.status_txt ??
+            "We couldn't retrieve the uploaded image URL.";
+          throw new Error(message);
+        }
+
+        setValue((prev) => {
+          const prefix = prev.trim().length === 0 ? "" : prev.endsWith("\n") ? "" : "\n";
+          return `${prev}${prefix}![Uploaded image](${imageUrl})\n`;
+        });
+        setError(null);
+
+        const focusTextarea = () => {
+          const node = textareaRef.current;
+          if (!node) return;
+          const length = node.value.length;
+          node.focus();
+          try {
+            node.setSelectionRange(length, length);
+          } catch {
+            // Ignore selection errors (e.g., unsupported browsers)
+          }
+        };
+
+        if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+          window.requestAnimationFrame(focusTextarea);
+        } else {
+          focusTextarea();
+        }
+
+        setIsTextareaFocused(true);
+      } catch (uploadErr) {
+        const message = uploadErr instanceof Error ? uploadErr.message : String(uploadErr);
+        setUploadError(message);
+      } finally {
+        setIsUploading(false);
+      }
+    },
+    [disabled, isSending, isUploading],
+  );
+
+  const handleRemoveImage = useCallback(
+    (url: string) => {
+      setUploadedImages((prev) => prev.filter((item) => item !== url));
+      setValue((prev) => {
+        const lines = prev.split("\n");
+        const filteredLines = lines.filter((line) => {
+          const trimmed = line.trim();
+          if (!trimmed.includes(url)) {
+            return true;
+          }
+          const match = trimmed.match(/^!\[[^\]]*\]\(([^)]+)\)$/);
+          return match?.[1] !== url;
+        });
+        let next = filteredLines.join("\n");
+        next = next.replace(/\n{3,}/g, "\n\n");
+        if (next.trim().length === 0) {
+          return "";
+        }
+        if (!next.endsWith("\n")) {
+          next += "\n";
+        }
+        return next;
+      });
+    },
+    [setUploadedImages],
+  );
+
+  const composerExpanded =
+    isTextareaFocused || value.trim().length > 0 || uploadedImages.length > 0;
 
   return (
     <div className="space-y-3">
@@ -414,6 +710,7 @@ const Composer: React.FC<{
       )}
       <div className="relative rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] shadow-sm transition focus-within:border-brand">
         <textarea
+          ref={textareaRef}
           value={value}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
@@ -431,12 +728,58 @@ const Composer: React.FC<{
             composerExpanded ? "pb-16" : "pb-12"
           }`}
         />
+        {uploadedImages.length > 0 && (
+          <div className="px-4">
+            <div className="flex flex-wrap gap-3 pb-4 pt-2">
+              {uploadedImages.map((url) => {
+                const safeUrl = rewriteImgBbUrlToProxy(url);
+                return (
+                  <div
+                    key={url}
+                    className="group relative overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] shadow-sm"
+                  >
+                  <img
+                    src={safeUrl}
+                    alt="Uploaded image preview"
+                    className="h-24 w-24 object-cover sm:h-28 sm:w-28"
+                    loading="lazy"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveImage(url)}
+                    className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-white opacity-0 transition group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                    aria-label="Remove image"
+                  >
+                    <X className="h-3.5 w-3.5" aria-hidden />
+                  </button>
+                </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-end px-4 pb-3">
           <div className="pointer-events-auto flex items-center gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+            <button
+              type="button"
+              onClick={handleUploadClick}
+              disabled={disabled || isSending || isUploading}
+              className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--fg-muted)] shadow-sm transition hover:-translate-y-0.5 hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isUploading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <ImagePlus className="h-4 w-4" aria-hidden />}
+              <span className="sr-only">Upload image</span>
+            </button>
             <button
               type="button"
               onClick={() => void handleSubmit()}
-              disabled={disabled || isSending || value.trim().length === 0}
+              disabled={disabled || isSending || isUploading || value.trim().length === 0}
               className="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand text-white shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Send className="h-4 w-4" aria-hidden />}
@@ -450,8 +793,19 @@ const Composer: React.FC<{
         <span className={`font-semibold ${characterStatusClass}`} aria-live="polite">
           {`${characterCount} / ${CHAT_CHARACTER_LIMIT}`}
         </span>
+        {isUploading && (
+          <span className="inline-flex items-center gap-2 text-[var(--fg-muted)]">
+            <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+            <span>Optimizing & uploading image…</span>
+          </span>
+        )}
       </div>
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      {(error || uploadError) && (
+        <div className="space-y-1">
+          {error && <p className="text-xs text-red-500">{error}</p>}
+          {uploadError && <p className="text-xs text-red-500">{uploadError}</p>}
+        </div>
+      )}
     </div>
   );
 };
