@@ -40,6 +40,7 @@ import {
   X,
 } from "lucide-react";
 import { markdownToHtml } from "../utils/markdown";
+import { rewriteImgBbUrlToProxy } from "../utils/imageProxy";
 
 type ActiveView = "casual" | "feed" | "personal" | "members";
 
@@ -591,14 +592,23 @@ const Composer: React.FC<{
         }
 
         const data = (await response.json()) as {
-          success?: { image?: { display_url?: string } | null };
-          error?: { message?: string } | null;
-          status_txt?: string;
+          success?: boolean | null;
+          display_url?: string | null;
+          data?: { display_url?: string | null } | null;
+          error?: { message?: string | null } | string | null;
+          status_txt?: string | null;
         };
 
-        const imageUrl = data?.success?.image?.display_url;
-        if (!imageUrl) {
-          const message = data?.error?.message ?? data?.status_txt ?? "We couldn't retrieve the uploaded image URL.";
+        const imageUrl =
+          data?.display_url ??
+          data?.data?.display_url ??
+          null;
+
+        if (!imageUrl || typeof imageUrl !== "string" || imageUrl.trim().length === 0) {
+          const message =
+            (typeof data?.error === "string" ? data.error : data?.error?.message) ??
+            data?.status_txt ??
+            "We couldn't retrieve the uploaded image URL.";
           throw new Error(message);
         }
 
@@ -721,13 +731,15 @@ const Composer: React.FC<{
         {uploadedImages.length > 0 && (
           <div className="px-4">
             <div className="flex flex-wrap gap-3 pb-4 pt-2">
-              {uploadedImages.map((url) => (
-                <div
-                  key={url}
-                  className="group relative overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] shadow-sm"
-                >
+              {uploadedImages.map((url) => {
+                const safeUrl = rewriteImgBbUrlToProxy(url);
+                return (
+                  <div
+                    key={url}
+                    className="group relative overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] shadow-sm"
+                  >
                   <img
-                    src={url}
+                    src={safeUrl}
                     alt="Uploaded image preview"
                     className="h-24 w-24 object-cover sm:h-28 sm:w-28"
                     loading="lazy"
@@ -741,7 +753,8 @@ const Composer: React.FC<{
                     <X className="h-3.5 w-3.5" aria-hidden />
                   </button>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
