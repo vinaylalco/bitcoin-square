@@ -591,14 +591,23 @@ const Composer: React.FC<{
         }
 
         const data = (await response.json()) as {
-          success?: { image?: { display_url?: string } | null };
-          error?: { message?: string } | null;
-          status_txt?: string;
+          success?: boolean | null;
+          display_url?: string | null;
+          data?: { display_url?: string | null } | null;
+          error?: { message?: string | null } | string | null;
+          status_txt?: string | null;
         };
 
-        const imageUrl = data?.success?.image?.display_url;
-        if (!imageUrl) {
-          const message = data?.error?.message ?? data?.status_txt ?? "We couldn't retrieve the uploaded image URL.";
+        const imageUrl =
+          data?.display_url ??
+          data?.data?.display_url ??
+          null;
+
+        if (!imageUrl || typeof imageUrl !== "string" || imageUrl.trim().length === 0) {
+          const message =
+            (typeof data?.error === "string" ? data.error : data?.error?.message) ??
+            data?.status_txt ??
+            "We couldn't retrieve the uploaded image URL.";
           throw new Error(message);
         }
 
