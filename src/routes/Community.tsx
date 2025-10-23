@@ -2395,9 +2395,9 @@ const CommunityView: React.FC = () => {
                   <div className="mx-auto w-full max-w-3xl space-y-3">
                     {typingSummaries.length > 0 && (
                       <div className="flex justify-center">
-                        <div className="inline-flex items-center gap-2 rounded-full bg-[var(--bg-card)] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-[var(--fg-muted)]">
-                          {`${typingSummaries.map((entry) => entry.displayName).join(", ")} typing…`}`
-                        </div>
+                          <div className="inline-flex items-center gap-2 rounded-full bg-[var(--bg-card)] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-[var(--fg-muted)]">
+                            {`${typingSummaries.map((entry) => entry.displayName).join(", ")} typing…`}
+                          </div>
                       </div>
                     )}
                     {roomKeyError && <p className="text-sm text-red-500">{roomKeyError}</p>}
