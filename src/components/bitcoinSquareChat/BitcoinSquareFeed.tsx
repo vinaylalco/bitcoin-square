@@ -1505,12 +1505,12 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
                         event.stopPropagation();
                         setLightboxImage({ src: safeAttachmentUrl, alt: "Feed attachment" });
                       }}
-                      className="block w-full"
+                      className="group relative block w-full overflow-hidden"
                     >
                       <img
                         src={safeAttachmentUrl}
                         alt="Feed attachment"
-                        className="w-full object-contain"
+                        className="h-full w-full max-h-64 object-cover transition duration-200 group-hover:scale-[1.01]"
                         loading="lazy"
                       />
                       <span className="sr-only">View full image</span>
@@ -1851,7 +1851,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-[90] bg-black/90"
+          className="fixed inset-0 z-[90] flex h-screen w-screen items-center justify-center bg-black/90 p-4 sm:p-10"
           onClick={() => setLightboxImage(null)}
         >
           <button
@@ -1865,7 +1865,10 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
           >
             <X className="h-5 w-5" aria-hidden />
           </button>
-          <div className="flex h-full w-full items-center justify-center p-4 sm:p-10">
+          <div
+            className="flex max-h-full max-w-full items-center justify-center"
+            onClick={(event) => event.stopPropagation()}
+          >
             <img
               src={lightboxImage.src}
               alt={lightboxImage.alt}

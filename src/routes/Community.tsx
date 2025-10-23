@@ -475,7 +475,7 @@ const AttachmentPreview: React.FC<{ attachment: CasualAttachmentMeta }> = ({ att
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 bg-black/90"
+          className="fixed inset-0 z-50 flex h-screen w-screen items-center justify-center bg-black/90 p-4 sm:p-10"
           onClick={() => setLightboxOpen(false)}
         >
           <button
@@ -489,14 +489,11 @@ const AttachmentPreview: React.FC<{ attachment: CasualAttachmentMeta }> = ({ att
           >
             <X className="h-5 w-5" aria-hidden />
           </button>
-          <div className="flex h-full w-full items-center justify-center p-4 sm:p-10">
-            <img
-              src={fullUrl}
-              alt="Attachment"
-              className="max-h-full max-w-full object-contain"
-              loading="lazy"
-              onClick={(event) => event.stopPropagation()}
-            />
+          <div
+            className="flex max-h-full max-w-full items-center justify-center"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <img src={fullUrl} alt="Attachment" className="max-h-full max-w-full object-contain" loading="lazy" />
           </div>
         </div>
       )}
@@ -2149,230 +2146,238 @@ const CommunityView: React.FC = () => {
                                 </div>
                               )}
                               <div className={`flex w-full ${isSelf ? "justify-end" : "justify-start"} py-2`}>
-                                <div className={`flex max-w-[min(80%,32rem)] items-end gap-3 ${isSelf ? "flex-row-reverse" : ""}`}>
-                                <button
-                                  type="button"
-                                  onClick={() => openProfile(message.pubkey)}
-                                  className="group flex-shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
-                                >
-                                  <img
-                                    src={summary.avatarUrl}
-                                    alt={summary.displayName}
-                                    className="h-10 w-10 rounded-full border border-white/80 object-cover shadow-sm transition group-hover:ring-2 group-hover:ring-brand dark:border-neutral-700"
-                                  />
-                                  <span className="sr-only">Open profile</span>
-                                </button>
-                                <div
-                                  className={`space-y-3 rounded-3xl border px-4 py-3 backdrop-blur ${
-                                    isSelf
-                                      ? "bg-brand text-white shadow-xl border-brand/60"
-                                      : "bg-white/85 text-[var(--fg-default)] shadow-sm dark:bg-neutral-900/70"
-                                  } ${isHighlighted ? "ring-2 ring-brand/70" : "ring-1 ring-transparent"}`}
-                                  style={
-                                    !isSelf && accent
-                                      ? { borderColor: accent.border, boxShadow: `0 18px 36px ${accent.shadow}` }
-                                      : undefined
-                                  }
-                                >
-                                  {message.quoteId && (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleScrollToMessage(message.quoteId!)}
-                                      className="group flex w-full items-start gap-3 rounded-2xl border border-dashed border-[var(--border-subtle)] bg-white/80 px-3 py-2 text-left text-xs transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 dark:bg-neutral-900/60"
-                                    >
-                                      <span
-                                        aria-hidden
-                                        className="mt-1 inline-flex h-2 w-2 flex-shrink-0 rounded-full"
-                                        style={{ backgroundColor: quoteAccent?.dot ?? accent?.dot }}
-                                      />
-                                      <div className="flex-1">
-                                        <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)] group-hover:text-brand">
-                                          {quotedSummary?.displayName ?? "Quoted member"}
-                                        </p>
-                                        <p className="mt-1 text-[11px] text-[var(--fg-default)] group-hover:text-brand">
-                                          {referencedMessage
-                                            ? buildQuoteSnippet(referencedMessage.markdown)
-                                            : "Original message unavailable"}
-                                        </p>
-                                        <p
-                                          className={`mt-2 text-[9px] uppercase tracking-[0.3em] ${
-                                            isSelf ? "text-white/70" : "text-[var(--fg-muted)]"
-                                          }`}
-                                        >
-                                          {referencedMessage ? formatTimestamp(referencedMessage.created_at) : ""}
-                                        </p>
-                                      </div>
-                                    </button>
-                                  )}
+                                <div className={`flex w-full items-end gap-3 ${isSelf ? "flex-row-reverse" : ""}`}>
+                                  <button
+                                    type="button"
+                                    onClick={() => openProfile(message.pubkey)}
+                                    className="group flex-shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+                                  >
+                                    <img
+                                      src={summary.avatarUrl}
+                                      alt={summary.displayName}
+                                      className="h-10 w-10 rounded-full border border-white/80 object-cover shadow-sm transition group-hover:ring-2 group-hover:ring-brand dark:border-neutral-700"
+                                    />
+                                    <span className="sr-only">Open profile</span>
+                                  </button>
                                   <div
-                                    className={`prose prose-sm max-w-none whitespace-pre-wrap break-words ${
-                                      isSelf ? "prose-invert" : "text-[var(--fg-default)]"
-                                    } prose-a:text-brand`}
-                                    dangerouslySetInnerHTML={{ __html: renderedHtml }}
-                                  />
-                                  {translationEnabled && (
-                                    <div
-                                      className={`flex flex-wrap items-center gap-2 text-[9px] uppercase tracking-[0.3em] ${translationNoticeColor}`}
-                                    >
-                                      {translationStatus === "loading" ? (
-                                        <span>Translating…</span>
-                                      ) : translationStatus === "error" ? (
-                                        <>
-                                          <span>Translation unavailable</span>
-                                          <button
-                                            type="button"
-                                            onClick={() => refreshTranslation(translationKey, message.markdown)}
-                                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.3em] transition focus-visible:outline-none focus-visible:ring-1 ${
-                                              isSelf
-                                                ? "text-white hover:text-white focus-visible:ring-white/60"
-                                                : "text-brand hover:text-brand/80 focus-visible:ring-brand/60"
-                                            }`}
-                                          >
-                                            Retry
-                                          </button>
-                                        </>
-                                      ) : translationReady ? (
-                                        <>
-                                          <span>
-                                            {showOriginal
-                                              ? `Showing original${
-                                                  detectedLanguageLabel ? ` (${detectedLanguageLabel})` : ""
-                                                }`
-                                              : `Translated from ${detectedLanguageLabel ?? "original language"}`}
-                                          </span>
-                                          <button
-                                            type="button"
-                                            onClick={() => toggleOriginal(translationKey)}
-                                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.3em] transition focus-visible:outline-none focus-visible:ring-1 ${
-                                              isSelf
-                                                ? "text-white hover:text-white focus-visible:ring-white/60"
-                                                : "text-brand hover:text-brand/80 focus-visible:ring-brand/60"
-                                            }`}
-                                          >
-                                            {showOriginal ? "View translation" : "View original"}
-                                          </button>
-                                        </>
-                                      ) : null}
-                                    </div>
-                                  )}
-                                  {message.attachments.length > 0 && (
-                                    <div className="space-y-3">
-                                      {message.attachments.map((attachment) => (
-                                        <div
-                                          key={`${message.id}-${attachment.digest ?? attachment.url}`}
-                                          className="overflow-hidden rounded-2xl border border-white/40 bg-black/10"
-                                        >
-                                          <AttachmentPreview attachment={attachment} />
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                  <div className={`flex items-center gap-2 ${isSelf ? "justify-end" : ""}`}>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleQuoteMessage(message)}
-                                      disabled={!ready}
-                                      className={`inline-flex h-8 w-8 items-center justify-center rounded-full border ${
-                                        isSelf
-                                          ? "border-white/60 text-white"
-                                          : "border-white/70 text-[var(--fg-muted)] hover:border-brand hover:text-brand"
-                                      } disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60`}
-                                      title="Quote"
-                                    >
-                                      <MessageSquareQuote className="h-4 w-4" />
-                                      <span className="sr-only">Quote</span>
-                                    </button>
-                                    <div className="relative" data-message-menu-root={message.id}>
+                                    className={`space-y-3 rounded-3xl border px-4 py-3 backdrop-blur ${
+                                      isSelf
+                                        ? "bg-brand text-white shadow-xl border-brand/60"
+                                        : "bg-white/85 text-[var(--fg-default)] shadow-sm dark:bg-neutral-900/70"
+                                    } ${isHighlighted ? "ring-2 ring-brand/70" : "ring-1 ring-transparent"}`}
+                                    style={
+                                      !isSelf && accent
+                                        ? { borderColor: accent.border, boxShadow: `0 18px 36px ${accent.shadow}` }
+                                        : undefined
+                                    }
+                                  >
+                                    {message.quoteId && (
                                       <button
                                         type="button"
-                                        onClick={(event) => {
-                                          event.stopPropagation();
-                                          setOpenMessageMenuId((current) =>
-                                            current === message.id ? null : message.id,
-                                          );
-                                        }}
-                                        className={`inline-flex h-8 w-8 items-center justify-center rounded-full border text-sm font-semibold ${messageMenuButtonPalette} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60`}
-                                        aria-expanded={isMessageMenuOpen}
-                                        aria-haspopup="menu"
-                                        aria-label="Message options"
-                                        title="Message options"
+                                        onClick={() => handleScrollToMessage(message.quoteId!)}
+                                        className="group flex w-full items-start gap-3 rounded-2xl border border-dashed border-[var(--border-subtle)] bg-white/80 px-3 py-2 text-left text-xs transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 dark:bg-neutral-900/60"
                                       >
-                                        ...
-                                      </button>
-                                      {isMessageMenuOpen && (
-                                        <div
-                                          role="menu"
-                                          className="absolute right-0 z-30 mt-2 w-48 rounded-2xl border border-white/40 bg-[var(--bg-card)]/95 p-1 text-xs shadow-xl backdrop-blur"
-                                        >
-                                          <button
-                                            type="button"
-                                            role="menuitem"
-                                            onClick={(event) => {
-                                              event.stopPropagation();
-                                              setOpenMessageMenuId(null);
-                                              setRawDataMessage(message);
-                                            }}
-                                            className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-medium transition hover:bg-[var(--bg-muted)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+                                        <span
+                                          aria-hidden
+                                          className="mt-1 inline-flex h-2 w-2 flex-shrink-0 rounded-full"
+                                          style={{ backgroundColor: quoteAccent?.dot ?? accent?.dot }}
+                                        />
+                                        <div className="flex-1">
+                                          <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)] group-hover:text-brand">
+                                            {quotedSummary?.displayName ?? "Quoted member"}
+                                          </p>
+                                          <p className="mt-1 text-[11px] text-[var(--fg-default)] group-hover:text-brand">
+                                            {referencedMessage
+                                              ? buildQuoteSnippet(referencedMessage.markdown)
+                                              : "Original message unavailable"}
+                                          </p>
+                                          <p
+                                            className={`mt-2 text-[9px] uppercase tracking-[0.3em] ${
+                                              isSelf ? "text-white/70" : "text-[var(--fg-muted)]"
+                                            }`}
                                           >
-                                            <span className="inline-block h-2 w-2 rounded-full bg-brand" aria-hidden />
-                                            <span>View raw data</span>
-                                          </button>
-                                          {canModerate && (
+                                            {referencedMessage ? formatTimestamp(referencedMessage.created_at) : ""}
+                                          </p>
+                                        </div>
+                                      </button>
+                                    )}
+
+                                    <div
+                                      className={`prose prose-sm max-w-none whitespace-pre-wrap break-words ${
+                                        isSelf ? "prose-invert" : "text-[var(--fg-default)]"
+                                      } prose-a:text-brand`}
+                                      dangerouslySetInnerHTML={{ __html: renderedHtml }}
+                                    />
+
+                                    {translationEnabled && (
+                                      <div
+                                        className={`flex flex-wrap items-center gap-2 text-[9px] uppercase tracking-[0.3em] ${translationNoticeColor}`}
+                                      >
+                                        {translationStatus === "loading" ? (
+                                          <span>Translating…</span>
+                                        ) : translationStatus === "error" ? (
+                                          <>
+                                            <span>Translation unavailable</span>
+                                            <button
+                                              type="button"
+                                              onClick={() => refreshTranslation(translationKey, message.markdown)}
+                                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.3em] transition focus-visible:outline-none focus-visible:ring-1 ${
+                                                isSelf
+                                                  ? "text-white hover:text-white focus-visible:ring-white/60"
+                                                  : "text-brand hover:text-brand/80 focus-visible:ring-brand/60"
+                                              }`}
+                                            >
+                                              Retry
+                                            </button>
+                                          </>
+                                        ) : translationReady ? (
+                                          <>
+                                            <span>
+                                              {showOriginal
+                                                ? `Showing original${
+                                                    detectedLanguageLabel ? ` (${detectedLanguageLabel})` : ""
+                                                  }`
+                                                : `Translated from ${detectedLanguageLabel ?? "original language"}`}
+                                            </span>
+                                            <button
+                                              type="button"
+                                              onClick={() => toggleOriginal(translationKey)}
+                                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.3em] transition focus-visible:outline-none focus-visible:ring-1 ${
+                                                isSelf
+                                                  ? "text-white hover:text-white focus-visible:ring-white/60"
+                                                  : "text-brand hover:text-brand/80 focus-visible:ring-brand/60"
+                                              }`}
+                                            >
+                                              {showOriginal ? "View translation" : "View original"}
+                                            </button>
+                                          </>
+                                        ) : null}
+                                      </div>
+                                    )}
+
+                                    {message.attachments.length > 0 && (
+                                      <div className="space-y-3">
+                                        {message.attachments.map((attachment) => (
+                                          <div
+                                            key={`${message.id}-${attachment.digest ?? attachment.url}`}
+                                            className="overflow-hidden rounded-2xl border border-white/40 bg-black/10"
+                                          >
+                                            <AttachmentPreview attachment={attachment} />
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+
+                                    <div className={`flex items-center gap-2 ${isSelf ? "justify-end" : ""}`}>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleQuoteMessage(message)}
+                                        disabled={!ready}
+                                        className={`inline-flex h-8 w-8 items-center justify-center rounded-full border ${
+                                          isSelf
+                                            ? "border-white/60 text-white"
+                                            : "border-white/70 text-[var(--fg-muted)] hover:border-brand hover:text-brand"
+                                        } disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60`}
+                                        title="Quote"
+                                      >
+                                        <MessageSquareQuote className="h-4 w-4" />
+                                        <span className="sr-only">Quote</span>
+                                      </button>
+                                      <div className="relative" data-message-menu-root={message.id}>
+                                        <button
+                                          type="button"
+                                          onClick={(event) => {
+                                            event.stopPropagation();
+                                            setOpenMessageMenuId((current) =>
+                                              current === message.id ? null : message.id,
+                                            );
+                                          }}
+                                          className={`inline-flex h-8 w-8 items-center justify-center rounded-full border text-sm font-semibold ${messageMenuButtonPalette} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60`}
+                                          aria-expanded={isMessageMenuOpen}
+                                          aria-haspopup="menu"
+                                          aria-label="Message options"
+                                          title="Message options"
+                                        >
+                                          ...
+                                        </button>
+                                        {isMessageMenuOpen && (
+                                          <div
+                                            role="menu"
+                                            className="absolute right-0 z-30 mt-2 w-48 rounded-2xl border border-white/40 bg-[var(--bg-card)]/95 p-1 text-xs shadow-xl backdrop-blur"
+                                          >
                                             <button
                                               type="button"
                                               role="menuitem"
-                                              disabled={deleteDisabled}
                                               onClick={(event) => {
                                                 event.stopPropagation();
-                                                if (deleteDisabled) {
-                                                  return;
-                                                }
                                                 setOpenMessageMenuId(null);
-                                                void handleDeleteMessage(message);
+                                                setRawDataMessage(message);
                                               }}
-                                              className={`mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 disabled:cursor-not-allowed disabled:opacity-60 ${deleteOptionClasses}`}
+                                              className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-medium transition hover:bg-[var(--bg-muted)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
                                             >
-                                              {isPendingDelete ? (
-                                                <Loader2 className="h-4 w-4 animate-spin" />
-                                              ) : (
-                                                <Trash2 className="h-4 w-4" />
-                                              )}
-                                              <span>Delete message</span>
+                                              <span className="inline-block h-2 w-2 rounded-full bg-brand" aria-hidden />
+                                              <span>View raw data</span>
                                             </button>
-                                          )}
-                                        </div>
-                                      )}
-                                    </div>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleLikeMessage(message)}
-                                      disabled={likeDisabled}
-                                      aria-pressed={likedByCurrentUser}
-                                      className={`inline-flex h-8 w-8 items-center justify-center rounded-full border ${likeButtonPalette} disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60`}
-                                      title={likedByCurrentUser ? "You liked this message" : "Send a like"}
-                                    >
-                                      <Heart className="h-4 w-4" fill={likedByCurrentUser ? "currentColor" : "none"} />
-                                      <span className="sr-only">Like</span>
-                                    </button>
-                                  </div>
-                                  {likeCount > 0 && (
-                                    <div className={`mt-2 flex ${isSelf ? "justify-end" : ""}`}>
-                                      <span
-                                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.3em] ${likeBadgePalette}`}
+                                            {canModerate && (
+                                              <button
+                                                type="button"
+                                                role="menuitem"
+                                                disabled={deleteDisabled}
+                                                onClick={(event) => {
+                                                  event.stopPropagation();
+                                                  if (deleteDisabled) {
+                                                    return;
+                                                  }
+                                                  setOpenMessageMenuId(null);
+                                                  void handleDeleteMessage(message);
+                                                }}
+                                                className={`mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 disabled:cursor-not-allowed disabled:opacity-60 ${deleteOptionClasses}`}
+                                              >
+                                                {isPendingDelete ? (
+                                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                                ) : (
+                                                  <Trash2 className="h-4 w-4" />
+                                                )}
+                                                <span>Delete message</span>
+                                              </button>
+                                            )}
+                                          </div>
+                                        )}
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleLikeMessage(message)}
+                                        disabled={likeDisabled}
+                                        aria-pressed={likedByCurrentUser}
+                                        className={`inline-flex h-8 w-8 items-center justify-center rounded-full border ${likeButtonPalette} disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60`}
+                                        title={likedByCurrentUser ? "You liked this message" : "Send a like"}
                                       >
-                                        <Heart className="h-3 w-3" fill="currentColor" />
-                                        <span>{likeCount === 1 ? "1 Like" : `${likeCount} Likes`}</span>
-                                      </span>
+                                        <Heart className="h-4 w-4" fill={likedByCurrentUser ? "currentColor" : "none"} />
+                                        <span className="sr-only">Like</span>
+                                      </button>
                                     </div>
-                                  )}
-                                  {message.status === "pending" && (
-                                    <p className={`text-[10px] uppercase tracking-[0.24em] ${timestampColor}`}>Sending…</p>
-                                  )}
-                                  {message.status === "failed" && (
-                                    <p className="text-[10px] uppercase tracking-[0.24em] text-red-200 dark:text-red-400">
-                                      {message.error ?? "We couldn't deliver this message."}
-                                    </p>
-                                  )}
+
+                                    {likeCount > 0 && (
+                                      <div className={`mt-2 flex ${isSelf ? "justify-end" : ""}`}>
+                                        <span
+                                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.3em] ${likeBadgePalette}`}
+                                        >
+                                          <Heart className="h-3 w-3" fill="currentColor" />
+                                          <span>{likeCount === 1 ? "1 Like" : `${likeCount} Likes`}</span>
+                                        </span>
+                                      </div>
+                                    )}
+
+                                    {message.status === "pending" && (
+                                      <p className={`text-[10px] uppercase tracking-[0.24em] ${timestampColor}`}>Sending…</p>
+                                    )}
+
+                                    {message.status === "failed" && (
+                                      <p className="text-[10px] uppercase tracking-[0.24em] text-red-200 dark:text-red-400">
+                                        {message.error ?? "We couldn't deliver this message."}
+                                      </p>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                             </div>
