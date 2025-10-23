@@ -1505,12 +1505,12 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
                         event.stopPropagation();
                         setLightboxImage({ src: safeAttachmentUrl, alt: "Feed attachment" });
                       }}
-                      className="block w-full"
+                      className="group relative block w-full overflow-hidden"
                     >
                       <img
                         src={safeAttachmentUrl}
                         alt="Feed attachment"
-                        className="w-full object-contain"
+                        className="h-full w-full max-h-64 object-cover transition duration-200 group-hover:scale-[1.01]"
                         loading="lazy"
                       />
                       <span className="sr-only">View full image</span>
@@ -1851,25 +1851,28 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 px-4 py-6"
+          className="fixed inset-0 z-[90] flex h-screen w-screen items-center justify-center bg-black/90 p-4 sm:p-10"
           onClick={() => setLightboxImage(null)}
         >
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              setLightboxImage(null);
+            }}
+            className="absolute right-6 top-6 inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/70 text-white transition hover:bg-black/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+            aria-label="Close image preview"
+          >
+            <X className="h-5 w-5" aria-hidden />
+          </button>
           <div
-            className="relative max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 shadow-2xl"
+            className="flex max-h-full max-w-full items-center justify-center"
             onClick={(event) => event.stopPropagation()}
           >
-            <button
-              type="button"
-              onClick={() => setLightboxImage(null)}
-              className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-              aria-label="Close image preview"
-            >
-              <X className="h-4 w-4" aria-hidden />
-            </button>
             <img
               src={lightboxImage.src}
               alt={lightboxImage.alt}
-              className="max-h-[82vh] w-full object-contain"
+              className="max-h-full max-w-full object-contain"
               loading="lazy"
             />
           </div>
