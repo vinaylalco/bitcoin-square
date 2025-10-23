@@ -475,26 +475,27 @@ const AttachmentPreview: React.FC<{ attachment: CasualAttachmentMeta }> = ({ att
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-6"
+          className="fixed inset-0 z-50 bg-black/90"
           onClick={() => setLightboxOpen(false)}
         >
-          <div
-            className="relative max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-2xl bg-[var(--bg-card)] p-4 shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              setLightboxOpen(false);
+            }}
+            className="absolute right-6 top-6 inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/70 text-white transition hover:bg-black/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+            aria-label="Close image preview"
           >
-            <button
-              type="button"
-              onClick={() => setLightboxOpen(false)}
-              className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-              aria-label="Close image preview"
-            >
-              <X className="h-4 w-4" aria-hidden />
-            </button>
+            <X className="h-5 w-5" aria-hidden />
+          </button>
+          <div className="flex h-full w-full items-center justify-center p-4 sm:p-10">
             <img
               src={fullUrl}
               alt="Attachment"
-              className="max-h-[80vh] w-full object-contain"
+              className="max-h-full max-w-full object-contain"
               loading="lazy"
+              onClick={(event) => event.stopPropagation()}
             />
           </div>
         </div>
