@@ -1874,6 +1874,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
               alt={lightboxImage.alt}
               className="max-h-full max-w-full object-contain"
               loading="lazy"
+              onClick={(event) => event.stopPropagation()}
             />
           </div>
         </div>
