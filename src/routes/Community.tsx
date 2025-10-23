@@ -39,7 +39,10 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { extractMarkdownImageUrls, markdownToHtml } from "../utils/markdown";
+import {
+  extractMarkdownImageUrls as getMarkdownImageUrls,
+  markdownToHtml,
+} from "../utils/markdown";
 import {
   createPlaceholderImageDetails,
   uploadImageViaWorker,
@@ -525,7 +528,7 @@ const Composer: React.FC<{
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadedImages, setUploadedImages] = useState<UploadedImageDetails[]>(() =>
-    extractMarkdownImageUrls(initialDraft).map((url) => createPlaceholderImageDetails(url)),
+    getMarkdownImageUrls(initialDraft).map((url) => createPlaceholderImageDetails(url)),
   );
   const typingEmitRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -549,7 +552,7 @@ const Composer: React.FC<{
     if (typeof draft === "string") {
       const normalizedDraft = rewriteImgBbUrlsInText(draft, { absolute: true });
       setValue((prev) => (prev === normalizedDraft ? prev : normalizedDraft));
-      const urls = extractMarkdownImageUrls(normalizedDraft);
+      const urls = getMarkdownImageUrls(normalizedDraft);
       setUploadedImages((prev) => {
         const map = new Map(prev.map((image) => [image.url, image]));
         const next = urls.map((url) => map.get(url) ?? createPlaceholderImageDetails(url));
@@ -565,7 +568,7 @@ const Composer: React.FC<{
   }, [draft]);
 
   useEffect(() => {
-    const urls = extractMarkdownImageUrls(value);
+    const urls = getMarkdownImageUrls(value);
     setUploadedImages((prev) => {
       const map = new Map(prev.map((image) => [image.url, image]));
       const next = urls.map((url) => map.get(url) ?? createPlaceholderImageDetails(url));
