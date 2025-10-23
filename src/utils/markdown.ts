@@ -9,6 +9,23 @@ export const escapeHtml = (value: string): string =>
     .replace(/'/g, "&#39;");
 
 const MARKDOWN_IMAGE_PATTERN = /!\[([^\]]*)\]\(((?:https?:\/\/[^\s)]+|\/?api\/img\/[^\s)]+))\)/g;
+const IMAGE_PLACEHOLDER_TOKEN_PATTERN = /__IMAGE_PLACEHOLDER_\d+__/g;
+const MARKDOWN_UPLOADED_IMAGE_LINE_PATTERN =
+  /^\s*!\[(?:uploaded image|image placeholder(?:\s*\d+)?|image)\]\(((?:https?:\/\/[^\s)]+|\/?api\/img\/[^\s)]+))\)\s*$/gim;
+const RENDERED_PLACEHOLDER_HTML_PATTERN = /<strong>IMAGE<em>PLACEHOLDER<\/em>\d+<\/strong>/gi;
+const BARE_PLACEHOLDER_PATTERN = /IMAGE[_\s]?PLACEHOLDER[_\s]?\d+/gi;
+
+export const stripImagePlaceholders = (value: string): string => {
+  if (typeof value !== "string" || value.length === 0) {
+    return value;
+  }
+  return value
+    .replace(IMAGE_PLACEHOLDER_TOKEN_PATTERN, "")
+    .replace(MARKDOWN_UPLOADED_IMAGE_LINE_PATTERN, "")
+    .replace(RENDERED_PLACEHOLDER_HTML_PATTERN, "")
+    .replace(BARE_PLACEHOLDER_PATTERN, "")
+    .replace(/\n{3,}/g, "\n\n");
+};
 
 export const extractMarkdownImageUrls = (markdown: string): string[] => {
   if (typeof markdown !== "string" || markdown.trim().length === 0) {
@@ -84,9 +101,11 @@ export const markdownToHtml = (input: string): string => {
 
   const withLineBreaks = withAutoLinks.replace(/\n/g, "<br />");
 
-  return imagePlaceholders.reduce(
+  const withImages = imagePlaceholders.reduce(
     (html, placeholder, index) =>
       html.replace(`__IMAGE_PLACEHOLDER_${index}__`, placeholder),
     withLineBreaks,
   );
+
+  return stripImagePlaceholders(withImages);
 };
