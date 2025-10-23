@@ -86,8 +86,8 @@ const LIGHT_BACKGROUND_TEXTURE =
 const DARK_BACKGROUND_TEXTURE =
   "radial-gradient(circle at top, rgba(59,130,246,0.16), transparent 55%), radial-gradient(circle at bottom right, rgba(16,185,129,0.14), transparent 50%)";
 
-const FREEIMAGE_API_ENDPOINT = "https://freeimage.host/api/1/upload";
-const FREEIMAGE_API_KEY = "6d207e02198a847aa98d0a2a901485a5";
+// Proxy endpoint served by our Cloudflare Worker to keep upload secrets server-side.
+const SITE_UPLOAD_ENDPOINT = "/api/upload";
 const MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024;
 const MAX_COMPRESSED_SIZE_BYTES = 1 * 1024 * 1024;
 const MAX_IMAGE_DIMENSION = 1080;
@@ -578,12 +578,10 @@ const Composer: React.FC<{
       try {
         const optimizedFile = await createOptimizedImageFile(file);
         const formData = new FormData();
-        formData.append("key", FREEIMAGE_API_KEY);
         formData.append("source", optimizedFile, optimizedFile.name);
         formData.append("action", "upload");
-        formData.append("format", "json");
 
-        const response = await fetch(FREEIMAGE_API_ENDPOINT, {
+        const response = await fetch(SITE_UPLOAD_ENDPOINT, {
           method: "POST",
           body: formData,
         });
