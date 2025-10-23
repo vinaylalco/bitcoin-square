@@ -10,13 +10,21 @@ import { useAuth } from "../../context/AuthContext";
 import ProfileCard from "../profile/ProfileCard";
 import ErrorBoundary from "../ErrorBoundary";
 import type { RoomDefinition } from "../RoomList";
-import { Heart, Loader2, MessageCircle, Plus, Share2, Trash2, X } from "lucide-react";
+import { Heart, ImagePlus, Loader2, MessageCircle, Plus, Share2, Trash2, X } from "lucide-react";
 import {
   createFeedActionHandlers,
   createOpenComposerDialog,
   type ComposerMode,
   type PendingMap,
 } from "./feedActions";
+import { rewriteImgBbUrlToProxy, rewriteImgBbUrlsInText } from "../../utils/imageProxy";
+import { extractMarkdownImageUrls } from "../../utils/markdown";
+import {
+  createPlaceholderImageDetails,
+  uploadImageViaWorker,
+  validateImageFile,
+  type UploadedImageDetails,
+} from "../../utils/imageUpload";
 
 interface BitcoinSquareFeedProps {
   posts: FeedPost[];
@@ -228,6 +236,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   const [isAtTop, setIsAtTop] = useState(true);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const latestKnownPostRef = useRef<string | null>(null);
   const persistedComposerTargetIdRef = useRef<string | null>(null);
@@ -236,6 +245,10 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   const unresolvedThreadRef = useRef<string | null>(null);
   const lastThreadLoadAttemptRef = useRef<{ id: string; timestamp: number } | null>(null);
   const [highlightedPostId, setHighlightedPostId] = useState<string | null>(null);
+  const [uploadedImages, setUploadedImages] = useState<UploadedImageDetails[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string } | null>(null);
   const relativeFormatter = useMemo(() => createRelativeFormatter(), []);
   const now = useRelativeNow();
   const { requestProfile, resolveProfileSummary, openProfile } = useProfileIdentity();
@@ -275,7 +288,8 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         targetId?: string | null;
       };
       if (typeof parsed.content === "string") {
-        setContent(parsed.content.slice(0, 500));
+        const normalized = rewriteImgBbUrlsInText(parsed.content, { absolute: true });
+        setContent(normalized.slice(0, 500));
       }
       if (parsed.open) {
         setComposerOpen(true);
@@ -403,6 +417,10 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     setComposerMode("new");
     setContent("");
     setComposerError(null);
+    setUploadedImages([]);
+    setUploadError(null);
+    setIsUploading(false);
+    setLightboxImage(null);
     persistedComposerTargetIdRef.current = null;
     if (typeof window !== "undefined") {
       window.localStorage.removeItem(COMPOSER_STORAGE_KEY);
@@ -463,9 +481,24 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   const handleSubmit = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
-      if (!ready) return;
-      const trimmed = content.trim();
-      if (!trimmed) {
+      if (!ready || publishing || isUploading) return;
+      const normalizedContent = rewriteImgBbUrlsInText(content, { absolute: true });
+      if (normalizedContent !== content) {
+        setContent(normalizedContent);
+      }
+      const trimmed = normalizedContent.trim();
+      const attachments = uploadedImages
+        .filter((image) => image.size > 0 && image.url)
+        .map((image) => ({
+          url: image.url,
+          mimeType: image.mimeType,
+          size: image.size,
+          width: image.width,
+          height: image.height,
+          digest: image.digest,
+        }));
+
+      if (trimmed.length === 0 && attachments.length === 0) {
         setComposerError("Add a message to post");
         return;
       }
@@ -476,9 +509,11 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
 
       try {
         setComposerError(null);
+        setUploadError(null);
         await publishStatus({
           content: trimmed,
           context: composerTarget ? { type: composerMode, post: composerTarget } : undefined,
+          attachments,
         });
         resetComposer();
       } catch (publishError) {
@@ -489,7 +524,110 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         );
       }
     },
-    [composerMode, composerTarget, content, publishStatus, ready, resetComposer],
+    [
+      composerMode,
+      composerTarget,
+      content,
+      isUploading,
+      publishStatus,
+      publishing,
+      ready,
+      resetComposer,
+      uploadedImages,
+    ],
+  );
+
+  const handleUploadClick = useCallback(() => {
+    if (!ready || publishing || isUploading) return;
+    fileInputRef.current?.click();
+  }, [isUploading, publishing, ready]);
+
+  const handleFileChange = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      event.target.value = "";
+      if (!ready || publishing || isUploading) {
+        return;
+      }
+      setUploadError(null);
+      const validationMessage = validateImageFile(file);
+      if (validationMessage) {
+        setUploadError(validationMessage);
+        return;
+      }
+
+      setIsUploading(true);
+      try {
+        const uploaded = await uploadImageViaWorker(file);
+        setUploadedImages((prev) => {
+          const filtered = prev.filter((image) => image.url !== uploaded.url);
+          return [...filtered, uploaded];
+        });
+        setContent((prev) => {
+          const normalizedPrev = rewriteImgBbUrlsInText(prev, { absolute: true });
+          const prefix =
+            normalizedPrev.trim().length === 0
+              ? ""
+              : normalizedPrev.endsWith("\n")
+                ? ""
+                : "\n";
+          return `${normalizedPrev}${prefix}![Uploaded image](${uploaded.url})\n`;
+        });
+        setComposerError(null);
+
+        const focusTextarea = () => {
+          const node = textareaRef.current;
+          if (!node) return;
+          const length = node.value.length;
+          node.focus();
+          try {
+            node.setSelectionRange(length, length);
+          } catch {
+            // Ignore selection errors
+          }
+        };
+        if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+          window.requestAnimationFrame(focusTextarea);
+        } else {
+          focusTextarea();
+        }
+        setComposerFocused(true);
+      } catch (uploadErr) {
+        const message = uploadErr instanceof Error ? uploadErr.message : String(uploadErr);
+        setUploadError(message);
+      } finally {
+        setIsUploading(false);
+      }
+    },
+    [isUploading, publishing, ready],
+  );
+
+  const handleRemoveImage = useCallback(
+    (url: string) => {
+      setUploadedImages((prev) => prev.filter((image) => image.url !== url));
+      setContent((prev) => {
+        const lines = prev.split("\n");
+        const filtered = lines.filter((line) => {
+          const trimmed = line.trim();
+          if (!trimmed.includes(url)) {
+            return true;
+          }
+          const match = trimmed.match(/^!\[[^\]]*\]\(([^)]+)\)$/);
+          return match?.[1] !== url;
+        });
+        let next = filtered.join("\n");
+        next = next.replace(/\n{3,}/g, "\n\n");
+        if (next.trim().length === 0) {
+          return "";
+        }
+        if (!next.endsWith("\n")) {
+          next += "\n";
+        }
+        return next;
+      });
+    },
+    [],
   );
 
   const filteredPosts = useMemo(() => {
@@ -973,7 +1111,40 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     }
   }, [composerOpen]);
 
-  const composerExpanded = composerFocused || content.trim().length > 0;
+  useEffect(() => {
+    const urls = extractMarkdownImageUrls(content);
+    setUploadedImages((prev) => {
+      const map = new Map(prev.map((image) => [image.url, image]));
+      const next = urls.map((url) => map.get(url) ?? createPlaceholderImageDetails(url));
+      if (next.length === prev.length && next.every((entry, index) => entry === prev[index])) {
+        return prev;
+      }
+      return next;
+    });
+  }, [content]);
+
+  useEffect(() => {
+    if (!lightboxImage) return;
+    if (typeof document === "undefined") return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setLightboxImage(null);
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [lightboxImage]);
+
+  const composerExpanded = composerFocused || content.trim().length > 0 || uploadedImages.length > 0;
+
+  const hasSendableAttachments = useMemo(
+    () => uploadedImages.some((image) => image.size > 0),
+    [uploadedImages],
+  );
+  const submitDisabled =
+    !ready || publishing || isUploading || (content.trim().length === 0 && !hasSendableAttachments);
 
   const composerContent = (
     <>
@@ -1024,7 +1195,10 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         <textarea
           ref={textareaRef}
           value={content}
-          onChange={(event) => setContent(event.target.value.slice(0, 500))}
+          onChange={(event) => {
+            const normalized = rewriteImgBbUrlsInText(event.target.value, { absolute: true });
+            setContent(normalized.slice(0, 500));
+          }}
           onFocus={() => setComposerFocused(true)}
           onBlur={() => {
             if (content.trim().length === 0) {
@@ -1042,17 +1216,76 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
           }
           disabled={!ready || publishing}
         />
+        {uploadedImages.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-3">
+              {uploadedImages.map((image) => (
+                <div
+                  key={image.digest ?? image.url}
+                  className="group relative overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/70"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setLightboxImage({ src: image.url, alt: "Uploaded image preview" })}
+                    className="block h-full w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                  >
+                    <img
+                      src={image.url}
+                      alt="Uploaded image preview"
+                      className="h-28 w-28 object-cover sm:h-32 sm:w-32"
+                      loading="lazy"
+                    />
+                    <span className="sr-only">View full image</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveImage(image.url)}
+                    className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white opacity-0 transition group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                    aria-label="Remove image"
+                  >
+                    <X className="h-4 w-4" aria-hidden />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+          className="hidden"
+          onChange={handleFileChange}
+        />
         <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-[var(--fg-muted)]">
           <span>{content.length}/500</span>
+          {isUploading && (
+            <span className="inline-flex items-center gap-1">
+              <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+              <span>Uploading image…</span>
+            </span>
+          )}
+        </div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <button
+            type="button"
+            onClick={handleUploadClick}
+            disabled={!ready || publishing || isUploading}
+            className="inline-flex items-center justify-center rounded-full border border-[var(--border-subtle)] px-4 py-2 text-sm font-medium text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isUploading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <ImagePlus className="h-4 w-4" aria-hidden />}
+            <span className="ml-2 hidden sm:inline">Add image</span>
+          </button>
+          <button
+            type="submit"
+            disabled={submitDisabled}
+            className="w-full rounded-full bg-brand px-6 py-2 text-sm font-semibold uppercase tracking-[0.24em] text-white transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:bg-brand/40 sm:w-auto"
+          >
+            {submitLabel}
+          </button>
         </div>
         {composerError && <p className="text-xs text-red-500">{composerError}</p>}
-        <button
-          type="submit"
-          disabled={!ready || publishing}
-          className="w-full rounded-full bg-brand px-6 py-2 text-sm font-semibold uppercase tracking-[0.24em] text-white transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:bg-brand/40"
-        >
-          {submitLabel}
-        </button>
+        {uploadError && <p className="text-xs text-red-500">{uploadError}</p>}
         {error && <p className="text-center text-xs text-red-500">{error}</p>}
       </form>
     </>
@@ -1247,6 +1480,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         {post.attachments.length > 0 && (
           <div className="mt-4 space-y-3">
             {post.attachments.map((attachment, index) => {
+              const safeAttachmentUrl = rewriteImgBbUrlToProxy(attachment.url, { absolute: true });
               const metaParts: string[] = [];
               if (attachment.width && attachment.height) {
                 metaParts.push(`${attachment.width}x${attachment.height}`);
@@ -1263,9 +1497,24 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
                   onClick={(event) => event.stopPropagation()}
                 >
                   {attachment.mimeType.startsWith("video/") ? (
-                    <video src={attachment.url} controls className="max-h-80 w-full rounded-2xl" />
+                    <video src={safeAttachmentUrl} controls className="max-h-80 w-full rounded-2xl" />
                   ) : (
-                    <img src={attachment.url} alt="Feed attachment" className="w-full object-contain" loading="lazy" />
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setLightboxImage({ src: safeAttachmentUrl, alt: "Feed attachment" });
+                      }}
+                      className="block w-full"
+                    >
+                      <img
+                        src={safeAttachmentUrl}
+                        alt="Feed attachment"
+                        className="w-full object-contain"
+                        loading="lazy"
+                      />
+                      <span className="sr-only">View full image</span>
+                    </button>
                   )}
                   {metaParts.length > 0 && (
                     <p className="px-3 py-2 text-xs text-[var(--fg-muted)]">{metaParts.join(" • ")}</p>
@@ -1597,6 +1846,35 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       >
         <Plus className="h-6 w-6" />
       </button>
+
+      {lightboxImage && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 px-4 py-6"
+          onClick={() => setLightboxImage(null)}
+        >
+          <div
+            className="relative max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setLightboxImage(null)}
+              className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              aria-label="Close image preview"
+            >
+              <X className="h-4 w-4" aria-hidden />
+            </button>
+            <img
+              src={lightboxImage.src}
+              alt={lightboxImage.alt}
+              className="max-h-[82vh] w-full object-contain"
+              loading="lazy"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
