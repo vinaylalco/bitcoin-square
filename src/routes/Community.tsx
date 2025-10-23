@@ -2381,7 +2381,6 @@ const CommunityView: React.FC = () => {
                                 </div>
                               </div>
                             </div>
-                          </div>
                         );
                         })}
                       </div>
