@@ -8,14 +8,16 @@ export const escapeHtml = (value: string): string =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 
+const MARKDOWN_IMAGE_REGEX = /!\[([^\]]*)\]\(((?:https?:\/\/[^\s)]+|\/?api\/img\/[^\s)]+))\)/g;
+
 export const markdownToHtml = (input: string): string => {
   const escaped = escapeHtml(input);
 
   const imagePlaceholders: string[] = [];
   const withImagePlaceholders = escaped.replace(
-    /!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g,
+    MARKDOWN_IMAGE_REGEX,
     (_, rawAlt: string, rawUrl: string) => {
-      const safeUrl = rewriteImgBbUrlToProxy(rawUrl);
+      const safeUrl = rewriteImgBbUrlToProxy(rawUrl, { absolute: true });
       const altText = rawAlt && rawAlt.trim().length > 0 ? rawAlt : "Uploaded image";
       const placeholder = `__IMAGE_PLACEHOLDER_${imagePlaceholders.length}__`;
       imagePlaceholders.push(

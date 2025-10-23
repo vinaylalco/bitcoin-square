@@ -17,6 +17,7 @@ import {
   type ComposerMode,
   type PendingMap,
 } from "./feedActions";
+import { rewriteImgBbUrlToProxy, rewriteImgBbUrlsInText } from "../../utils/imageProxy";
 
 interface BitcoinSquareFeedProps {
   posts: FeedPost[];
@@ -275,7 +276,8 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         targetId?: string | null;
       };
       if (typeof parsed.content === "string") {
-        setContent(parsed.content.slice(0, 500));
+        const normalized = rewriteImgBbUrlsInText(parsed.content, { absolute: true });
+        setContent(normalized.slice(0, 500));
       }
       if (parsed.open) {
         setComposerOpen(true);
@@ -464,7 +466,11 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
       if (!ready) return;
-      const trimmed = content.trim();
+      const normalizedContent = rewriteImgBbUrlsInText(content, { absolute: true });
+      if (normalizedContent !== content) {
+        setContent(normalizedContent);
+      }
+      const trimmed = normalizedContent.trim();
       if (!trimmed) {
         setComposerError("Add a message to post");
         return;
@@ -1024,7 +1030,10 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         <textarea
           ref={textareaRef}
           value={content}
-          onChange={(event) => setContent(event.target.value.slice(0, 500))}
+          onChange={(event) => {
+            const normalized = rewriteImgBbUrlsInText(event.target.value, { absolute: true });
+            setContent(normalized.slice(0, 500));
+          }}
           onFocus={() => setComposerFocused(true)}
           onBlur={() => {
             if (content.trim().length === 0) {
@@ -1247,6 +1256,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         {post.attachments.length > 0 && (
           <div className="mt-4 space-y-3">
             {post.attachments.map((attachment, index) => {
+              const safeAttachmentUrl = rewriteImgBbUrlToProxy(attachment.url, { absolute: true });
               const metaParts: string[] = [];
               if (attachment.width && attachment.height) {
                 metaParts.push(`${attachment.width}x${attachment.height}`);
@@ -1263,9 +1273,14 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
                   onClick={(event) => event.stopPropagation()}
                 >
                   {attachment.mimeType.startsWith("video/") ? (
-                    <video src={attachment.url} controls className="max-h-80 w-full rounded-2xl" />
+                    <video src={safeAttachmentUrl} controls className="max-h-80 w-full rounded-2xl" />
                   ) : (
-                    <img src={attachment.url} alt="Feed attachment" className="w-full object-contain" loading="lazy" />
+                    <img
+                      src={safeAttachmentUrl}
+                      alt="Feed attachment"
+                      className="w-full object-contain"
+                      loading="lazy"
+                    />
                   )}
                   {metaParts.length > 0 && (
                     <p className="px-3 py-2 text-xs text-[var(--fg-muted)]">{metaParts.join(" • ")}</p>

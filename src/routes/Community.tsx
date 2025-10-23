@@ -40,7 +40,7 @@ import {
   X,
 } from "lucide-react";
 import { markdownToHtml } from "../utils/markdown";
-import { rewriteImgBbUrlToProxy } from "../utils/imageProxy";
+import { rewriteImgBbUrlToProxy, rewriteImgBbUrlsInText } from "../utils/imageProxy";
 
 type ActiveView = "casual" | "feed" | "personal" | "members";
 
@@ -210,7 +210,7 @@ const createPreviewFromBlob = async (blob: Blob) => {
 
 const extractMarkdownImageUrls = (markdown: string) => {
   const urls = new Set<string>();
-  const regex = /!\[[^\]]*\]\((https?:\/\/[^\s)]+)\)/g;
+  const regex = /!\[[^\]]*\]\(((?:https?:\/\/[^\s)]+|\/?api\/img\/[^\s)]+))\)/g;
   let match: RegExpExecArray | null = null;
   while ((match = regex.exec(markdown)) !== null) {
     if (match[1]) {
@@ -464,14 +464,14 @@ const Composer: React.FC<{
   onClearQuote,
   onJumpToQuote,
 }) => {
-  const [value, setValue] = useState(() => draft ?? "");
+  const [value, setValue] = useState(() => rewriteImgBbUrlsInText(draft ?? "", { absolute: true }));
   const [isTextareaFocused, setIsTextareaFocused] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadedImages, setUploadedImages] = useState<string[]>(() =>
-    extractMarkdownImageUrls(draft ?? ""),
+    extractMarkdownImageUrls(rewriteImgBbUrlsInText(draft ?? "", { absolute: true })),
   );
   const typingEmitRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -487,8 +487,9 @@ const Composer: React.FC<{
 
   useEffect(() => {
     if (typeof draft === "string") {
-      setValue(draft);
-      const urls = extractMarkdownImageUrls(draft);
+      const normalizedDraft = rewriteImgBbUrlsInText(draft, { absolute: true });
+      setValue(normalizedDraft);
+      const urls = extractMarkdownImageUrls(normalizedDraft);
       setUploadedImages((prev) => {
         if (prev.length === urls.length && prev.every((url, index) => url === urls[index])) {
           return prev;
@@ -520,7 +521,11 @@ const Composer: React.FC<{
   }, [onTyping]);
 
   const handleSubmit = useCallback(async () => {
-    const trimmed = value.trim();
+    const normalizedValue = rewriteImgBbUrlsInText(value, { absolute: true });
+    if (normalizedValue !== value) {
+      setValue(normalizedValue);
+    }
+    const trimmed = normalizedValue.trim();
     if (!trimmed || disabled || isSending || isUploading) return;
     setIsSending(true);
     try {
@@ -545,7 +550,8 @@ const Composer: React.FC<{
   };
 
   const handleChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setValue(event.target.value);
+    const nextValue = rewriteImgBbUrlsInText(event.target.value, { absolute: true });
+    setValue(nextValue);
     emitTyping();
     if (uploadError) {
       setUploadError(null);
@@ -613,8 +619,15 @@ const Composer: React.FC<{
         }
 
         setValue((prev) => {
-          const prefix = prev.trim().length === 0 ? "" : prev.endsWith("\n") ? "" : "\n";
-          return `${prev}${prefix}![Uploaded image](${imageUrl})\n`;
+          const normalizedPrev = rewriteImgBbUrlsInText(prev, { absolute: true });
+          const proxiedUrl = rewriteImgBbUrlToProxy(imageUrl, { absolute: true });
+          const prefix =
+            normalizedPrev.trim().length === 0
+              ? ""
+              : normalizedPrev.endsWith("\n")
+                ? ""
+                : "\n";
+          return `${normalizedPrev}${prefix}![Uploaded image](${proxiedUrl})\n`;
         });
         setError(null);
 
@@ -732,7 +745,7 @@ const Composer: React.FC<{
           <div className="px-4">
             <div className="flex flex-wrap gap-3 pb-4 pt-2">
               {uploadedImages.map((url) => {
-                const safeUrl = rewriteImgBbUrlToProxy(url);
+                const safeUrl = rewriteImgBbUrlToProxy(url, { absolute: true });
                 return (
                   <div
                     key={url}
