@@ -39,7 +39,13 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { markdownToHtml } from "../utils/markdown";
+import { extractMarkdownImageUrls, markdownToHtml } from "../utils/markdown";
+import {
+  createPlaceholderImageDetails,
+  uploadImageViaWorker,
+  validateImageFile,
+  type UploadedImageDetails,
+} from "../utils/imageUpload";
 import { rewriteImgBbUrlToProxy, rewriteImgBbUrlsInText } from "../utils/imageProxy";
 
 type ActiveView = "casual" | "feed" | "personal" | "members";
@@ -346,11 +352,13 @@ const AttachmentPreview: React.FC<{ attachment: CasualAttachmentMeta }> = ({ att
   const [fullUrl, setFullUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const objectUrlRef = useRef<string | null>(null);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     setStatus("loading");
     setError(null);
+    setLightboxOpen(false);
 
     const load = async () => {
       try {
@@ -415,33 +423,78 @@ const AttachmentPreview: React.FC<{ attachment: CasualAttachmentMeta }> = ({ att
     };
   }, [attachment.digest, attachment.iv, attachment.mimeType, attachment.url]);
 
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    if (typeof document === "undefined") return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setLightboxOpen(false);
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [lightboxOpen]);
+
   return (
     <div className="space-y-2">
-      {previewUrl && (
-        <img
-          src={previewUrl}
-          alt="Attachment preview"
-          className={`max-h-48 w-full rounded-lg object-cover ${status !== "ready" ? "opacity-60" : ""}`}
-          loading="lazy"
-        />
+      {attachment.mimeType.startsWith("image/") && (previewUrl ?? attachment.url) && (
+        <button
+          type="button"
+          onClick={() => {
+            if (status === "ready" && fullUrl) {
+              setLightboxOpen(true);
+            }
+          }}
+          disabled={status !== "ready" || !fullUrl}
+          className={`relative block w-full overflow-hidden rounded-lg border border-[var(--border-subtle)] ${
+            status !== "ready" ? "cursor-not-allowed opacity-60" : "cursor-zoom-in"
+          }`}
+        >
+          <img
+            src={previewUrl ?? attachment.url}
+            alt="Attachment preview"
+            className="max-h-48 w-full object-cover"
+            loading="lazy"
+          />
+          <span className="sr-only">View full image</span>
+        </button>
       )}
-      {status === "ready" && fullUrl && (
-        attachment.mimeType.startsWith("video/") ? (
-          <video src={fullUrl} controls className="max-h-64 w-full rounded-lg" />
-        ) : (
-          <a
-            href={fullUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="block overflow-hidden rounded-lg border border-[var(--border-subtle)]"
-          >
-            <img src={fullUrl} alt="Attachment" className="w-full object-contain" loading="lazy" />
-          </a>
-        )
+      {status === "ready" && fullUrl && attachment.mimeType.startsWith("video/") && (
+        <video src={fullUrl} controls className="max-h-64 w-full rounded-lg" />
       )}
       {status === "loading" && <p className="text-xs text-[var(--fg-muted)]">Loading media…</p>}
       {status === "error" && (
         <p className="text-xs text-red-500">{error ?? "Unable to load media"}</p>
+      )}
+      {lightboxOpen && fullUrl && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-6"
+          onClick={() => setLightboxOpen(false)}
+        >
+          <div
+            className="relative max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-2xl bg-[var(--bg-card)] p-4 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setLightboxOpen(false)}
+              className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              aria-label="Close image preview"
+            >
+              <X className="h-4 w-4" aria-hidden />
+            </button>
+            <img
+              src={fullUrl}
+              alt="Attachment"
+              className="max-h-[80vh] w-full object-contain"
+              loading="lazy"
+            />
+          </div>
+        </div>
       )}
     </div>
   );
@@ -449,7 +502,7 @@ const AttachmentPreview: React.FC<{ attachment: CasualAttachmentMeta }> = ({ att
 
 const Composer: React.FC<{
   disabled: boolean;
-  onSend: (text: string) => Promise<void>;
+  onSend: (text: string, attachments: CasualAttachmentMeta[]) => Promise<void>;
   draft?: string;
   onTyping?: () => void;
   quoteContext?: QuoteContextState | null;
@@ -464,14 +517,15 @@ const Composer: React.FC<{
   onClearQuote,
   onJumpToQuote,
 }) => {
-  const [value, setValue] = useState(() => rewriteImgBbUrlsInText(draft ?? "", { absolute: true }));
+  const initialDraft = rewriteImgBbUrlsInText(draft ?? "", { absolute: true });
+  const [value, setValue] = useState(initialDraft);
   const [isTextareaFocused, setIsTextareaFocused] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [uploadedImages, setUploadedImages] = useState<string[]>(() =>
-    extractMarkdownImageUrls(rewriteImgBbUrlsInText(draft ?? "", { absolute: true })),
+  const [uploadedImages, setUploadedImages] = useState<UploadedImageDetails[]>(() =>
+    extractMarkdownImageUrls(initialDraft).map((url) => createPlaceholderImageDetails(url)),
   );
   const typingEmitRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -484,17 +538,25 @@ const Composer: React.FC<{
       : characterCount > CHAT_CHARACTER_LIMIT - 40
         ? "text-brand"
         : "text-[var(--fg-muted)]";
+  const hasSendableAttachments = useMemo(
+    () => uploadedImages.some((image) => image.size > 0),
+    [uploadedImages],
+  );
+  const sendDisabled =
+    disabled || isSending || isUploading || (value.trim().length === 0 && !hasSendableAttachments);
 
   useEffect(() => {
     if (typeof draft === "string") {
       const normalizedDraft = rewriteImgBbUrlsInText(draft, { absolute: true });
-      setValue(normalizedDraft);
+      setValue((prev) => (prev === normalizedDraft ? prev : normalizedDraft));
       const urls = extractMarkdownImageUrls(normalizedDraft);
       setUploadedImages((prev) => {
-        if (prev.length === urls.length && prev.every((url, index) => url === urls[index])) {
+        const map = new Map(prev.map((image) => [image.url, image]));
+        const next = urls.map((url) => map.get(url) ?? createPlaceholderImageDetails(url));
+        if (next.length === prev.length && next.every((entry, index) => entry === prev[index])) {
           return prev;
         }
-        return urls;
+        return next;
       });
     } else {
       setValue("");
@@ -505,10 +567,12 @@ const Composer: React.FC<{
   useEffect(() => {
     const urls = extractMarkdownImageUrls(value);
     setUploadedImages((prev) => {
-      if (prev.length === urls.length && prev.every((url, index) => url === urls[index])) {
+      const map = new Map(prev.map((image) => [image.url, image]));
+      const next = urls.map((url) => map.get(url) ?? createPlaceholderImageDetails(url));
+      if (next.length === prev.length && next.every((entry, index) => entry === prev[index])) {
         return prev;
       }
-      return urls;
+      return next;
     });
   }, [value]);
 
@@ -521,15 +585,31 @@ const Composer: React.FC<{
   }, [onTyping]);
 
   const handleSubmit = useCallback(async () => {
+    if (disabled || isSending || isUploading) return;
     const normalizedValue = rewriteImgBbUrlsInText(value, { absolute: true });
     if (normalizedValue !== value) {
       setValue(normalizedValue);
     }
     const trimmed = normalizedValue.trim();
-    if (!trimmed || disabled || isSending || isUploading) return;
+    const attachments: CasualAttachmentMeta[] = uploadedImages
+      .filter((image) => image.size > 0 && image.url)
+      .map((image) => ({
+        eventId: "",
+        url: image.url,
+        mimeType: image.mimeType,
+        size: image.size,
+        digest: image.digest,
+        width: image.width,
+        height: image.height,
+      }));
+
+    if (trimmed.length === 0 && attachments.length === 0) {
+      return;
+    }
+
     setIsSending(true);
     try {
-      await onSend(trimmed);
+      await onSend(trimmed, attachments);
       setValue("");
       setError(null);
       setUploadError(null);
@@ -539,7 +619,7 @@ const Composer: React.FC<{
     } finally {
       setIsSending(false);
     }
-  }, [disabled, isSending, isUploading, onSend, value]);
+  }, [disabled, isSending, isUploading, onSend, uploadedImages, value]);
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     emitTyping();
@@ -572,62 +652,29 @@ const Composer: React.FC<{
         return;
       }
       setUploadError(null);
-      if (!ALLOWED_IMAGE_MIME_TYPES.includes(file.type as (typeof ALLOWED_IMAGE_MIME_TYPES)[number])) {
-        setUploadError("Only JPEG, PNG, or WebP images are supported.");
-        return;
-      }
-      if (file.size > MAX_UPLOAD_SIZE_BYTES) {
-        setUploadError("Images must be 5 MB or smaller.");
+      const validationMessage = validateImageFile(file);
+      if (validationMessage) {
+        setUploadError(validationMessage);
         return;
       }
 
       setIsUploading(true);
       try {
-        const optimizedFile = await createOptimizedImageFile(file);
-        const formData = new FormData();
-        formData.append("source", optimizedFile, optimizedFile.name);
-        formData.append("action", "upload");
-
-        const response = await fetch(SITE_UPLOAD_ENDPOINT, {
-          method: "POST",
-          body: formData,
+        const uploaded = await uploadImageViaWorker(file);
+        setUploadedImages((prev) => {
+          const filtered = prev.filter((image) => image.url !== uploaded.url);
+          return [...filtered, uploaded];
         });
-
-        if (!response.ok) {
-          throw new Error(`Upload failed with status ${response.status}`);
-        }
-
-        const data = (await response.json()) as {
-          success?: boolean | null;
-          display_url?: string | null;
-          data?: { display_url?: string | null } | null;
-          error?: { message?: string | null } | string | null;
-          status_txt?: string | null;
-        };
-
-        const imageUrl =
-          data?.display_url ??
-          data?.data?.display_url ??
-          null;
-
-        if (!imageUrl || typeof imageUrl !== "string" || imageUrl.trim().length === 0) {
-          const message =
-            (typeof data?.error === "string" ? data.error : data?.error?.message) ??
-            data?.status_txt ??
-            "We couldn't retrieve the uploaded image URL.";
-          throw new Error(message);
-        }
 
         setValue((prev) => {
           const normalizedPrev = rewriteImgBbUrlsInText(prev, { absolute: true });
-          const proxiedUrl = rewriteImgBbUrlToProxy(imageUrl, { absolute: true });
           const prefix =
             normalizedPrev.trim().length === 0
               ? ""
               : normalizedPrev.endsWith("\n")
                 ? ""
                 : "\n";
-          return `${normalizedPrev}${prefix}![Uploaded image](${proxiedUrl})\n`;
+          return `${normalizedPrev}${prefix}![Uploaded image](${uploaded.url})\n`;
         });
         setError(null);
 
@@ -662,7 +709,7 @@ const Composer: React.FC<{
 
   const handleRemoveImage = useCallback(
     (url: string) => {
-      setUploadedImages((prev) => prev.filter((item) => item !== url));
+      setUploadedImages((prev) => prev.filter((item) => item.url !== url));
       setValue((prev) => {
         const lines = prev.split("\n");
         const filteredLines = lines.filter((line) => {
@@ -744,30 +791,27 @@ const Composer: React.FC<{
         {uploadedImages.length > 0 && (
           <div className="px-4">
             <div className="flex flex-wrap gap-3 pb-4 pt-2">
-              {uploadedImages.map((url) => {
-                const safeUrl = rewriteImgBbUrlToProxy(url, { absolute: true });
-                return (
-                  <div
-                    key={url}
-                    className="group relative overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] shadow-sm"
-                  >
+              {uploadedImages.map((image) => (
+                <div
+                  key={image.digest ?? image.url}
+                  className="group relative overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] shadow-sm"
+                >
                   <img
-                    src={safeUrl}
+                    src={image.url}
                     alt="Uploaded image preview"
                     className="h-24 w-24 object-cover sm:h-28 sm:w-28"
                     loading="lazy"
                   />
                   <button
                     type="button"
-                    onClick={() => handleRemoveImage(url)}
+                    onClick={() => handleRemoveImage(image.url)}
                     className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-white opacity-0 transition group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
                     aria-label="Remove image"
                   >
                     <X className="h-3.5 w-3.5" aria-hidden />
                   </button>
                 </div>
-                );
-              })}
+              ))}
             </div>
           </div>
         )}
@@ -792,7 +836,7 @@ const Composer: React.FC<{
             <button
               type="button"
               onClick={() => void handleSubmit()}
-              disabled={disabled || isSending || isUploading || value.trim().length === 0}
+              disabled={sendDisabled}
               className="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand text-white shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Send className="h-4 w-4" aria-hidden />}
@@ -929,6 +973,7 @@ const CommunityView: React.FC = () => {
   const [quoteContext, setQuoteContext] = useState<QuoteContextState | null>(null);
   const [pendingDeletes, setPendingDeletes] = useState<Set<string>>(new Set());
   const [openMessageMenuId, setOpenMessageMenuId] = useState<string | null>(null);
+  const [rawDataMessage, setRawDataMessage] = useState<CasualChatMessage | null>(null);
   const [isAtTop, setIsAtTop] = useState(true);
   const [newMessageAnchor, setNewMessageAnchor] = useState<string | null>(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
@@ -1018,6 +1063,20 @@ const CommunityView: React.FC = () => {
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [openMessageMenuId]);
+
+  useEffect(() => {
+    if (!rawDataMessage) return;
+    if (typeof document === "undefined") return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setRawDataMessage(null);
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [rawDataMessage]);
 
   const chatSpacing = useMemo(() => {
     const safeInset = "env(safe-area-inset-bottom, 0px)";
@@ -1683,19 +1742,23 @@ const CommunityView: React.FC = () => {
   const showJumpToLatest = isCasualView && !isAtTop && messages.length > 0;
 
   const handleSend = useCallback(
-    async (text: string, options?: { quoteId?: string | null; quotePubkey?: string | null }) => {
-      await sendMessage(text, [], options);
+    async (
+      text: string,
+      attachments: CasualAttachmentMeta[],
+      options?: { quoteId?: string | null; quotePubkey?: string | null },
+    ) => {
+      await sendMessage(text, attachments, options);
       setComposerError(null);
     },
     [sendMessage],
   );
 
   const handleComposerSend = useCallback(
-    async (text: string) => {
+    async (text: string, attachments: CasualAttachmentMeta[]) => {
       try {
         const quoteId = quoteContext?.id ?? null;
         const quotePubkey = quoteContext?.pubkey ?? null;
-        await handleSend(text, { quoteId, quotePubkey });
+        await handleSend(text, attachments, { quoteId, quotePubkey });
         setComposerDraft(undefined);
         setQuoteContext(null);
       } catch (error) {
@@ -2215,29 +2278,42 @@ const CommunityView: React.FC = () => {
                                       <MessageSquareQuote className="h-4 w-4" />
                                       <span className="sr-only">Quote</span>
                                     </button>
-                                    {canModerate && (
-                                      <div className="relative" data-message-menu-root={message.id}>
-                                        <button
-                                          type="button"
-                                          onClick={(event) => {
-                                            event.stopPropagation();
-                                            setOpenMessageMenuId((current) =>
-                                              current === message.id ? null : message.id,
-                                            );
-                                          }}
-                                          className={`inline-flex h-8 w-8 items-center justify-center rounded-full border text-sm font-semibold ${messageMenuButtonPalette} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60`}
-                                          aria-expanded={isMessageMenuOpen}
-                                          aria-haspopup="menu"
-                                          aria-label="Message options"
-                                          title="Message options"
+                                    <div className="relative" data-message-menu-root={message.id}>
+                                      <button
+                                        type="button"
+                                        onClick={(event) => {
+                                          event.stopPropagation();
+                                          setOpenMessageMenuId((current) =>
+                                            current === message.id ? null : message.id,
+                                          );
+                                        }}
+                                        className={`inline-flex h-8 w-8 items-center justify-center rounded-full border text-sm font-semibold ${messageMenuButtonPalette} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60`}
+                                        aria-expanded={isMessageMenuOpen}
+                                        aria-haspopup="menu"
+                                        aria-label="Message options"
+                                        title="Message options"
+                                      >
+                                        ...
+                                      </button>
+                                      {isMessageMenuOpen && (
+                                        <div
+                                          role="menu"
+                                          className="absolute right-0 z-30 mt-2 w-48 rounded-2xl border border-white/40 bg-[var(--bg-card)]/95 p-1 text-xs shadow-xl backdrop-blur"
                                         >
-                                          ...
-                                        </button>
-                                        {isMessageMenuOpen && (
-                                          <div
-                                            role="menu"
-                                            className="absolute right-0 z-30 mt-2 w-44 rounded-2xl border border-white/40 bg-[var(--bg-card)]/95 p-1 text-xs shadow-xl backdrop-blur"
+                                          <button
+                                            type="button"
+                                            role="menuitem"
+                                            onClick={(event) => {
+                                              event.stopPropagation();
+                                              setOpenMessageMenuId(null);
+                                              setRawDataMessage(message);
+                                            }}
+                                            className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-medium transition hover:bg-[var(--bg-muted)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
                                           >
+                                            <span className="inline-block h-2 w-2 rounded-full bg-brand" aria-hidden />
+                                            <span>View raw data</span>
+                                          </button>
+                                          {canModerate && (
                                             <button
                                               type="button"
                                               role="menuitem"
@@ -2250,7 +2326,7 @@ const CommunityView: React.FC = () => {
                                                 setOpenMessageMenuId(null);
                                                 void handleDeleteMessage(message);
                                               }}
-                                              className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 disabled:cursor-not-allowed disabled:opacity-60 ${deleteOptionClasses}`}
+                                              className={`mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 disabled:cursor-not-allowed disabled:opacity-60 ${deleteOptionClasses}`}
                                             >
                                               {isPendingDelete ? (
                                                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -2259,10 +2335,10 @@ const CommunityView: React.FC = () => {
                                               )}
                                               <span>Delete message</span>
                                             </button>
-                                          </div>
-                                        )}
-                                      </div>
-                                    )}
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
                                     <button
                                       type="button"
                                       onClick={() => handleLikeMessage(message)}
@@ -2431,6 +2507,35 @@ const CommunityView: React.FC = () => {
           </main>
         </div>
       </div>
+
+      {rawDataMessage && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-8"
+          onClick={() => setRawDataMessage(null)}
+        >
+          <div
+            className="relative max-h-[85vh] w-full max-w-3xl overflow-hidden rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setRawDataMessage(null)}
+              className="absolute right-4 top-4 inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              aria-label="Close raw data"
+            >
+              <X className="h-4 w-4" aria-hidden />
+            </button>
+            <h2 className="pr-10 text-sm font-semibold uppercase tracking-[0.24em] text-[var(--fg-muted)]">
+              Message raw data
+            </h2>
+            <pre className="mt-4 max-h-[70vh] overflow-auto rounded-2xl bg-[var(--bg-muted)]/40 p-4 text-left text-xs text-[var(--fg-default)]">
+              {JSON.stringify(rawDataMessage, null, 2)}
+            </pre>
+          </div>
+        </div>
+      )}
 
     </div>
   );

@@ -8,14 +8,31 @@ export const escapeHtml = (value: string): string =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 
-const MARKDOWN_IMAGE_REGEX = /!\[([^\]]*)\]\(((?:https?:\/\/[^\s)]+|\/?api\/img\/[^\s)]+))\)/g;
+const MARKDOWN_IMAGE_PATTERN = /!\[([^\]]*)\]\(((?:https?:\/\/[^\s)]+|\/?api\/img\/[^\s)]+))\)/g;
+
+export const extractMarkdownImageUrls = (markdown: string): string[] => {
+  if (typeof markdown !== "string" || markdown.trim().length === 0) {
+    return [];
+  }
+
+  const urls = new Set<string>();
+  const matcher = new RegExp(MARKDOWN_IMAGE_PATTERN.source, "g");
+  let match: RegExpExecArray | null = null;
+  while ((match = matcher.exec(markdown)) !== null) {
+    const url = match[2];
+    if (typeof url === "string" && url.trim().length > 0) {
+      urls.add(url.trim());
+    }
+  }
+  return Array.from(urls);
+};
 
 export const markdownToHtml = (input: string): string => {
   const escaped = escapeHtml(input);
 
   const imagePlaceholders: string[] = [];
   const withImagePlaceholders = escaped.replace(
-    MARKDOWN_IMAGE_REGEX,
+    MARKDOWN_IMAGE_PATTERN,
     (_, rawAlt: string, rawUrl: string) => {
       const safeUrl = rewriteImgBbUrlToProxy(rawUrl, { absolute: true });
       const altText = rawAlt && rawAlt.trim().length > 0 ? rawAlt : "Uploaded image";

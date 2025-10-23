@@ -25,7 +25,7 @@ const TYPING_TIMEOUT_MS = 6000;
 const TYPING_THROTTLE_MS = 2000;
 
 interface CasualAttachmentMeta {
-  eventId: string;
+  eventId?: string | null;
   url: string;
   mimeType: string;
   size: number;
@@ -616,7 +616,7 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
       options?: { quoteId?: string | null },
     ) => {
       const trimmed = body.trim();
-      if (!trimmed) {
+      if (!trimmed && attachments.length === 0) {
         throw new Error("Message cannot be empty");
       }
       if (trimmed.length > 500) {
@@ -655,9 +655,28 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
       }
 
       attachments.forEach((attachment) => {
-        tags.push(["e", attachment.eventId, "", "media"]);
-        tags.push(["x", attachment.digest]);
-        tags.push(["r", attachment.url]);
+        const eventId =
+          typeof attachment.eventId === "string" && attachment.eventId.trim().length > 0
+            ? attachment.eventId.trim()
+            : null;
+        const digest =
+          typeof attachment.digest === "string" && attachment.digest.trim().length > 0
+            ? attachment.digest.trim()
+            : null;
+        const url =
+          typeof attachment.url === "string" && attachment.url.trim().length > 0
+            ? attachment.url.trim()
+            : null;
+
+        if (eventId) {
+          tags.push(["e", eventId, "", "media"]);
+        }
+        if (digest) {
+          tags.push(["x", digest]);
+        }
+        if (url) {
+          tags.push(["r", url]);
+        }
       });
 
       const template: EventTemplate = {
