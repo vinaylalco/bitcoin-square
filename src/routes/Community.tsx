@@ -14,6 +14,13 @@ import type { CasualAttachmentMeta } from "../hooks/useBitcoinSquareCasualChat";
 import { useBitcoinSquareFeed } from "../hooks/useBitcoinSquareFeed";
 import { decryptBinary } from "../utils/aes";
 import { getCachedMediaBlob, getCachedPreview, setCachedMediaBlob, setCachedPreview } from "../utils/mediaCache";
+import {
+  processImageFile,
+  uploadProcessedImage,
+  type ProcessedImage,
+  type UploadedImage,
+  ImageProcessingError,
+} from "../utils/imageUpload";
 import { useProfileIdentity } from "../context/ProfileIdentityContext";
 import type { ProfileSummary } from "../context/ProfileIdentityContext";
 import { useAuth } from "../context/AuthContext";
@@ -34,6 +41,7 @@ import {
   Newspaper,
   Send,
   Sparkles,
+  ImagePlus,
   Trash2,
   Users,
   X,
@@ -305,9 +313,22 @@ const AttachmentPreview: React.FC<{ attachment: CasualAttachmentMeta }> = ({ att
   );
 };
 
+interface ComposerSubmitPayload {
+  text: string;
+  attachments: CasualAttachmentMeta[];
+}
+
+interface ComposerAttachmentState {
+  processed: ProcessedImage | null;
+  uploaded: UploadedImage | null;
+  previewUrl: string | null;
+  status: "processing" | "uploading" | "ready" | "error";
+  error?: string | null;
+}
+
 const Composer: React.FC<{
   disabled: boolean;
-  onSend: (text: string) => Promise<void>;
+  onSend: (payload: ComposerSubmitPayload) => Promise<void>;
   draft?: string;
   onTyping?: () => void;
   quoteContext?: QuoteContextState | null;
@@ -326,7 +347,9 @@ const Composer: React.FC<{
   const [isTextareaFocused, setIsTextareaFocused] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [attachment, setAttachment] = useState<ComposerAttachmentState | null>(null);
   const typingEmitRef = useRef(0);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const characterCount = value.length;
   const characterStatusClass =
@@ -336,11 +359,23 @@ const Composer: React.FC<{
         ? "text-brand"
         : "text-[var(--fg-muted)]";
 
+  const hasTypedContent = value.trim().length > 0;
+  const attachmentBusy = attachment?.status === "processing" || attachment?.status === "uploading";
+  const hasAttachmentReady =
+    attachment?.status === "ready" && attachment.processed !== null && attachment.uploaded !== null;
+
   useEffect(() => {
     if (typeof draft === "string") {
       setValue(draft);
     }
   }, [draft]);
+
+  useEffect(() => {
+    if (attachment?.status === "ready" && attachment.processed) {
+      void setCachedPreview(CASUAL_ROOM_ID, attachment.processed.digest, attachment.processed.previewDataUrl);
+      void setCachedMediaBlob(CASUAL_ROOM_ID, attachment.processed.digest, attachment.processed.blob);
+    }
+  }, [attachment]);
 
   const emitTyping = useCallback(() => {
     if (!onTyping) return;
@@ -350,21 +385,130 @@ const Composer: React.FC<{
     onTyping();
   }, [onTyping]);
 
+  const handleAttachmentChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    let processed: ProcessedImage | null = null;
+    setAttachment({ processed: null, uploaded: null, previewUrl: null, status: "processing", error: null });
+    try {
+      processed = await processImageFile(file);
+      setAttachment({
+        processed,
+        uploaded: null,
+        previewUrl: processed.previewDataUrl,
+        status: "uploading",
+        error: null,
+      });
+      const uploaded = await uploadProcessedImage(processed);
+      setAttachment({
+        processed,
+        uploaded,
+        previewUrl: processed.previewDataUrl,
+        status: "ready",
+        error: null,
+      });
+      setError(null);
+    } catch (uploadError) {
+      const message =
+        uploadError instanceof ImageProcessingError
+          ? uploadError.message
+          : uploadError instanceof Error
+            ? uploadError.message
+            : "Failed to upload image";
+      setAttachment((previous) => ({
+        processed: processed ?? previous?.processed ?? null,
+        uploaded: null,
+        previewUrl: processed?.previewDataUrl ?? previous?.previewUrl ?? null,
+        status: "error",
+        error: message,
+      }));
+    } finally {
+      event.target.value = "";
+    }
+  }, []);
+
+  const handleRemoveAttachment = useCallback(() => {
+    setAttachment(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+    setError(null);
+  }, []);
+
+  const handleRetryAttachment = useCallback(async () => {
+    if (!attachment?.processed) return;
+    const processed = attachment.processed;
+    setAttachment({
+      processed,
+      uploaded: null,
+      previewUrl: attachment.previewUrl ?? processed.previewDataUrl,
+      status: "uploading",
+      error: null,
+    });
+    try {
+      const uploaded = await uploadProcessedImage(processed);
+    setAttachment({
+      processed,
+      uploaded,
+      previewUrl: processed.previewDataUrl,
+      status: "ready",
+      error: null,
+    });
+    setError(null);
+    } catch (retryError) {
+      const message =
+        retryError instanceof ImageProcessingError
+          ? retryError.message
+          : retryError instanceof Error
+            ? retryError.message
+            : "Failed to upload image";
+      setAttachment({
+        processed,
+        uploaded: null,
+        previewUrl: processed.previewDataUrl,
+        status: "error",
+        error: message,
+      });
+    }
+  }, [attachment]);
+
   const handleSubmit = useCallback(async () => {
     const trimmed = value.trim();
-    if (!trimmed || disabled || isSending) return;
+    if (disabled || isSending || attachmentBusy) {
+      return;
+    }
+    if (!trimmed && !hasAttachmentReady) {
+      setError("Add a message or include an image");
+      return;
+    }
     setIsSending(true);
+    const messageAttachments: CasualAttachmentMeta[] = [];
+    if (hasAttachmentReady && attachment?.processed && attachment.uploaded) {
+      messageAttachments.push({
+        eventId: attachment.processed.digest,
+        url: attachment.uploaded.displayUrl ?? attachment.uploaded.url,
+        mimeType: attachment.processed.mimeType,
+        size: attachment.processed.size,
+        digest: attachment.processed.digest,
+        width: attachment.processed.width,
+        height: attachment.processed.height,
+      });
+    }
     try {
-      await onSend(trimmed);
+      await onSend({ text: trimmed, attachments: messageAttachments });
       setValue("");
       setError(null);
+      setAttachment(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     } catch (sendError) {
       const message = sendError instanceof Error ? sendError.message : String(sendError);
       setError(message);
     } finally {
       setIsSending(false);
     }
-  }, [disabled, isSending, onSend, value]);
+  }, [attachment, attachmentBusy, disabled, hasAttachmentReady, isSending, onSend, value]);
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     emitTyping();
@@ -376,13 +520,23 @@ const Composer: React.FC<{
 
   const handleChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
     setValue(event.target.value);
+    setError(null);
     emitTyping();
   };
 
-  const composerExpanded = isTextareaFocused || value.trim().length > 0;
+  const composerExpanded = isTextareaFocused || hasTypedContent;
+  const canSend = (hasTypedContent || hasAttachmentReady) && !attachmentBusy;
+  const attachmentError = attachment?.status === "error" ? attachment.error ?? "Failed to upload image" : null;
 
   return (
     <div className="space-y-3">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleAttachmentChange}
+      />
       {quoteContext && (
         <div className="flex items-start justify-between rounded-2xl border border-brand/40 bg-brand/10 px-3 py-2 text-xs text-brand shadow-sm">
           <button
@@ -412,12 +566,54 @@ const Composer: React.FC<{
           )}
         </div>
       )}
+      {attachment && (
+        <div className="overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] shadow-sm">
+          <div className="relative">
+            {attachment.previewUrl && (
+              <img src={attachment.previewUrl} alt="Selected attachment preview" className="max-h-64 w-full object-cover" />
+            )}
+            <button
+              type="button"
+              onClick={handleRemoveAttachment}
+              className="absolute right-3 top-3 inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/70 bg-black/50 text-white transition hover:bg-black/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+            >
+              <X className="h-3.5 w-3.5" aria-hidden />
+              <span className="sr-only">Remove image</span>
+            </button>
+            {(attachment.status === "uploading" || attachment.status === "processing") && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 text-white">
+                <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+                <span className="mt-2 text-[10px] font-semibold uppercase tracking-[0.3em]">
+                  {attachment.status === "processing" ? "Preparing…" : "Uploading…"}
+                </span>
+              </div>
+            )}
+          </div>
+          <div className="px-3 py-2 text-[10px] uppercase tracking-[0.24em] text-[var(--fg-muted)]">
+            Images are resized to 1080px wide (max 5 MB)
+          </div>
+          {attachmentError && (
+            <div className="flex items-center justify-between gap-3 px-3 pb-3 text-xs text-red-500">
+              <span>{attachmentError}</span>
+              {attachment.processed && (
+                <button
+                  type="button"
+                  onClick={handleRetryAttachment}
+                  className="rounded-full border border-red-200 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.24em] text-red-500 transition hover:border-red-300 hover:text-red-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
+                >
+                  Retry
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
       <div className="relative rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] shadow-sm transition focus-within:border-brand">
         <textarea
           value={value}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
-          disabled={disabled || isSending}
+          disabled={disabled || isSending || attachmentBusy}
           onFocus={() => setIsTextareaFocused(true)}
           onBlur={() => {
             if (value.trim().length === 0) {
@@ -435,8 +631,20 @@ const Composer: React.FC<{
           <div className="pointer-events-auto flex items-center gap-2">
             <button
               type="button"
+              onClick={() => {
+                if (disabled || isSending || attachmentBusy) return;
+                fileInputRef.current?.click();
+              }}
+              disabled={disabled || isSending || attachmentBusy}
+              className="flex h-10 w-10 items-center justify-center rounded-2xl border border-dashed border-[var(--border-subtle)] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <ImagePlus className="h-4 w-4" aria-hidden />
+              <span className="sr-only">Add an image</span>
+            </button>
+            <button
+              type="button"
               onClick={() => void handleSubmit()}
-              disabled={disabled || isSending || value.trim().length === 0}
+              disabled={disabled || isSending || !canSend}
               className="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand text-white shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Send className="h-4 w-4" aria-hidden />}
@@ -1316,19 +1524,22 @@ const CommunityView: React.FC = () => {
   const showJumpToLatest = isCasualView && !isAtTop && messages.length > 0;
 
   const handleSend = useCallback(
-    async (text: string, options?: { quoteId?: string | null; quotePubkey?: string | null }) => {
-      await sendMessage(text, [], options);
+    async (
+      payload: ComposerSubmitPayload,
+      options?: { quoteId?: string | null; quotePubkey?: string | null },
+    ) => {
+      await sendMessage(payload.text, payload.attachments, options);
       setComposerError(null);
     },
     [sendMessage],
   );
 
   const handleComposerSend = useCallback(
-    async (text: string) => {
+    async ({ text, attachments }: ComposerSubmitPayload) => {
       try {
         const quoteId = quoteContext?.id ?? null;
         const quotePubkey = quoteContext?.pubkey ?? null;
-        await handleSend(text, { quoteId, quotePubkey });
+        await handleSend({ text, attachments }, { quoteId, quotePubkey });
         setComposerDraft(undefined);
         setQuoteContext(null);
       } catch (error) {

@@ -10,13 +10,20 @@ import { useAuth } from "../../context/AuthContext";
 import ProfileCard from "../profile/ProfileCard";
 import ErrorBoundary from "../ErrorBoundary";
 import type { RoomDefinition } from "../RoomList";
-import { Heart, Loader2, MessageCircle, Plus, Share2, Trash2, X } from "lucide-react";
+import { Heart, ImagePlus, Loader2, MessageCircle, Plus, Share2, Trash2, X } from "lucide-react";
 import {
   createFeedActionHandlers,
   createOpenComposerDialog,
   type ComposerMode,
   type PendingMap,
 } from "./feedActions";
+import {
+  processImageFile,
+  uploadProcessedImage,
+  type ProcessedImage,
+  type UploadedImage,
+  ImageProcessingError,
+} from "../../utils/imageUpload";
 
 interface BitcoinSquareFeedProps {
   posts: FeedPost[];
@@ -54,6 +61,14 @@ type QuickFilterType = "media" | "mentions" | "mine";
 const LONG_POST_CHAR_THRESHOLD = 320;
 const LONG_POST_LINE_THRESHOLD = 6;
 const COMPOSER_STORAGE_KEY = "bitcoinsquare-feed-composer-state";
+
+interface FeedComposerAttachmentState {
+  processed: ProcessedImage | null;
+  uploaded: UploadedImage | null;
+  previewUrl: string | null;
+  status: "processing" | "uploading" | "ready" | "error";
+  error?: string | null;
+}
 
 const createRelativeFormatter = () => {
   try {
@@ -218,6 +233,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   const [composerOpen, setComposerOpen] = useState(false);
   const [composerMode, setComposerMode] = useState<ComposerMode>("new");
   const [composerTarget, setComposerTarget] = useState<FeedPost | null>(null);
+  const [imageAttachment, setImageAttachment] = useState<FeedComposerAttachmentState | null>(null);
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>(null);
   const [pendingLikes, setPendingLikes] = useState<PendingMap>(() => new Set());
   const [pendingDeletes, setPendingDeletes] = useState<PendingMap>(() => new Set());
@@ -229,6 +245,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const composerFileInputRef = useRef<HTMLInputElement | null>(null);
   const latestKnownPostRef = useRef<string | null>(null);
   const persistedComposerTargetIdRef = useRef<string | null>(null);
   const postRefs = useRef(new Map<string, HTMLDivElement>());
@@ -403,11 +420,15 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     setComposerMode("new");
     setContent("");
     setComposerError(null);
+    setImageAttachment(null);
     persistedComposerTargetIdRef.current = null;
     if (typeof window !== "undefined") {
       window.localStorage.removeItem(COMPOSER_STORAGE_KEY);
     }
     setComposerFocused(false);
+    if (composerFileInputRef.current) {
+      composerFileInputRef.current.value = "";
+    }
   }, []);
 
   const clearComposerTarget = useCallback(() => {
@@ -460,13 +481,102 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     [],
   );
 
+  const handleAttachmentChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    let processed: ProcessedImage | null = null;
+    setImageAttachment({ processed: null, uploaded: null, previewUrl: null, status: "processing", error: null });
+    try {
+      processed = await processImageFile(file);
+      setImageAttachment({
+        processed,
+        uploaded: null,
+        previewUrl: processed.previewDataUrl,
+        status: "uploading",
+        error: null,
+      });
+      const uploaded = await uploadProcessedImage(processed);
+      setImageAttachment({
+        processed,
+        uploaded,
+        previewUrl: processed.previewDataUrl,
+        status: "ready",
+        error: null,
+      });
+      setComposerError((current) => (current === "Add a message or include an image" ? null : current));
+    } catch (uploadError) {
+      const message =
+        uploadError instanceof ImageProcessingError
+          ? uploadError.message
+          : uploadError instanceof Error
+            ? uploadError.message
+            : "Failed to upload image";
+      setImageAttachment((previous) => ({
+        processed: processed ?? previous?.processed ?? null,
+        uploaded: null,
+        previewUrl: processed?.previewDataUrl ?? previous?.previewUrl ?? null,
+        status: "error",
+        error: message,
+      }));
+    } finally {
+      event.target.value = "";
+    }
+  }, []);
+
+  const handleRemoveAttachment = useCallback(() => {
+    setImageAttachment(null);
+    if (composerFileInputRef.current) {
+      composerFileInputRef.current.value = "";
+    }
+    setComposerError(null);
+  }, []);
+
+  const handleRetryAttachment = useCallback(async () => {
+    if (!imageAttachment?.processed) return;
+    const processed = imageAttachment.processed;
+    setImageAttachment({
+      processed,
+      uploaded: null,
+      previewUrl: imageAttachment.previewUrl ?? processed.previewDataUrl,
+      status: "uploading",
+      error: null,
+    });
+    try {
+      const uploaded = await uploadProcessedImage(processed);
+      setImageAttachment({
+        processed,
+        uploaded,
+        previewUrl: processed.previewDataUrl,
+        status: "ready",
+        error: null,
+      });
+    } catch (retryError) {
+      const message =
+        retryError instanceof ImageProcessingError
+          ? retryError.message
+          : retryError instanceof Error
+            ? retryError.message
+            : "Failed to upload image";
+      setImageAttachment({
+        processed,
+        uploaded: null,
+        previewUrl: processed.previewDataUrl,
+        status: "error",
+        error: message,
+      });
+    }
+  }, [imageAttachment]);
+
+  const composerCanSubmit =
+    ready && !publishing && !attachmentBusy && (content.trim().length > 0 || hasAttachmentReady);
+
   const handleSubmit = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
-      if (!ready) return;
+      if (!ready || attachmentBusy) return;
       const trimmed = content.trim();
-      if (!trimmed) {
-        setComposerError("Add a message to post");
+      if (!trimmed && !hasAttachmentReady) {
+        setComposerError("Add a message or include an image");
         return;
       }
       if (trimmed.length > 500) {
@@ -476,9 +586,23 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
 
       try {
         setComposerError(null);
+        const attachments =
+          hasAttachmentReady && imageAttachment?.processed && imageAttachment.uploaded
+            ? [
+                {
+                  url: imageAttachment.uploaded.displayUrl ?? imageAttachment.uploaded.url,
+                  mimeType: imageAttachment.processed.mimeType,
+                  size: imageAttachment.processed.size,
+                  width: imageAttachment.processed.width,
+                  height: imageAttachment.processed.height,
+                  digest: imageAttachment.processed.digest,
+                },
+              ]
+            : [];
         await publishStatus({
           content: trimmed,
           context: composerTarget ? { type: composerMode, post: composerTarget } : undefined,
+          attachments,
         });
         resetComposer();
       } catch (publishError) {
@@ -489,7 +613,17 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         );
       }
     },
-    [composerMode, composerTarget, content, publishStatus, ready, resetComposer],
+    [
+      attachmentBusy,
+      composerMode,
+      composerTarget,
+      content,
+      hasAttachmentReady,
+      imageAttachment,
+      publishStatus,
+      ready,
+      resetComposer,
+    ],
   );
 
   const filteredPosts = useMemo(() => {
@@ -973,7 +1107,13 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     }
   }, [composerOpen]);
 
-  const composerExpanded = composerFocused || content.trim().length > 0;
+  const hasAttachmentReady =
+    imageAttachment?.status === "ready" && imageAttachment.processed !== null && imageAttachment.uploaded !== null;
+  const attachmentBusy =
+    imageAttachment?.status === "processing" || imageAttachment?.status === "uploading";
+  const attachmentError =
+    imageAttachment?.status === "error" ? imageAttachment.error ?? "Failed to upload image" : null;
+  const composerExpanded = composerFocused || content.trim().length > 0 || hasAttachmentReady;
 
   const composerContent = (
     <>
@@ -1021,10 +1161,68 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       )}
 
       <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+        <input
+          ref={composerFileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleAttachmentChange}
+        />
+        {imageAttachment && (
+          <div className="overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 shadow-inner">
+            <div className="relative">
+              {imageAttachment.previewUrl && (
+                <img
+                  src={imageAttachment.previewUrl}
+                  alt="Selected image preview"
+                  className="max-h-72 w-full object-cover"
+                />
+              )}
+              <button
+                type="button"
+                onClick={handleRemoveAttachment}
+                className="absolute right-3 top-3 inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/70 bg-black/50 text-white transition hover:bg-black/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+              >
+                <X className="h-3.5 w-3.5" aria-hidden />
+                <span className="sr-only">Remove image</span>
+              </button>
+              {(imageAttachment.status === "uploading" || imageAttachment.status === "processing") && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 text-white">
+                  <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+                  <span className="mt-2 text-[10px] font-semibold uppercase tracking-[0.3em]">
+                    {imageAttachment.status === "processing" ? "Preparing…" : "Uploading…"}
+                  </span>
+                </div>
+              )}
+            </div>
+            <div className="px-3 py-2 text-[10px] uppercase tracking-[0.24em] text-[var(--fg-muted)]">
+              Images are resized to 1080px wide (max 5 MB)
+            </div>
+            {attachmentError && (
+              <div className="flex items-center justify-between gap-3 px-3 pb-3 text-xs text-red-500">
+                <span>{attachmentError}</span>
+                {imageAttachment.processed && (
+                  <button
+                    type="button"
+                    onClick={handleRetryAttachment}
+                    className="rounded-full border border-red-200 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.24em] text-red-500 transition hover:border-red-300 hover:text-red-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
+                  >
+                    Retry
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
         <textarea
           ref={textareaRef}
           value={content}
-          onChange={(event) => setContent(event.target.value.slice(0, 500))}
+          onChange={(event) => {
+            setContent(event.target.value.slice(0, 500));
+            if (composerError) {
+              setComposerError(null);
+            }
+          }}
           onFocus={() => setComposerFocused(true)}
           onBlur={() => {
             if (content.trim().length === 0) {
@@ -1032,7 +1230,9 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
             }
           }}
           rows={composerExpanded ? 6 : 1}
-          className={`w-full rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 px-4 py-3 text-sm leading-relaxed text-[var(--fg-default)] shadow-inner focus:border-brand focus:outline-none ${composerExpanded ? "resize-y" : "resize-none"}`}
+          className={`w-full rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 px-4 py-3 text-sm leading-relaxed text-[var(--fg-default)] shadow-inner focus:border-brand focus:outline-none ${
+            composerExpanded ? "resize-y" : "resize-none"
+          }`}
           placeholder={
             composerMode === "reply"
               ? "Share your thoughts…"
@@ -1040,15 +1240,27 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
                 ? "Add your perspective…"
                 : "What’s happening in your corner of BitcoinSquare?"
           }
-          disabled={!ready || publishing}
+          disabled={!ready || publishing || attachmentBusy}
         />
         <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-[var(--fg-muted)]">
           <span>{content.length}/500</span>
+          <button
+            type="button"
+            onClick={() => {
+              if (!ready || publishing || attachmentBusy) return;
+              composerFileInputRef.current?.click();
+            }}
+            disabled={!ready || publishing || attachmentBusy}
+            className="inline-flex items-center gap-2 rounded-full border border-dashed border-[var(--border-subtle)] px-3 py-1.5 text-[var(--fg-muted)] transition hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <ImagePlus className="h-4 w-4" aria-hidden />
+            <span className="hidden text-xs font-semibold uppercase tracking-[0.24em] sm:inline">Add image</span>
+          </button>
         </div>
         {composerError && <p className="text-xs text-red-500">{composerError}</p>}
         <button
           type="submit"
-          disabled={!ready || publishing}
+          disabled={!composerCanSubmit}
           className="w-full rounded-full bg-brand px-6 py-2 text-sm font-semibold uppercase tracking-[0.24em] text-white transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:bg-brand/40"
         >
           {submitLabel}
@@ -1265,7 +1477,14 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
                   {attachment.mimeType.startsWith("video/") ? (
                     <video src={attachment.url} controls className="max-h-80 w-full rounded-2xl" />
                   ) : (
-                    <img src={attachment.url} alt="Feed attachment" className="w-full object-contain" loading="lazy" />
+                    <a
+                      href={attachment.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block transition hover:opacity-90"
+                    >
+                      <img src={attachment.url} alt="Feed attachment" className="w-full object-contain" loading="lazy" />
+                    </a>
                   )}
                   {metaParts.length > 0 && (
                     <p className="px-3 py-2 text-xs text-[var(--fg-muted)]">{metaParts.join(" • ")}</p>

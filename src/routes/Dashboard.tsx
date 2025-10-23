@@ -4,6 +4,7 @@ import { Copy, Flame, Layers, LogOut, MessageCircle, Sparkles, Trophy } from 'lu
 import { useAuth } from '../context/AuthContext';
 import { updateProfileSettings } from '../api/account';
 import { generateScreenName, normalizeAvatarUrl, normalizeScreenName } from '../utils/profileDefaults';
+import { ImageProcessingError, processImageFile, uploadProcessedImage } from '../utils/imageUpload';
 
 export default function Dashboard() {
   const { user, logout, nostrPrivKey, token, updateUser } = useAuth();
@@ -23,9 +24,12 @@ export default function Dashboard() {
   const [avatarUrl, setAvatarUrl] = useState(() => defaultAvatar);
   const [profileStatus, setProfileStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const [profileError, setProfileError] = useState<string | null>(null);
-  const [avatarUploadStatus, setAvatarUploadStatus] = useState<'idle' | 'uploading' | 'error' | 'success'>('idle');
+  const [avatarUploadStatus, setAvatarUploadStatus] = useState<
+    'idle' | 'processing' | 'uploading' | 'error' | 'success'
+  >('idle');
   const [avatarUploadError, setAvatarUploadError] = useState<string | null>(null);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
     setLightningAddress(user?.lnWalletAddress ?? '');
@@ -37,6 +41,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     setAvatarUrl(normalizeAvatarUrl(user?.avatarUrl, profileSeed));
+    setAvatarPreviewUrl(null);
   }, [profileSeed, user?.avatarUrl]);
 
   if (!user) return <Navigate to="/login" replace />;
@@ -86,34 +91,31 @@ export default function Dashboard() {
   );
 
   const uploadAvatarFile = useCallback(async (file: File) => {
-    setAvatarUploadStatus('uploading');
+    setAvatarUploadStatus('processing');
     setAvatarUploadError(null);
+    setAvatarPreviewUrl(null);
     try {
-      const formData = new FormData();
-      formData.append('fileToUpload', file);
-      const response = await fetch('https://nostr.build/api/v2/upload/files', {
-        method: 'POST',
-        body: formData,
-      });
-      if (!response.ok) {
-        throw new Error(`Upload failed with status ${response.status}`);
-      }
-      const payload = await response.json();
-      const candidateUrl =
-        (payload && typeof payload.url === 'string' && payload.url) ||
-        (Array.isArray(payload?.data) && payload.data[0] && typeof payload.data[0].url === 'string'
-          ? payload.data[0].url
-          : null);
+      const processedImage = await processImageFile(file);
+      setAvatarPreviewUrl(processedImage.previewDataUrl);
+      setAvatarUploadStatus('uploading');
+      const uploaded = await uploadProcessedImage(processedImage);
+      const candidateUrl = uploaded.displayUrl ?? uploaded.url ?? uploaded.viewerUrl;
       if (!candidateUrl) {
         throw new Error('Upload succeeded but no URL was returned by the host.');
       }
       setAvatarUrl(candidateUrl);
+      setAvatarPreviewUrl(null);
       setAvatarUploadStatus('success');
-      return candidateUrl as string;
+      return candidateUrl;
     } catch (error) {
+      setAvatarPreviewUrl(null);
       setAvatarUploadStatus('error');
       setAvatarUploadError(
-        error instanceof Error ? error.message : 'We were unable to upload that photo. Please try again.',
+        error instanceof ImageProcessingError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : 'We were unable to upload that photo. Please try again.',
       );
       throw error;
     }
@@ -185,10 +187,11 @@ export default function Dashboard() {
     avatarInputRef.current?.click();
   }, []);
 
-  const showAvatarAdvancedOptions = false;
+  const showAvatarAdvancedOptions = true;
 
   const isLightningSaving = lightningStatus === 'saving';
   const isProfileSaving = profileStatus === 'saving';
+  const avatarBusy = avatarUploadStatus === 'processing' || avatarUploadStatus === 'uploading';
 
   const handleScreenNameChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -204,6 +207,7 @@ export default function Dashboard() {
     (event: React.ChangeEvent<HTMLInputElement>) => {
       setAvatarUrl(event.target.value);
       setProfileStatus('idle');
+      setAvatarPreviewUrl(null);
       if (avatarUploadStatus !== 'idle') {
         setAvatarUploadStatus('idle');
         setAvatarUploadError(null);
@@ -302,7 +306,7 @@ export default function Dashboard() {
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
                 <div className="relative h-24 w-24 flex-shrink-0 overflow-hidden rounded-3xl border border-neutral-200 bg-gradient-to-br from-amber-200 via-orange-200 to-pink-200 shadow-inner dark:border-neutral-700 dark:from-orange-500/40 dark:via-amber-500/30 dark:to-pink-500/30">
                   <img
-                    src={avatarUrl}
+                    src={avatarPreviewUrl ?? avatarUrl}
                     alt="Profile preview"
                     className="h-full w-full object-cover"
                     loading="lazy"
@@ -310,7 +314,8 @@ export default function Dashboard() {
                   <button
                     type="button"
                     onClick={openAvatarPicker}
-                    className="absolute inset-x-2 bottom-2 rounded-full bg-neutral-900/70 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-white shadow-md transition hover:bg-neutral-900/90"
+                    disabled={avatarBusy}
+                    className="absolute inset-x-2 bottom-2 rounded-full bg-neutral-900/70 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-white shadow-md transition hover:bg-neutral-900/90 disabled:cursor-not-allowed disabled:bg-neutral-900/40"
                   >
                     Change
                   </button>
@@ -350,9 +355,10 @@ export default function Dashboard() {
                       <button
                         type="button"
                         onClick={openAvatarPicker}
-                        className="rounded-full border border-brand/40 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-brand transition hover:border-brand"
+                        disabled={avatarBusy}
+                        className="rounded-full border border-brand/40 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-brand transition hover:border-brand disabled:cursor-not-allowed disabled:border-brand/20 disabled:text-brand/40"
                       >
-                        Upload photo
+                        {avatarBusy ? 'Uploading…' : 'Upload photo'}
                       </button>
                     </div>
                   )}
@@ -369,12 +375,22 @@ export default function Dashboard() {
                         placeholder="https://"
                         autoComplete="off"
                       />
-                      {avatarUploadStatus === 'uploading' && (
-                        <p className="text-xs text-neutral-500">Uploading photo…</p>
+                      {(avatarUploadStatus === 'processing' || avatarUploadStatus === 'uploading') && (
+                        <p className="text-xs text-neutral-500">
+                          {avatarUploadStatus === 'processing'
+                            ? 'Preparing photo…'
+                            : 'Uploading photo…'}
+                        </p>
+                      )}
+                      {avatarUploadStatus === 'success' && (
+                        <p className="text-xs text-emerald-500">Image ready! Don’t forget to save your profile.</p>
                       )}
                       {avatarUploadStatus === 'error' && avatarUploadError && (
                         <p className="text-xs text-red-500">{avatarUploadError}</p>
                       )}
+                      <p className="text-xs text-neutral-500">
+                        Images are resized to 1080px wide (max 5&nbsp;MB).
+                      </p>
                     </div>
                   )}
                 </div>
@@ -393,7 +409,7 @@ export default function Dashboard() {
                 </span>
                 <button
                   type="submit"
-                  disabled={isProfileSaving || !token}
+                  disabled={isProfileSaving || !token || avatarBusy}
                   className="inline-flex items-center justify-center rounded-full bg-brand px-5 py-2 text-sm font-semibold uppercase tracking-[0.3em] text-white transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:bg-brand/40"
                 >
                   {isProfileSaving ? 'Saving…' : 'Save profile'}
