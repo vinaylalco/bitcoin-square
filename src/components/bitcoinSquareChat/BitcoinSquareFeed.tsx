@@ -2005,7 +2005,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-[90] flex h-screen w-screen items-center justify-center bg-black/90 p-0 sm:p-6"
+          className="fixed inset-0 z-[90] flex items-center justify-center bg-black/90 p-4 sm:p-6"
           onClick={() => setLightboxImage(null)}
         >
           <button
@@ -2020,13 +2020,13 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
             <X className="h-5 w-5" aria-hidden />
           </button>
           <div
-            className="flex h-full w-full items-center justify-center"
+            className="relative flex max-h-[90vh] max-w-[90vw] items-center justify-center"
             onClick={(event) => event.stopPropagation()}
           >
             <img
               src={lightboxImage.src}
               alt={lightboxImage.alt}
-              className="mx-auto block h-auto max-h-full w-auto max-w-full object-contain"
+              className="h-auto max-h-full w-auto max-w-full object-contain"
               loading="lazy"
               onClick={(event) => event.stopPropagation()}
             />
