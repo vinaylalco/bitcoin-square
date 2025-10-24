@@ -1800,6 +1800,14 @@ const CommunityView: React.FC = () => {
     Object.values(conversations).forEach((conversation) => addTarget(conversation.peerPubkey));
     following.forEach((followed) => addTarget(followed));
     Object.keys(profiles).forEach((key) => addTarget(key));
+    Object.values(profiles).forEach((entry) => {
+      const profile = entry?.data;
+      if (!profile) {
+        return;
+      }
+      profile.followers?.forEach((follower) => addTarget(follower));
+      profile.following?.forEach((value) => addTarget(value));
+    });
 
     const sorted = Array.from(targets.values());
     sorted.sort((a, b) => {
@@ -3214,6 +3222,7 @@ const CommunityView: React.FC = () => {
                         initialLoading={feedInitialLoading}
                         initialThreadId={routePostId}
                         onThreadChange={handleThreadRouteChange}
+                        mentionTargets={mentionTargets}
                       />
                     </div>
                   </ErrorBoundary>
@@ -3243,6 +3252,7 @@ const CommunityView: React.FC = () => {
                         initialLoading={feedInitialLoading}
                         initialThreadId={routePostId}
                         onThreadChange={handleThreadRouteChange}
+                        mentionTargets={mentionTargets}
                       />
                     ) : (
                       <div className="flex flex-1 items-center justify-center px-6 py-12">

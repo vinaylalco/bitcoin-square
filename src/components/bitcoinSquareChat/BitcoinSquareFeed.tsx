@@ -49,6 +49,7 @@ interface BitcoinSquareFeedProps {
   initialLoading: boolean;
   initialThreadId?: string | null;
   onThreadChange?: (postId: string | null) => void;
+  mentionTargets?: MentionTarget[];
 }
 
 type ActiveFilter =
@@ -222,6 +223,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   initialLoading,
   initialThreadId = null,
   onThreadChange,
+  mentionTargets: externalMentionTargets,
 }) => {
   const [content, setContent] = useState("");
   const [composerFocused, setComposerFocused] = useState(false);
@@ -328,7 +330,10 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   }, [posts]);
 
   const debouncedMentionQuery = useDebouncedValue(mentionState.query, 300);
-  const mentionTargets = useMemo<MentionTarget[]>(() => {
+  const composerMentionTargets = useMemo<MentionTarget[]>(() => {
+    if (externalMentionTargets && externalMentionTargets.length > 0) {
+      return externalMentionTargets;
+    }
     const targets = new Map<string, MentionTarget>();
     const currentPubkey = pubkey?.toLowerCase() ?? null;
 
@@ -378,13 +383,13 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       return secondaryA.localeCompare(secondaryB, undefined, { sensitivity: "base", numeric: true });
     });
     return sorted;
-  }, [composerTarget, following, posts, profiles, pubkey, resolveProfileSummary]);
+  }, [composerTarget, externalMentionTargets, following, posts, profiles, pubkey, resolveProfileSummary]);
   const filteredMentionTargets = useMemo(() => {
     if (!mentionState.active) {
       return [] as MentionTarget[];
     }
     const query = debouncedMentionQuery.trim().toLowerCase();
-    const source = mentionTargets.filter((target) => target.pubkey.length === 64);
+    const source = composerMentionTargets.filter((target) => target.pubkey.length === 64);
     if (query.length === 0) {
       return source.slice(0, MENTION_SUGGESTION_LIMIT);
     }
@@ -395,19 +400,19 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         return screen.includes(query) || display.includes(query);
       })
       .slice(0, MENTION_SUGGESTION_LIMIT);
-  }, [debouncedMentionQuery, mentionState.active, mentionTargets]);
+  }, [composerMentionTargets, debouncedMentionQuery, mentionState.active]);
   const mentionDropdownVisible = mentionState.active && filteredMentionTargets.length > 0;
   const requestedMentionProfilesRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    mentionTargets.forEach((target) => {
+    composerMentionTargets.forEach((target) => {
       if (requestedMentionProfilesRef.current.has(target.pubkey)) {
         return;
       }
       requestedMentionProfilesRef.current.add(target.pubkey);
       void requestProfile(target.pubkey);
     });
-  }, [mentionTargets, requestProfile]);
+  }, [composerMentionTargets, requestProfile]);
 
   useEffect(() => {
     if (!mentionDropdownVisible) {
@@ -428,7 +433,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
 
   const updateMentionState = useCallback(
     (text: string, caret: number) => {
-      if (!mentionTargets.length) {
+      if (!composerMentionTargets.length) {
         return;
       }
       const safeCaret = Number.isFinite(caret) ? Math.max(0, Math.min(text.length, caret)) : text.length;
@@ -442,7 +447,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         closeMention();
       }
     },
-    [closeMention, mentionTargets.length],
+    [closeMention, composerMentionTargets.length],
   );
 
   const applyMention = useCallback(
