@@ -1505,12 +1505,12 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
                         event.stopPropagation();
                         setLightboxImage({ src: safeAttachmentUrl, alt: "Feed attachment" });
                       }}
-                      className="group relative block w-full overflow-hidden"
+                      className="group relative mx-auto block w-full max-w-[10rem] overflow-hidden rounded-2xl bg-black/10 sm:max-w-[12rem]"
                     >
                       <img
                         src={safeAttachmentUrl}
                         alt="Feed attachment"
-                        className="h-full w-full max-h-64 object-cover transition duration-200 group-hover:scale-[1.01]"
+                        className="h-auto w-full object-contain transition duration-200 group-hover:scale-[1.02]"
                         loading="lazy"
                       />
                       <span className="sr-only">View full image</span>
@@ -1851,7 +1851,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-[90] flex h-screen w-screen items-center justify-center bg-black/90 p-4 sm:p-10"
+          className="fixed inset-0 z-[90] flex h-screen w-screen items-center justify-center bg-black/90 p-0 sm:p-6"
           onClick={() => setLightboxImage(null)}
         >
           <button
@@ -1866,13 +1866,13 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
             <X className="h-5 w-5" aria-hidden />
           </button>
           <div
-            className="flex max-h-full max-w-full items-center justify-center"
+            className="flex h-full w-full items-center justify-center"
             onClick={(event) => event.stopPropagation()}
           >
             <img
               src={lightboxImage.src}
               alt={lightboxImage.alt}
-              className="max-h-full max-w-full object-contain"
+              className="mx-auto block h-auto max-h-full w-auto max-w-full object-contain"
               loading="lazy"
               onClick={(event) => event.stopPropagation()}
             />

@@ -42,6 +42,7 @@ import {
 import {
   extractMarkdownImageUrls as getMarkdownImageUrls,
   markdownToHtml,
+  stripImagePlaceholders,
 } from "../utils/markdown";
 import {
   createPlaceholderImageDetails,
@@ -475,7 +476,7 @@ const AttachmentPreview: React.FC<{ attachment: CasualAttachmentMeta }> = ({ att
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex h-screen w-screen items-center justify-center bg-black/90 p-4 sm:p-10"
+          className="fixed inset-0 z-50 flex h-screen w-screen items-center justify-center bg-black/90 p-0 sm:p-6"
           onClick={() => setLightboxOpen(false)}
         >
           <button
@@ -490,10 +491,15 @@ const AttachmentPreview: React.FC<{ attachment: CasualAttachmentMeta }> = ({ att
             <X className="h-5 w-5" aria-hidden />
           </button>
           <div
-            className="flex max-h-full max-w-full items-center justify-center"
+            className="flex h-full w-full items-center justify-center"
             onClick={(event) => event.stopPropagation()}
           >
-            <img src={fullUrl} alt="Attachment" className="max-h-full max-w-full object-contain" loading="lazy" />
+            <img
+              src={fullUrl}
+              alt="Attachment"
+              className="mx-auto block h-auto max-h-full w-auto max-w-full object-contain"
+              loading="lazy"
+            />
           </div>
         </div>
       )}
@@ -2085,6 +2091,9 @@ const CommunityView: React.FC = () => {
                             translatedHtml && translationEnabled && !showOriginal
                               ? translatedHtml
                               : message.html;
+                          const sanitizedHtml = stripImagePlaceholders(renderedHtml ?? "");
+                          const normalizedHtml = sanitizedHtml.replace(/<br\s*\/?>(\s|&nbsp;|\u00a0)*/gi, "");
+                          const hasRenderableHtml = normalizedHtml.trim().length > 0;
                           const detectedLanguageLabel =
                             translationEnabled &&
                             translationEntry?.detectedLanguage &&
@@ -2202,12 +2211,14 @@ const CommunityView: React.FC = () => {
                                       </button>
                                     )}
 
-                                    <div
-                                      className={`prose prose-sm max-w-none whitespace-pre-wrap break-words ${
-                                        isSelf ? "prose-invert" : "text-[var(--fg-default)]"
-                                      } prose-a:text-brand`}
-                                      dangerouslySetInnerHTML={{ __html: renderedHtml }}
-                                    />
+                                    {hasRenderableHtml && (
+                                      <div
+                                        className={`prose prose-sm max-w-none whitespace-pre-wrap break-words ${
+                                          isSelf ? "prose-invert" : "text-[var(--fg-default)]"
+                                        } prose-a:text-brand`}
+                                        dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
+                                      />
+                                    )}
 
                                     {translationEnabled && (
                                       <div
