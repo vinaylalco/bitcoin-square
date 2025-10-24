@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, MessageCircle, Search } from "lucide-react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
@@ -7,10 +7,14 @@ import {
   type DirectMessageEntry,
 } from "../context/DirectMessageContext";
 import {
+  fallbackProfileAvatar,
   useProfileIdentity,
   type ProfileSummary,
 } from "../context/ProfileIdentityContext";
 import { useAuth } from "../context/AuthContext";
+import { searchUsersByScreenName, type ScreenNameUser } from "../api/users";
+import type { MentionCandidate } from "../utils/mentions";
+import useMentionAutocomplete from "../hooks/useMentionAutocomplete";
 
 const formatPreview = (value: string, limit = 140) => {
   const normalized = value.trim();
@@ -61,9 +65,22 @@ interface KnownMember {
 }
 
 const MessagesPage: React.FC = () => {
-  const { conversations, openConversation, ready, error } = useDirectMessages();
+  const {
+    conversations,
+    openConversation,
+    activeConversation,
+    closeConversation,
+    sendMessage,
+    ready,
+    error,
+    getDraft,
+    setDraft,
+  } = useDirectMessages();
   const { profiles, resolveProfileSummary, requestProfile, shortenPubkey } = useProfileIdentity();
+  const { user } = useAuth();
   const [query, setQuery] = useState("");
+
+  const viewerPubkey = user?.nostrPublicKey?.trim() ?? "";
 
   const normalizedQuery = normalizeSearch(query);
 
@@ -162,6 +179,108 @@ const MessagesPage: React.FC = () => {
     return list.sort((a, b) => a.displayName.localeCompare(b.displayName));
   }, [conversations, profiles, resolveProfileSummary, shortenPubkey]);
 
+  const mapUserToMentionCandidate = useCallback(
+    (user: ScreenNameUser): MentionCandidate | null => {
+      const screenName = user.screenName.trim();
+      const pubkeyValue = user.nostrPubkey?.trim();
+      if (!screenName || !pubkeyValue) {
+        return null;
+      }
+      const summary = resolveProfileSummary(pubkeyValue);
+      const displayName = summary.displayName?.trim() || `@${screenName}`;
+      const avatarUrl =
+        summary.avatarUrl ||
+        user.avatarUrl ||
+        fallbackProfileAvatar(pubkeyValue);
+      return {
+        pubkey: pubkeyValue,
+        displayName,
+        screenName,
+        avatarUrl,
+        shortPubkey: shortenPubkey(pubkeyValue),
+      };
+    },
+    [fallbackProfileAvatar, resolveProfileSummary, shortenPubkey],
+  );
+
+  const localMentionCandidates = useMemo(() => {
+    const list: MentionCandidate[] = [];
+    const seen = new Set<string>();
+    Object.entries(profiles).forEach(([pubkey, entry]) => {
+      const screenName = entry.data?.screenName?.trim();
+      if (!screenName) {
+        return;
+      }
+      const normalized = screenName.toLowerCase();
+      if (seen.has(normalized)) {
+        return;
+      }
+      seen.add(normalized);
+      const summary = resolveProfileSummary(pubkey);
+      const displayName = summary.displayName?.trim() || `@${screenName}`;
+      list.push({
+        pubkey,
+        displayName,
+        screenName,
+        avatarUrl: summary.avatarUrl || fallbackProfileAvatar(pubkey),
+        shortPubkey: shortenPubkey(pubkey),
+      });
+    });
+    list.sort((a, b) => a.screenName.toLowerCase().localeCompare(b.screenName.toLowerCase()));
+    return list;
+  }, [fallbackProfileAvatar, profiles, resolveProfileSummary, shortenPubkey]);
+
+  const fetchMentionCandidates = useCallback(
+    async (query: string, limit: number) => {
+      const users = await searchUsersByScreenName(query, limit);
+      users.forEach((user) => {
+        if (user.nostrPubkey) {
+          requestProfile(user.nostrPubkey).catch(() => undefined);
+        }
+      });
+      const mapped = users
+        .map((user) => mapUserToMentionCandidate(user))
+        .filter((candidate): candidate is MentionCandidate => Boolean(candidate));
+      return mapped.slice(0, limit);
+    },
+    [mapUserToMentionCandidate, requestProfile],
+  );
+
+  const conversation = activeConversation ? conversations[activeConversation] : null;
+  const draft = activeConversation ? getDraft(activeConversation) : "";
+  const summary = activeConversation ? resolveProfileSummary(activeConversation) : null;
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const applyMentionChange = useCallback(
+    (nextValue: string) => {
+      if (activeConversation) {
+        setDraft(activeConversation, nextValue);
+      }
+    },
+    [activeConversation, setDraft],
+  );
+
+  const {
+    mentionActive,
+    mentionResults,
+    mentionHighlightIndex,
+    setMentionHighlightIndex,
+    listId: mentionListId,
+    activeOptionId: activeMentionOptionId,
+    handleKeyDown: handleMentionKeyDown,
+    handleMentionSelection,
+    updateMentionState,
+    closeMention,
+  } = useMentionAutocomplete({
+    value: draft,
+    onChange: applyMentionChange,
+    textareaRef,
+    fetchCandidates: fetchMentionCandidates,
+    candidates: localMentionCandidates,
+    limit: 5,
+    listIdPrefix: "messages-composer-mentions",
+  });
+
   const filteredPeople = useMemo<KnownMember[]>(() => {
     if (!normalizedQuery) {
       return [];
@@ -181,6 +300,96 @@ const MessagesPage: React.FC = () => {
 
   const handleOpenConversation = (pubkey: string) => {
     openConversation(pubkey);
+  };
+
+  const [composerError, setComposerError] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  const listRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!activeConversation) {
+      closeMention();
+      return;
+    }
+    const node = textareaRef.current;
+    const caret =
+      node && typeof node.selectionStart === "number"
+        ? node.selectionStart
+        : draft.length;
+    updateMentionState(draft, caret);
+  }, [activeConversation, draft, closeMention, updateMentionState]);
+
+  const handleTextareaKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (handleMentionKeyDown(event)) {
+      return;
+    }
+  };
+
+  const handleTextareaChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const nextValue = event.target.value;
+    if (activeConversation) {
+      setDraft(activeConversation, nextValue);
+    }
+    updateMentionState(nextValue, event.target.selectionStart ?? nextValue.length);
+  };
+
+  const handleTextareaSelect = (event: React.SyntheticEvent<HTMLTextAreaElement>) => {
+    const node = event.currentTarget;
+    updateMentionState(node.value, node.selectionStart ?? node.value.length);
+  };
+
+  const handleTextareaFocus = (event: React.FocusEvent<HTMLTextAreaElement>) => {
+    updateMentionState(event.currentTarget.value, event.currentTarget.selectionStart ?? event.currentTarget.value.length);
+  };
+
+  const handleTextareaBlur = () => {
+    closeMention();
+  };
+
+  useEffect(() => {
+    if (!listRef.current) return;
+    listRef.current.scrollTop = listRef.current.scrollHeight;
+  }, [conversation?.messages.length, activeConversation]);
+
+  useEffect(() => {
+    if (!activeConversation) {
+      setComposerError(null);
+      setSending(false);
+    }
+  }, [activeConversation]);
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!activeConversation || !draft.trim()) {
+      return;
+    }
+    setComposerError(null);
+    setSending(true);
+    try {
+      await sendMessage(activeConversation, draft);
+    } catch (sendErr) {
+      const message = sendErr instanceof Error ? sendErr.message : String(sendErr);
+      setComposerError(message);
+    } finally {
+      setSending(false);
+      closeMention();
+    }
+  };
+
+  const formatMessageTimestamp = (seconds: number) => {
+    if (!Number.isFinite(seconds)) {
+      return "";
+    }
+    const date = new Date(seconds * 1000);
+    try {
+      return new Intl.DateTimeFormat(undefined, {
+        hour: "2-digit",
+        minute: "2-digit",
+        month: "short",
+        day: "numeric",
+      }).format(date);
+    } catch {
+      return date.toLocaleString();
+    }
   };
 
   const renderConversationRow = (entry: (typeof conversationEntries)[number]) => {
@@ -279,7 +488,7 @@ const MessagesPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[var(--bg-app)] px-4 py-10 text-[var(--fg-default)] sm:px-6">
-      <div className="mx-auto flex w-full max-w-4xl flex-col gap-8">
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-8">
         <header className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-sm">
           <h1 className="text-2xl font-semibold">Messages</h1>
           <p className="mt-2 text-sm text-[var(--fg-muted)]">
@@ -288,76 +497,278 @@ const MessagesPage: React.FC = () => {
           </p>
         </header>
 
-        <section className="space-y-6 rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-sm">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--fg-muted)]" />
-            <input
-              type="search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search conversations by name or username"
-              className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/70 py-3 pl-11 pr-4 text-sm text-[var(--fg-default)] outline-none transition focus:border-brand"
-            />
-          </div>
-
-          {!ready && (
-            <div className="rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-4 text-sm text-[var(--fg-muted)]">
-              We&apos;re still preparing your keys. Messages will appear once your Nostr account is ready.
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
+          <section
+            className={`space-y-6 rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-sm ${
+              activeConversation ? "hidden lg:block" : "block"
+            }`}
+          >
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--fg-muted)]" />
+              <input
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search conversations by name or username"
+                className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/70 py-3 pl-11 pr-4 text-sm text-[var(--fg-default)] outline-none transition focus:border-brand"
+              />
             </div>
-          )}
 
-          {error && (
-            <div className="flex items-center gap-3 rounded-2xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-500">
-              <AlertCircle className="h-5 w-5" />
-              <span>{error}</span>
-            </div>
-          )}
-
-          {normalizedQuery ? (
-            <div className="space-y-8">
-              <div>
-                <h2 className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)]">Conversations</h2>
-                {filteredConversations.length === 0 ? (
-                  <p className="mt-3 rounded-2xl bg-[var(--bg-surface)]/60 p-4 text-xs text-[var(--fg-muted)]">
-                    No conversations match “{query.trim()}”.
-                  </p>
-                ) : (
-                  <div className="mt-3 space-y-3">
-                    {filteredConversations.map((entry) => renderConversationRow(entry))}
-                  </div>
-                )}
+            {!ready && (
+              <div className="rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-4 text-sm text-[var(--fg-muted)]">
+                We&apos;re still preparing your keys. Messages will appear once your Nostr account is ready.
               </div>
-              <div>
-                <h2 className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)]">People</h2>
-                {filteredPeople.length === 0 ? (
-                  <p className="mt-3 rounded-2xl bg-[var(--bg-surface)]/60 p-4 text-xs text-[var(--fg-muted)]">
-                    No members found. Try another name or username.
-                  </p>
-                ) : (
-                  <div className="mt-3 space-y-3">
-                    {filteredPeople.map((member) => renderPersonRow(member))}
-                  </div>
-                )}
+            )}
+
+            {error && (
+              <div className="flex items-center gap-3 rounded-2xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-500">
+                <AlertCircle className="h-5 w-5" />
+                <span>{error}</span>
               </div>
-            </div>
-          ) : showEmptyState ? (
-            <div className="rounded-2xl bg-[var(--bg-surface)]/60 p-6 text-sm text-[var(--fg-muted)]">
-              <p>You haven&apos;t started any private conversations yet.</p>
-              {suggestedPeople.length > 0 && (
-                <div className="mt-6 space-y-3">
-                  <h2 className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)]">
-                    Suggested members
-                  </h2>
-                  {suggestedPeople.map((member) => renderPersonRow(member))}
+            )}
+
+            {normalizedQuery ? (
+              <div className="space-y-8">
+                <div>
+                  <h2 className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)]">Conversations</h2>
+                  {filteredConversations.length === 0 ? (
+                    <p className="mt-3 rounded-2xl bg-[var(--bg-surface)]/60 p-4 text-xs text-[var(--fg-muted)]">
+                      No conversations match “{query.trim()}”.
+                    </p>
+                  ) : (
+                    <div className="mt-3 space-y-3">
+                      {filteredConversations.map((entry) => renderConversationRow(entry))}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {conversationEntries.map((entry) => renderConversationRow(entry))}
-            </div>
-          )}
-        </section>
+                <div>
+                  <h2 className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)]">People</h2>
+                  {filteredPeople.length === 0 ? (
+                    <p className="mt-3 rounded-2xl bg-[var(--bg-surface)]/60 p-4 text-xs text-[var(--fg-muted)]">
+                      No members found. Try another name or username.
+                    </p>
+                  ) : (
+                    <div className="mt-3 space-y-3">
+                      {filteredPeople.map((member) => renderPersonRow(member))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : showEmptyState ? (
+              <div className="rounded-2xl bg-[var(--bg-surface)]/60 p-6 text-sm text-[var(--fg-muted)]">
+                <p>You haven&apos;t started any private conversations yet.</p>
+                {suggestedPeople.length > 0 && (
+                  <div className="mt-6 space-y-3">
+                    <h2 className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)]">
+                      Suggested members
+                    </h2>
+                    {suggestedPeople.map((member) => renderPersonRow(member))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {conversationEntries.map((entry) => renderConversationRow(entry))}
+              </div>
+            )}
+          </section>
+
+          <section
+            className={`flex min-h-[32rem] flex-col rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] shadow-sm ${
+              activeConversation ? "block" : "hidden lg:flex"
+            }`}
+          >
+            {!activeConversation || !conversation || !summary ? (
+              <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center text-sm text-[var(--fg-muted)]">
+                <Search className="h-10 w-10 text-[var(--fg-muted)]" />
+                <div>
+                  <p className="font-semibold text-[var(--fg-default)]">Select a conversation</p>
+                  <p className="mt-1 text-xs text-[var(--fg-muted)]">
+                    Pick a thread from the list to start sending encrypted messages.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <>
+                <header className="flex items-center justify-between gap-4 border-b border-[var(--border-subtle)] bg-[var(--bg-surface)]/80 px-5 py-4">
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      className="rounded-full border border-[var(--border-subtle)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand lg:hidden"
+                      onClick={closeConversation}
+                    >
+                      Back
+                    </button>
+                    <img
+                      src={summary.avatarUrl}
+                      alt={summary.displayName}
+                      className="h-10 w-10 rounded-full border border-[var(--border-subtle)] object-cover"
+                    />
+                    <div>
+                      <h2 className="text-sm font-semibold text-[var(--fg-default)]">{summary.displayName}</h2>
+                      <p className="text-xs uppercase tracking-[0.18em] text-[var(--fg-muted)]">
+                        {shortenPubkey(activeConversation)}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={closeConversation}
+                    className="hidden rounded-full border border-[var(--border-subtle)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand lg:inline-flex"
+                  >
+                    Close
+                  </button>
+                </header>
+
+                <div className="relative flex h-full flex-1 flex-col bg-[var(--bg-surface)]/60">
+                  <div
+                    ref={listRef}
+                    className="flex-1 space-y-3 overflow-y-auto px-5 py-4 pb-52"
+                  >
+                    {conversation.messages.length === 0 ? (
+                      <p className="mt-8 text-center text-xs uppercase tracking-[0.2em] text-[var(--fg-muted)]">
+                        No messages yet. Say hello!
+                      </p>
+                    ) : (
+                      conversation.messages.map((message) => (
+                        <div
+                          key={message.id || message.clientId}
+                          className={`flex ${message.direction === "outgoing" ? "justify-end" : "justify-start"}`}
+                        >
+                          <div
+                            className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow-md ${
+                              message.direction === "outgoing"
+                                ? "bg-brand/90 text-white"
+                                : "border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--fg-default)]"
+                            }`}
+                          >
+                            <p className="whitespace-pre-wrap break-words leading-relaxed">{message.plaintext}</p>
+                            <div className="mt-2 flex items-center justify-between gap-3 text-[10px] uppercase tracking-[0.2em] text-[var(--fg-muted)]">
+                              <span className="opacity-80">{formatMessageTimestamp(message.createdAt)}</span>
+                              {message.direction === "outgoing" && (
+                                <span className="opacity-80">
+                                  {message.status === "pending"
+                                    ? "Sending…"
+                                    : message.status === "failed"
+                                      ? "Failed"
+                                      : "Sent"}
+                                </span>
+                              )}
+                            </div>
+                            {message.error && (
+                              <p className="mt-1 text-[10px] uppercase tracking-[0.2em] text-red-500">{message.error}</p>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {activeConversation && conversation && (
+                    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[var(--bg-surface)]/90 via-[var(--bg-surface)]/60 to-transparent" />
+                  )}
+
+                  {activeConversation && conversation && (
+                    <div className="absolute bottom-0 left-0 right-0 z-40 border-t border-[var(--border-subtle)] bg-[var(--bg-card)]/95 backdrop-blur">
+                      <div className="mx-auto flex w-full max-w-5xl justify-center px-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pt-4 sm:px-6 lg:justify-end">
+                        <form
+                          onSubmit={handleSubmit}
+                          className="w-full rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)]/95 px-5 py-4 shadow-lg lg:w-[calc(100%_-_22rem_-_1.5rem)]"
+                        >
+                          {!ready && (
+                            <p className="mb-2 text-xs text-[var(--fg-muted)]">
+                              {error ?? "Direct messages are initializing. Please wait."}
+                            </p>
+                          )}
+                          {composerError && <p className="mb-2 text-xs text-red-500">{composerError}</p>}
+                          <div className="flex items-end gap-3">
+                            <div className="relative flex-1">
+                              <textarea
+                                ref={textareaRef}
+                                value={draft}
+                                onChange={handleTextareaChange}
+                                onKeyDown={handleTextareaKeyDown}
+                                onSelect={handleTextareaSelect}
+                                onClick={handleTextareaSelect}
+                                onFocus={handleTextareaFocus}
+                                onBlur={handleTextareaBlur}
+                                placeholder="Write a message…"
+                                aria-autocomplete="list"
+                                aria-haspopup="listbox"
+                                aria-controls={mentionActive ? mentionListId : undefined}
+                                aria-expanded={mentionActive}
+                                aria-activedescendant={activeMentionOptionId}
+                                className="h-24 w-full resize-none rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-4 py-3 text-sm text-[var(--fg-default)] outline-none transition focus:border-brand"
+                              />
+                              {mentionActive && (
+                                <div
+                                  id={mentionListId}
+                                  role="listbox"
+                                  aria-label="Mention suggestions"
+                                  className="absolute left-0 right-0 top-full z-20 mt-2 max-h-60 overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] shadow-xl"
+                                >
+                                  {mentionResults.length === 0 ? (
+                                    <p className="px-3 py-2 text-xs text-[var(--fg-muted)]">No matches found.</p>
+                                  ) : (
+                                    <ul className="max-h-60 overflow-y-auto py-1">
+                                      {mentionResults.map((candidate, index) => {
+                                        const optionId = `${mentionListId}-${candidate.pubkey}`;
+                                        const isActive = index === mentionHighlightIndex;
+                                        return (
+                                          <li key={candidate.pubkey} role="presentation">
+                                            <button
+                                              id={optionId}
+                                              role="option"
+                                              aria-selected={isActive}
+                                              type="button"
+                                              onMouseDown={(event) => event.preventDefault()}
+                                              onClick={() => handleMentionSelection(candidate)}
+                                              onMouseEnter={() => setMentionHighlightIndex(index)}
+                                              className={`flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition ${
+                                                isActive
+                                                  ? "bg-brand/10 text-brand"
+                                                  : "text-[var(--fg-default)] hover:bg-[var(--bg-surface)]/80"
+                                              }`}
+                                            >
+                                              <img
+                                                src={candidate.avatarUrl}
+                                                alt={candidate.displayName}
+                                                className="h-8 w-8 rounded-full border border-[var(--border-subtle)] object-cover"
+                                              />
+                                              <div className="flex min-w-0 flex-col">
+                                                <span className="truncate text-sm font-semibold text-[var(--fg-default)]">
+                                                  {candidate.displayName}
+                                                </span>
+                                                <span className="truncate text-xs text-[var(--fg-muted)]">
+                                                  {candidate.screenName ? `@${candidate.screenName}` : candidate.shortPubkey}
+                                                </span>
+                                              </div>
+                                            </button>
+                                          </li>
+                                        );
+                                      })}
+                                    </ul>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                            <button
+                              type="submit"
+                              disabled={!draft.trim() || sending}
+                              className="rounded-full bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-white transition disabled:cursor-not-allowed disabled:bg-brand/40"
+                            >
+                              {sending ? "Sending…" : "Send"}
+                            </button>
+                          </div>
+                        </form>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </section>
+        </div>
       </div>
     </div>
   );

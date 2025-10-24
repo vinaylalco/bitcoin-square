@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Navigate, NavLink, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import BitcoinSquareFeed from "../components/bitcoinSquareChat/BitcoinSquareFeed";
@@ -14,9 +15,11 @@ import type { CasualAttachmentMeta } from "../hooks/useBitcoinSquareCasualChat";
 import { useBitcoinSquareFeed } from "../hooks/useBitcoinSquareFeed";
 import { decryptBinary } from "../utils/aes";
 import { getCachedMediaBlob, getCachedPreview, setCachedMediaBlob, setCachedPreview } from "../utils/mediaCache";
-import { useProfileIdentity } from "../context/ProfileIdentityContext";
+import { fetchUsersByScreenNames, searchUsersByScreenName, type ScreenNameUser } from "../api/users";
+import { fallbackProfileAvatar, useProfileIdentity } from "../context/ProfileIdentityContext";
 import type { ProfileSummary } from "../context/ProfileIdentityContext";
 import { useAuth } from "../context/AuthContext";
+import { useDirectMessages } from "../context/DirectMessageContext";
 import { useNostrAccount } from "../hooks/useNostrAccount";
 import { nostrClient, setNostrClientSigner } from "../lib/nostrClient";
 import { useTheme } from "../context/ThemeContext";
@@ -27,6 +30,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import {
   ArrowUp,
+  Bell,
   Heart,
   ImagePlus,
   Loader2,
@@ -51,20 +55,61 @@ import {
   type UploadedImageDetails,
 } from "../utils/imageUpload";
 import { rewriteImgBbUrlToProxy, rewriteImgBbUrlsInText } from "../utils/imageProxy";
+import { resolveMentionTargets, type MentionCandidate } from "../utils/mentions";
+import useMentionAutocomplete from "../hooks/useMentionAutocomplete";
 
-type ActiveView = "casual" | "feed" | "personal" | "members";
+type ActiveView = "casual" | "feed" | "personal" | "notifications" | "members";
 
 type ViewTab = { key: ActiveView; label: string; icon: LucideIcon };
 
-const DESKTOP_VIEW_TABS: ViewTab[] = [
+const PRIMARY_VIEW_TABS: ViewTab[] = [
   { key: "casual", label: "Chat", icon: MessageCircle },
   { key: "feed", label: "Forum", icon: Newspaper },
   { key: "personal", label: "Your Feed", icon: Sparkles },
 ];
 
+const NOTIFICATIONS_TAB: ViewTab = { key: "notifications", label: "Notifications", icon: Bell };
+
+const DESKTOP_VIEW_TABS: ViewTab[] = PRIMARY_VIEW_TABS;
+
 const MOBILE_VIEW_TABS: ViewTab[] = [
-  ...DESKTOP_VIEW_TABS,
+  ...PRIMARY_VIEW_TABS,
+  NOTIFICATIONS_TAB,
   { key: "members", label: "Members", icon: Users },
+];
+
+type CommunityNotification = {
+  id: string;
+  user: string;
+  threadLabel?: string;
+  message?: string;
+  targetView?: ActiveView;
+  targetMessageId?: string;
+  targetPostId?: string;
+};
+
+type CommunityNotificationGroup = {
+  id: string;
+  title: string;
+  context?: string;
+  notifications: CommunityNotification[];
+};
+
+const CASUAL_MENTION_GROUP_ID = "casual-mentions";
+
+type NotificationTarget = {
+  view: ActiveView;
+  messageId?: string | null;
+  postId?: string | null;
+};
+
+const INITIAL_NOTIFICATION_GROUPS: CommunityNotificationGroup[] = [
+  {
+    id: CASUAL_MENTION_GROUP_ID,
+    title: `${CASUAL_ROOM_NAME} mentions`,
+    context: "Mentions from the community chat",
+    notifications: [],
+  },
 ];
 
 const CASUAL_ROOM: RoomDefinition = {
@@ -441,6 +486,38 @@ const AttachmentPreview: React.FC<{ attachment: CasualAttachmentMeta }> = ({ att
     };
   }, [lightboxOpen]);
 
+  const lightboxContent =
+    lightboxOpen && fullUrl
+      ? (
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="fixed inset-0 z-50 flex h-screen w-screen items-center justify-center bg-black/90 p-0 sm:p-6"
+            onClick={() => setLightboxOpen(false)}
+          >
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                setLightboxOpen(false);
+              }}
+              className="absolute right-6 top-6 inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/70 text-white transition hover:bg-black/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+              aria-label="Close image preview"
+            >
+              <X className="h-5 w-5" aria-hidden />
+            </button>
+            <div className="flex h-full w-full items-center justify-center" onClick={(event) => event.stopPropagation()}>
+              <img
+                src={fullUrl}
+                alt="Attachment"
+                className="mx-auto block h-auto max-h-full w-auto max-w-full object-contain"
+                loading="lazy"
+              />
+            </div>
+          </div>
+        )
+      : null;
+
   return (
     <div className="space-y-2">
       {attachment.mimeType.startsWith("image/") && (previewUrl ?? attachment.url) && (
@@ -472,37 +549,10 @@ const AttachmentPreview: React.FC<{ attachment: CasualAttachmentMeta }> = ({ att
       {status === "error" && (
         <p className="text-xs text-red-500">{error ?? "Unable to load media"}</p>
       )}
-      {lightboxOpen && fullUrl && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-50 flex h-screen w-screen items-center justify-center bg-black/90 p-0 sm:p-6"
-          onClick={() => setLightboxOpen(false)}
-        >
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              setLightboxOpen(false);
-            }}
-            className="absolute right-6 top-6 inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/70 text-white transition hover:bg-black/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
-            aria-label="Close image preview"
-          >
-            <X className="h-5 w-5" aria-hidden />
-          </button>
-          <div
-            className="flex h-full w-full items-center justify-center"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <img
-              src={fullUrl}
-              alt="Attachment"
-              className="mx-auto block h-auto max-h-full w-auto max-w-full object-contain"
-              loading="lazy"
-            />
-          </div>
-        </div>
-      )}
+      {lightboxContent &&
+        (typeof document !== "undefined"
+          ? createPortal(lightboxContent, document.body)
+          : lightboxContent)}
     </div>
   );
 };
@@ -515,6 +565,8 @@ const Composer: React.FC<{
   quoteContext?: QuoteContextState | null;
   onClearQuote?: () => void;
   onJumpToQuote?: (messageId: string) => void;
+  fetchMentionCandidates: (query: string, limit: number) => Promise<MentionCandidate[]>;
+  mentionCandidates: MentionCandidate[];
 }> = ({
   disabled,
   onSend,
@@ -523,6 +575,8 @@ const Composer: React.FC<{
   quoteContext,
   onClearQuote,
   onJumpToQuote,
+  fetchMentionCandidates,
+  mentionCandidates,
 }) => {
   const initialDraft = rewriteImgBbUrlsInText(draft ?? "", { absolute: true });
   const [value, setValue] = useState(initialDraft);
@@ -537,7 +591,6 @@ const Composer: React.FC<{
   const typingEmitRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-
   const characterCount = value.length;
   const characterStatusClass =
     characterCount >= CHAT_CHARACTER_LIMIT
@@ -591,6 +644,31 @@ const Composer: React.FC<{
     onTyping();
   }, [onTyping]);
 
+  const {
+    mentionActive,
+    mentionResults,
+    mentionHighlightIndex,
+    setMentionHighlightIndex,
+    listId: mentionListId,
+    activeOptionId: activeMentionOptionId,
+    handleKeyDown: handleMentionKeyDown,
+    handleMentionSelection,
+    updateMentionState,
+    closeMention,
+  } = useMentionAutocomplete({
+    value,
+    onChange: setValue,
+    textareaRef,
+    fetchCandidates: fetchMentionCandidates,
+    candidates: mentionCandidates,
+    limit: 5,
+    listIdPrefix: "casual-composer-mentions",
+    onMentionInserted: () => {
+      setIsTextareaFocused(true);
+      emitTyping();
+    },
+  });
+
   const handleSubmit = useCallback(async () => {
     if (disabled || isSending || isUploading) return;
     const normalizedValue = rewriteImgBbUrlsInText(value, { absolute: true });
@@ -620,15 +698,19 @@ const Composer: React.FC<{
       setValue("");
       setError(null);
       setUploadError(null);
+      closeMention();
     } catch (sendError) {
       const message = sendError instanceof Error ? sendError.message : String(sendError);
       setError(message);
     } finally {
       setIsSending(false);
     }
-  }, [disabled, isSending, isUploading, onSend, uploadedImages, value]);
+  }, [closeMention, disabled, isSending, isUploading, onSend, uploadedImages, value]);
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (handleMentionKeyDown(event)) {
+      return;
+    }
     emitTyping();
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
@@ -643,6 +725,24 @@ const Composer: React.FC<{
     if (uploadError) {
       setUploadError(null);
     }
+    updateMentionState(nextValue, event.target.selectionStart ?? nextValue.length);
+  };
+
+  const handleSelectionChange = (event: React.SyntheticEvent<HTMLTextAreaElement>) => {
+    const node = event.currentTarget;
+    updateMentionState(node.value, node.selectionStart ?? node.value.length);
+  };
+
+  const handleFocus = (event: React.FocusEvent<HTMLTextAreaElement>) => {
+    setIsTextareaFocused(true);
+    updateMentionState(event.currentTarget.value, event.currentTarget.selectionStart ?? event.currentTarget.value.length);
+  };
+
+  const handleBlur = () => {
+    if (value.trim().length === 0) {
+      setIsTextareaFocused(false);
+    }
+    closeMention();
   };
 
   const handleUploadClick = useCallback(() => {
@@ -683,6 +783,7 @@ const Composer: React.FC<{
                 : "\n";
           return `${normalizedPrev}${prefix}![Uploaded image](${uploaded.url})\n`;
         });
+        closeMention();
         setError(null);
 
         const focusTextarea = () => {
@@ -711,7 +812,7 @@ const Composer: React.FC<{
         setIsUploading(false);
       }
     },
-    [disabled, isSending, isUploading],
+    [closeMention, disabled, isSending, isUploading],
   );
 
   const handleRemoveImage = useCallback(
@@ -743,6 +844,8 @@ const Composer: React.FC<{
 
   const composerExpanded =
     isTextareaFocused || value.trim().length > 0 || uploadedImages.length > 0;
+
+  const mentionDropdownBottom = uploadedImages.length > 0 ? "12rem" : composerExpanded ? "7rem" : "5.5rem";
 
   return (
     <div className="space-y-3">
@@ -781,20 +884,71 @@ const Composer: React.FC<{
           value={value}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
+          onSelect={handleSelectionChange}
+          onClick={handleSelectionChange}
           disabled={disabled || isSending}
-          onFocus={() => setIsTextareaFocused(true)}
-          onBlur={() => {
-            if (value.trim().length === 0) {
-              setIsTextareaFocused(false);
-            }
-          }}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
           rows={composerExpanded ? 4 : 1}
           maxLength={CHAT_CHARACTER_LIMIT}
           placeholder={disabled ? "Your BitcoinSquare keys must be ready before posting" : "Share an update…"}
+          aria-autocomplete="list"
+          aria-haspopup="listbox"
+          aria-controls={mentionActive ? mentionListId : undefined}
+          aria-expanded={mentionActive}
+          aria-activedescendant={activeMentionOptionId}
           className={`w-full resize-none rounded-2xl border-none bg-transparent px-4 pr-16 text-sm leading-relaxed text-[var(--fg-default)] focus:outline-none focus:ring-0 ${
             composerExpanded ? "pb-16" : "pb-12"
           }`}
         />
+        {mentionActive && (
+          <div
+            id={mentionListId}
+            role="listbox"
+            aria-label="Mention suggestions"
+            style={{ bottom: mentionDropdownBottom }}
+            className="pointer-events-auto absolute left-4 right-4 z-40 max-h-60 overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] shadow-xl sm:right-auto sm:w-80"
+          >
+            {mentionResults.length === 0 ? (
+              <p className="px-3 py-2 text-xs text-[var(--fg-muted)]">No matches found.</p>
+            ) : (
+              <ul className="max-h-60 overflow-y-auto py-1">
+                {mentionResults.map((candidate, index) => {
+                  const optionId = `${mentionListId}-${candidate.pubkey}`;
+                  const isActive = index === mentionHighlightIndex;
+                  return (
+                    <li key={candidate.pubkey} role="presentation">
+                      <button
+                        id={optionId}
+                        role="option"
+                        aria-selected={isActive}
+                        type="button"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => handleMentionSelection(candidate)}
+                        onMouseEnter={() => setMentionHighlightIndex(index)}
+                        className={`flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition ${
+                          isActive ? "bg-brand/10 text-brand" : "text-[var(--fg-default)] hover:bg-[var(--bg-surface)]/80"
+                        }`}
+                      >
+                        <img
+                          src={candidate.avatarUrl}
+                          alt={candidate.displayName}
+                          className="h-8 w-8 rounded-full border border-[var(--border-subtle)] object-cover"
+                        />
+                        <div className="flex min-w-0 flex-col">
+                          <span className="truncate font-semibold">{candidate.displayName}</span>
+                          <span className="truncate text-xs text-[var(--fg-muted)]">
+                            @{candidate.screenName || candidate.shortPubkey}
+                          </span>
+                        </div>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        )}
         {uploadedImages.length > 0 && (
           <div className="px-4">
             <div className="flex flex-wrap gap-3 pb-4 pt-2">
@@ -965,13 +1119,47 @@ const CommunityView: React.FC = () => {
   } = useCommunityTranslation();
   const translationEnabled = translationSupported && autoTranslateEnabled;
 
+  const { conversations } = useDirectMessages();
   const [activeView, setActiveView] = useState<ActiveView>("casual");
+  const [notificationGroups, setNotificationGroups] = useState<CommunityNotificationGroup[]>(
+    INITIAL_NOTIFICATION_GROUPS,
+  );
+  const [unreadNotificationIds, setUnreadNotificationIds] = useState<Set<string>>(
+    () => new Set<string>(),
+  );
+  const [pendingNotificationTarget, setPendingNotificationTarget] =
+    useState<NotificationTarget | null>(null);
+  const hasUnreadNotifications = unreadNotificationIds.size > 0;
 
   useEffect(() => {
     if (routePostId) {
       setActiveView("feed");
     }
   }, [routePostId]);
+  const isMessagesRouteActive = location.pathname.startsWith(directMessagesPath);
+
+  const hasUnreadMessages = useMemo(
+    () => Object.values(conversations).some((conversation) => conversation.unreadCount > 0),
+    [conversations],
+  );
+  const isCasualView = activeView === "casual";
+  const isPublicFeedView = activeView === "feed";
+  const isPersonalFeedView = activeView === "personal";
+  const isNotificationsView = activeView === "notifications";
+  const isAnyFeedView = isPublicFeedView || isPersonalFeedView;
+  const isMembersView = activeView === "members";
+
+  useEffect(() => {
+    if (!isNotificationsView) {
+      return;
+    }
+    setUnreadNotificationIds((prev) => {
+      if (prev.size === 0) {
+        return prev;
+      }
+      return new Set<string>();
+    });
+  }, [isNotificationsView]);
   const listRef = useRef<HTMLDivElement | null>(null);
   const composerContainerRef = useRef<HTMLDivElement | null>(null);
   const scrollUpdateFrameRef = useRef<number | null>(null);
@@ -995,21 +1183,106 @@ const CommunityView: React.FC = () => {
   const rowHeightsRef = useRef(new Map<string, number>());
   const resizeObserversRef = useRef(new Map<string, ResizeObserver>());
   const [virtualVersion, setVirtualVersion] = useState(0);
-  const { requestProfile, resolveProfileSummary, openProfile, follow, following } = useProfileIdentity();
+  const {
+    profiles,
+    requestProfile,
+    resolveProfileSummary,
+    openProfile,
+    follow,
+    following,
+    shortenPubkey,
+  } = useProfileIdentity();
   const backgroundTexture = useMemo(
     () => (theme === "dark" ? DARK_BACKGROUND_TEXTURE : LIGHT_BACKGROUND_TEXTURE),
     [theme],
   );
-  const isCasualView = activeView === "casual";
-  const isPublicFeedView = activeView === "feed";
-  const isPersonalFeedView = activeView === "personal";
-  const isAnyFeedView = isPublicFeedView || isPersonalFeedView;
-  const isMembersView = activeView === "members";
   const personalFeedPosts = useMemo(
     () => feedPosts.filter((post) => following.has(post.pubkey)),
     [feedPosts, following],
   );
   const hasFollowing = following.size > 0;
+
+  const mapUserToMentionCandidate = useCallback(
+    (user: ScreenNameUser): MentionCandidate | null => {
+      const screenName = user.screenName.trim();
+      const pubkeyValue = user.nostrPubkey?.trim();
+      if (!screenName || !pubkeyValue) {
+        return null;
+      }
+      const summary = resolveProfileSummary(pubkeyValue);
+      const displayName = summary.displayName?.trim() || `@${screenName}`;
+      const avatarUrl =
+        summary.avatarUrl ||
+        user.avatarUrl ||
+        fallbackProfileAvatar(pubkeyValue);
+      return {
+        pubkey: pubkeyValue,
+        displayName,
+        screenName,
+        avatarUrl,
+        shortPubkey: shortenPubkey(pubkeyValue),
+      };
+    },
+    [fallbackProfileAvatar, resolveProfileSummary, shortenPubkey],
+  );
+
+  const localMentionCandidates = useMemo(() => {
+    const list: MentionCandidate[] = [];
+    const seen = new Set<string>();
+    Object.entries(profiles).forEach(([pubkey, entry]) => {
+      const screenName = entry.data?.screenName?.trim();
+      if (!screenName) {
+        return;
+      }
+      const normalized = screenName.toLowerCase();
+      if (seen.has(normalized)) {
+        return;
+      }
+      seen.add(normalized);
+      const summary = resolveProfileSummary(pubkey);
+      const displayName = summary.displayName?.trim() || `@${screenName}`;
+      list.push({
+        pubkey,
+        displayName,
+        screenName,
+        avatarUrl: summary.avatarUrl || fallbackProfileAvatar(pubkey),
+        shortPubkey: shortenPubkey(pubkey),
+      });
+    });
+    list.sort((a, b) => a.screenName.toLowerCase().localeCompare(b.screenName.toLowerCase()));
+    return list;
+  }, [fallbackProfileAvatar, profiles, resolveProfileSummary, shortenPubkey]);
+
+  const fetchMentionCandidates = useCallback(
+    async (query: string, limit: number) => {
+      const users = await searchUsersByScreenName(query, limit);
+      users.forEach((user) => {
+        if (user.nostrPubkey) {
+          requestProfile(user.nostrPubkey).catch(() => undefined);
+        }
+      });
+      const mapped = users
+        .map((user) => mapUserToMentionCandidate(user))
+        .filter((candidate): candidate is MentionCandidate => Boolean(candidate));
+      return mapped.slice(0, limit);
+    },
+    [mapUserToMentionCandidate, requestProfile],
+  );
+
+  const fetchMentionTargets = useCallback(
+    async (handles: string[]) => {
+      const users = await fetchUsersByScreenNames(handles);
+      users.forEach((user) => {
+        if (user.nostrPubkey) {
+          requestProfile(user.nostrPubkey).catch(() => undefined);
+        }
+      });
+      return users
+        .map((user) => mapUserToMentionCandidate(user))
+        .filter((candidate): candidate is MentionCandidate => Boolean(candidate));
+    },
+    [mapUserToMentionCandidate, requestProfile],
+  );
 
   useEffect(() => {
     if (!isCasualView) {
@@ -1689,7 +1962,17 @@ const CommunityView: React.FC = () => {
         className={`${baseClasses} ${layoutClass} ${paletteClasses}`}
       >
         <Icon className="h-4 w-4" aria-hidden="true" />
-        <span>{tab.label}</span>
+        <span className="flex items-center gap-2">
+          <span>{tab.label}</span>
+          {tab.key === "notifications" && hasUnreadNotifications && (
+            <span aria-hidden="true" className="text-brand text-xs leading-none">
+              ●
+            </span>
+          )}
+        </span>
+        {tab.key === "notifications" && hasUnreadNotifications && (
+          <span className="sr-only">Unread notifications available</span>
+        )}
       </button>
     );
   };
@@ -1754,8 +2037,9 @@ const CommunityView: React.FC = () => {
       attachments: CasualAttachmentMeta[],
       options?: { quoteId?: string | null; quotePubkey?: string | null },
     ) => {
-      await sendMessage(text, attachments, options);
+      const messageId = await sendMessage(text, attachments, options);
       setComposerError(null);
+      return messageId;
     },
     [sendMessage],
   );
@@ -1765,7 +2049,52 @@ const CommunityView: React.FC = () => {
       try {
         const quoteId = quoteContext?.id ?? null;
         const quotePubkey = quoteContext?.pubkey ?? null;
-        await handleSend(text, attachments, { quoteId, quotePubkey });
+        const sentMessageId = await handleSend(text, attachments, { quoteId, quotePubkey });
+
+        const mentionTargets = await resolveMentionTargets(text, fetchMentionTargets);
+        if (mentionTargets.length > 0 && sentMessageId) {
+          const senderSummary = pubkey ? resolveProfileSummary(pubkey) : null;
+          const fallbackSenderName =
+            (pubkey ? shortenPubkey(pubkey) : user?.username?.trim()) ?? undefined;
+          const senderName = senderSummary?.displayName?.trim() || fallbackSenderName || "a community member";
+          const notificationMessage = `You were mentioned by ${senderName} in ${CASUAL_ROOM_NAME}.`;
+          const mentionNotifications = mentionTargets.map((target, index) => ({
+            id: `${CASUAL_MENTION_GROUP_ID}-${target.pubkey}-${Date.now()}-${index}`,
+            user: senderName,
+            message: notificationMessage,
+            threadLabel: "View message",
+            targetView: "casual" as const,
+            targetMessageId: sentMessageId,
+          }));
+          setNotificationGroups((prev) => {
+            let hasMentionGroup = false;
+            const nextGroups = prev.map((group) => {
+              if (group.id !== CASUAL_MENTION_GROUP_ID) {
+                return group;
+              }
+              hasMentionGroup = true;
+              return {
+                ...group,
+                notifications: [...mentionNotifications, ...group.notifications],
+              };
+            });
+            if (!hasMentionGroup) {
+              nextGroups.push({
+                id: CASUAL_MENTION_GROUP_ID,
+                title: `${CASUAL_ROOM_NAME} mentions`,
+                context: "Mentions from the community chat",
+                notifications: mentionNotifications,
+              });
+            }
+            return nextGroups;
+          });
+          setUnreadNotificationIds((prev) => {
+            const next = new Set<string>(prev);
+            mentionNotifications.forEach((notification) => next.add(notification.id));
+            return next;
+          });
+        }
+
         setComposerDraft(undefined);
         setQuoteContext(null);
       } catch (error) {
@@ -1774,7 +2103,15 @@ const CommunityView: React.FC = () => {
         throw error;
       }
     },
-    [handleSend, quoteContext],
+    [
+      fetchMentionTargets,
+      handleSend,
+      pubkey,
+      quoteContext,
+      resolveProfileSummary,
+      shortenPubkey,
+      user?.username,
+    ],
   );
 
   const handleQuoteMessage = useCallback((message: CasualChatMessage) => {
@@ -1844,6 +2181,47 @@ const CommunityView: React.FC = () => {
     },
     [estimatedRowHeight, messageIndexMap, messages, startHighlight],
   );
+  const handleNotificationSelect = useCallback(
+    (notification: CommunityNotification) => {
+      if (!notification.targetView) {
+        return;
+      }
+      setPendingNotificationTarget({
+        view: notification.targetView,
+        messageId: notification.targetMessageId ?? null,
+        postId: notification.targetPostId ?? null,
+      });
+      setActiveView(notification.targetView);
+    },
+    [setActiveView, setPendingNotificationTarget],
+  );
+  useEffect(() => {
+    if (!pendingNotificationTarget) {
+      return;
+    }
+    if (activeView !== pendingNotificationTarget.view) {
+      return;
+    }
+    if (pendingNotificationTarget.view === "feed" && pendingNotificationTarget.postId) {
+      handleThreadRouteChange(pendingNotificationTarget.postId);
+    }
+    if (pendingNotificationTarget.view === "casual" && pendingNotificationTarget.messageId) {
+      const messageId = pendingNotificationTarget.messageId;
+      const scrollToTarget = () => handleScrollToMessage(messageId);
+      if (typeof window !== "undefined") {
+        window.setTimeout(scrollToTarget, 120);
+      } else {
+        scrollToTarget();
+      }
+    }
+    setPendingNotificationTarget(null);
+  }, [
+    activeView,
+    handleScrollToMessage,
+    handleThreadRouteChange,
+    pendingNotificationTarget,
+    setPendingNotificationTarget,
+  ]);
 
   const updatePendingDelete = useCallback((messageId: string, add: boolean) => {
     setPendingDeletes((prev) => {
@@ -1995,8 +2373,19 @@ const CommunityView: React.FC = () => {
             }
           >
             <MessageCircle className="h-4 w-4" aria-hidden="true" />
-            <span>Messages</span>
+            <span className="flex items-center gap-2">
+              <span>Messages</span>
+              {hasUnreadMessages && !isMessagesRouteActive && (
+                <span aria-hidden="true" className="text-brand text-xs leading-none">
+                  ●
+                </span>
+              )}
+            </span>
+            {hasUnreadMessages && !isMessagesRouteActive && (
+              <span className="sr-only">Unread messages available</span>
+            )}
           </NavLink>
+          <div className="mt-2">{renderTabButton(NOTIFICATIONS_TAB, "desktop")}</div>
           <div className="mt-8 flex-1 overflow-hidden">
             <h2 className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)]">{membersHeading}</h2>
             <div ref={memberScrollRef} className="mt-5 h-full overflow-y-auto pr-1">
@@ -2400,7 +2789,7 @@ const CommunityView: React.FC = () => {
                 </ErrorBoundary>
                 <div
                   ref={composerContainerRef}
-                  className="fixed bottom-0 left-0 right-0 z-40 border-t border-[var(--border-subtle)] bg-[var(--bg-card)]/95 px-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pt-4 backdrop-blur sm:px-8 lg:left-80"
+                  className="absolute bottom-0 left-0 right-0 z-40 border-t border-[var(--border-subtle)] bg-[var(--bg-card)]/95 px-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pt-4 backdrop-blur sm:px-8 lg:left-80"
                 >
                   <div className="mx-auto w-full max-w-3xl space-y-3">
                     {typingSummaries.length > 0 && (
@@ -2421,6 +2810,8 @@ const CommunityView: React.FC = () => {
                       quoteContext={quoteContext}
                       onClearQuote={() => setQuoteContext(null)}
                       onJumpToQuote={handleScrollToMessage}
+                      fetchMentionCandidates={fetchMentionCandidates}
+                      mentionCandidates={localMentionCandidates}
                     />
                   </div>
                 </div>
@@ -2505,6 +2896,72 @@ const CommunityView: React.FC = () => {
                     )}
                   </div>
                 </ErrorBoundary>
+              </section>
+            ) : isNotificationsView ? (
+              <section
+                id="community-panel-notifications"
+                role="tabpanel"
+                aria-labelledby="community-tab-notifications"
+                className="flex flex-1 flex-col"
+              >
+                <div className="flex flex-1 flex-col overflow-hidden px-5 py-6 sm:px-8">
+                  <h2 className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)]">
+                    Notifications
+                  </h2>
+                  <div className="mt-5 flex-1 overflow-y-auto pr-1">
+                    <ul className="space-y-4">
+                      {notificationGroups
+                        .filter((group) => group.notifications.length > 0)
+                        .map((group) => (
+                        <li
+                          key={group.id}
+                          className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)]/80 p-4 shadow-sm"
+                        >
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--fg-muted)]">
+                                {group.title}
+                              </p>
+                              <span className="rounded-full bg-[var(--bg-muted)]/40 px-3 py-0.5 text-[10px] font-medium uppercase tracking-[0.2em] text-[var(--fg-muted)]">
+                                {Math.min(group.notifications.length, 3)} update
+                                {Math.min(group.notifications.length, 3) === 1 ? "" : "s"}
+                              </span>
+                            </div>
+                            <div className="space-y-2">
+                              {group.notifications.slice(0, 3).map((notification) => (
+                                <div
+                                  key={notification.id}
+                                  className="flex flex-col gap-3 rounded-xl bg-[var(--bg-subtle)]/60 p-3 sm:flex-row sm:items-center sm:justify-between"
+                                >
+                                  <div>
+                                    <p className="text-sm font-medium text-[var(--fg-default)]">
+                                      {notification.user}
+                                    </p>
+                                    <p className="text-xs text-[var(--fg-muted)]">
+                                      {notification.message ?? group.context}
+                                    </p>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleNotificationSelect(notification)}
+                                    disabled={!notification.targetView}
+                                    className={`inline-flex items-center justify-center rounded-full border border-[var(--border-subtle)] px-3 py-1 text-xs font-medium text-[var(--fg-muted)] transition ${
+                                      notification.targetView
+                                        ? "hover:border-[var(--border-strong)] hover:text-[var(--fg-default)]"
+                                        : "cursor-not-allowed opacity-60"
+                                    }`}
+                                  >
+                                    {notification.threadLabel ?? "View thread"}
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
               </section>
             ) : (
               <section

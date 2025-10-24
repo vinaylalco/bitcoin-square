@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import type { FeedPost, PublishContext } from "../../hooks/useBitcoinSquareFeed";
-import { useProfileIdentity, shortenPubkey } from "../../context/ProfileIdentityContext";
+import { searchUsersByScreenName, type ScreenNameUser } from "../../api/users";
+import { fallbackProfileAvatar, useProfileIdentity, shortenPubkey } from "../../context/ProfileIdentityContext";
 import type { ProfileSummary } from "../../context/ProfileIdentityContext";
 import { CASUAL_ROOM_ID, CASUAL_ROOM_NAME } from "../../hooks/useBitcoinSquareCasualChat";
 import { useCommunityTranslation } from "../../context/CommunityTranslationContext";
@@ -25,6 +27,8 @@ import {
   validateImageFile,
   type UploadedImageDetails,
 } from "../../utils/imageUpload";
+import type { MentionCandidate } from "../../utils/mentions";
+import useMentionAutocomplete from "../../hooks/useMentionAutocomplete";
 
 interface BitcoinSquareFeedProps {
   posts: FeedPost[];
@@ -251,7 +255,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string } | null>(null);
   const relativeFormatter = useMemo(() => createRelativeFormatter(), []);
   const now = useRelativeNow();
-  const { requestProfile, resolveProfileSummary, openProfile } = useProfileIdentity();
+  const { requestProfile, resolveProfileSummary, openProfile, profiles } = useProfileIdentity();
   const { showToast } = useToast();
   const { user } = useAuth();
   const canModerate = user?.isAdmin === true;
@@ -275,6 +279,95 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     }),
     [],
   );
+
+  const mapUserToMentionCandidate = useCallback(
+    (user: ScreenNameUser): MentionCandidate | null => {
+      const screenName = user.screenName.trim();
+      const pubkeyValue = user.nostrPubkey?.trim();
+      if (!screenName || !pubkeyValue) {
+        return null;
+      }
+      const summary = resolveProfileSummary(pubkeyValue);
+      const displayName = summary.displayName?.trim() || `@${screenName}`;
+      const avatarUrl =
+        summary.avatarUrl ||
+        user.avatarUrl ||
+        fallbackProfileAvatar(pubkeyValue);
+      return {
+        pubkey: pubkeyValue,
+        displayName,
+        screenName,
+        avatarUrl,
+        shortPubkey: shortenPubkey(pubkeyValue),
+      };
+    },
+    [fallbackProfileAvatar, resolveProfileSummary],
+  );
+
+  const localMentionCandidates = useMemo(() => {
+    const list: MentionCandidate[] = [];
+    const seen = new Set<string>();
+    Object.entries(profiles).forEach(([pubkey, entry]) => {
+      const screenName = entry.data?.screenName?.trim();
+      if (!screenName) {
+        return;
+      }
+      const normalized = screenName.toLowerCase();
+      if (seen.has(normalized)) {
+        return;
+      }
+      seen.add(normalized);
+      const summary = resolveProfileSummary(pubkey);
+      const displayName = summary.displayName?.trim() || `@${screenName}`;
+      list.push({
+        pubkey,
+        displayName,
+        screenName,
+        avatarUrl: summary.avatarUrl || fallbackProfileAvatar(pubkey),
+        shortPubkey: shortenPubkey(pubkey),
+      });
+    });
+    list.sort((a, b) => a.screenName.toLowerCase().localeCompare(b.screenName.toLowerCase()));
+    return list;
+  }, [fallbackProfileAvatar, profiles, resolveProfileSummary, shortenPubkey]);
+
+  const fetchMentionCandidates = useCallback(
+    async (query: string, limit: number) => {
+      const users = await searchUsersByScreenName(query, limit);
+      users.forEach((user) => {
+        if (user.nostrPubkey) {
+          requestProfile(user.nostrPubkey).catch(() => undefined);
+        }
+      });
+      const mapped = users
+        .map((user) => mapUserToMentionCandidate(user))
+        .filter((candidate): candidate is MentionCandidate => Boolean(candidate));
+      return mapped.slice(0, limit);
+    },
+    [mapUserToMentionCandidate, requestProfile],
+  );
+
+  const {
+    mentionActive,
+    mentionResults,
+    mentionHighlightIndex,
+    setMentionHighlightIndex,
+    listId: mentionListId,
+    activeOptionId: activeMentionOptionId,
+    handleKeyDown: handleMentionKeyDown,
+    handleMentionSelection,
+    updateMentionState,
+    closeMention,
+  } = useMentionAutocomplete({
+    value: content,
+    onChange: (next) => setContent(next.slice(0, 500)),
+    textareaRef,
+    fetchCandidates: fetchMentionCandidates,
+    candidates: localMentionCandidates,
+    limit: 5,
+    listIdPrefix: "feed-composer-mentions",
+    onMentionInserted: () => setComposerFocused(true),
+  });
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -426,7 +519,8 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       window.localStorage.removeItem(COMPOSER_STORAGE_KEY);
     }
     setComposerFocused(false);
-  }, []);
+    closeMention();
+  }, [closeMention]);
 
   const clearComposerTarget = useCallback(() => {
     setComposerTarget(null);
@@ -1137,6 +1231,38 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     };
   }, [lightboxImage]);
 
+  const lightboxOverlay =
+    lightboxImage
+      ? (
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="fixed inset-0 z-[90] flex items-center justify-center bg-black/90 p-4 sm:p-6"
+            onClick={() => setLightboxImage(null)}
+          >
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                setLightboxImage(null);
+              }}
+              className="absolute right-6 top-6 inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/70 text-white transition hover:bg-black/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+              aria-label="Close image preview"
+            >
+              <X className="h-5 w-5" aria-hidden />
+            </button>
+            <div className="relative flex max-h-[90vh] max-w-[90vw] items-center justify-center" onClick={(event) => event.stopPropagation()}>
+              <img
+                src={lightboxImage.src}
+                alt={lightboxImage.alt}
+                className="h-auto max-h-full w-auto max-w-full object-contain"
+                loading="lazy"
+              />
+            </div>
+          </div>
+        )
+      : null;
+
   const composerExpanded = composerFocused || content.trim().length > 0 || uploadedImages.length > 0;
 
   const hasSendableAttachments = useMemo(
@@ -1145,6 +1271,40 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   );
   const submitDisabled =
     !ready || publishing || isUploading || (content.trim().length === 0 && !hasSendableAttachments);
+
+  const handleComposerKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    const handled = handleMentionKeyDown(event);
+    if (handled) {
+      return;
+    }
+  };
+
+  const handleComposerChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const normalized = rewriteImgBbUrlsInText(event.target.value, { absolute: true });
+    const nextValue = normalized.slice(0, 500);
+    setContent(nextValue);
+    updateMentionState(nextValue, event.target.selectionStart ?? nextValue.length);
+  };
+
+  const handleComposerSelectionChange = (event: React.SyntheticEvent<HTMLTextAreaElement>) => {
+    const node = event.currentTarget;
+    updateMentionState(node.value, node.selectionStart ?? node.value.length);
+  };
+
+  const handleComposerFocus = (event: React.FocusEvent<HTMLTextAreaElement>) => {
+    setComposerFocused(true);
+    updateMentionState(event.currentTarget.value, event.currentTarget.selectionStart ?? event.currentTarget.value.length);
+  };
+
+  const handleComposerBlur = () => {
+    if (content.trim().length === 0) {
+      setComposerFocused(false);
+    }
+    closeMention();
+  };
+
+  const mentionDropdownBottom =
+    uploadedImages.length > 0 ? "12rem" : composerExpanded ? "7rem" : "5.5rem";
 
   const composerContent = (
     <>
@@ -1192,30 +1352,83 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       )}
 
       <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-        <textarea
-          ref={textareaRef}
-          value={content}
-          onChange={(event) => {
-            const normalized = rewriteImgBbUrlsInText(event.target.value, { absolute: true });
-            setContent(normalized.slice(0, 500));
-          }}
-          onFocus={() => setComposerFocused(true)}
-          onBlur={() => {
-            if (content.trim().length === 0) {
-              setComposerFocused(false);
+        <div className="relative">
+          <textarea
+            ref={textareaRef}
+            value={content}
+            onChange={handleComposerChange}
+            onKeyDown={handleComposerKeyDown}
+            onSelect={handleComposerSelectionChange}
+            onClick={handleComposerSelectionChange}
+            onFocus={handleComposerFocus}
+            onBlur={handleComposerBlur}
+            rows={composerExpanded ? 6 : 1}
+            className={`w-full rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 px-4 py-3 text-sm leading-relaxed text-[var(--fg-default)] shadow-inner focus:border-brand focus:outline-none ${composerExpanded ? "resize-y" : "resize-none"}`}
+            placeholder={
+              composerMode === "reply"
+                ? "Share your thoughts…"
+                : composerMode === "quote"
+                  ? "Add your perspective…"
+                  : "What’s happening in your corner of BitcoinSquare?"
             }
-          }}
-          rows={composerExpanded ? 6 : 1}
-          className={`w-full rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 px-4 py-3 text-sm leading-relaxed text-[var(--fg-default)] shadow-inner focus:border-brand focus:outline-none ${composerExpanded ? "resize-y" : "resize-none"}`}
-          placeholder={
-            composerMode === "reply"
-              ? "Share your thoughts…"
-              : composerMode === "quote"
-                ? "Add your perspective…"
-                : "What’s happening in your corner of BitcoinSquare?"
-          }
-          disabled={!ready || publishing}
-        />
+            disabled={!ready || publishing}
+            aria-autocomplete="list"
+            aria-haspopup="listbox"
+            aria-controls={mentionActive ? mentionListId : undefined}
+            aria-expanded={mentionActive}
+            aria-activedescendant={activeMentionOptionId}
+          />
+          {mentionActive && (
+            <div
+              id={mentionListId}
+              role="listbox"
+              aria-label="Mention suggestions"
+              style={{ bottom: mentionDropdownBottom }}
+              className="pointer-events-auto absolute left-4 right-4 z-40 max-h-60 overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] shadow-xl sm:right-auto sm:w-80"
+            >
+              {mentionResults.length === 0 ? (
+                <p className="px-3 py-2 text-xs text-[var(--fg-muted)]">No matches found.</p>
+              ) : (
+                <ul className="max-h-60 overflow-y-auto py-1">
+                  {mentionResults.map((candidate, index) => {
+                    const optionId = `${mentionListId}-${candidate.pubkey}`;
+                    const isActive = index === mentionHighlightIndex;
+                    return (
+                      <li key={candidate.pubkey} role="presentation">
+                        <button
+                          id={optionId}
+                          role="option"
+                          aria-selected={isActive}
+                          type="button"
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() => handleMentionSelection(candidate)}
+                          onMouseEnter={() => setMentionHighlightIndex(index)}
+                          className={`flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition ${
+                            isActive
+                              ? "bg-brand/10 text-brand"
+                              : "text-[var(--fg-default)] hover:bg-[var(--bg-surface)]/80"
+                          }`}
+                        >
+                          <img
+                            src={candidate.avatarUrl}
+                            alt={candidate.displayName}
+                            className="h-8 w-8 rounded-full border border-[var(--border-subtle)] object-cover"
+                          />
+                          <div className="flex min-w-0 flex-col">
+                            <span className="truncate font-semibold">{candidate.displayName}</span>
+                            <span className="truncate text-xs text-[var(--fg-muted)]">
+                              @{candidate.screenName || candidate.shortPubkey}
+                            </span>
+                          </div>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          )}
+        </div>
         {uploadedImages.length > 0 && (
           <div className="space-y-3">
             <div className="flex flex-wrap gap-3">
@@ -1353,6 +1566,12 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       referencedPost?.created_at ? formatAbsoluteTimestamp(referencedPost.created_at) : null;
     const showReferencePreview =
       !!reference && !!referencedId && !suppressReferencePreview;
+    const imageAttachments = post.attachments.filter((attachment) =>
+      attachment.mimeType.startsWith("image/"),
+    );
+    const otherAttachments = post.attachments.filter(
+      (attachment) => !attachment.mimeType.startsWith("image/"),
+    );
     const interactive = typeof onOpenThread === "function" && (variant === "list" || variant === "thread");
     const cardClassName = `rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-5 shadow-sm transition ${
       interactive ? "hover:border-brand/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 cursor-pointer" : ""
@@ -1420,8 +1639,52 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
           </button>
         )}
 
-        <div className="mt-4 whitespace-pre-wrap break-words text-sm leading-relaxed text-[var(--fg-default)]">
-          {renderContent(displayContent, handleTagClick, handleMentionClick)}
+        <div className="mt-4 text-sm leading-relaxed text-[var(--fg-default)]">
+          <div className={imageAttachments.length > 0 ? "flex items-start gap-3" : undefined}>
+            {imageAttachments.length > 0 && (
+              <div className="mr-3 flex shrink-0 flex-col gap-2">
+                {imageAttachments.map((attachment, index) => {
+                  const safeAttachmentUrl = rewriteImgBbUrlToProxy(attachment.url, { absolute: true });
+                  const metaParts: string[] = [];
+                  if (attachment.width && attachment.height) {
+                    metaParts.push(`${attachment.width}x${attachment.height}`);
+                  } else if (attachment.dimensions) {
+                    metaParts.push(attachment.dimensions);
+                  }
+                  if (attachment.size) {
+                    metaParts.push(`${(attachment.size / 1024).toFixed(1)} KB`);
+                  }
+
+                  return (
+                    <div key={`${post.id}-inline-image-${index}`} className="space-y-1">
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setLightboxImage({ src: safeAttachmentUrl, alt: "Feed attachment" });
+                        }}
+                        className="group block w-20 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)]/80 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+                        title="View full image"
+                      >
+                        <img
+                          src={safeAttachmentUrl}
+                          alt="Feed attachment"
+                          className="h-auto w-full object-cover transition duration-200 group-hover:scale-[1.02]"
+                          loading="lazy"
+                        />
+                      </button>
+                      {metaParts.length > 0 && (
+                        <p className="text-[10px] text-[var(--fg-muted)]">{metaParts.join(" • ")}</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <div className="min-w-0 whitespace-pre-wrap break-words">
+              {renderContent(displayContent, handleTagClick, handleMentionClick)}
+            </div>
+          </div>
         </div>
 
         {translationEnabled && (
@@ -1477,9 +1740,9 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
           </button>
         )}
 
-        {post.attachments.length > 0 && (
+        {otherAttachments.length > 0 && (
           <div className="mt-4 space-y-3">
-            {post.attachments.map((attachment, index) => {
+            {otherAttachments.map((attachment, index) => {
               const safeAttachmentUrl = rewriteImgBbUrlToProxy(attachment.url, { absolute: true });
               const metaParts: string[] = [];
               if (attachment.width && attachment.height) {
@@ -1841,44 +2104,18 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         type="button"
         onClick={handlePost}
         disabled={!ready}
-        className="fixed right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-lg transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-brand disabled:cursor-not-allowed disabled:bg-brand/40 bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] sm:bottom-24"
-        aria-label="Create a new community post"
+        className="absolute bottom-[calc(1.5rem+env(safe-area-inset-bottom,0px))] right-6 z-50 inline-flex items-center gap-3 rounded-full bg-brand px-5 py-3 text-xs font-semibold uppercase tracking-[0.24em] text-white shadow-lg transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-brand disabled:cursor-not-allowed disabled:bg-brand/40 sm:bottom-10 sm:px-6"
+        aria-label="Create New Post"
       >
-        <Plus className="h-6 w-6" />
+        <Plus className="h-5 w-5" />
+        <span className="hidden sm:inline">Create New Post</span>
+        <span className="sr-only sm:hidden">Create New Post</span>
       </button>
 
-      {lightboxImage && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-[90] flex h-screen w-screen items-center justify-center bg-black/90 p-0 sm:p-6"
-          onClick={() => setLightboxImage(null)}
-        >
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              setLightboxImage(null);
-            }}
-            className="absolute right-6 top-6 inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/70 text-white transition hover:bg-black/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
-            aria-label="Close image preview"
-          >
-            <X className="h-5 w-5" aria-hidden />
-          </button>
-          <div
-            className="flex h-full w-full items-center justify-center"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <img
-              src={lightboxImage.src}
-              alt={lightboxImage.alt}
-              className="mx-auto block h-auto max-h-full w-auto max-w-full object-contain"
-              loading="lazy"
-              onClick={(event) => event.stopPropagation()}
-            />
-          </div>
-        </div>
-      )}
+      {lightboxOverlay &&
+        (typeof document !== "undefined"
+          ? createPortal(lightboxOverlay, document.body)
+          : lightboxOverlay)}
     </div>
   );
 };
