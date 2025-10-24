@@ -2280,31 +2280,6 @@ const CommunityView: React.FC = () => {
     });
   }, [notificationItems, notificationsOpen]);
 
-  const handleNotificationAction = useCallback(
-    (item: NotificationItem) => {
-      setNotificationsOpen(false);
-      setReadNotificationIds((prev) => {
-        const next = new Set(prev);
-        next.add(item.id);
-        return next;
-      });
-      if (item.action.kind === "chat") {
-        const targetId = item.action.messageId;
-        setActiveView("casual");
-        if (targetId) {
-          setTimeout(() => {
-            handleScrollToMessage(targetId);
-          }, 0);
-        }
-        return;
-      }
-      if (item.action.kind === "feed") {
-        setActiveView("feed");
-        handleThreadRouteChange(item.action.postId);
-      }
-    },
-    [handleScrollToMessage, handleThreadRouteChange, setActiveView],
-  );
   const membersHeading = isCasualView
     ? "Chat members"
     : isPublicFeedView
@@ -2566,6 +2541,32 @@ const CommunityView: React.FC = () => {
       container.scrollTo({ top: offset, behavior: "smooth" });
     },
     [estimatedRowHeight, messageIndexMap, messages, startHighlight],
+  );
+
+  const handleNotificationAction = useCallback(
+    (item: NotificationItem) => {
+      setNotificationsOpen(false);
+      setReadNotificationIds((prev) => {
+        const next = new Set(prev);
+        next.add(item.id);
+        return next;
+      });
+      if (item.action.kind === "chat") {
+        const targetId = item.action.messageId;
+        setActiveView("casual");
+        if (targetId) {
+          setTimeout(() => {
+            handleScrollToMessage(targetId);
+          }, 0);
+        }
+        return;
+      }
+      if (item.action.kind === "feed") {
+        setActiveView("feed");
+        handleThreadRouteChange(item.action.postId);
+      }
+    },
+    [handleScrollToMessage, handleThreadRouteChange, setActiveView],
   );
 
   const updatePendingDelete = useCallback((messageId: string, add: boolean) => {
