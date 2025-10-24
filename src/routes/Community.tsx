@@ -27,6 +27,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import {
   ArrowUp,
+  Bell,
   Heart,
   ImagePlus,
   Loader2,
@@ -52,19 +53,65 @@ import {
 } from "../utils/imageUpload";
 import { rewriteImgBbUrlToProxy, rewriteImgBbUrlsInText } from "../utils/imageProxy";
 
-type ActiveView = "casual" | "feed" | "personal" | "members";
+type ActiveView = "casual" | "feed" | "personal" | "notifications" | "members";
 
 type ViewTab = { key: ActiveView; label: string; icon: LucideIcon };
 
-const DESKTOP_VIEW_TABS: ViewTab[] = [
+const PRIMARY_VIEW_TABS: ViewTab[] = [
   { key: "casual", label: "Chat", icon: MessageCircle },
   { key: "feed", label: "Forum", icon: Newspaper },
   { key: "personal", label: "Your Feed", icon: Sparkles },
 ];
 
+const NOTIFICATIONS_TAB: ViewTab = { key: "notifications", label: "Notifications", icon: Bell };
+
+const DESKTOP_VIEW_TABS: ViewTab[] = PRIMARY_VIEW_TABS;
+
 const MOBILE_VIEW_TABS: ViewTab[] = [
-  ...DESKTOP_VIEW_TABS,
+  ...PRIMARY_VIEW_TABS,
+  NOTIFICATIONS_TAB,
   { key: "members", label: "Members", icon: Users },
+];
+
+type CommunityNotification = {
+  id: string;
+  user: string;
+  threadLabel?: string;
+  message?: string;
+};
+
+type CommunityNotificationGroup = {
+  id: string;
+  title: string;
+  context?: string;
+  notifications: CommunityNotification[];
+};
+
+const CASUAL_MENTION_GROUP_ID = "casual-mentions";
+
+const INITIAL_NOTIFICATION_GROUPS: CommunityNotificationGroup[] = [
+  {
+    id: "groupy-replies",
+    title: "GroupY replies",
+    context: "replied to your post in GroupY",
+    notifications: [
+      { id: "groupy-userx", user: "UserX" },
+      { id: "groupy-usery", user: "UserY" },
+      { id: "groupy-userz", user: "UserZ" },
+    ],
+  },
+  {
+    id: "groupq-highlights",
+    title: "GroupQ highlights",
+    context: "reacted to your update in GroupQ",
+    notifications: [{ id: "groupq-userl", user: "UserL" }],
+  },
+  {
+    id: CASUAL_MENTION_GROUP_ID,
+    title: `${CASUAL_ROOM_NAME} mentions`,
+    context: "Mentions from the community chat",
+    notifications: [],
+  },
 ];
 
 const CASUAL_ROOM: RoomDefinition = {
@@ -88,6 +135,20 @@ interface AuthorAccent {
   border: string;
   shadow: string;
   dot: string;
+}
+
+interface MentionCandidate {
+  pubkey: string;
+  displayName: string;
+  screenName: string;
+  avatarUrl: string;
+  shortPubkey: string;
+}
+
+interface MentionMatch {
+  start: number;
+  end: number;
+  query: string;
 }
 
 const ACTIVE_MEMBER_WINDOW_SECONDS = 60;
@@ -507,6 +568,101 @@ const AttachmentPreview: React.FC<{ attachment: CasualAttachmentMeta }> = ({ att
   );
 };
 
+const MENTION_ALLOWED_CHAR_REGEX = /[A-Za-z0-9._-]/;
+const MENTION_QUERY_REGEX = /^[A-Za-z0-9._-]*$/;
+const MENTION_CAPTURE_REGEX = /(^|[\s([\{>])@([A-Za-z0-9._-]+)/g;
+
+const normalizeHandle = (value: string) => value.trim().toLowerCase();
+
+const sanitizeDisplayNameForHandle = (value: string) =>
+  value
+    .trim()
+    .replace(/\s+/g, "")
+    .replace(/[^A-Za-z0-9._-]/g, "");
+
+const extractMentionHandles = (text: string) => {
+  const handles = new Set<string>();
+  let match: RegExpExecArray | null;
+  while ((match = MENTION_CAPTURE_REGEX.exec(text)) !== null) {
+    const handle = match[2];
+    if (handle) {
+      handles.add(normalizeHandle(handle));
+    }
+  }
+  return handles;
+};
+
+const candidateHandles = (candidate: MentionCandidate) => {
+  const handles = new Set<string>();
+  if (candidate.screenName.trim()) {
+    handles.add(normalizeHandle(candidate.screenName));
+  }
+  if (candidate.displayName.trim()) {
+    const sanitized = sanitizeDisplayNameForHandle(candidate.displayName);
+    if (sanitized) {
+      handles.add(normalizeHandle(sanitized));
+    }
+  }
+  handles.add(normalizeHandle(candidate.pubkey));
+  return handles;
+};
+
+const resolveMentionTargets = (text: string, candidates: MentionCandidate[]) => {
+  const handles = extractMentionHandles(text);
+  if (handles.size === 0) return [] as MentionCandidate[];
+  const matches = new Map<string, MentionCandidate>();
+  candidates.forEach((candidate) => {
+    const possibleHandles = candidateHandles(candidate);
+    for (const handle of handles) {
+      if (possibleHandles.has(handle)) {
+        matches.set(candidate.pubkey, candidate);
+        break;
+      }
+    }
+  });
+  return Array.from(matches.values());
+};
+
+const isValidMentionBoundary = (char?: string) => {
+  if (!char) return true;
+  return /\s|[(\[\{>]/.test(char);
+};
+
+const findActiveMention = (text: string, caret: number): MentionMatch | null => {
+  if (!Number.isFinite(caret)) return null;
+  if (caret < 0 || caret > text.length) return null;
+  const uptoCaret = text.slice(0, caret);
+  const atIndex = uptoCaret.lastIndexOf("@");
+  if (atIndex === -1) return null;
+  const prefixChar = text[atIndex - 1];
+  if (!isValidMentionBoundary(prefixChar)) return null;
+
+  for (let index = atIndex + 1; index < caret; index += 1) {
+    const char = text[index];
+    if (!char) break;
+    if (!MENTION_ALLOWED_CHAR_REGEX.test(char)) {
+      return null;
+    }
+  }
+
+  let end = caret;
+  while (end < text.length && MENTION_ALLOWED_CHAR_REGEX.test(text[end]!)) {
+    end += 1;
+  }
+
+  const query = text.slice(atIndex + 1, caret);
+  if (!MENTION_QUERY_REGEX.test(query)) {
+    return null;
+  }
+
+  const nextChar = text[caret];
+  if (nextChar && MENTION_ALLOWED_CHAR_REGEX.test(nextChar)) {
+    return null;
+  }
+
+  return { start: atIndex, end, query };
+};
+
 const Composer: React.FC<{
   disabled: boolean;
   onSend: (text: string, attachments: CasualAttachmentMeta[]) => Promise<void>;
@@ -515,6 +671,7 @@ const Composer: React.FC<{
   quoteContext?: QuoteContextState | null;
   onClearQuote?: () => void;
   onJumpToQuote?: (messageId: string) => void;
+  mentionCandidates: MentionCandidate[];
 }> = ({
   disabled,
   onSend,
@@ -523,6 +680,7 @@ const Composer: React.FC<{
   quoteContext,
   onClearQuote,
   onJumpToQuote,
+  mentionCandidates,
 }) => {
   const initialDraft = rewriteImgBbUrlsInText(draft ?? "", { absolute: true });
   const [value, setValue] = useState(initialDraft);
@@ -537,6 +695,17 @@ const Composer: React.FC<{
   const typingEmitRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const [mentionActive, setMentionActive] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState("");
+  const [mentionRange, setMentionRange] = useState<MentionMatch | null>(null);
+  const [mentionResults, setMentionResults] = useState<MentionCandidate[]>([]);
+  const [mentionHighlightIndex, setMentionHighlightIndex] = useState(0);
+  const mentionDebounceRef = useRef<number | null>(null);
+  const mentionRangeRef = useRef<MentionMatch | null>(null);
+
+  useEffect(() => {
+    mentionRangeRef.current = mentionRange;
+  }, [mentionRange]);
 
   const characterCount = value.length;
   const characterStatusClass =
@@ -583,6 +752,116 @@ const Composer: React.FC<{
     });
   }, [value]);
 
+  const closeMention = useCallback(() => {
+    if (typeof window !== "undefined" && mentionDebounceRef.current !== null) {
+      window.clearTimeout(mentionDebounceRef.current);
+      mentionDebounceRef.current = null;
+    }
+    setMentionActive(false);
+    setMentionQuery("");
+    setMentionRange(null);
+    setMentionResults([]);
+    setMentionHighlightIndex(0);
+  }, []);
+
+  const updateMentionState = useCallback(
+    (text: string, caretPosition: number | null | undefined) => {
+      if (typeof caretPosition !== "number") {
+        closeMention();
+        return;
+      }
+      const match = findActiveMention(text, caretPosition);
+      if (!match) {
+        closeMention();
+        return;
+      }
+      setMentionActive(true);
+      setMentionRange(match);
+      setMentionQuery(match.query);
+    },
+    [closeMention],
+  );
+
+  const computeMentionResults = useCallback(
+    (query: string) => {
+      const normalizedQuery = query.trim().toLowerCase();
+      const filtered = mentionCandidates
+        .filter((candidate) => candidate.screenName || candidate.displayName || candidate.shortPubkey)
+        .filter((candidate) => {
+          if (!normalizedQuery) return true;
+          const screenName = candidate.screenName.toLowerCase();
+          const displayName = candidate.displayName.toLowerCase();
+          const shortKey = candidate.shortPubkey.toLowerCase();
+          return (
+            screenName.includes(normalizedQuery) ||
+            displayName.includes(normalizedQuery) ||
+            shortKey.includes(normalizedQuery)
+          );
+        })
+        .slice(0, 8);
+      return filtered;
+    },
+    [mentionCandidates],
+  );
+
+  useEffect(() => {
+    if (!mentionActive) {
+      if (typeof window !== "undefined" && mentionDebounceRef.current !== null) {
+        window.clearTimeout(mentionDebounceRef.current);
+        mentionDebounceRef.current = null;
+      }
+      setMentionResults([]);
+      return;
+    }
+
+    const applyResults = () => {
+      const results = computeMentionResults(mentionQuery);
+      setMentionResults(results);
+      setMentionHighlightIndex((prev) => {
+        if (results.length === 0) {
+          return 0;
+        }
+        return Math.min(prev, results.length - 1);
+      });
+    };
+
+    if (typeof window === "undefined") {
+      applyResults();
+      return;
+    }
+
+    if (mentionDebounceRef.current !== null) {
+      window.clearTimeout(mentionDebounceRef.current);
+    }
+
+    mentionDebounceRef.current = window.setTimeout(() => {
+      applyResults();
+      mentionDebounceRef.current = null;
+    }, 300);
+
+    return () => {
+      if (mentionDebounceRef.current !== null) {
+        window.clearTimeout(mentionDebounceRef.current);
+        mentionDebounceRef.current = null;
+      }
+    };
+  }, [computeMentionResults, mentionActive, mentionQuery]);
+
+  useEffect(() => {
+    if (!mentionActive) return;
+    setMentionHighlightIndex(0);
+  }, [mentionActive, mentionQuery]);
+
+  useEffect(() => {
+    if (!mentionActive) return;
+    setMentionHighlightIndex((prev) => {
+      if (mentionResults.length === 0) {
+        return 0;
+      }
+      return Math.min(prev, mentionResults.length - 1);
+    });
+  }, [mentionActive, mentionResults]);
+
   const emitTyping = useCallback(() => {
     if (!onTyping) return;
     const now = Date.now();
@@ -620,15 +899,95 @@ const Composer: React.FC<{
       setValue("");
       setError(null);
       setUploadError(null);
+      closeMention();
     } catch (sendError) {
       const message = sendError instanceof Error ? sendError.message : String(sendError);
       setError(message);
     } finally {
       setIsSending(false);
     }
-  }, [disabled, isSending, isUploading, onSend, uploadedImages, value]);
+  }, [closeMention, disabled, isSending, isUploading, onSend, uploadedImages, value]);
+
+  const handleMentionSelection = useCallback(
+    (candidate: MentionCandidate) => {
+      const range = mentionRangeRef.current;
+      const node = textareaRef.current;
+      const existingValue = node?.value ?? value;
+      if (!range) {
+        return;
+      }
+      const baseHandle =
+        candidate.screenName.trim() || candidate.displayName.trim().replace(/\s+/g, "");
+      const sanitizedHandle = baseHandle.replace(/[^A-Za-z0-9._-]/g, "");
+      const fallbackHandle = candidate.pubkey;
+      const handleText = sanitizedHandle || fallbackHandle;
+      const mentionText = `@${handleText}`;
+      const before = existingValue.slice(0, range.start);
+      const after = existingValue.slice(range.end);
+      const shouldInsertSpace =
+        after.length === 0 || !/^[\s.,!?;:)}\]]/.test(after[0] ?? "");
+      const insertion = shouldInsertSpace ? `${mentionText} ` : mentionText;
+      const nextValue = `${before}${insertion}${after}`;
+      setValue(nextValue);
+      closeMention();
+      setIsTextareaFocused(true);
+      const cursor = before.length + mentionText.length + (shouldInsertSpace ? 1 : 0);
+      const focusTextarea = () => {
+        const target = textareaRef.current;
+        if (!target) return;
+        target.focus();
+        try {
+          target.setSelectionRange(cursor, cursor);
+        } catch {
+          // ignore selection errors
+        }
+      };
+      if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+        window.requestAnimationFrame(focusTextarea);
+      } else {
+        focusTextarea();
+      }
+      emitTyping();
+    },
+    [closeMention, emitTyping, value],
+  );
+
+  const selectMentionByIndex = useCallback(
+    (index: number) => {
+      const candidate = mentionResults[index];
+      if (candidate) {
+        handleMentionSelection(candidate);
+      }
+    },
+    [handleMentionSelection, mentionResults],
+  );
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    const hasMentionOptions = mentionActive && mentionResults.length > 0;
+    if (hasMentionOptions) {
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        setMentionHighlightIndex((prev) => (prev + 1) % mentionResults.length);
+        return;
+      }
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        setMentionHighlightIndex((prev) => (prev === 0 ? mentionResults.length - 1 : prev - 1));
+        return;
+      }
+      if ((event.key === "Enter" && !event.shiftKey) || event.key === "Tab") {
+        event.preventDefault();
+        selectMentionByIndex(mentionHighlightIndex);
+        return;
+      }
+    }
+
+    if (mentionActive && event.key === "Escape") {
+      event.preventDefault();
+      closeMention();
+      return;
+    }
+
     emitTyping();
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
@@ -643,6 +1002,24 @@ const Composer: React.FC<{
     if (uploadError) {
       setUploadError(null);
     }
+    updateMentionState(nextValue, event.target.selectionStart ?? nextValue.length);
+  };
+
+  const handleSelectionChange = (event: React.SyntheticEvent<HTMLTextAreaElement>) => {
+    const node = event.currentTarget;
+    updateMentionState(node.value, node.selectionStart ?? node.value.length);
+  };
+
+  const handleFocus = (event: React.FocusEvent<HTMLTextAreaElement>) => {
+    setIsTextareaFocused(true);
+    updateMentionState(event.currentTarget.value, event.currentTarget.selectionStart ?? event.currentTarget.value.length);
+  };
+
+  const handleBlur = () => {
+    if (value.trim().length === 0) {
+      setIsTextareaFocused(false);
+    }
+    closeMention();
   };
 
   const handleUploadClick = useCallback(() => {
@@ -683,6 +1060,7 @@ const Composer: React.FC<{
                 : "\n";
           return `${normalizedPrev}${prefix}![Uploaded image](${uploaded.url})\n`;
         });
+        closeMention();
         setError(null);
 
         const focusTextarea = () => {
@@ -711,7 +1089,7 @@ const Composer: React.FC<{
         setIsUploading(false);
       }
     },
-    [disabled, isSending, isUploading],
+    [closeMention, disabled, isSending, isUploading],
   );
 
   const handleRemoveImage = useCallback(
@@ -743,6 +1121,13 @@ const Composer: React.FC<{
 
   const composerExpanded =
     isTextareaFocused || value.trim().length > 0 || uploadedImages.length > 0;
+
+  const mentionDropdownBottom = uploadedImages.length > 0 ? "12rem" : composerExpanded ? "7rem" : "5.5rem";
+  const mentionListId = "community-composer-mentions";
+  const activeMentionOptionId =
+    mentionActive && mentionResults[mentionHighlightIndex]
+      ? `${mentionListId}-${mentionResults[mentionHighlightIndex].pubkey}`
+      : undefined;
 
   return (
     <div className="space-y-3">
@@ -781,20 +1166,71 @@ const Composer: React.FC<{
           value={value}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
+          onSelect={handleSelectionChange}
+          onClick={handleSelectionChange}
           disabled={disabled || isSending}
-          onFocus={() => setIsTextareaFocused(true)}
-          onBlur={() => {
-            if (value.trim().length === 0) {
-              setIsTextareaFocused(false);
-            }
-          }}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
           rows={composerExpanded ? 4 : 1}
           maxLength={CHAT_CHARACTER_LIMIT}
           placeholder={disabled ? "Your BitcoinSquare keys must be ready before posting" : "Share an update…"}
+          aria-autocomplete="list"
+          aria-haspopup="listbox"
+          aria-controls={mentionActive ? mentionListId : undefined}
+          aria-expanded={mentionActive}
+          aria-activedescendant={activeMentionOptionId}
           className={`w-full resize-none rounded-2xl border-none bg-transparent px-4 pr-16 text-sm leading-relaxed text-[var(--fg-default)] focus:outline-none focus:ring-0 ${
             composerExpanded ? "pb-16" : "pb-12"
           }`}
         />
+        {mentionActive && (
+          <div
+            id={mentionListId}
+            role="listbox"
+            aria-label="Mention suggestions"
+            style={{ bottom: mentionDropdownBottom }}
+            className="pointer-events-auto absolute left-4 right-4 z-40 max-h-60 overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] shadow-xl sm:right-auto sm:w-80"
+          >
+            {mentionResults.length === 0 ? (
+              <p className="px-3 py-2 text-xs text-[var(--fg-muted)]">No matches found.</p>
+            ) : (
+              <ul className="max-h-60 overflow-y-auto py-1">
+                {mentionResults.map((candidate, index) => {
+                  const optionId = `${mentionListId}-${candidate.pubkey}`;
+                  const isActive = index === mentionHighlightIndex;
+                  return (
+                    <li key={candidate.pubkey} role="presentation">
+                      <button
+                        id={optionId}
+                        role="option"
+                        aria-selected={isActive}
+                        type="button"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => handleMentionSelection(candidate)}
+                        onMouseEnter={() => setMentionHighlightIndex(index)}
+                        className={`flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition ${
+                          isActive ? "bg-brand/10 text-brand" : "text-[var(--fg-default)] hover:bg-[var(--bg-surface)]/80"
+                        }`}
+                      >
+                        <img
+                          src={candidate.avatarUrl}
+                          alt={candidate.displayName}
+                          className="h-8 w-8 rounded-full border border-[var(--border-subtle)] object-cover"
+                        />
+                        <div className="flex min-w-0 flex-col">
+                          <span className="truncate font-semibold">{candidate.displayName}</span>
+                          <span className="truncate text-xs text-[var(--fg-muted)]">
+                            @{candidate.screenName || candidate.shortPubkey}
+                          </span>
+                        </div>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        )}
         {uploadedImages.length > 0 && (
           <div className="px-4">
             <div className="flex flex-wrap gap-3 pb-4 pt-2">
@@ -966,12 +1402,23 @@ const CommunityView: React.FC = () => {
   const translationEnabled = translationSupported && autoTranslateEnabled;
 
   const [activeView, setActiveView] = useState<ActiveView>("casual");
+  const [hasUnreadMessages, setHasUnreadMessages] = useState(true);
+  const [notificationGroups, setNotificationGroups] = useState<CommunityNotificationGroup[]>(
+    INITIAL_NOTIFICATION_GROUPS,
+  );
 
   useEffect(() => {
     if (routePostId) {
       setActiveView("feed");
     }
   }, [routePostId]);
+  const isMessagesRouteActive = location.pathname.startsWith(directMessagesPath);
+
+  useEffect(() => {
+    if (isMessagesRouteActive) {
+      setHasUnreadMessages(false);
+    }
+  }, [isMessagesRouteActive]);
   const listRef = useRef<HTMLDivElement | null>(null);
   const composerContainerRef = useRef<HTMLDivElement | null>(null);
   const scrollUpdateFrameRef = useRef<number | null>(null);
@@ -995,7 +1442,15 @@ const CommunityView: React.FC = () => {
   const rowHeightsRef = useRef(new Map<string, number>());
   const resizeObserversRef = useRef(new Map<string, ResizeObserver>());
   const [virtualVersion, setVirtualVersion] = useState(0);
-  const { requestProfile, resolveProfileSummary, openProfile, follow, following } = useProfileIdentity();
+  const {
+    profiles,
+    requestProfile,
+    resolveProfileSummary,
+    openProfile,
+    follow,
+    following,
+    shortenPubkey,
+  } = useProfileIdentity();
   const backgroundTexture = useMemo(
     () => (theme === "dark" ? DARK_BACKGROUND_TEXTURE : LIGHT_BACKGROUND_TEXTURE),
     [theme],
@@ -1003,6 +1458,7 @@ const CommunityView: React.FC = () => {
   const isCasualView = activeView === "casual";
   const isPublicFeedView = activeView === "feed";
   const isPersonalFeedView = activeView === "personal";
+  const isNotificationsView = activeView === "notifications";
   const isAnyFeedView = isPublicFeedView || isPersonalFeedView;
   const isMembersView = activeView === "members";
   const personalFeedPosts = useMemo(
@@ -1010,6 +1466,45 @@ const CommunityView: React.FC = () => {
     [feedPosts, following],
   );
   const hasFollowing = following.size > 0;
+
+  const mentionCandidates = useMemo<MentionCandidate[]>(() => {
+    const map = new Map<string, MentionCandidate>();
+    const addCandidate = (pubkeyValue: string | null | undefined) => {
+      const trimmed = typeof pubkeyValue === "string" ? pubkeyValue.trim() : "";
+      if (!trimmed || map.has(trimmed)) {
+        return;
+      }
+      const summary = resolveProfileSummary(trimmed);
+      const profileEntry = profiles[trimmed]?.data ?? null;
+      const screenName = profileEntry?.screenName?.trim() ?? "";
+      map.set(trimmed, {
+        pubkey: trimmed,
+        displayName: summary.displayName,
+        screenName,
+        avatarUrl: summary.avatarUrl,
+        shortPubkey: shortenPubkey(trimmed),
+      });
+    };
+
+    messages.forEach((message) => {
+      addCandidate(message.pubkey);
+      if (message.quotePubkey) {
+        addCandidate(message.quotePubkey);
+      }
+      message.likePubkeys?.forEach((pubkeyValue) => addCandidate(pubkeyValue));
+    });
+    typingPubkeys.forEach((pubkeyValue) => addCandidate(pubkeyValue));
+    Object.keys(profiles).forEach((pubkeyValue) => addCandidate(pubkeyValue));
+
+    return Array.from(map.values()).sort((a, b) => {
+      const aKey = (a.screenName || a.displayName || a.shortPubkey).toLowerCase();
+      const bKey = (b.screenName || b.displayName || b.shortPubkey).toLowerCase();
+      if (aKey === bKey) {
+        return a.displayName.localeCompare(b.displayName);
+      }
+      return aKey.localeCompare(bKey);
+    });
+  }, [messages, profiles, resolveProfileSummary, shortenPubkey, typingPubkeys]);
 
   useEffect(() => {
     if (!isCasualView) {
@@ -1766,6 +2261,44 @@ const CommunityView: React.FC = () => {
         const quoteId = quoteContext?.id ?? null;
         const quotePubkey = quoteContext?.pubkey ?? null;
         await handleSend(text, attachments, { quoteId, quotePubkey });
+
+        const mentionTargets = resolveMentionTargets(text, mentionCandidates);
+        if (mentionTargets.length > 0) {
+          const senderSummary = pubkey ? resolveProfileSummary(pubkey) : null;
+          const fallbackSenderName =
+            (pubkey ? shortenPubkey(pubkey) : user?.username?.trim()) ?? undefined;
+          const senderName = senderSummary?.displayName?.trim() || fallbackSenderName || "a community member";
+          const notificationMessage = `You were mentioned by ${senderName} in ${CASUAL_ROOM_NAME}.`;
+          setNotificationGroups((prev) => {
+            let hasMentionGroup = false;
+            const mentionNotifications = mentionTargets.map((target, index) => ({
+              id: `${CASUAL_MENTION_GROUP_ID}-${target.pubkey}-${Date.now()}-${index}`,
+              user: `Mention from ${senderName}`,
+              message: notificationMessage,
+              threadLabel: "View message",
+            }));
+            const nextGroups = prev.map((group) => {
+              if (group.id !== CASUAL_MENTION_GROUP_ID) {
+                return group;
+              }
+              hasMentionGroup = true;
+              return {
+                ...group,
+                notifications: [...mentionNotifications, ...group.notifications],
+              };
+            });
+            if (!hasMentionGroup) {
+              nextGroups.push({
+                id: CASUAL_MENTION_GROUP_ID,
+                title: `${CASUAL_ROOM_NAME} mentions`,
+                context: "Mentions from the community chat",
+                notifications: mentionNotifications,
+              });
+            }
+            return nextGroups;
+          });
+        }
+
         setComposerDraft(undefined);
         setQuoteContext(null);
       } catch (error) {
@@ -1774,7 +2307,15 @@ const CommunityView: React.FC = () => {
         throw error;
       }
     },
-    [handleSend, quoteContext],
+    [
+      handleSend,
+      mentionCandidates,
+      pubkey,
+      quoteContext,
+      resolveProfileSummary,
+      shortenPubkey,
+      user?.username,
+    ],
   );
 
   const handleQuoteMessage = useCallback((message: CasualChatMessage) => {
@@ -1986,6 +2527,7 @@ const CommunityView: React.FC = () => {
           </nav>
           <NavLink
             to={directMessagesPath}
+            onClick={() => setHasUnreadMessages(false)}
             className={({ isActive }) =>
               `mt-3 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
                 isActive
@@ -1995,8 +2537,19 @@ const CommunityView: React.FC = () => {
             }
           >
             <MessageCircle className="h-4 w-4" aria-hidden="true" />
-            <span>Messages</span>
+            <span className="flex items-center gap-2">
+              <span>Messages</span>
+              {hasUnreadMessages && !isMessagesRouteActive && (
+                <span aria-hidden="true" className="text-brand text-xs leading-none">
+                  ●
+                </span>
+              )}
+            </span>
+            {hasUnreadMessages && !isMessagesRouteActive && (
+              <span className="sr-only">Unread messages available</span>
+            )}
           </NavLink>
+          <div className="mt-2">{renderTabButton(NOTIFICATIONS_TAB, "desktop")}</div>
           <div className="mt-8 flex-1 overflow-hidden">
             <h2 className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)]">{membersHeading}</h2>
             <div ref={memberScrollRef} className="mt-5 h-full overflow-y-auto pr-1">
@@ -2421,6 +2974,7 @@ const CommunityView: React.FC = () => {
                       quoteContext={quoteContext}
                       onClearQuote={() => setQuoteContext(null)}
                       onJumpToQuote={handleScrollToMessage}
+                      mentionCandidates={mentionCandidates}
                     />
                   </div>
                 </div>
@@ -2505,6 +3059,66 @@ const CommunityView: React.FC = () => {
                     )}
                   </div>
                 </ErrorBoundary>
+              </section>
+            ) : isNotificationsView ? (
+              <section
+                id="community-panel-notifications"
+                role="tabpanel"
+                aria-labelledby="community-tab-notifications"
+                className="flex flex-1 flex-col"
+              >
+                <div className="flex flex-1 flex-col overflow-hidden px-5 py-6 sm:px-8">
+                  <h2 className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)]">
+                    Notifications
+                  </h2>
+                  <div className="mt-5 flex-1 overflow-y-auto pr-1">
+                    <ul className="space-y-4">
+                      {notificationGroups
+                        .filter((group) => group.notifications.length > 0)
+                        .map((group) => (
+                        <li
+                          key={group.id}
+                          className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)]/80 p-4 shadow-sm"
+                        >
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--fg-muted)]">
+                                {group.title}
+                              </p>
+                              <span className="rounded-full bg-[var(--bg-muted)]/40 px-3 py-0.5 text-[10px] font-medium uppercase tracking-[0.2em] text-[var(--fg-muted)]">
+                                {Math.min(group.notifications.length, 3)} update
+                                {Math.min(group.notifications.length, 3) === 1 ? "" : "s"}
+                              </span>
+                            </div>
+                            <div className="space-y-2">
+                              {group.notifications.slice(0, 3).map((notification) => (
+                                <div
+                                  key={notification.id}
+                                  className="flex flex-col gap-3 rounded-xl bg-[var(--bg-subtle)]/60 p-3 sm:flex-row sm:items-center sm:justify-between"
+                                >
+                                  <div>
+                                    <p className="text-sm font-medium text-[var(--fg-default)]">
+                                      {notification.user}
+                                    </p>
+                                    <p className="text-xs text-[var(--fg-muted)]">
+                                      {notification.message ?? group.context}
+                                    </p>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    className="inline-flex items-center justify-center rounded-full border border-[var(--border-subtle)] px-3 py-1 text-xs font-medium text-[var(--fg-muted)] transition hover:border-[var(--border-strong)] hover:text-[var(--fg-default)]"
+                                  >
+                                    {notification.threadLabel ?? "View thread"}
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
               </section>
             ) : (
               <section

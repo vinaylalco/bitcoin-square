@@ -496,13 +496,16 @@ const DirectMessageOverlay: React.FC = () => {
   const conversation = activeConversation ? conversations[activeConversation] : undefined;
   const draft = activeConversation ? getDraft(activeConversation) : "";
   const summary = activeConversation ? resolveProfileSummary(activeConversation) : null;
+  const disableOverlay =
+    typeof window !== "undefined" && window.location.pathname.includes("/messages");
 
   useEffect(() => {
+    if (disableOverlay) return;
     if (!listRef.current) return;
     listRef.current.scrollTop = listRef.current.scrollHeight;
-  }, [conversation?.messages.length, activeConversation]);
+  }, [conversation?.messages.length, activeConversation, disableOverlay]);
 
-  if (!activeConversation || !conversation || !summary) {
+  if (disableOverlay || !activeConversation || !conversation || !summary) {
     return null;
   }
 
