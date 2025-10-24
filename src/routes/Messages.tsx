@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { AlertCircle, MessageCircle, Search } from "lucide-react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import {
   useDirectMessages,
@@ -365,45 +365,111 @@ const MessagesPage: React.FC = () => {
 
 const MessagesRoute: React.FC = () => {
   const { user } = useAuth();
+  const { openConversation, ready, error: dmError } = useDirectMessages();
+  const { requestProfile, resolveProfileSummary, shortenPubkey } = useProfileIdentity();
   const location = useLocation();
   const navigate = useNavigate();
   const params = useParams<{ pubkey?: string }>();
-  const [authorized, setAuthorized] = useState(false);
+  const [mode, setMode] = useState<"loading" | "list" | "start">("loading");
+  const [targetPubkey, setTargetPubkey] = useState<string | null>(null);
 
   useEffect(() => {
-    setAuthorized(false);
-
     if (!user) {
       navigate("/login", { replace: true, state: { from: location } });
       return;
     }
 
-    const viewerPubkey = user.nostrPublicKey?.trim();
-    const targetPubkey = params.pubkey?.trim();
+    const viewerPubkey = user.nostrPublicKey?.trim() ?? null;
+    const normalizedTarget = params.pubkey?.trim() ?? null;
 
-    if (!viewerPubkey) {
-      navigate(`/profile/${targetPubkey ?? ""}`, { replace: true });
+    if (!normalizedTarget || (viewerPubkey && normalizedTarget === viewerPubkey)) {
+      setMode("list");
+      setTargetPubkey(null);
       return;
     }
 
-    if (!targetPubkey) {
-      navigate(`/profile/${viewerPubkey}`, { replace: true });
-      return;
-    }
-
-    if (targetPubkey !== viewerPubkey) {
-      navigate(`/profile/${viewerPubkey}`, { replace: true });
-      return;
-    }
-
-    setAuthorized(true);
+    setMode("start");
+    setTargetPubkey(normalizedTarget);
   }, [location, navigate, params.pubkey, user]);
 
-  if (!authorized) {
+  useEffect(() => {
+    if (mode !== "start" || !targetPubkey) {
+      return;
+    }
+    requestProfile(targetPubkey).catch(() => undefined);
+  }, [mode, requestProfile, targetPubkey]);
+
+  useEffect(() => {
+    if (mode !== "start" || !targetPubkey) {
+      return;
+    }
+    openConversation(targetPubkey);
+  }, [mode, openConversation, targetPubkey]);
+
+  if (!user) {
     return null;
   }
 
-  return <MessagesPage />;
+  if (mode === "list") {
+    return <MessagesPage />;
+  }
+
+  if (mode === "loading") {
+    return null;
+  }
+
+  if (!targetPubkey) {
+    return <MessagesPage />;
+  }
+
+  const summary = resolveProfileSummary(targetPubkey);
+  const friendlyName = summary.displayName || shortenPubkey(targetPubkey);
+
+  return (
+    <div className="min-h-screen bg-[var(--bg-app)] px-4 py-10 text-[var(--fg-default)] sm:px-6">
+      <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
+        <header className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-sm">
+          <h1 className="text-2xl font-semibold">Start a conversation</h1>
+          <p className="mt-2 text-sm text-[var(--fg-muted)]">
+            We&apos;re opening a private chat with {friendlyName}. {ready
+              ? "The encrypted composer should appear in the corner."
+              : "We need a moment to prepare your Nostr keys before you can send a message."}
+          </p>
+        </header>
+        <section className="space-y-6 rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-sm">
+          {dmError ? (
+            <div className="rounded-2xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-500">
+              {dmError}
+            </div>
+          ) : (
+            <p className="text-sm text-[var(--fg-muted)]">
+              The direct message overlay should appear automatically. If nothing opens, try the button below.
+            </p>
+          )}
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => openConversation(targetPubkey)}
+              className="inline-flex items-center gap-2 rounded-full border border-brand/40 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-brand transition hover:border-brand"
+            >
+              Retry opening chat
+            </button>
+            <Link
+              to={`/profile/${targetPubkey}`}
+              className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--fg-default)] transition hover:border-brand hover:text-brand"
+            >
+              Back to profile
+            </Link>
+          </div>
+          {!ready && (
+            <p className="text-xs uppercase tracking-[0.24em] text-[var(--fg-muted)]">
+              Waiting for encrypted messaging keys…
+            </p>
+          )}
+        </section>
+      </div>
+    </div>
+  );
 };
 
 export default MessagesRoute;
