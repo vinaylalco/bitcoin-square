@@ -585,8 +585,11 @@ const MessagesPage: React.FC = () => {
                   </button>
                 </header>
 
-                <div className="flex h-full flex-1 flex-col bg-[var(--bg-surface)]/60">
-                  <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
+                <div className="relative flex h-full flex-1 flex-col bg-[var(--bg-surface)]/60">
+                  <div
+                    ref={listRef}
+                    className="flex-1 space-y-3 overflow-y-auto px-5 py-4 pb-52"
+                  >
                     {conversation.messages.length === 0 ? (
                       <p className="mt-8 text-center text-xs uppercase tracking-[0.2em] text-[var(--fg-muted)]">
                         No messages yet. Say hello!
@@ -626,93 +629,106 @@ const MessagesPage: React.FC = () => {
                     )}
                   </div>
 
-                  <form onSubmit={handleSubmit} className="border-t border-[var(--border-subtle)] bg-[var(--bg-card)]/80 px-5 py-4">
-                    {!ready && (
-                      <p className="mb-2 text-xs text-[var(--fg-muted)]">
-                        {error ?? "Direct messages are initializing. Please wait."}
-                      </p>
-                    )}
-                    {composerError && <p className="mb-2 text-xs text-red-500">{composerError}</p>}
-                    <div className="flex items-end gap-3">
-                      <div className="relative flex-1">
-                        <textarea
-                          ref={textareaRef}
-                          value={draft}
-                          onChange={handleTextareaChange}
-                          onKeyDown={handleTextareaKeyDown}
-                          onSelect={handleTextareaSelect}
-                          onClick={handleTextareaSelect}
-                          onFocus={handleTextareaFocus}
-                          onBlur={handleTextareaBlur}
-                          placeholder="Write a message…"
-                          aria-autocomplete="list"
-                          aria-haspopup="listbox"
-                          aria-controls={mentionActive ? mentionListId : undefined}
-                          aria-expanded={mentionActive}
-                          aria-activedescendant={activeMentionOptionId}
-                          className="h-24 w-full resize-none rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-4 py-3 text-sm text-[var(--fg-default)] outline-none transition focus:border-brand"
-                        />
-                        {mentionActive && (
-                          <div
-                            id={mentionListId}
-                            role="listbox"
-                            aria-label="Mention suggestions"
-                            className="absolute left-0 right-0 top-full z-20 mt-2 max-h-60 overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] shadow-xl"
-                          >
-                            {mentionResults.length === 0 ? (
-                              <p className="px-3 py-2 text-xs text-[var(--fg-muted)]">No matches found.</p>
-                            ) : (
-                              <ul className="max-h-60 overflow-y-auto py-1">
-                                {mentionResults.map((candidate, index) => {
-                                  const optionId = `${mentionListId}-${candidate.pubkey}`;
-                                  const isActive = index === mentionHighlightIndex;
-                                  return (
-                                    <li key={candidate.pubkey} role="presentation">
-                                      <button
-                                        id={optionId}
-                                        role="option"
-                                        aria-selected={isActive}
-                                        type="button"
-                                        onMouseDown={(event) => event.preventDefault()}
-                                        onClick={() => handleMentionSelection(candidate)}
-                                        onMouseEnter={() => setMentionHighlightIndex(index)}
-                                        className={`flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition ${
-                                          isActive
-                                            ? "bg-brand/10 text-brand"
-                                            : "text-[var(--fg-default)] hover:bg-[var(--bg-surface)]/80"
-                                        }`}
-                                      >
-                                        <img
-                                          src={candidate.avatarUrl}
-                                          alt={candidate.displayName}
-                                          className="h-8 w-8 rounded-full border border-[var(--border-subtle)] object-cover"
-                                        />
-                                        <div className="flex min-w-0 flex-col">
-                                          <span className="truncate text-sm font-semibold text-[var(--fg-default)]">
-                                            {candidate.displayName}
-                                          </span>
-                                          <span className="truncate text-xs text-[var(--fg-muted)]">
-                                            {candidate.screenName ? `@${candidate.screenName}` : candidate.shortPubkey}
-                                          </span>
-                                        </div>
-                                      </button>
-                                    </li>
-                                  );
-                                })}
-                              </ul>
-                            )}
+                  {activeConversation && conversation && (
+                    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[var(--bg-surface)]/90 via-[var(--bg-surface)]/60 to-transparent" />
+                  )}
+
+                  {activeConversation && conversation && (
+                    <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[var(--border-subtle)] bg-[var(--bg-card)]/95 backdrop-blur">
+                      <div className="mx-auto flex w-full max-w-5xl justify-center px-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pt-4 sm:px-6 lg:justify-end">
+                        <form
+                          onSubmit={handleSubmit}
+                          className="w-full rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)]/95 px-5 py-4 shadow-lg lg:w-[calc(100%_-_22rem_-_1.5rem)]"
+                        >
+                          {!ready && (
+                            <p className="mb-2 text-xs text-[var(--fg-muted)]">
+                              {error ?? "Direct messages are initializing. Please wait."}
+                            </p>
+                          )}
+                          {composerError && <p className="mb-2 text-xs text-red-500">{composerError}</p>}
+                          <div className="flex items-end gap-3">
+                            <div className="relative flex-1">
+                              <textarea
+                                ref={textareaRef}
+                                value={draft}
+                                onChange={handleTextareaChange}
+                                onKeyDown={handleTextareaKeyDown}
+                                onSelect={handleTextareaSelect}
+                                onClick={handleTextareaSelect}
+                                onFocus={handleTextareaFocus}
+                                onBlur={handleTextareaBlur}
+                                placeholder="Write a message…"
+                                aria-autocomplete="list"
+                                aria-haspopup="listbox"
+                                aria-controls={mentionActive ? mentionListId : undefined}
+                                aria-expanded={mentionActive}
+                                aria-activedescendant={activeMentionOptionId}
+                                className="h-24 w-full resize-none rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-4 py-3 text-sm text-[var(--fg-default)] outline-none transition focus:border-brand"
+                              />
+                              {mentionActive && (
+                                <div
+                                  id={mentionListId}
+                                  role="listbox"
+                                  aria-label="Mention suggestions"
+                                  className="absolute left-0 right-0 top-full z-20 mt-2 max-h-60 overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] shadow-xl"
+                                >
+                                  {mentionResults.length === 0 ? (
+                                    <p className="px-3 py-2 text-xs text-[var(--fg-muted)]">No matches found.</p>
+                                  ) : (
+                                    <ul className="max-h-60 overflow-y-auto py-1">
+                                      {mentionResults.map((candidate, index) => {
+                                        const optionId = `${mentionListId}-${candidate.pubkey}`;
+                                        const isActive = index === mentionHighlightIndex;
+                                        return (
+                                          <li key={candidate.pubkey} role="presentation">
+                                            <button
+                                              id={optionId}
+                                              role="option"
+                                              aria-selected={isActive}
+                                              type="button"
+                                              onMouseDown={(event) => event.preventDefault()}
+                                              onClick={() => handleMentionSelection(candidate)}
+                                              onMouseEnter={() => setMentionHighlightIndex(index)}
+                                              className={`flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition ${
+                                                isActive
+                                                  ? "bg-brand/10 text-brand"
+                                                  : "text-[var(--fg-default)] hover:bg-[var(--bg-surface)]/80"
+                                              }`}
+                                            >
+                                              <img
+                                                src={candidate.avatarUrl}
+                                                alt={candidate.displayName}
+                                                className="h-8 w-8 rounded-full border border-[var(--border-subtle)] object-cover"
+                                              />
+                                              <div className="flex min-w-0 flex-col">
+                                                <span className="truncate text-sm font-semibold text-[var(--fg-default)]">
+                                                  {candidate.displayName}
+                                                </span>
+                                                <span className="truncate text-xs text-[var(--fg-muted)]">
+                                                  {candidate.screenName ? `@${candidate.screenName}` : candidate.shortPubkey}
+                                                </span>
+                                              </div>
+                                            </button>
+                                          </li>
+                                        );
+                                      })}
+                                    </ul>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                            <button
+                              type="submit"
+                              disabled={!draft.trim() || sending}
+                              className="rounded-full bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-white transition disabled:cursor-not-allowed disabled:bg-brand/40"
+                            >
+                              {sending ? "Sending…" : "Send"}
+                            </button>
                           </div>
-                        )}
+                        </form>
                       </div>
-                      <button
-                        type="submit"
-                        disabled={!draft.trim() || sending}
-                        className="rounded-full bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-white transition disabled:cursor-not-allowed disabled:bg-brand/40"
-                      >
-                        {sending ? "Sending…" : "Send"}
-                      </button>
                     </div>
-                  </form>
+                  )}
                 </div>
               </>
             )}

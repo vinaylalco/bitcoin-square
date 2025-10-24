@@ -1997,10 +1997,12 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         type="button"
         onClick={handlePost}
         disabled={!ready}
-        className="fixed right-6 bottom-[calc(1.5rem+env(safe-area-inset-bottom,0px))] z-50 flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-lg transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-brand disabled:cursor-not-allowed disabled:bg-brand/40 sm:bottom-10"
-        aria-label="Create a new community post"
+        className="fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom,0px))] right-6 z-50 inline-flex items-center gap-3 rounded-full bg-brand px-5 py-3 text-xs font-semibold uppercase tracking-[0.24em] text-white shadow-lg transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-brand disabled:cursor-not-allowed disabled:bg-brand/40 sm:bottom-10 sm:px-6"
+        aria-label="Create New Post"
       >
-        <Plus className="h-6 w-6" />
+        <Plus className="h-5 w-5" />
+        <span className="hidden sm:inline">Create New Post</span>
+        <span className="sr-only sm:hidden">Create New Post</span>
       </button>
 
       {lightboxImage && (
