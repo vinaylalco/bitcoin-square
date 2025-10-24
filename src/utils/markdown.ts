@@ -44,8 +44,48 @@ export const extractMarkdownImageUrls = (markdown: string): string[] => {
   return Array.from(urls);
 };
 
-export const markdownToHtml = (input: string): string => {
-  const escaped = escapeHtml(input);
+type MentionResolution = {
+  href: string;
+  text?: string;
+  className?: string;
+};
+
+export const markdownToHtml = (
+  input: string,
+  options?: {
+    mentionResolver?: (label: string) => MentionResolution | null | undefined;
+    mentionClassName?: string;
+  },
+): string => {
+  const mentionPlaceholders: string[] = [];
+  const mentionResolver = options?.mentionResolver;
+  const mentionClassName = options?.mentionClassName ?? "mention-link";
+
+  const escapeAttribute = (value: string): string =>
+    value
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+
+  const escaped = escapeHtml(input).replace(
+    /(^|[\s.,!?;:()[\]{}<>"'])@([0-9a-zA-Z_]{1,64})/g,
+    (match, prefix: string, label: string) => {
+      if (!mentionResolver) {
+        return match;
+      }
+      const resolved = mentionResolver(label);
+      if (!resolved || !resolved.href) {
+        return match;
+      }
+      const placeholder = `__MENTION_${mentionPlaceholders.length}__`;
+      const anchorClass = resolved.className ? `${resolved.className} ${mentionClassName}`.trim() : mentionClassName;
+      const linkText = escapeHtml(resolved.text ?? `@${label}`);
+      const href = escapeAttribute(resolved.href);
+      mentionPlaceholders.push(`<a href="${href}" class="${anchorClass}">${linkText}</a>`);
+      return `${prefix}${placeholder}`;
+    },
+  );
 
   const imagePlaceholders: string[] = [];
   const withImagePlaceholders = escaped.replace(
@@ -101,10 +141,15 @@ export const markdownToHtml = (input: string): string => {
 
   const withLineBreaks = withAutoLinks.replace(/\n/g, "<br />");
 
+  const withMentionsRestored = mentionPlaceholders.reduce(
+    (html, placeholder, index) => html.replace(`__MENTION_${index}__`, placeholder),
+    withLineBreaks,
+  );
+
   const withImages = imagePlaceholders.reduce(
     (html, placeholder, index) =>
       html.replace(`__IMAGE_PLACEHOLDER_${index}__`, placeholder),
-    withLineBreaks,
+    withMentionsRestored,
   );
 
   return stripImagePlaceholders(withImages);

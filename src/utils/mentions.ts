@@ -1,4 +1,7 @@
+const HEX_PUBKEY_PATTERN = /^[0-9a-f]{64}$/i;
 const MENTION_REGEX = /@([0-9a-f]{64})\b/gi;
+
+const BOUNDARY_MENTION_REGEX = /(^|[\s.,!?;:()[\]{}<>"'])@([0-9a-zA-Z_]{1,64})/g;
 
 export const extractMentionedPubkeys = (text: string): string[] => {
   if (typeof text !== "string" || text.length === 0) {
@@ -28,6 +31,80 @@ export type MentionTarget = {
   screenName: string;
   displayName: string;
   avatarUrl: string;
+};
+
+export type MentionSelection = Pick<MentionTarget, "pubkey" | "screenName">;
+
+export const normalizeMentionLabel = (value: string): string => value.replace(/^@/, "").trim().toLowerCase();
+
+const escapeRegex = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+export const textIncludesMentionLabel = (text: string, label: string): boolean => {
+  if (typeof text !== "string" || typeof label !== "string") {
+    return false;
+  }
+  const normalizedLabel = normalizeMentionLabel(label);
+  if (!normalizedLabel) {
+    return false;
+  }
+  const pattern = new RegExp(`(^|[\\s.,!?;:()[\\]{}<>\"'])@${escapeRegex(normalizedLabel)}(?=$|[\\s.,!?;:()[\\]{}<>\"'])`, "i");
+  return pattern.test(text);
+};
+
+export const collectMentionSelections = (
+  text: string,
+  candidates: Iterable<MentionTarget>,
+): MentionSelection[] => {
+  if (typeof text !== "string" || text.trim().length === 0) {
+    return [];
+  }
+  const normalizedText = text.toLowerCase();
+  const matches = new Map<string, MentionSelection>();
+  for (const candidate of candidates) {
+    const label = normalizeMentionLabel(candidate.screenName || candidate.displayName || "");
+    if (!label) {
+      continue;
+    }
+    if (textIncludesMentionLabel(normalizedText, label)) {
+      matches.set(label, { pubkey: candidate.pubkey.toLowerCase(), screenName: candidate.screenName });
+      continue;
+    }
+    if (HEX_PUBKEY_PATTERN.test(candidate.pubkey) && textIncludesMentionLabel(normalizedText, candidate.pubkey)) {
+      matches.set(candidate.pubkey.toLowerCase(), { pubkey: candidate.pubkey.toLowerCase(), screenName: candidate.screenName });
+    }
+  }
+  return Array.from(matches.values());
+};
+
+export const seedMentionSelectionsFromText = (
+  text: string,
+  lookup: Map<string, MentionTarget>,
+): Map<string, MentionTarget> => {
+  const result = new Map<string, MentionTarget>();
+  if (typeof text !== "string" || text.trim().length === 0) {
+    return result;
+  }
+  const normalizedText = text.toLowerCase();
+  let match: RegExpExecArray | null = null;
+  const matcher = new RegExp(BOUNDARY_MENTION_REGEX.source, "gi");
+  // eslint-disable-next-line no-cond-assign
+  while ((match = matcher.exec(normalizedText)) !== null) {
+    const label = match[2];
+    if (!label) continue;
+    const normalizedLabel = label.toLowerCase();
+    const target = lookup.get(normalizedLabel);
+    if (target) {
+      result.set(normalizedLabel, target);
+      continue;
+    }
+    if (HEX_PUBKEY_PATTERN.test(normalizedLabel)) {
+      const hexTarget = lookup.get(normalizedLabel);
+      if (hexTarget) {
+        result.set(normalizedLabel, hexTarget);
+      }
+    }
+  }
+  return result;
 };
 
 export default extractMentionedPubkeys;

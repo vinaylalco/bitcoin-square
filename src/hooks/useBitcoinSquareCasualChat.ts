@@ -6,6 +6,7 @@ import { getConfiguredRoomKey } from "../config/nostr";
 import { cacheMessage, getCachedMessages, removeCachedMessages, type CachedMessage } from "../utils/chatCache";
 import { decryptChannelText, encryptChannelText } from "../utils/channelEncryption";
 import { markdownToHtml, stripImagePlaceholders } from "../utils/markdown";
+import { normalizeMentionLabel, type MentionSelection } from "../utils/mentions";
 import { useRoomKey } from "./useRoomKey";
 import { useNostrAccount } from "./useNostrAccount";
 import { useAuth } from "../context/AuthContext";
@@ -56,6 +57,7 @@ export interface CasualChatMessage {
   quoteId?: string;
   quotePubkey?: string;
   likePubkeys: string[];
+  mentions?: MentionSelection[];
 }
 
 export interface UseBitcoinSquareCasualChatResult {
@@ -65,7 +67,12 @@ export interface UseBitcoinSquareCasualChatResult {
   sendMessage: (
     body: string,
     attachments?: CasualAttachmentMeta[],
-    options?: { quoteId?: string | null; quotePubkey?: string | null; mentionPubkeys?: string[] },
+    options?: {
+      quoteId?: string | null;
+      quotePubkey?: string | null;
+      mentionPubkeys?: string[];
+      mentions?: MentionSelection[];
+    },
   ) => Promise<void>;
   likeMessage: (message: CasualChatMessage) => Promise<void>;
   deleteMessage: (message: CasualChatMessage) => Promise<void>;
@@ -168,6 +175,7 @@ const cachedToMessage = (cached: CachedMessage): CasualChatMessage | null => {
     quoteId,
     quotePubkey,
     likePubkeys: [],
+    mentions: [],
   };
 };
 
@@ -431,6 +439,7 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
               quoteId,
               quotePubkey,
               likePubkeys: [],
+              mentions: [],
             };
 
             if (deletedMessageIdsRef.current.has(message.id)) {
@@ -615,7 +624,12 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
     async (
       body: string,
       attachments: CasualAttachmentMeta[] = [],
-      options?: { quoteId?: string | null; quotePubkey?: string | null; mentionPubkeys?: string[] },
+      options?: {
+        quoteId?: string | null;
+        quotePubkey?: string | null;
+        mentionPubkeys?: string[];
+        mentions?: MentionSelection[];
+      },
     ) => {
       const trimmed = body.trim();
       const cleanedBody = stripImagePlaceholders(trimmed);
@@ -635,6 +649,28 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
       if (!manager) {
         throw new Error("Relay manager not ready yet");
       }
+
+      const mentionResolver =
+        Array.isArray(options?.mentions) && options.mentions.length > 0
+          ? (label: string) => {
+              const normalized = normalizeMentionLabel(label);
+              if (!normalized) {
+                return null;
+              }
+              const match = options.mentions?.find((entry) => {
+                const normalizedScreen = normalizeMentionLabel(entry.screenName);
+                return normalizedScreen === normalized || entry.pubkey.toLowerCase() === normalized;
+              });
+              if (!match) {
+                return null;
+              }
+              const displayLabel = match.screenName?.trim() || match.pubkey;
+              return {
+                href: `/profile/${match.pubkey}`,
+                text: `@${displayLabel.replace(/^@/, "")}`,
+              };
+            }
+          : undefined;
 
       const payload: CasualPayload = {
         version: 1,
@@ -717,7 +753,7 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
         created_at,
         markdown: cleanedBody,
         body: cleanedBody,
-        html: markdownToHtml(cleanedBody),
+        html: markdownToHtml(cleanedBody, mentionResolver ? { mentionResolver } : undefined),
         attachments,
         tags: signed.tags ?? tags,
         status: "pending",
@@ -725,6 +761,7 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
         quoteId: options?.quoteId ?? undefined,
         quotePubkey: options?.quotePubkey ?? undefined,
         likePubkeys: [],
+        mentions: options?.mentions ?? [],
       };
 
       setMessages((prev) => upsertMessage(prev, optimisticMessage));

@@ -26,7 +26,11 @@ import {
   type UploadedImageDetails,
 } from "../../utils/imageUpload";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
-import type { MentionTarget } from "../../utils/mentions";
+import {
+  collectMentionSelections,
+  normalizeMentionLabel,
+  type MentionTarget,
+} from "../../utils/mentions";
 
 interface BitcoinSquareFeedProps {
   posts: FeedPost[];
@@ -37,6 +41,7 @@ interface BitcoinSquareFeedProps {
       content: string;
       context?: PublishContext | null;
       attachments?: FeedPost["attachments"];
+      mentionPubkeys?: string[];
     },
   ) => Promise<{ eventId: string }>;
   likePost: (post: FeedPost) => Promise<void>;
@@ -54,7 +59,7 @@ interface BitcoinSquareFeedProps {
 
 type ActiveFilter =
   | { type: "tag"; value: string }
-  | { type: "mention"; value: string }
+  | { type: "mention"; pubkey: string; label: string }
   | { type: "media" }
   | { type: "mentions" }
   | { type: "mine" }
@@ -88,12 +93,11 @@ const useRelativeNow = () => {
   return now;
 };
 
-const isHexKey = (value: string) => /^[0-9a-f]{6,}$/i.test(value);
-
 const tokenizeLine = (
   line: string,
   onTagClick: (tag: string) => void,
-  onMentionClick: (pubkey: string) => void,
+  resolveMention: (label: string) => { pubkey: string; label: string } | null,
+  onMentionClick: (pubkey: string, label: string) => void,
 ) =>
   line.split(/(\s+)/).map((token, index) => {
     if (/^#[^\s#@]+$/.test(token)) {
@@ -109,18 +113,24 @@ const tokenizeLine = (
         </button>
       );
     }
-    if (/^@[0-9a-f]{6,}$/i.test(token)) {
-      const value = token.slice(1);
-      return (
-        <button
-          key={`${token}-${index}`}
-          type="button"
-          onClick={() => onMentionClick(value)}
-          className="rounded-full bg-[var(--bg-muted)] px-2 py-0.5 text-xs font-medium text-[var(--fg-default)] transition hover:bg-[var(--bg-muted)]/80"
-        >
-          {token}
-        </button>
-      );
+    if (/^@[0-9a-zA-Z_]{1,64}$/.test(token)) {
+      const rawLabel = token.slice(1);
+      const mention = resolveMention(rawLabel);
+      if (mention) {
+        return (
+          <a
+            key={`${token}-${index}`}
+            href={`/profile/${mention.pubkey}`}
+            onClick={(event) => {
+              event.preventDefault();
+              onMentionClick(mention.pubkey, mention.label);
+            }}
+            className="rounded-full bg-[var(--bg-muted)] px-2 py-0.5 text-xs font-medium text-[var(--fg-default)] transition hover:bg-[var(--bg-muted)]/80"
+          >
+            @{mention.label}
+          </a>
+        );
+      }
     }
     return token;
   });
@@ -196,11 +206,12 @@ const formatAbsoluteTimestamp = (unixSeconds: number | null | undefined) => {
 const renderContent = (
   content: string,
   onTagClick: (tag: string) => void,
-  onMentionClick: (pubkey: string) => void,
+  resolveMention: (label: string) => { pubkey: string; label: string } | null,
+  onMentionClick: (pubkey: string, label: string) => void,
 ) => {
   const lines = content.split(/\n/);
   return lines.flatMap((line, lineIndex) => {
-    const nodes = tokenizeLine(line, onTagClick, onMentionClick);
+    const nodes = tokenizeLine(line, onTagClick, resolveMention, onMentionClick);
     if (lineIndex === lines.length - 1) {
       return nodes;
     }
@@ -384,6 +395,39 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     });
     return sorted;
   }, [composerTarget, externalMentionTargets, following, posts, profiles, pubkey, resolveProfileSummary]);
+  const mentionLookup = useMemo(() => {
+    const map = new Map<string, MentionTarget>();
+    composerMentionTargets.forEach((target) => {
+      const screen = target.screenName?.trim().replace(/^@/, "");
+      if (screen) {
+        map.set(screen.toLowerCase(), target);
+      }
+      if (target.pubkey) {
+        map.set(target.pubkey.toLowerCase(), target);
+      }
+    });
+    return map;
+  }, [composerMentionTargets]);
+  const resolveMention = useCallback(
+    (label: string) => {
+      const normalized = normalizeMentionLabel(label);
+      if (!normalized) {
+        return null;
+      }
+      const directTarget = mentionLookup.get(normalized);
+      if (directTarget) {
+        const displayLabel = directTarget.screenName || directTarget.displayName || shortenPubkey(directTarget.pubkey);
+        return { pubkey: directTarget.pubkey, label: displayLabel.replace(/^@/, "") };
+      }
+      if (/^[0-9a-f]{64}$/i.test(normalized)) {
+        const summary = resolveProfileSummary(normalized);
+        const displayLabel = summary.displayName || shortenPubkey(normalized);
+        return { pubkey: normalized, label: displayLabel.replace(/^@/, "") };
+      }
+      return null;
+    },
+    [mentionLookup, resolveProfileSummary, shortenPubkey],
+  );
   const filteredMentionTargets = useMemo(() => {
     if (!mentionState.active) {
       return [] as MentionTarget[];
@@ -450,25 +494,27 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     [closeMention, composerMentionTargets.length],
   );
 
-  const applyMention = useCallback(
-    (target: MentionTarget) => {
-      if (!mentionState.active) {
-        return;
-      }
-      const textarea = textareaRef.current;
-      const currentValue = textarea ? textarea.value : content;
-      const selectionEnd = textarea?.selectionStart ?? currentValue.length;
-      const start = mentionState.start;
-      if (start < 0 || start > currentValue.length) {
-        closeMention();
-        return;
-      }
-      const before = currentValue.slice(0, start);
-      const after = currentValue.slice(selectionEnd);
-      const mentionText = `@${target.pubkey}`;
-      const needsTrailingSpace = after.length === 0 || /^\S/.test(after) ? " " : "";
-      const nextValue = `${before}${mentionText}${needsTrailingSpace}${after}`;
-      setContent(nextValue.slice(0, 500));
+    const applyMention = useCallback(
+      (target: MentionTarget) => {
+        if (!mentionState.active) {
+          return;
+        }
+        const textarea = textareaRef.current;
+        const currentValue = textarea ? textarea.value : content;
+        const selectionEnd = textarea?.selectionStart ?? currentValue.length;
+        const start = mentionState.start;
+        if (start < 0 || start > currentValue.length) {
+          closeMention();
+          return;
+        }
+        const before = currentValue.slice(0, start);
+        const after = currentValue.slice(selectionEnd);
+        const baseLabel =
+          target.screenName?.trim().replace(/^@/, "") || target.displayName?.trim() || target.pubkey;
+        const mentionText = `@${baseLabel}`;
+        const needsTrailingSpace = after.length === 0 || /^\S/.test(after) ? " " : "";
+        const nextValue = `${before}${mentionText}${needsTrailingSpace}${after}`;
+        setContent(nextValue.slice(0, 500));
       closeMention();
       if (textarea) {
         const position = before.length + mentionText.length + (needsTrailingSpace ? 1 : 0);
@@ -691,10 +737,12 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       try {
         setComposerError(null);
         setUploadError(null);
+        const mentionSelections = collectMentionSelections(trimmed, composerMentionTargets);
         await publishStatus({
           content: trimmed,
           context: composerTarget ? { type: composerMode, post: composerTarget } : undefined,
           attachments,
+          mentionPubkeys: mentionSelections.map((selection) => selection.pubkey),
         });
         resetComposer();
       } catch (publishError) {
@@ -709,6 +757,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       composerMode,
       composerTarget,
       content,
+      composerMentionTargets,
       isUploading,
       publishStatus,
       publishing,
@@ -822,12 +871,17 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         );
       }
       case "mention": {
-        const target = activeFilter.value.toLowerCase();
-        return posts.filter((post) =>
-          post.pubkey.toLowerCase() === target ||
-          post.tags.some((tag) => tag[0] === "p" && tag[1]?.toLowerCase() === target) ||
-          post.content.toLowerCase().includes(`@${target}`),
-        );
+        const targetPubkey = activeFilter.pubkey.toLowerCase();
+        const normalizedLabel = normalizeMentionLabel(activeFilter.label);
+        return posts.filter((post) => {
+          const content = post.content.toLowerCase();
+          const matchesPubkey =
+            post.pubkey.toLowerCase() === targetPubkey ||
+            post.tags.some((tag) => tag[0] === "p" && tag[1]?.toLowerCase() === targetPubkey) ||
+            content.includes(`@${targetPubkey}`);
+          const matchesLabel = normalizedLabel ? content.includes(`@${normalizedLabel}`) : false;
+          return matchesPubkey || matchesLabel;
+        });
       }
       case "media":
         return posts.filter((post) => post.attachments.length > 0);
@@ -938,7 +992,11 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       case "tag":
         return `Filtering by #${activeFilter.value}`;
       case "mention":
-        return `Filtering by @${activeFilter.value}`;
+        return `Filtering by @${
+          activeFilter.label?.trim().length
+            ? activeFilter.label.trim()
+            : shortenPubkey(activeFilter.pubkey)
+        }`;
       case "media":
         return "Showing posts with media attachments";
       case "mine":
@@ -948,7 +1006,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       default:
         return null;
     }
-  }, [activeFilter]);
+  }, [activeFilter, shortenPubkey]);
 
   const clearFilter = useCallback(() => setActiveFilter(null), []);
 
@@ -1102,10 +1160,19 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     setActiveFilter({ type: "tag", value: tag.toLowerCase() });
   }, []);
 
-  const handleMentionClick = useCallback((value: string) => {
-    if (!isHexKey(value)) return;
-    setActiveFilter({ type: "mention", value: value.toLowerCase() });
-  }, []);
+  const handleMentionClick = useCallback(
+    (pubkey: string, label: string) => {
+      const normalizedPubkey = pubkey.trim().toLowerCase();
+      if (!normalizedPubkey) return;
+      openProfile(pubkey);
+      setActiveFilter({
+        type: "mention",
+        pubkey: normalizedPubkey,
+        label: label?.trim().length ? label.trim() : shortenPubkey(normalizedPubkey),
+      });
+    },
+    [openProfile, shortenPubkey],
+  );
 
   const formatRelativeTime = useCallback(
     (timestamp: number) => {
@@ -1680,7 +1747,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         )}
 
         <div className="mt-4 whitespace-pre-wrap break-words text-sm leading-relaxed text-[var(--fg-default)]">
-          {renderContent(displayContent, handleTagClick, handleMentionClick)}
+          {renderContent(displayContent, handleTagClick, resolveMention, handleMentionClick)}
         </div>
 
         {translationEnabled && (

@@ -55,9 +55,11 @@ import {
 import { rewriteImgBbUrlToProxy, rewriteImgBbUrlsInText } from "../utils/imageProxy";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import {
-  extractMentionedPubkeys,
   includesMentionOfPubkey,
+  collectMentionSelections,
+  normalizeMentionLabel,
   type MentionTarget,
+  type MentionSelection,
 } from "../utils/mentions";
 
 type ActiveView = "casual" | "feed" | "personal" | "members";
@@ -576,7 +578,7 @@ const Composer: React.FC<{
   onSend: (
     text: string,
     attachments: CasualAttachmentMeta[],
-    options?: { mentionPubkeys?: string[] },
+    options?: { mentionPubkeys?: string[]; mentions?: MentionSelection[] },
   ) => Promise<void>;
   draft?: string;
   onTyping?: () => void;
@@ -690,7 +692,8 @@ const Composer: React.FC<{
       }
       const before = currentValue.slice(0, start);
       const after = currentValue.slice(selectionEnd);
-      const mentionText = `@${target.pubkey}`;
+      const baseLabel = target.screenName?.trim().replace(/^@/, "") || target.displayName?.trim() || target.pubkey;
+      const mentionText = `@${baseLabel}`;
       const needsTrailingSpace = after.length === 0 || /^\S/.test(after) ? " " : "";
       const nextValue = `${before}${mentionText}${needsTrailingSpace}${after}`;
       setValue(nextValue);
@@ -799,8 +802,9 @@ const Composer: React.FC<{
 
     setIsSending(true);
     try {
-      const mentionPubkeys = extractMentionedPubkeys(trimmed);
-      await onSend(trimmed, attachments, { mentionPubkeys });
+      const mentionSelections = collectMentionSelections(trimmed, mentionTargets);
+      const mentionPubkeys = mentionSelections.map((selection) => selection.pubkey);
+      await onSend(trimmed, attachments, { mentionPubkeys, mentions: mentionSelections });
       setValue("");
       setError(null);
       setUploadError(null);
@@ -1826,6 +1830,44 @@ const CommunityView: React.FC = () => {
     });
     return sorted;
   }, [conversations, contextMembers, following, profiles, pubkey, resolveProfileSummary]);
+  const mentionLookup = useMemo(() => {
+    const map = new Map<string, MentionTarget>();
+    mentionTargets.forEach((target) => {
+      const screen = target.screenName?.trim().replace(/^@/, "");
+      if (screen) {
+        map.set(screen.toLowerCase(), target);
+      }
+      if (target.pubkey) {
+        map.set(target.pubkey.toLowerCase(), target);
+      }
+    });
+    return map;
+  }, [mentionTargets]);
+  const resolveMentionLink = useCallback(
+    (label: string) => {
+      const normalized = normalizeMentionLabel(label);
+      if (!normalized) {
+        return null;
+      }
+      const directTarget = mentionLookup.get(normalized);
+      if (directTarget) {
+        const displayLabel = directTarget.screenName || directTarget.displayName || directTarget.pubkey;
+        return {
+          href: `/profile/${directTarget.pubkey}`,
+          text: `@${displayLabel.replace(/^@/, "")}`,
+        };
+      }
+      if (/^[0-9a-f]{64}$/i.test(normalized)) {
+        const summary = resolveProfileSummary(normalized);
+        return {
+          href: `/profile/${normalized}`,
+          text: `@${summary.displayName}`,
+        };
+      }
+      return null;
+    },
+    [mentionLookup, resolveProfileSummary],
+  );
   const requestedMentionProfilesRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -2467,7 +2509,12 @@ const CommunityView: React.FC = () => {
     async (
       text: string,
       attachments: CasualAttachmentMeta[],
-      options?: { quoteId?: string | null; quotePubkey?: string | null; mentionPubkeys?: string[] },
+      options?: {
+        quoteId?: string | null;
+        quotePubkey?: string | null;
+        mentionPubkeys?: string[];
+        mentions?: MentionSelection[];
+      },
     ) => {
       await sendMessage(text, attachments, options);
       setComposerError(null);
@@ -2479,7 +2526,7 @@ const CommunityView: React.FC = () => {
     async (
       text: string,
       attachments: CasualAttachmentMeta[],
-      metadata?: { mentionPubkeys?: string[] },
+      metadata?: { mentionPubkeys?: string[]; mentions?: MentionSelection[] },
     ) => {
       try {
         const quoteId = quoteContext?.id ?? null;
@@ -2488,6 +2535,7 @@ const CommunityView: React.FC = () => {
           quoteId,
           quotePubkey,
           mentionPubkeys: metadata?.mentionPubkeys,
+          mentions: metadata?.mentions,
         });
         setComposerDraft(undefined);
         setQuoteContext(null);
@@ -2860,14 +2908,13 @@ const CommunityView: React.FC = () => {
                             translationEnabled && translationStatus === "ready" && !!rawTranslatedText;
                           const showOriginal =
                             !translationEnabled || !translationReady || isOriginalVisible(translationKey);
-                          const translatedHtml =
-                            translationEnabled && translationReady && rawTranslatedText
-                              ? markdownToHtml(rawTranslatedText)
-                              : null;
-                          const renderedHtml =
-                            translatedHtml && translationEnabled && !showOriginal
-                              ? translatedHtml
-                              : message.html;
+                          const sourceMarkdown =
+                            translationEnabled && translationReady && rawTranslatedText && !showOriginal
+                              ? rawTranslatedText
+                              : message.markdown;
+                          const renderedHtml = markdownToHtml(sourceMarkdown, {
+                            mentionResolver: resolveMentionLink,
+                          });
                           const detectedLanguageLabel =
                             translationEnabled &&
                             translationEntry?.detectedLanguage &&

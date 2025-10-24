@@ -331,7 +331,12 @@ export interface UseBitcoinSquareFeedReturn {
   posts: FeedPost[];
   ready: boolean;
   publishing: boolean;
-  publishStatus: (content: string, context?: PublishContext | null) => Promise<PublishResult>;
+  publishStatus: (args: {
+    content: string;
+    context?: PublishContext | null;
+    attachments?: FeedAttachment[];
+    mentionPubkeys?: string[];
+  }) => Promise<PublishResult>;
   likePost: (post: FeedPost) => Promise<void>;
   deletePost: (post: FeedPost) => Promise<void>;
   loadMore: () => Promise<void>;
@@ -1022,10 +1027,12 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
       content,
       context,
       attachments = [],
+      mentionPubkeys,
     }: {
       content: string;
       context?: PublishContext | null;
       attachments?: FeedAttachment[];
+      mentionPubkeys?: string[];
     }): Promise<PublishResult> => {
       setPublishing(true);
       const trimmed = content.trim();
@@ -1068,8 +1075,16 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
           }
         }
 
-        const mentionPubkeys = extractMentionedPubkeys(cleanedContent);
-        mentionPubkeys.forEach((mention) => {
+        const normalizedMentions = Array.isArray(mentionPubkeys) && mentionPubkeys.length > 0
+          ? Array.from(
+              new Set(
+                mentionPubkeys
+                  .map((value) => (typeof value === "string" ? value.trim().toLowerCase() : ""))
+                  .filter((value) => value.length === 64),
+              ),
+            )
+          : extractMentionedPubkeys(cleanedContent);
+        normalizedMentions.forEach((mention) => {
           if (!tags.some((tag) => tag[0] === "p" && tag[1] === mention)) {
             tags.push(["p", mention]);
           }
