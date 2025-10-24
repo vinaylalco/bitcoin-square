@@ -1798,9 +1798,26 @@ const CommunityView: React.FC = () => {
 
     contextMembers.forEach((member) => addTarget(member.pubkey));
     Object.values(conversations).forEach((conversation) => addTarget(conversation.peerPubkey));
+    following.forEach((followed) => addTarget(followed));
+    Object.keys(profiles).forEach((key) => addTarget(key));
 
-    return Array.from(targets.values());
-  }, [conversations, contextMembers, profiles, pubkey, resolveProfileSummary]);
+    const sorted = Array.from(targets.values());
+    sorted.sort((a, b) => {
+      const primaryA = a.screenName || a.displayName || a.pubkey;
+      const primaryB = b.screenName || b.displayName || b.pubkey;
+      const primaryCompare = primaryA.localeCompare(primaryB, undefined, {
+        sensitivity: "base",
+        numeric: true,
+      });
+      if (primaryCompare !== 0) {
+        return primaryCompare;
+      }
+      const secondaryA = a.displayName || a.pubkey;
+      const secondaryB = b.displayName || b.pubkey;
+      return secondaryA.localeCompare(secondaryB, undefined, { sensitivity: "base", numeric: true });
+    });
+    return sorted;
+  }, [conversations, contextMembers, following, profiles, pubkey, resolveProfileSummary]);
   const requestedMentionProfilesRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {

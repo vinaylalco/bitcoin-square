@@ -258,7 +258,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   const [highlightedMentionIndex, setHighlightedMentionIndex] = useState(0);
   const relativeFormatter = useMemo(() => createRelativeFormatter(), []);
   const now = useRelativeNow();
-  const { requestProfile, resolveProfileSummary, openProfile, profiles } = useProfileIdentity();
+  const { requestProfile, resolveProfileSummary, openProfile, profiles, following } = useProfileIdentity();
   const { showToast } = useToast();
   const { user } = useAuth();
   const canModerate = user?.isAdmin === true;
@@ -359,9 +359,26 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     if (composerTarget) {
       addTarget(composerTarget.pubkey);
     }
+    following.forEach((followed) => addTarget(followed));
+    Object.keys(profiles).forEach((key) => addTarget(key));
 
-    return Array.from(targets.values());
-  }, [composerTarget, posts, profiles, pubkey, resolveProfileSummary]);
+    const sorted = Array.from(targets.values());
+    sorted.sort((a, b) => {
+      const primaryA = a.screenName || a.displayName || a.pubkey;
+      const primaryB = b.screenName || b.displayName || b.pubkey;
+      const primaryCompare = primaryA.localeCompare(primaryB, undefined, {
+        sensitivity: "base",
+        numeric: true,
+      });
+      if (primaryCompare !== 0) {
+        return primaryCompare;
+      }
+      const secondaryA = a.displayName || a.pubkey;
+      const secondaryB = b.displayName || b.pubkey;
+      return secondaryA.localeCompare(secondaryB, undefined, { sensitivity: "base", numeric: true });
+    });
+    return sorted;
+  }, [composerTarget, following, posts, profiles, pubkey, resolveProfileSummary]);
   const filteredMentionTargets = useMemo(() => {
     if (!mentionState.active) {
       return [] as MentionTarget[];
