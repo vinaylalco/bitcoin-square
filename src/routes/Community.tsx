@@ -17,6 +17,7 @@ import { getCachedMediaBlob, getCachedPreview, setCachedMediaBlob, setCachedPrev
 import { useProfileIdentity } from "../context/ProfileIdentityContext";
 import type { ProfileSummary } from "../context/ProfileIdentityContext";
 import { useAuth } from "../context/AuthContext";
+import { useDirectMessages } from "../context/DirectMessageContext";
 import { useNostrAccount } from "../hooks/useNostrAccount";
 import { nostrClient, setNostrClientSigner } from "../lib/nostrClient";
 import { useTheme } from "../context/ThemeContext";
@@ -1108,8 +1109,8 @@ const CommunityView: React.FC = () => {
   } = useCommunityTranslation();
   const translationEnabled = translationSupported && autoTranslateEnabled;
 
+  const { conversations } = useDirectMessages();
   const [activeView, setActiveView] = useState<ActiveView>("casual");
-  const [hasUnreadMessages, setHasUnreadMessages] = useState(true);
   const [notificationGroups, setNotificationGroups] = useState<CommunityNotificationGroup[]>(
     INITIAL_NOTIFICATION_GROUPS,
   );
@@ -1127,11 +1128,10 @@ const CommunityView: React.FC = () => {
   }, [routePostId]);
   const isMessagesRouteActive = location.pathname.startsWith(directMessagesPath);
 
-  useEffect(() => {
-    if (isMessagesRouteActive) {
-      setHasUnreadMessages(false);
-    }
-  }, [isMessagesRouteActive]);
+  const hasUnreadMessages = useMemo(
+    () => Object.values(conversations).some((conversation) => conversation.unreadCount > 0),
+    [conversations],
+  );
   const isCasualView = activeView === "casual";
   const isPublicFeedView = activeView === "feed";
   const isPersonalFeedView = activeView === "personal";
@@ -2311,7 +2311,6 @@ const CommunityView: React.FC = () => {
           </nav>
           <NavLink
             to={directMessagesPath}
-            onClick={() => setHasUnreadMessages(false)}
             className={({ isActive }) =>
               `mt-3 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
                 isActive
