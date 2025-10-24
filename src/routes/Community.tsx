@@ -84,6 +84,9 @@ type CommunityNotification = {
   user: string;
   threadLabel?: string;
   message?: string;
+  targetView?: ActiveView;
+  targetMessageId?: string;
+  targetPostId?: string;
 };
 
 type CommunityNotificationGroup = {
@@ -95,23 +98,13 @@ type CommunityNotificationGroup = {
 
 const CASUAL_MENTION_GROUP_ID = "casual-mentions";
 
+type NotificationTarget = {
+  view: ActiveView;
+  messageId?: string | null;
+  postId?: string | null;
+};
+
 const INITIAL_NOTIFICATION_GROUPS: CommunityNotificationGroup[] = [
-  {
-    id: "groupy-replies",
-    title: "GroupY replies",
-    context: "replied to your post in GroupY",
-    notifications: [
-      { id: "groupy-userx", user: "UserX" },
-      { id: "groupy-usery", user: "UserY" },
-      { id: "groupy-userz", user: "UserZ" },
-    ],
-  },
-  {
-    id: "groupq-highlights",
-    title: "GroupQ highlights",
-    context: "reacted to your update in GroupQ",
-    notifications: [{ id: "groupq-userl", user: "UserL" }],
-  },
   {
     id: CASUAL_MENTION_GROUP_ID,
     title: `${CASUAL_ROOM_NAME} mentions`,
@@ -1303,6 +1296,12 @@ const CommunityView: React.FC = () => {
   const [notificationGroups, setNotificationGroups] = useState<CommunityNotificationGroup[]>(
     INITIAL_NOTIFICATION_GROUPS,
   );
+  const [unreadNotificationIds, setUnreadNotificationIds] = useState<Set<string>>(
+    () => new Set<string>(),
+  );
+  const [pendingNotificationTarget, setPendingNotificationTarget] =
+    useState<NotificationTarget | null>(null);
+  const hasUnreadNotifications = unreadNotificationIds.size > 0;
 
   useEffect(() => {
     if (routePostId) {
@@ -1316,6 +1315,17 @@ const CommunityView: React.FC = () => {
       setHasUnreadMessages(false);
     }
   }, [isMessagesRouteActive]);
+  useEffect(() => {
+    if (!isNotificationsView) {
+      return;
+    }
+    setUnreadNotificationIds((prev) => {
+      if (prev.size === 0) {
+        return prev;
+      }
+      return new Set<string>();
+    });
+  }, [isNotificationsView]);
   const listRef = useRef<HTMLDivElement | null>(null);
   const composerContainerRef = useRef<HTMLDivElement | null>(null);
   const scrollUpdateFrameRef = useRef<number | null>(null);
@@ -2081,7 +2091,17 @@ const CommunityView: React.FC = () => {
         className={`${baseClasses} ${layoutClass} ${paletteClasses}`}
       >
         <Icon className="h-4 w-4" aria-hidden="true" />
-        <span>{tab.label}</span>
+        <span className="flex items-center gap-2">
+          <span>{tab.label}</span>
+          {tab.key === "notifications" && hasUnreadNotifications && (
+            <span aria-hidden="true" className="text-brand text-xs leading-none">
+              ●
+            </span>
+          )}
+        </span>
+        {tab.key === "notifications" && hasUnreadNotifications && (
+          <span className="sr-only">Unread notifications available</span>
+        )}
       </button>
     );
   };
@@ -2146,8 +2166,9 @@ const CommunityView: React.FC = () => {
       attachments: CasualAttachmentMeta[],
       options?: { quoteId?: string | null; quotePubkey?: string | null },
     ) => {
-      await sendMessage(text, attachments, options);
+      const messageId = await sendMessage(text, attachments, options);
       setComposerError(null);
+      return messageId;
     },
     [sendMessage],
   );
@@ -2157,23 +2178,25 @@ const CommunityView: React.FC = () => {
       try {
         const quoteId = quoteContext?.id ?? null;
         const quotePubkey = quoteContext?.pubkey ?? null;
-        await handleSend(text, attachments, { quoteId, quotePubkey });
+        const sentMessageId = await handleSend(text, attachments, { quoteId, quotePubkey });
 
         const mentionTargets = resolveMentionTargets(text, mentionCandidates);
-        if (mentionTargets.length > 0) {
+        if (mentionTargets.length > 0 && sentMessageId) {
           const senderSummary = pubkey ? resolveProfileSummary(pubkey) : null;
           const fallbackSenderName =
             (pubkey ? shortenPubkey(pubkey) : user?.username?.trim()) ?? undefined;
           const senderName = senderSummary?.displayName?.trim() || fallbackSenderName || "a community member";
           const notificationMessage = `You were mentioned by ${senderName} in ${CASUAL_ROOM_NAME}.`;
+          const mentionNotifications = mentionTargets.map((target, index) => ({
+            id: `${CASUAL_MENTION_GROUP_ID}-${target.pubkey}-${Date.now()}-${index}`,
+            user: senderName,
+            message: notificationMessage,
+            threadLabel: "View message",
+            targetView: "casual" as const,
+            targetMessageId: sentMessageId,
+          }));
           setNotificationGroups((prev) => {
             let hasMentionGroup = false;
-            const mentionNotifications = mentionTargets.map((target, index) => ({
-              id: `${CASUAL_MENTION_GROUP_ID}-${target.pubkey}-${Date.now()}-${index}`,
-              user: `Mention from ${senderName}`,
-              message: notificationMessage,
-              threadLabel: "View message",
-            }));
             const nextGroups = prev.map((group) => {
               if (group.id !== CASUAL_MENTION_GROUP_ID) {
                 return group;
@@ -2193,6 +2216,11 @@ const CommunityView: React.FC = () => {
               });
             }
             return nextGroups;
+          });
+          setUnreadNotificationIds((prev) => {
+            const next = new Set<string>(prev);
+            mentionNotifications.forEach((notification) => next.add(notification.id));
+            return next;
           });
         }
 
@@ -2282,6 +2310,47 @@ const CommunityView: React.FC = () => {
     },
     [estimatedRowHeight, messageIndexMap, messages, startHighlight],
   );
+  const handleNotificationSelect = useCallback(
+    (notification: CommunityNotification) => {
+      if (!notification.targetView) {
+        return;
+      }
+      setPendingNotificationTarget({
+        view: notification.targetView,
+        messageId: notification.targetMessageId ?? null,
+        postId: notification.targetPostId ?? null,
+      });
+      setActiveView(notification.targetView);
+    },
+    [setActiveView, setPendingNotificationTarget],
+  );
+  useEffect(() => {
+    if (!pendingNotificationTarget) {
+      return;
+    }
+    if (activeView !== pendingNotificationTarget.view) {
+      return;
+    }
+    if (pendingNotificationTarget.view === "feed" && pendingNotificationTarget.postId) {
+      handleThreadRouteChange(pendingNotificationTarget.postId);
+    }
+    if (pendingNotificationTarget.view === "casual" && pendingNotificationTarget.messageId) {
+      const messageId = pendingNotificationTarget.messageId;
+      const scrollToTarget = () => handleScrollToMessage(messageId);
+      if (typeof window !== "undefined") {
+        window.setTimeout(scrollToTarget, 120);
+      } else {
+        scrollToTarget();
+      }
+    }
+    setPendingNotificationTarget(null);
+  }, [
+    activeView,
+    handleScrollToMessage,
+    handleThreadRouteChange,
+    pendingNotificationTarget,
+    setPendingNotificationTarget,
+  ]);
 
   const updatePendingDelete = useCallback((messageId: string, add: boolean) => {
     setPendingDeletes((prev) => {
@@ -3003,7 +3072,13 @@ const CommunityView: React.FC = () => {
                                   </div>
                                   <button
                                     type="button"
-                                    className="inline-flex items-center justify-center rounded-full border border-[var(--border-subtle)] px-3 py-1 text-xs font-medium text-[var(--fg-muted)] transition hover:border-[var(--border-strong)] hover:text-[var(--fg-default)]"
+                                    onClick={() => handleNotificationSelect(notification)}
+                                    disabled={!notification.targetView}
+                                    className={`inline-flex items-center justify-center rounded-full border border-[var(--border-subtle)] px-3 py-1 text-xs font-medium text-[var(--fg-muted)] transition ${
+                                      notification.targetView
+                                        ? "hover:border-[var(--border-strong)] hover:text-[var(--fg-default)]"
+                                        : "cursor-not-allowed opacity-60"
+                                    }`}
                                   >
                                     {notification.threadLabel ?? "View thread"}
                                   </button>

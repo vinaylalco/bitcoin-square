@@ -66,7 +66,7 @@ export interface UseBitcoinSquareCasualChatResult {
     body: string,
     attachments?: CasualAttachmentMeta[],
     options?: { quoteId?: string | null; quotePubkey?: string | null },
-  ) => Promise<void>;
+  ) => Promise<string>;
   likeMessage: (message: CasualChatMessage) => Promise<void>;
   deleteMessage: (message: CasualChatMessage) => Promise<void>;
   pubkey: string | null;
@@ -751,6 +751,8 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
           );
           setError(publishError instanceof Error ? publishError.message : String(publishError));
         });
+
+      return signed.id;
     },
     [hasKey, signEvent],
   );
