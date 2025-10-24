@@ -109,3 +109,47 @@ export const resolveMentionTargets = (
   });
   return Array.from(matches.values());
 };
+
+const sortByScreenName = (a: MentionCandidate, b: MentionCandidate) => {
+  const aKey = a.screenName.trim().toLowerCase();
+  const bKey = b.screenName.trim().toLowerCase();
+  return aKey.localeCompare(bKey);
+};
+
+const sortByFallbackIdentity = (a: MentionCandidate, b: MentionCandidate) => {
+  const aKey = (a.displayName || a.shortPubkey).trim().toLowerCase();
+  const bKey = (b.displayName || b.shortPubkey).trim().toLowerCase();
+  return aKey.localeCompare(bKey);
+};
+
+export const searchMentionCandidatesByScreenName = (
+  candidates: MentionCandidate[],
+  query: string,
+  limit = 5,
+): MentionCandidate[] => {
+  if (limit <= 0) {
+    return [];
+  }
+
+  const normalizedQuery = query.trim().toLowerCase();
+
+  const withScreenName = candidates
+    .filter((candidate) => candidate.screenName.trim().length > 0)
+    .sort(sortByScreenName);
+
+  if (normalizedQuery.length === 0) {
+    if (withScreenName.length >= limit) {
+      return withScreenName.slice(0, limit);
+    }
+
+    const withoutScreenName = candidates
+      .filter((candidate) => candidate.screenName.trim().length === 0)
+      .sort(sortByFallbackIdentity);
+
+    return [...withScreenName, ...withoutScreenName].slice(0, limit);
+  }
+
+  return withScreenName
+    .filter((candidate) => candidate.screenName.toLowerCase().includes(normalizedQuery))
+    .slice(0, limit);
+};

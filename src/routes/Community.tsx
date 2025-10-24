@@ -55,6 +55,7 @@ import { rewriteImgBbUrlToProxy, rewriteImgBbUrlsInText } from "../utils/imagePr
 import {
   findActiveMention,
   resolveMentionTargets,
+  searchMentionCandidatesByScreenName,
   type MentionCandidate,
   type MentionMatch,
 } from "../utils/mentions";
@@ -673,24 +674,7 @@ const Composer: React.FC<{
   );
 
   const computeMentionResults = useCallback(
-    (query: string) => {
-      const normalizedQuery = query.trim().toLowerCase();
-      const filtered = mentionCandidates
-        .filter((candidate) => candidate.screenName || candidate.displayName || candidate.shortPubkey)
-        .filter((candidate) => {
-          if (!normalizedQuery) return true;
-          const screenName = candidate.screenName.toLowerCase();
-          const displayName = candidate.displayName.toLowerCase();
-          const shortKey = candidate.shortPubkey.toLowerCase();
-          return (
-            screenName.includes(normalizedQuery) ||
-            displayName.includes(normalizedQuery) ||
-            shortKey.includes(normalizedQuery)
-          );
-        })
-        .slice(0, 8);
-      return filtered;
-    },
+    (query: string) => searchMentionCandidatesByScreenName(mentionCandidates, query, 5),
     [mentionCandidates],
   );
 

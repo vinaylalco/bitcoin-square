@@ -25,6 +25,12 @@ import {
   validateImageFile,
   type UploadedImageDetails,
 } from "../../utils/imageUpload";
+import {
+  findActiveMention,
+  searchMentionCandidatesByScreenName,
+  type MentionCandidate,
+  type MentionMatch,
+} from "../../utils/mentions";
 
 interface BitcoinSquareFeedProps {
   posts: FeedPost[];
@@ -244,14 +250,21 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   const highlightTimerRef = useRef<number | null>(null);
   const unresolvedThreadRef = useRef<string | null>(null);
   const lastThreadLoadAttemptRef = useRef<{ id: string; timestamp: number } | null>(null);
+  const mentionDebounceRef = useRef<number | null>(null);
+  const mentionRangeRef = useRef<MentionMatch | null>(null);
   const [highlightedPostId, setHighlightedPostId] = useState<string | null>(null);
   const [uploadedImages, setUploadedImages] = useState<UploadedImageDetails[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string } | null>(null);
+  const [mentionActive, setMentionActive] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState("");
+  const [mentionRange, setMentionRange] = useState<MentionMatch | null>(null);
+  const [mentionResults, setMentionResults] = useState<MentionCandidate[]>([]);
+  const [mentionHighlightIndex, setMentionHighlightIndex] = useState(0);
   const relativeFormatter = useMemo(() => createRelativeFormatter(), []);
   const now = useRelativeNow();
-  const { requestProfile, resolveProfileSummary, openProfile } = useProfileIdentity();
+  const { requestProfile, resolveProfileSummary, openProfile, profiles } = useProfileIdentity();
   const { showToast } = useToast();
   const { user } = useAuth();
   const canModerate = user?.isAdmin === true;
@@ -275,6 +288,68 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     }),
     [],
   );
+
+  useEffect(() => {
+    mentionRangeRef.current = mentionRange;
+  }, [mentionRange]);
+
+  const mentionCandidates = useMemo<MentionCandidate[]>(() => {
+    const map = new Map<string, MentionCandidate>();
+
+    const addCandidate = (pubkeyValue: string | null | undefined) => {
+      const trimmed = typeof pubkeyValue === "string" ? pubkeyValue.trim() : "";
+      if (!trimmed || map.has(trimmed)) {
+        return;
+      }
+      const summary = resolveProfileSummary(trimmed);
+      const profileEntry = profiles[trimmed]?.data ?? null;
+      const screenName = profileEntry?.screenName?.trim() ?? "";
+      map.set(trimmed, {
+        pubkey: trimmed,
+        displayName: summary.displayName,
+        screenName,
+        avatarUrl: summary.avatarUrl,
+        shortPubkey: shortenPubkey(trimmed),
+      });
+    };
+
+    posts.forEach((post) => {
+      addCandidate(post.pubkey);
+      post.tags.forEach((tag) => {
+        if (Array.isArray(tag) && tag[0] === "p" && typeof tag[1] === "string") {
+          addCandidate(tag[1]);
+        }
+      });
+    });
+
+    if (composerTarget) {
+      addCandidate(composerTarget.pubkey);
+    }
+
+    Object.keys(profiles).forEach((pubkeyValue) => addCandidate(pubkeyValue));
+
+    return Array.from(map.values()).sort((a, b) => {
+      const aKey = (a.screenName || a.displayName || a.shortPubkey).toLowerCase();
+      const bKey = (b.screenName || b.displayName || b.shortPubkey).toLowerCase();
+      if (aKey === bKey) {
+        return a.displayName.localeCompare(b.displayName);
+      }
+      return aKey.localeCompare(bKey);
+    });
+  }, [composerTarget, posts, profiles, resolveProfileSummary]);
+
+  const closeMention = useCallback(() => {
+    if (typeof window !== "undefined" && mentionDebounceRef.current !== null) {
+      window.clearTimeout(mentionDebounceRef.current);
+      mentionDebounceRef.current = null;
+    }
+    setMentionActive(false);
+    setMentionQuery("");
+    setMentionRange(null);
+    setMentionResults([]);
+    setMentionHighlightIndex(0);
+    mentionRangeRef.current = null;
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -426,7 +501,8 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       window.localStorage.removeItem(COMPOSER_STORAGE_KEY);
     }
     setComposerFocused(false);
-  }, []);
+    closeMention();
+  }, [closeMention]);
 
   const clearComposerTarget = useCallback(() => {
     setComposerTarget(null);
@@ -1146,6 +1222,208 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   const submitDisabled =
     !ready || publishing || isUploading || (content.trim().length === 0 && !hasSendableAttachments);
 
+  const updateMentionState = useCallback(
+    (text: string, caretPosition: number | null | undefined) => {
+      if (typeof caretPosition !== "number") {
+        closeMention();
+        return;
+      }
+      const match = findActiveMention(text, caretPosition);
+      if (!match) {
+        closeMention();
+        return;
+      }
+      setMentionActive(true);
+      setMentionRange(match);
+      setMentionQuery(match.query);
+    },
+    [closeMention],
+  );
+
+  const computeMentionResults = useCallback(
+    (query: string) => searchMentionCandidatesByScreenName(mentionCandidates, query, 5),
+    [mentionCandidates],
+  );
+
+  useEffect(() => {
+    if (!mentionActive) {
+      if (typeof window !== "undefined" && mentionDebounceRef.current !== null) {
+        window.clearTimeout(mentionDebounceRef.current);
+        mentionDebounceRef.current = null;
+      }
+      setMentionResults([]);
+      return;
+    }
+
+    const applyResults = () => {
+      const results = computeMentionResults(mentionQuery);
+      setMentionResults(results);
+      setMentionHighlightIndex((prev) => {
+        if (results.length === 0) {
+          return 0;
+        }
+        return Math.min(prev, results.length - 1);
+      });
+    };
+
+    if (typeof window === "undefined") {
+      applyResults();
+      return;
+    }
+
+    if (mentionDebounceRef.current !== null) {
+      window.clearTimeout(mentionDebounceRef.current);
+    }
+
+    mentionDebounceRef.current = window.setTimeout(() => {
+      applyResults();
+      mentionDebounceRef.current = null;
+    }, 300);
+
+    return () => {
+      if (mentionDebounceRef.current !== null) {
+        window.clearTimeout(mentionDebounceRef.current);
+        mentionDebounceRef.current = null;
+      }
+    };
+  }, [computeMentionResults, mentionActive, mentionQuery]);
+
+  useEffect(() => {
+    if (!mentionActive) return;
+    setMentionHighlightIndex(0);
+  }, [mentionActive, mentionQuery]);
+
+  useEffect(() => {
+    if (!mentionActive) return;
+    setMentionHighlightIndex((prev) => {
+      if (mentionResults.length === 0) {
+        return 0;
+      }
+      return Math.min(prev, mentionResults.length - 1);
+    });
+  }, [mentionActive, mentionResults]);
+
+  useEffect(
+    () => () => {
+      if (typeof window !== "undefined" && mentionDebounceRef.current !== null) {
+        window.clearTimeout(mentionDebounceRef.current);
+        mentionDebounceRef.current = null;
+      }
+    },
+    [],
+  );
+
+  const handleMentionSelection = useCallback(
+    (candidate: MentionCandidate) => {
+      const range = mentionRangeRef.current;
+      const node = textareaRef.current;
+      const existingValue = node?.value ?? content;
+      if (!range) {
+        return;
+      }
+      const baseHandle =
+        candidate.screenName.trim() || candidate.displayName.trim().replace(/\s+/g, "");
+      const sanitizedHandle = baseHandle.replace(/[^A-Za-z0-9._-]/g, "");
+      const fallbackHandle = candidate.pubkey;
+      const handleText = sanitizedHandle || fallbackHandle;
+      const mentionText = `@${handleText}`;
+      const before = existingValue.slice(0, range.start);
+      const after = existingValue.slice(range.end);
+      const shouldInsertSpace =
+        after.length === 0 || !/^[\s.,!?;:)}\]]/.test(after[0] ?? "");
+      const insertion = shouldInsertSpace ? `${mentionText} ` : mentionText;
+      const nextValue = `${before}${insertion}${after}`;
+      setContent(nextValue.slice(0, 500));
+      closeMention();
+      setComposerFocused(true);
+      const cursor = before.length + mentionText.length + (shouldInsertSpace ? 1 : 0);
+      const focusTextarea = () => {
+        const target = textareaRef.current;
+        if (!target) return;
+        target.focus();
+        try {
+          target.setSelectionRange(cursor, cursor);
+        } catch {
+          // ignore selection errors
+        }
+      };
+      if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+        window.requestAnimationFrame(focusTextarea);
+      } else {
+        focusTextarea();
+      }
+    },
+    [closeMention, content],
+  );
+
+  const selectMentionByIndex = useCallback(
+    (index: number) => {
+      const candidate = mentionResults[index];
+      if (candidate) {
+        handleMentionSelection(candidate);
+      }
+    },
+    [handleMentionSelection, mentionResults],
+  );
+
+  const handleComposerKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    const hasMentionOptions = mentionActive && mentionResults.length > 0;
+    if (hasMentionOptions) {
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        setMentionHighlightIndex((prev) => (prev + 1) % mentionResults.length);
+        return;
+      }
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        setMentionHighlightIndex((prev) => (prev === 0 ? mentionResults.length - 1 : prev - 1));
+        return;
+      }
+      if ((event.key === "Enter" && !event.shiftKey) || event.key === "Tab") {
+        event.preventDefault();
+        selectMentionByIndex(mentionHighlightIndex);
+        return;
+      }
+    }
+
+    if (mentionActive && event.key === "Escape") {
+      event.preventDefault();
+      closeMention();
+    }
+  };
+
+  const handleComposerChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const normalized = rewriteImgBbUrlsInText(event.target.value, { absolute: true });
+    const nextValue = normalized.slice(0, 500);
+    setContent(nextValue);
+    updateMentionState(nextValue, event.target.selectionStart ?? nextValue.length);
+  };
+
+  const handleComposerSelectionChange = (event: React.SyntheticEvent<HTMLTextAreaElement>) => {
+    const node = event.currentTarget;
+    updateMentionState(node.value, node.selectionStart ?? node.value.length);
+  };
+
+  const handleComposerFocus = (event: React.FocusEvent<HTMLTextAreaElement>) => {
+    setComposerFocused(true);
+    updateMentionState(event.currentTarget.value, event.currentTarget.selectionStart ?? event.currentTarget.value.length);
+  };
+
+  const handleComposerBlur = () => {
+    if (content.trim().length === 0) {
+      setComposerFocused(false);
+    }
+    closeMention();
+  };
+
+  const mentionDropdownBottom =
+    uploadedImages.length > 0 ? "12rem" : composerExpanded ? "7rem" : "5.5rem";
+  const mentionListId = "feed-composer-mentions";
+  const activeMentionOptionId =
+    mentionActive && mentionResults[mentionHighlightIndex]
+      ? `${mentionListId}-${mentionResults[mentionHighlightIndex].pubkey}`
+      : undefined;
+
   const composerContent = (
     <>
       <header className="flex items-center justify-between gap-3">
@@ -1192,30 +1470,83 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       )}
 
       <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-        <textarea
-          ref={textareaRef}
-          value={content}
-          onChange={(event) => {
-            const normalized = rewriteImgBbUrlsInText(event.target.value, { absolute: true });
-            setContent(normalized.slice(0, 500));
-          }}
-          onFocus={() => setComposerFocused(true)}
-          onBlur={() => {
-            if (content.trim().length === 0) {
-              setComposerFocused(false);
+        <div className="relative">
+          <textarea
+            ref={textareaRef}
+            value={content}
+            onChange={handleComposerChange}
+            onKeyDown={handleComposerKeyDown}
+            onSelect={handleComposerSelectionChange}
+            onClick={handleComposerSelectionChange}
+            onFocus={handleComposerFocus}
+            onBlur={handleComposerBlur}
+            rows={composerExpanded ? 6 : 1}
+            className={`w-full rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 px-4 py-3 text-sm leading-relaxed text-[var(--fg-default)] shadow-inner focus:border-brand focus:outline-none ${composerExpanded ? "resize-y" : "resize-none"}`}
+            placeholder={
+              composerMode === "reply"
+                ? "Share your thoughts…"
+                : composerMode === "quote"
+                  ? "Add your perspective…"
+                  : "What’s happening in your corner of BitcoinSquare?"
             }
-          }}
-          rows={composerExpanded ? 6 : 1}
-          className={`w-full rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 px-4 py-3 text-sm leading-relaxed text-[var(--fg-default)] shadow-inner focus:border-brand focus:outline-none ${composerExpanded ? "resize-y" : "resize-none"}`}
-          placeholder={
-            composerMode === "reply"
-              ? "Share your thoughts…"
-              : composerMode === "quote"
-                ? "Add your perspective…"
-                : "What’s happening in your corner of BitcoinSquare?"
-          }
-          disabled={!ready || publishing}
-        />
+            disabled={!ready || publishing}
+            aria-autocomplete="list"
+            aria-haspopup="listbox"
+            aria-controls={mentionActive ? mentionListId : undefined}
+            aria-expanded={mentionActive}
+            aria-activedescendant={activeMentionOptionId}
+          />
+          {mentionActive && (
+            <div
+              id={mentionListId}
+              role="listbox"
+              aria-label="Mention suggestions"
+              style={{ bottom: mentionDropdownBottom }}
+              className="pointer-events-auto absolute left-4 right-4 z-40 max-h-60 overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] shadow-xl sm:right-auto sm:w-80"
+            >
+              {mentionResults.length === 0 ? (
+                <p className="px-3 py-2 text-xs text-[var(--fg-muted)]">No matches found.</p>
+              ) : (
+                <ul className="max-h-60 overflow-y-auto py-1">
+                  {mentionResults.map((candidate, index) => {
+                    const optionId = `${mentionListId}-${candidate.pubkey}`;
+                    const isActive = index === mentionHighlightIndex;
+                    return (
+                      <li key={candidate.pubkey} role="presentation">
+                        <button
+                          id={optionId}
+                          role="option"
+                          aria-selected={isActive}
+                          type="button"
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() => handleMentionSelection(candidate)}
+                          onMouseEnter={() => setMentionHighlightIndex(index)}
+                          className={`flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition ${
+                            isActive
+                              ? "bg-brand/10 text-brand"
+                              : "text-[var(--fg-default)] hover:bg-[var(--bg-surface)]/80"
+                          }`}
+                        >
+                          <img
+                            src={candidate.avatarUrl}
+                            alt={candidate.displayName}
+                            className="h-8 w-8 rounded-full border border-[var(--border-subtle)] object-cover"
+                          />
+                          <div className="flex min-w-0 flex-col">
+                            <span className="truncate font-semibold">{candidate.displayName}</span>
+                            <span className="truncate text-xs text-[var(--fg-muted)]">
+                              @{candidate.screenName || candidate.shortPubkey}
+                            </span>
+                          </div>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          )}
+        </div>
         {uploadedImages.length > 0 && (
           <div className="space-y-3">
             <div className="flex flex-wrap gap-3">
@@ -1841,7 +2172,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         type="button"
         onClick={handlePost}
         disabled={!ready}
-        className="fixed right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-lg transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-brand disabled:cursor-not-allowed disabled:bg-brand/40 bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] sm:bottom-24"
+        className="fixed right-6 bottom-[calc(1.5rem+env(safe-area-inset-bottom,0px))] z-40 flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-lg transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-brand disabled:cursor-not-allowed disabled:bg-brand/40 sm:bottom-10"
         aria-label="Create a new community post"
       >
         <Plus className="h-6 w-6" />

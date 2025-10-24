@@ -13,6 +13,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import {
   findActiveMention,
+  searchMentionCandidatesByScreenName,
   type MentionCandidate,
   type MentionMatch,
 } from "../utils/mentions";
@@ -286,20 +287,7 @@ const MessagesPage: React.FC = () => {
   );
 
   const computeMentionResults = useCallback(
-    (query: string) => {
-      const normalizedQuery = query.trim().toLowerCase();
-      return mentionCandidates
-        .filter((candidate) => candidate.screenName || candidate.displayName || candidate.shortPubkey)
-        .filter((candidate) => {
-          if (!normalizedQuery) return true;
-          return (
-            candidate.screenName.toLowerCase().includes(normalizedQuery) ||
-            candidate.displayName.toLowerCase().includes(normalizedQuery) ||
-            candidate.shortPubkey.toLowerCase().includes(normalizedQuery)
-          );
-        })
-        .slice(0, 8);
-    },
+    (query: string) => searchMentionCandidatesByScreenName(mentionCandidates, query, 5),
     [mentionCandidates],
   );
 
