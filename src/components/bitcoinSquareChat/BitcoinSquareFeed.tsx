@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import type { FeedPost, PublishContext } from "../../hooks/useBitcoinSquareFeed";
 import { searchUsersByScreenName, type ScreenNameUser } from "../../api/users";
@@ -254,7 +255,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string } | null>(null);
   const relativeFormatter = useMemo(() => createRelativeFormatter(), []);
   const now = useRelativeNow();
-  const { requestProfile, resolveProfileSummary, openProfile } = useProfileIdentity();
+  const { requestProfile, resolveProfileSummary, openProfile, profiles } = useProfileIdentity();
   const { showToast } = useToast();
   const { user } = useAuth();
   const canModerate = user?.isAdmin === true;
@@ -303,6 +304,33 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     [fallbackProfileAvatar, resolveProfileSummary],
   );
 
+  const localMentionCandidates = useMemo(() => {
+    const list: MentionCandidate[] = [];
+    const seen = new Set<string>();
+    Object.entries(profiles).forEach(([pubkey, entry]) => {
+      const screenName = entry.data?.screenName?.trim();
+      if (!screenName) {
+        return;
+      }
+      const normalized = screenName.toLowerCase();
+      if (seen.has(normalized)) {
+        return;
+      }
+      seen.add(normalized);
+      const summary = resolveProfileSummary(pubkey);
+      const displayName = summary.displayName?.trim() || `@${screenName}`;
+      list.push({
+        pubkey,
+        displayName,
+        screenName,
+        avatarUrl: summary.avatarUrl || fallbackProfileAvatar(pubkey),
+        shortPubkey: shortenPubkey(pubkey),
+      });
+    });
+    list.sort((a, b) => a.screenName.toLowerCase().localeCompare(b.screenName.toLowerCase()));
+    return list;
+  }, [fallbackProfileAvatar, profiles, resolveProfileSummary, shortenPubkey]);
+
   const fetchMentionCandidates = useCallback(
     async (query: string, limit: number) => {
       const users = await searchUsersByScreenName(query, limit);
@@ -335,6 +363,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     onChange: (next) => setContent(next.slice(0, 500)),
     textareaRef,
     fetchCandidates: fetchMentionCandidates,
+    candidates: localMentionCandidates,
     limit: 5,
     listIdPrefix: "feed-composer-mentions",
     onMentionInserted: () => setComposerFocused(true),
@@ -1202,6 +1231,38 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     };
   }, [lightboxImage]);
 
+  const lightboxOverlay =
+    lightboxImage
+      ? (
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="fixed inset-0 z-[90] flex items-center justify-center bg-black/90 p-4 sm:p-6"
+            onClick={() => setLightboxImage(null)}
+          >
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                setLightboxImage(null);
+              }}
+              className="absolute right-6 top-6 inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/70 text-white transition hover:bg-black/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+              aria-label="Close image preview"
+            >
+              <X className="h-5 w-5" aria-hidden />
+            </button>
+            <div className="relative flex max-h-[90vh] max-w-[90vw] items-center justify-center" onClick={(event) => event.stopPropagation()}>
+              <img
+                src={lightboxImage.src}
+                alt={lightboxImage.alt}
+                className="h-auto max-h-full w-auto max-w-full object-contain"
+                loading="lazy"
+              />
+            </div>
+          </div>
+        )
+      : null;
+
   const composerExpanded = composerFocused || content.trim().length > 0 || uploadedImages.length > 0;
 
   const hasSendableAttachments = useMemo(
@@ -2051,38 +2112,10 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         <span className="sr-only sm:hidden">Create New Post</span>
       </button>
 
-      {lightboxImage && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-[90] flex items-center justify-center bg-black/90 p-4 sm:p-6"
-          onClick={() => setLightboxImage(null)}
-        >
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              setLightboxImage(null);
-            }}
-            className="absolute right-6 top-6 inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/70 text-white transition hover:bg-black/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
-            aria-label="Close image preview"
-          >
-            <X className="h-5 w-5" aria-hidden />
-          </button>
-          <div
-            className="relative flex max-h-[90vh] max-w-[90vw] items-center justify-center"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <img
-              src={lightboxImage.src}
-              alt={lightboxImage.alt}
-              className="h-auto max-h-full w-auto max-w-full object-contain"
-              loading="lazy"
-              onClick={(event) => event.stopPropagation()}
-            />
-          </div>
-        </div>
-      )}
+      {lightboxOverlay &&
+        (typeof document !== "undefined"
+          ? createPortal(lightboxOverlay, document.body)
+          : lightboxOverlay)}
     </div>
   );
 };

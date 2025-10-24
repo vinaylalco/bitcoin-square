@@ -203,6 +203,33 @@ const MessagesPage: React.FC = () => {
     [fallbackProfileAvatar, resolveProfileSummary, shortenPubkey],
   );
 
+  const localMentionCandidates = useMemo(() => {
+    const list: MentionCandidate[] = [];
+    const seen = new Set<string>();
+    Object.entries(profiles).forEach(([pubkey, entry]) => {
+      const screenName = entry.data?.screenName?.trim();
+      if (!screenName) {
+        return;
+      }
+      const normalized = screenName.toLowerCase();
+      if (seen.has(normalized)) {
+        return;
+      }
+      seen.add(normalized);
+      const summary = resolveProfileSummary(pubkey);
+      const displayName = summary.displayName?.trim() || `@${screenName}`;
+      list.push({
+        pubkey,
+        displayName,
+        screenName,
+        avatarUrl: summary.avatarUrl || fallbackProfileAvatar(pubkey),
+        shortPubkey: shortenPubkey(pubkey),
+      });
+    });
+    list.sort((a, b) => a.screenName.toLowerCase().localeCompare(b.screenName.toLowerCase()));
+    return list;
+  }, [fallbackProfileAvatar, profiles, resolveProfileSummary, shortenPubkey]);
+
   const fetchMentionCandidates = useCallback(
     async (query: string, limit: number) => {
       const users = await searchUsersByScreenName(query, limit);
@@ -249,6 +276,7 @@ const MessagesPage: React.FC = () => {
     onChange: applyMentionChange,
     textareaRef,
     fetchCandidates: fetchMentionCandidates,
+    candidates: localMentionCandidates,
     limit: 5,
     listIdPrefix: "messages-composer-mentions",
   });

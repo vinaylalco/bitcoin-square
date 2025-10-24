@@ -89,15 +89,29 @@ export const useMentionAutocomplete = ({
 
   const computeMentionResults = useCallback(
     async (query: string) => {
+      const searchLocal = () => searchMentionCandidatesByScreenName(candidates, query, limit);
+
       if (fetchCandidates) {
+        let remoteResults: MentionCandidate[] = [];
         try {
-          const results = await fetchCandidates(query, limit);
-          return Array.isArray(results) ? results.slice(0, limit) : [];
+          const fetched = await fetchCandidates(query, limit);
+          if (Array.isArray(fetched)) {
+            remoteResults = fetched.filter(Boolean).slice(0, limit);
+          }
         } catch {
-          return [];
+          remoteResults = [];
         }
+
+        if (remoteResults.length >= limit || candidates.length === 0) {
+          return remoteResults.slice(0, limit);
+        }
+
+        const seen = new Set(remoteResults.map((candidate) => candidate.pubkey));
+        const localResults = searchLocal().filter((candidate) => !seen.has(candidate.pubkey));
+        return [...remoteResults, ...localResults].slice(0, limit);
       }
-      return searchMentionCandidatesByScreenName(candidates, query, limit);
+
+      return searchLocal();
     },
     [candidates, fetchCandidates, limit],
   );
@@ -108,7 +122,8 @@ export const useMentionAutocomplete = ({
         window.clearTimeout(mentionDebounceRef.current);
         mentionDebounceRef.current = null;
       }
-      setMentionResults([]);
+      setMentionResults((previous) => (previous.length === 0 ? previous : []));
+      setMentionHighlightIndex((previous) => (previous === 0 ? previous : 0));
       return;
     }
 

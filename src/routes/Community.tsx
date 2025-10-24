@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Navigate, NavLink, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import BitcoinSquareFeed from "../components/bitcoinSquareChat/BitcoinSquareFeed";
@@ -485,6 +486,38 @@ const AttachmentPreview: React.FC<{ attachment: CasualAttachmentMeta }> = ({ att
     };
   }, [lightboxOpen]);
 
+  const lightboxContent =
+    lightboxOpen && fullUrl
+      ? (
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="fixed inset-0 z-50 flex h-screen w-screen items-center justify-center bg-black/90 p-0 sm:p-6"
+            onClick={() => setLightboxOpen(false)}
+          >
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                setLightboxOpen(false);
+              }}
+              className="absolute right-6 top-6 inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/70 text-white transition hover:bg-black/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+              aria-label="Close image preview"
+            >
+              <X className="h-5 w-5" aria-hidden />
+            </button>
+            <div className="flex h-full w-full items-center justify-center" onClick={(event) => event.stopPropagation()}>
+              <img
+                src={fullUrl}
+                alt="Attachment"
+                className="mx-auto block h-auto max-h-full w-auto max-w-full object-contain"
+                loading="lazy"
+              />
+            </div>
+          </div>
+        )
+      : null;
+
   return (
     <div className="space-y-2">
       {attachment.mimeType.startsWith("image/") && (previewUrl ?? attachment.url) && (
@@ -516,37 +549,10 @@ const AttachmentPreview: React.FC<{ attachment: CasualAttachmentMeta }> = ({ att
       {status === "error" && (
         <p className="text-xs text-red-500">{error ?? "Unable to load media"}</p>
       )}
-      {lightboxOpen && fullUrl && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-50 flex h-screen w-screen items-center justify-center bg-black/90 p-0 sm:p-6"
-          onClick={() => setLightboxOpen(false)}
-        >
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              setLightboxOpen(false);
-            }}
-            className="absolute right-6 top-6 inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/70 text-white transition hover:bg-black/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
-            aria-label="Close image preview"
-          >
-            <X className="h-5 w-5" aria-hidden />
-          </button>
-          <div
-            className="flex h-full w-full items-center justify-center"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <img
-              src={fullUrl}
-              alt="Attachment"
-              className="mx-auto block h-auto max-h-full w-auto max-w-full object-contain"
-              loading="lazy"
-            />
-          </div>
-        </div>
-      )}
+      {lightboxContent &&
+        (typeof document !== "undefined"
+          ? createPortal(lightboxContent, document.body)
+          : lightboxContent)}
     </div>
   );
 };
@@ -560,6 +566,7 @@ const Composer: React.FC<{
   onClearQuote?: () => void;
   onJumpToQuote?: (messageId: string) => void;
   fetchMentionCandidates: (query: string, limit: number) => Promise<MentionCandidate[]>;
+  mentionCandidates: MentionCandidate[];
 }> = ({
   disabled,
   onSend,
@@ -569,6 +576,7 @@ const Composer: React.FC<{
   onClearQuote,
   onJumpToQuote,
   fetchMentionCandidates,
+  mentionCandidates,
 }) => {
   const initialDraft = rewriteImgBbUrlsInText(draft ?? "", { absolute: true });
   const [value, setValue] = useState(initialDraft);
@@ -652,6 +660,7 @@ const Composer: React.FC<{
     onChange: setValue,
     textareaRef,
     fetchCandidates: fetchMentionCandidates,
+    candidates: mentionCandidates,
     limit: 5,
     listIdPrefix: "casual-composer-mentions",
     onMentionInserted: () => {
@@ -1216,6 +1225,33 @@ const CommunityView: React.FC = () => {
     },
     [fallbackProfileAvatar, resolveProfileSummary, shortenPubkey],
   );
+
+  const localMentionCandidates = useMemo(() => {
+    const list: MentionCandidate[] = [];
+    const seen = new Set<string>();
+    Object.entries(profiles).forEach(([pubkey, entry]) => {
+      const screenName = entry.data?.screenName?.trim();
+      if (!screenName) {
+        return;
+      }
+      const normalized = screenName.toLowerCase();
+      if (seen.has(normalized)) {
+        return;
+      }
+      seen.add(normalized);
+      const summary = resolveProfileSummary(pubkey);
+      const displayName = summary.displayName?.trim() || `@${screenName}`;
+      list.push({
+        pubkey,
+        displayName,
+        screenName,
+        avatarUrl: summary.avatarUrl || fallbackProfileAvatar(pubkey),
+        shortPubkey: shortenPubkey(pubkey),
+      });
+    });
+    list.sort((a, b) => a.screenName.toLowerCase().localeCompare(b.screenName.toLowerCase()));
+    return list;
+  }, [fallbackProfileAvatar, profiles, resolveProfileSummary, shortenPubkey]);
 
   const fetchMentionCandidates = useCallback(
     async (query: string, limit: number) => {
@@ -2775,6 +2811,7 @@ const CommunityView: React.FC = () => {
                       onClearQuote={() => setQuoteContext(null)}
                       onJumpToQuote={handleScrollToMessage}
                       fetchMentionCandidates={fetchMentionCandidates}
+                      mentionCandidates={localMentionCandidates}
                     />
                   </div>
                 </div>
