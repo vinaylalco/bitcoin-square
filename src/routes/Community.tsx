@@ -12,6 +12,7 @@ import {
 } from "../hooks/useBitcoinSquareCasualChat";
 import type { CasualAttachmentMeta } from "../hooks/useBitcoinSquareCasualChat";
 import { useBitcoinSquareFeed } from "../hooks/useBitcoinSquareFeed";
+import type { FeedPost } from "../hooks/useBitcoinSquareFeed";
 import { decryptBinary } from "../utils/aes";
 import { getCachedMediaBlob, getCachedPreview, setCachedMediaBlob, setCachedPreview } from "../utils/mediaCache";
 import { useProfileIdentity } from "../context/ProfileIdentityContext";
@@ -24,9 +25,11 @@ import {
   CommunityTranslationProvider,
   useCommunityTranslation,
 } from "../context/CommunityTranslationContext";
+import { useDirectMessages } from "../context/DirectMessageContext";
 import type { LucideIcon } from "lucide-react";
 import {
   ArrowUp,
+  Bell,
   Heart,
   ImagePlus,
   Loader2,
@@ -51,6 +54,12 @@ import {
   type UploadedImageDetails,
 } from "../utils/imageUpload";
 import { rewriteImgBbUrlToProxy, rewriteImgBbUrlsInText } from "../utils/imageProxy";
+import { useDebouncedValue } from "../hooks/useDebouncedValue";
+import {
+  extractMentionedPubkeys,
+  includesMentionOfPubkey,
+  type MentionTarget,
+} from "../utils/mentions";
 
 type ActiveView = "casual" | "feed" | "personal" | "members";
 
@@ -90,6 +99,29 @@ interface AuthorAccent {
   dot: string;
 }
 
+interface NotificationPreview {
+  id: string;
+  authorName: string;
+  avatarUrl: string;
+  snippet: string;
+  timestamp: number;
+}
+
+type NotificationAction =
+  | { kind: "chat"; messageId: string; originalId?: string | null }
+  | { kind: "feed"; postId: string; replyId?: string | null };
+
+interface NotificationItem {
+  id: string;
+  summary: string;
+  groupLabel: string;
+  timestamp: number;
+  previews: NotificationPreview[];
+  overflowCount: number;
+  action: NotificationAction;
+  kind: "chat-reply" | "feed-reply" | "chat-mention" | "feed-mention";
+}
+
 const ACTIVE_MEMBER_WINDOW_SECONDS = 60;
 const CHAT_CHARACTER_LIMIT = 500;
 const LIGHT_BACKGROUND_TEXTURE =
@@ -108,6 +140,8 @@ const QUALITY_STEPS = [0.92, 0.85, 0.75, 0.65, 0.55];
 const MEMBER_LIST_INITIAL_LIMIT = 20;
 const MEMBER_LIST_PAGE_SIZE = 20;
 const MEMBER_SCROLL_THRESHOLD_PX = 120;
+const MENTION_SUGGESTION_LIMIT = 6;
+const NOTIFICATION_PREVIEW_LIMIT = 3;
 
 const formatTimestamp = (unixSeconds: number) => {
   try {
@@ -137,6 +171,42 @@ const computeAuthorAccent = (pubkey: string): AuthorAccent => {
     shadow: `hsla(${hue}, 70%, 45%, 0.25)`,
     dot: `hsla(${hue}, 85%, 55%, 1)`,
   };
+};
+
+const extractFeedReplyTargetId = (tags?: string[][] | null): string | null => {
+  if (!tags) return null;
+  for (const tag of tags) {
+    if (Array.isArray(tag) && tag[0] === "reply" && typeof tag[1] === "string" && tag[1].trim().length > 0) {
+      return tag[1].trim();
+    }
+  }
+  for (const tag of tags) {
+    if (Array.isArray(tag) && tag[0] === "e" && typeof tag[1] === "string" && tag[1].trim().length > 0) {
+      return tag[1].trim();
+    }
+  }
+  for (const tag of tags) {
+    if (Array.isArray(tag) && tag[0] === "q" && typeof tag[1] === "string" && tag[1].trim().length > 0) {
+      return tag[1].trim();
+    }
+  }
+  return null;
+};
+
+const formatNameList = (names: string[]): string => {
+  const unique = Array.from(new Set(names.filter((name) => typeof name === "string" && name.trim().length > 0))).map((name) =>
+    name.trim(),
+  );
+  if (unique.length === 0) {
+    return "Someone";
+  }
+  if (unique.length === 1) {
+    return unique[0];
+  }
+  if (unique.length === 2) {
+    return `${unique[0]} and ${unique[1]}`;
+  }
+  return `${unique[0]}, ${unique[1]}, and ${unique.length - 2} others`;
 };
 
 const formatLastSeenLabel = (unixSeconds: number) => {
@@ -509,12 +579,17 @@ const AttachmentPreview: React.FC<{ attachment: CasualAttachmentMeta }> = ({ att
 
 const Composer: React.FC<{
   disabled: boolean;
-  onSend: (text: string, attachments: CasualAttachmentMeta[]) => Promise<void>;
+  onSend: (
+    text: string,
+    attachments: CasualAttachmentMeta[],
+    options?: { mentionPubkeys?: string[] },
+  ) => Promise<void>;
   draft?: string;
   onTyping?: () => void;
   quoteContext?: QuoteContextState | null;
   onClearQuote?: () => void;
   onJumpToQuote?: (messageId: string) => void;
+  mentionTargets?: MentionTarget[];
 }> = ({
   disabled,
   onSend,
@@ -523,6 +598,7 @@ const Composer: React.FC<{
   quoteContext,
   onClearQuote,
   onJumpToQuote,
+  mentionTargets = [],
 }) => {
   const initialDraft = rewriteImgBbUrlsInText(draft ?? "", { absolute: true });
   const [value, setValue] = useState(initialDraft);
@@ -534,9 +610,130 @@ const Composer: React.FC<{
   const [uploadedImages, setUploadedImages] = useState<UploadedImageDetails[]>(() =>
     getMarkdownImageUrls(initialDraft).map((url) => createPlaceholderImageDetails(url)),
   );
+  const [mentionState, setMentionState] = useState<{ active: boolean; start: number; query: string }>(
+    { active: false, start: 0, query: "" },
+  );
+  const [highlightedMentionIndex, setHighlightedMentionIndex] = useState(0);
   const typingEmitRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const debouncedMentionQuery = useDebouncedValue(mentionState.query, 300);
+  const filteredMentionTargets = useMemo(() => {
+    if (!mentionState.active) {
+      return [] as MentionTarget[];
+    }
+    const query = debouncedMentionQuery.trim().toLowerCase();
+    const source = mentionTargets.filter((target) => target.pubkey.length === 64);
+    if (query.length === 0) {
+      return source.slice(0, MENTION_SUGGESTION_LIMIT);
+    }
+    return source
+      .filter((target) => {
+        const screen = target.screenName?.toLowerCase() ?? "";
+        const display = target.displayName?.toLowerCase() ?? "";
+        return screen.includes(query) || display.includes(query);
+      })
+      .slice(0, MENTION_SUGGESTION_LIMIT);
+  }, [debouncedMentionQuery, mentionState.active, mentionTargets]);
+  const mentionDropdownVisible = mentionState.active && filteredMentionTargets.length > 0;
+
+  useEffect(() => {
+    if (!mentionDropdownVisible) {
+      setHighlightedMentionIndex(0);
+      return;
+    }
+    setHighlightedMentionIndex((current) => {
+      if (filteredMentionTargets.length === 0) {
+        return 0;
+      }
+      return Math.min(current, filteredMentionTargets.length - 1);
+    });
+  }, [filteredMentionTargets.length, mentionDropdownVisible]);
+
+  const closeMention = useCallback(() => {
+    setMentionState({ active: false, start: 0, query: "" });
+  }, []);
+
+  const emitTyping = useCallback(() => {
+    if (!onTyping) return;
+    const now = Date.now();
+    if (now - typingEmitRef.current < 400) return;
+    typingEmitRef.current = now;
+    onTyping();
+  }, [onTyping]);
+
+  const updateMentionState = useCallback(
+    (text: string, caret: number) => {
+      if (!mentionTargets.length) {
+        return;
+      }
+      const safeCaret = Number.isFinite(caret) ? Math.max(0, Math.min(text.length, caret)) : text.length;
+      const slice = text.slice(0, safeCaret);
+      const match = slice.match(/(^|\s)@([0-9a-zA-Z_]{0,64})$/);
+      if (match) {
+        const query = match[2] ?? "";
+        const start = safeCaret - query.length - 1;
+        setMentionState({ active: true, start, query });
+      } else {
+        closeMention();
+      }
+    },
+    [closeMention, mentionTargets.length],
+  );
+
+  const applyMention = useCallback(
+    (target: MentionTarget) => {
+      if (!mentionState.active) {
+        return;
+      }
+      const textarea = textareaRef.current;
+      const currentValue = textarea ? textarea.value : value;
+      const selectionEnd = textarea?.selectionStart ?? currentValue.length;
+      const start = mentionState.start;
+      if (start < 0 || start > currentValue.length) {
+        closeMention();
+        return;
+      }
+      const before = currentValue.slice(0, start);
+      const after = currentValue.slice(selectionEnd);
+      const mentionText = `@${target.pubkey}`;
+      const needsTrailingSpace = after.length === 0 || /^\S/.test(after) ? " " : "";
+      const nextValue = `${before}${mentionText}${needsTrailingSpace}${after}`;
+      setValue(nextValue);
+      closeMention();
+      if (uploadError) {
+        setUploadError(null);
+      }
+      if (textarea) {
+        const position = before.length + mentionText.length + (needsTrailingSpace ? 1 : 0);
+        if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+          window.requestAnimationFrame(() => {
+            textarea.focus();
+            try {
+              textarea.setSelectionRange(position, position);
+            } catch {
+              // Ignore selection errors
+            }
+          });
+        } else {
+          textarea.focus();
+          try {
+            textarea.setSelectionRange(position, position);
+          } catch {
+            // Ignore selection errors
+          }
+        }
+      }
+      emitTyping();
+    },
+    [closeMention, emitTyping, mentionState.active, mentionState.start, setValue, textareaRef, uploadError, value],
+  );
+
+  const handleSelectionChange = useCallback(() => {
+    const node = textareaRef.current;
+    if (!node) return;
+    updateMentionState(node.value, node.selectionStart ?? node.value.length);
+  }, [updateMentionState]);
 
   const characterCount = value.length;
   const characterStatusClass =
@@ -583,14 +780,6 @@ const Composer: React.FC<{
     });
   }, [value]);
 
-  const emitTyping = useCallback(() => {
-    if (!onTyping) return;
-    const now = Date.now();
-    if (now - typingEmitRef.current < 400) return;
-    typingEmitRef.current = now;
-    onTyping();
-  }, [onTyping]);
-
   const handleSubmit = useCallback(async () => {
     if (disabled || isSending || isUploading) return;
     const normalizedValue = rewriteImgBbUrlsInText(value, { absolute: true });
@@ -616,19 +805,49 @@ const Composer: React.FC<{
 
     setIsSending(true);
     try {
-      await onSend(trimmed, attachments);
+      const mentionPubkeys = extractMentionedPubkeys(trimmed);
+      await onSend(trimmed, attachments, { mentionPubkeys });
       setValue("");
       setError(null);
       setUploadError(null);
+      closeMention();
     } catch (sendError) {
       const message = sendError instanceof Error ? sendError.message : String(sendError);
       setError(message);
     } finally {
       setIsSending(false);
     }
-  }, [disabled, isSending, isUploading, onSend, uploadedImages, value]);
+  }, [closeMention, disabled, isSending, isUploading, onSend, uploadedImages, value]);
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (mentionDropdownVisible && filteredMentionTargets.length > 0) {
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        setHighlightedMentionIndex((current) => (current + 1) % filteredMentionTargets.length);
+        return;
+      }
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        setHighlightedMentionIndex((current) =>
+          current === 0 ? filteredMentionTargets.length - 1 : current - 1,
+        );
+        return;
+      }
+      if ((event.key === "Enter" && !event.shiftKey) || event.key === "Tab") {
+        event.preventDefault();
+        const choice =
+          filteredMentionTargets[highlightedMentionIndex] ?? filteredMentionTargets[0];
+        if (choice) {
+          applyMention(choice);
+        }
+        return;
+      }
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeMention();
+        return;
+      }
+    }
     emitTyping();
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
@@ -639,6 +858,8 @@ const Composer: React.FC<{
   const handleChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
     const nextValue = rewriteImgBbUrlsInText(event.target.value, { absolute: true });
     setValue(nextValue);
+    const caret = event.target.selectionStart ?? nextValue.length;
+    updateMentionState(nextValue, caret);
     emitTyping();
     if (uploadError) {
       setUploadError(null);
@@ -781,12 +1002,16 @@ const Composer: React.FC<{
           value={value}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
+          onSelect={handleSelectionChange}
+          onKeyUp={handleSelectionChange}
+          onClick={handleSelectionChange}
           disabled={disabled || isSending}
           onFocus={() => setIsTextareaFocused(true)}
           onBlur={() => {
             if (value.trim().length === 0) {
               setIsTextareaFocused(false);
             }
+            closeMention();
           }}
           rows={composerExpanded ? 4 : 1}
           maxLength={CHAT_CHARACTER_LIMIT}
@@ -795,6 +1020,47 @@ const Composer: React.FC<{
             composerExpanded ? "pb-16" : "pb-12"
           }`}
         />
+        {mentionDropdownVisible && (
+          <div className="pointer-events-auto absolute left-4 right-4 bottom-24 z-20 overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)]/95 shadow-xl">
+            <ul className="max-h-56 overflow-y-auto py-2" role="listbox" aria-label="Mention suggestions">
+              {filteredMentionTargets.map((target, index) => {
+                const isActive = index === highlightedMentionIndex;
+                return (
+                  <li key={target.pubkey}>
+                    <button
+                      type="button"
+                      onMouseDown={(event) => {
+                        event.preventDefault();
+                        applyMention(target);
+                      }}
+                      className={`flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition ${
+                        isActive
+                          ? "bg-brand/10 text-brand"
+                          : "text-[var(--fg-default)] hover:bg-[var(--bg-muted)]/60"
+                      }`}
+                      role="option"
+                      aria-selected={isActive}
+                    >
+                      <img
+                        src={target.avatarUrl}
+                        alt=""
+                        className="h-8 w-8 flex-shrink-0 rounded-full object-cover"
+                      />
+                      <div className="min-w-0">
+                        <p className={`truncate font-semibold ${isActive ? "text-brand" : "text-[var(--fg-default)]"}`}>
+                          {target.displayName}
+                        </p>
+                        <p className="truncate text-xs text-[var(--fg-muted)]">
+                          @{target.screenName || target.displayName}
+                        </p>
+                      </div>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
         {uploadedImages.length > 0 && (
           <div className="px-4">
             <div className="flex flex-wrap gap-3 pb-4 pt-2">
@@ -874,6 +1140,130 @@ const Composer: React.FC<{
   );
 };
 
+const NotificationsPanel: React.FC<{
+  open: boolean;
+  items: NotificationItem[];
+  onClose: () => void;
+  onAction: (item: NotificationItem) => void;
+}> = ({ open, items, onClose, onAction }) => {
+  const panelRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [onClose, open]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const node = panelRef.current;
+    if (node) {
+      node.focus({ preventScroll: true });
+    }
+  }, [open]);
+
+  if (!open) {
+    return null;
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-8"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="community-notifications-heading"
+    >
+      <div
+        ref={panelRef}
+        className="w-full max-w-xl overflow-hidden rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] shadow-2xl focus:outline-none"
+        tabIndex={-1}
+      >
+        <div className="flex items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 px-5 py-4">
+          <h2
+            id="community-notifications-heading"
+            className="text-sm font-semibold uppercase tracking-[0.24em] text-[var(--fg-muted)]"
+          >
+            Notifications
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+            aria-label="Close notifications"
+          >
+            <X className="h-4 w-4" aria-hidden />
+          </button>
+        </div>
+        <div className="max-h-[70vh] overflow-y-auto px-5 py-4">
+          {items.length === 0 ? (
+            <p className="text-sm text-[var(--fg-muted)]">
+              No notifications yet. We&apos;ll let you know when someone replies or mentions you.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {items.map((item) => (
+                <article
+                  key={item.id}
+                  className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/70 p-4 shadow-sm"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-semibold text-[var(--fg-default)]">{item.summary}</p>
+                      <p className="mt-1 text-[10px] uppercase tracking-[0.3em] text-[var(--fg-muted)]">{item.groupLabel}</p>
+                    </div>
+                    <span className="text-xs text-[var(--fg-muted)]">{formatTimestamp(item.timestamp)}</span>
+                  </div>
+                  <div className="mt-3 space-y-3">
+                    {item.previews.map((preview) => (
+                      <div key={preview.id} className="flex items-start gap-3">
+                        <img
+                          src={preview.avatarUrl}
+                          alt=""
+                          className="h-8 w-8 rounded-full object-cover"
+                        />
+                        <div className="min-w-0 text-sm text-[var(--fg-default)]">
+                          <p className="font-semibold">{preview.authorName}</p>
+                          <p className="text-[13px] text-[var(--fg-muted)]">{preview.snippet}</p>
+                          <p className="mt-1 text-[10px] uppercase tracking-[0.3em] text-[var(--fg-muted)]">
+                            {formatTimestamp(preview.timestamp)}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                    {item.overflowCount > 0 && (
+                      <p className="text-xs text-[var(--fg-muted)]">
+                        +{item.overflowCount.toLocaleString()} more replies in this thread
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onAction(item)}
+                    className="mt-4 inline-flex items-center justify-center rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white shadow-md transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+                  >
+                    View thread
+                  </button>
+                </article>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const CommunityView: React.FC = () => {
   const { theme } = useTheme();
   const {
@@ -907,6 +1297,7 @@ const CommunityView: React.FC = () => {
     initialLoading: feedInitialLoading,
   } = useBitcoinSquareFeed();
   const { user, refreshNostrKeys } = useAuth();
+  const { conversations } = useDirectMessages();
   const canModerate = user?.isAdmin === true;
 
   const navigate = useNavigate();
@@ -985,6 +1376,8 @@ const CommunityView: React.FC = () => {
   const [newMessageAnchor, setNewMessageAnchor] = useState<string | null>(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const [composerHeight, setComposerHeight] = useState(0);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [readNotificationIds, setReadNotificationIds] = useState<Set<string>>(() => new Set());
   const messageRefs = useRef(new Map<string, HTMLDivElement>());
   const highlightTimerRef = useRef<number | null>(null);
   const pendingHighlightRef = useRef<string | null>(null);
@@ -995,7 +1388,8 @@ const CommunityView: React.FC = () => {
   const rowHeightsRef = useRef(new Map<string, number>());
   const resizeObserversRef = useRef(new Map<string, ResizeObserver>());
   const [virtualVersion, setVirtualVersion] = useState(0);
-  const { requestProfile, resolveProfileSummary, openProfile, follow, following } = useProfileIdentity();
+  const { requestProfile, resolveProfileSummary, openProfile, follow, following, profiles } =
+    useProfileIdentity();
   const backgroundTexture = useMemo(
     () => (theme === "dark" ? DARK_BACKGROUND_TEXTURE : LIGHT_BACKGROUND_TEXTURE),
     [theme],
@@ -1381,6 +1775,75 @@ const CommunityView: React.FC = () => {
     resolveProfileSummary,
   ]);
 
+  const mentionTargets = useMemo<MentionTarget[]>(() => {
+    const targets = new Map<string, MentionTarget>();
+    const currentPubkey = pubkey?.toLowerCase() ?? null;
+
+    const addTarget = (candidate?: string | null) => {
+      if (!candidate) return;
+      const normalized = candidate.trim().toLowerCase();
+      if (normalized.length !== 64) {
+        return;
+      }
+      if (currentPubkey && normalized === currentPubkey) {
+        return;
+      }
+      if (targets.has(normalized)) {
+        return;
+      }
+      const profileEntry = profiles?.[normalized];
+      const summary = resolveProfileSummary(normalized);
+      const screenName = profileEntry?.data?.screenName ?? profileEntry?.data?.displayName ?? summary.displayName;
+      targets.set(normalized, {
+        pubkey: normalized,
+        screenName: screenName?.replace(/^@/, "") ?? summary.displayName,
+        displayName: summary.displayName,
+        avatarUrl: summary.avatarUrl,
+      });
+    };
+
+    contextMembers.forEach((member) => addTarget(member.pubkey));
+    Object.values(conversations).forEach((conversation) => addTarget(conversation.peerPubkey));
+    following.forEach((followed) => addTarget(followed));
+    Object.keys(profiles).forEach((key) => addTarget(key));
+    Object.values(profiles).forEach((entry) => {
+      const profile = entry?.data;
+      if (!profile) {
+        return;
+      }
+      profile.followers?.forEach((follower) => addTarget(follower));
+      profile.following?.forEach((value) => addTarget(value));
+    });
+
+    const sorted = Array.from(targets.values());
+    sorted.sort((a, b) => {
+      const primaryA = a.screenName || a.displayName || a.pubkey;
+      const primaryB = b.screenName || b.displayName || b.pubkey;
+      const primaryCompare = primaryA.localeCompare(primaryB, undefined, {
+        sensitivity: "base",
+        numeric: true,
+      });
+      if (primaryCompare !== 0) {
+        return primaryCompare;
+      }
+      const secondaryA = a.displayName || a.pubkey;
+      const secondaryB = b.displayName || b.pubkey;
+      return secondaryA.localeCompare(secondaryB, undefined, { sensitivity: "base", numeric: true });
+    });
+    return sorted;
+  }, [conversations, contextMembers, following, profiles, pubkey, resolveProfileSummary]);
+  const requestedMentionProfilesRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    mentionTargets.forEach((target) => {
+      if (requestedMentionProfilesRef.current.has(target.pubkey)) {
+        return;
+      }
+      requestedMentionProfilesRef.current.add(target.pubkey);
+      void requestProfile(target.pubkey);
+    });
+  }, [mentionTargets, requestProfile]);
+
   const [visibleMemberCount, setVisibleMemberCount] = useState(MEMBER_LIST_INITIAL_LIMIT);
   const [memberScrollContainer, setMemberScrollContainer] = useState<HTMLDivElement | null>(null);
 
@@ -1576,6 +2039,13 @@ const CommunityView: React.FC = () => {
     });
     return map;
   }, [messages]);
+  const feedPostsById = useMemo(() => {
+    const map = new Map<string, FeedPost>();
+    feedPosts.forEach((post) => {
+      map.set(post.id, post);
+    });
+    return map;
+  }, [feedPosts]);
   const messageIndexMap = useMemo(() => {
     const map = new Map<string, number>();
     messages.forEach((message, index) => {
@@ -1590,6 +2060,257 @@ const CommunityView: React.FC = () => {
         .map((key) => resolveProfileSummary(key)),
     [typingPubkeys, pubkey, resolveProfileSummary],
   );
+  const viewerPubkey = useMemo(() => {
+    const candidates = [pubkey, feedPubkey, accountPubkey, user?.nostrPublicKey];
+    for (const candidate of candidates) {
+      if (typeof candidate === "string" && candidate.trim().length === 64) {
+        return candidate.trim().toLowerCase();
+      }
+    }
+    return null;
+  }, [accountPubkey, feedPubkey, pubkey, user?.nostrPublicKey]);
+  const notificationItems = useMemo<NotificationItem[]>(() => {
+    if (!viewerPubkey) {
+      return [];
+    }
+    const lowerViewer = viewerPubkey;
+    const items: NotificationItem[] = [];
+    const chatReplyGroups = new Map<
+      string,
+      {
+        originalId: string;
+        previews: NotificationPreview[];
+        authors: string[];
+        latest: number;
+        total: number;
+      }
+    >();
+    const handledChatMessages = new Set<string>();
+
+    messages.forEach((message) => {
+      if (message.status !== "ok" || message.optimistic) {
+        return;
+      }
+      const author = typeof message.pubkey === "string" ? message.pubkey.toLowerCase() : "";
+      if (!author || author === lowerViewer) {
+        return;
+      }
+      if (message.quotePubkey?.toLowerCase() === lowerViewer && message.quoteId) {
+        const summary = resolveProfileSummary(message.pubkey);
+        const snippet = buildQuoteSnippet(message.body ?? message.markdown ?? "");
+        const key = `chat-reply:${message.quoteId}`;
+        const existing = chatReplyGroups.get(key) ?? {
+          originalId: message.quoteId,
+          previews: [],
+          authors: [],
+          latest: 0,
+          total: 0,
+        };
+        existing.previews.push({
+          id: message.id,
+          authorName: summary.displayName,
+          avatarUrl: summary.avatarUrl,
+          snippet,
+          timestamp: message.created_at,
+        });
+        existing.authors.push(summary.displayName);
+        existing.latest = Math.max(existing.latest, message.created_at);
+        existing.total += 1;
+        chatReplyGroups.set(key, existing);
+        handledChatMessages.add(message.id);
+      }
+    });
+
+    chatReplyGroups.forEach((group, key) => {
+      const sorted = [...group.previews].sort((a, b) => b.timestamp - a.timestamp);
+      const previews = sorted.slice(0, NOTIFICATION_PREVIEW_LIMIT);
+      const summary = `${formatNameList(group.authors)} replied to your message in Chat`;
+      const targetMessageId = previews[0]?.id ?? group.originalId;
+      items.push({
+        id: key,
+        summary,
+        groupLabel: "Chat",
+        timestamp: group.latest,
+        previews,
+        overflowCount: Math.max(0, group.total - previews.length),
+        action: { kind: "chat", messageId: targetMessageId, originalId: group.originalId },
+        kind: "chat-reply",
+      });
+    });
+
+    const feedReplyGroups = new Map<
+      string,
+      {
+        postId: string;
+        previews: NotificationPreview[];
+        authors: string[];
+        latest: number;
+        total: number;
+      }
+    >();
+    const handledFeedReplies = new Set<string>();
+
+    feedPosts.forEach((post) => {
+      if (post.status !== "ok" || post.optimistic) {
+        return;
+      }
+      const author = typeof post.pubkey === "string" ? post.pubkey.toLowerCase() : "";
+      if (!author || author === lowerViewer) {
+        return;
+      }
+      const targetId = extractFeedReplyTargetId(post.tags);
+      if (!targetId) {
+        return;
+      }
+      const targetPost = feedPostsById.get(targetId);
+      if (!targetPost || targetPost.pubkey?.toLowerCase() !== lowerViewer) {
+        return;
+      }
+      const summary = resolveProfileSummary(post.pubkey);
+      const snippet = buildQuoteSnippet(post.content ?? "");
+      const key = `feed-reply:${targetId}`;
+      const existing = feedReplyGroups.get(key) ?? {
+        postId: targetId,
+        previews: [],
+        authors: [],
+        latest: 0,
+        total: 0,
+      };
+      existing.previews.push({
+        id: post.id,
+        authorName: summary.displayName,
+        avatarUrl: summary.avatarUrl,
+        snippet,
+        timestamp: post.created_at,
+      });
+      existing.authors.push(summary.displayName);
+      existing.latest = Math.max(existing.latest, post.created_at);
+      existing.total += 1;
+      feedReplyGroups.set(key, existing);
+      handledFeedReplies.add(post.id);
+    });
+
+    feedReplyGroups.forEach((group, key) => {
+      const sorted = [...group.previews].sort((a, b) => b.timestamp - a.timestamp);
+      const previews = sorted.slice(0, NOTIFICATION_PREVIEW_LIMIT);
+      const summary = `${formatNameList(group.authors)} replied to your post in Forum`;
+      const focusId = previews[0]?.id ?? group.postId;
+      items.push({
+        id: key,
+        summary,
+        groupLabel: "Forum",
+        timestamp: group.latest,
+        previews,
+        overflowCount: Math.max(0, group.total - previews.length),
+        action: { kind: "feed", postId: group.postId, replyId: focusId },
+        kind: "feed-reply",
+      });
+    });
+
+    messages.forEach((message) => {
+      if (message.status !== "ok" || message.optimistic) {
+        return;
+      }
+      if (handledChatMessages.has(message.id)) {
+        return;
+      }
+      const author = typeof message.pubkey === "string" ? message.pubkey.toLowerCase() : "";
+      if (!author || author === lowerViewer) {
+        return;
+      }
+      const tagMention = message.tags?.some(
+        (tag) => Array.isArray(tag) && tag[0] === "p" && typeof tag[1] === "string" && tag[1].trim().toLowerCase() === lowerViewer,
+      );
+      const textMention = includesMentionOfPubkey(message.body ?? message.markdown ?? "", lowerViewer);
+      if (!tagMention && !textMention) {
+        return;
+      }
+      const summary = resolveProfileSummary(message.pubkey);
+      const snippet = buildQuoteSnippet(message.body ?? message.markdown ?? "");
+      items.push({
+        id: `chat-mention:${message.id}`,
+        summary: `${summary.displayName} mentioned you in Chat`,
+        groupLabel: "Chat",
+        timestamp: message.created_at,
+        previews: [
+          {
+            id: message.id,
+            authorName: summary.displayName,
+            avatarUrl: summary.avatarUrl,
+            snippet,
+            timestamp: message.created_at,
+          },
+        ],
+        overflowCount: 0,
+        action: { kind: "chat", messageId: message.id, originalId: message.quoteId },
+        kind: "chat-mention",
+      });
+    });
+
+    feedPosts.forEach((post) => {
+      if (post.status !== "ok" || post.optimistic) {
+        return;
+      }
+      if (handledFeedReplies.has(post.id)) {
+        return;
+      }
+      const author = typeof post.pubkey === "string" ? post.pubkey.toLowerCase() : "";
+      if (!author || author === lowerViewer) {
+        return;
+      }
+      const tagMention = post.tags?.some(
+        (tag) => Array.isArray(tag) && tag[0] === "p" && typeof tag[1] === "string" && tag[1].trim().toLowerCase() === lowerViewer,
+      );
+      const textMention = includesMentionOfPubkey(post.content ?? "", lowerViewer);
+      if (!tagMention && !textMention) {
+        return;
+      }
+      const summary = resolveProfileSummary(post.pubkey);
+      const snippet = buildQuoteSnippet(post.content ?? "");
+      items.push({
+        id: `feed-mention:${post.id}`,
+        summary: `${summary.displayName} mentioned you in Forum`,
+        groupLabel: "Forum",
+        timestamp: post.created_at,
+        previews: [
+          {
+            id: post.id,
+            authorName: summary.displayName,
+            avatarUrl: summary.avatarUrl,
+            snippet,
+            timestamp: post.created_at,
+          },
+        ],
+        overflowCount: 0,
+        action: { kind: "feed", postId: post.id, replyId: post.id },
+        kind: "feed-mention",
+      });
+    });
+
+    return items.sort((a, b) => b.timestamp - a.timestamp);
+  }, [feedPosts, feedPostsById, messages, resolveProfileSummary, viewerPubkey]);
+  const hasUnreadDirectMessages = useMemo(
+    () => Object.values(conversations).some((conversation) => conversation.unreadCount > 0),
+    [conversations],
+  );
+  const hasUnreadNotifications = useMemo(
+    () => notificationItems.some((item) => !readNotificationIds.has(item.id)),
+    [notificationItems, readNotificationIds],
+  );
+
+  useEffect(() => {
+    if (!notificationsOpen) {
+      return;
+    }
+    setReadNotificationIds((prev) => {
+      const next = new Set(prev);
+      notificationItems.forEach((item) => {
+        next.add(item.id);
+      });
+      return next;
+    });
+  }, [notificationItems, notificationsOpen]);
+
   const membersHeading = isCasualView
     ? "Chat members"
     : isPublicFeedView
@@ -1752,7 +2473,7 @@ const CommunityView: React.FC = () => {
     async (
       text: string,
       attachments: CasualAttachmentMeta[],
-      options?: { quoteId?: string | null; quotePubkey?: string | null },
+      options?: { quoteId?: string | null; quotePubkey?: string | null; mentionPubkeys?: string[] },
     ) => {
       await sendMessage(text, attachments, options);
       setComposerError(null);
@@ -1761,11 +2482,19 @@ const CommunityView: React.FC = () => {
   );
 
   const handleComposerSend = useCallback(
-    async (text: string, attachments: CasualAttachmentMeta[]) => {
+    async (
+      text: string,
+      attachments: CasualAttachmentMeta[],
+      metadata?: { mentionPubkeys?: string[] },
+    ) => {
       try {
         const quoteId = quoteContext?.id ?? null;
         const quotePubkey = quoteContext?.pubkey ?? null;
-        await handleSend(text, attachments, { quoteId, quotePubkey });
+        await handleSend(text, attachments, {
+          quoteId,
+          quotePubkey,
+          mentionPubkeys: metadata?.mentionPubkeys,
+        });
         setComposerDraft(undefined);
         setQuoteContext(null);
       } catch (error) {
@@ -1843,6 +2572,32 @@ const CommunityView: React.FC = () => {
       container.scrollTo({ top: offset, behavior: "smooth" });
     },
     [estimatedRowHeight, messageIndexMap, messages, startHighlight],
+  );
+
+  const handleNotificationAction = useCallback(
+    (item: NotificationItem) => {
+      setNotificationsOpen(false);
+      setReadNotificationIds((prev) => {
+        const next = new Set(prev);
+        next.add(item.id);
+        return next;
+      });
+      if (item.action.kind === "chat") {
+        const targetId = item.action.messageId;
+        setActiveView("casual");
+        if (targetId) {
+          setTimeout(() => {
+            handleScrollToMessage(targetId);
+          }, 0);
+        }
+        return;
+      }
+      if (item.action.kind === "feed") {
+        setActiveView("feed");
+        handleThreadRouteChange(item.action.postId);
+      }
+    },
+    [handleScrollToMessage, handleThreadRouteChange, setActiveView],
   );
 
   const updatePendingDelete = useCallback((messageId: string, add: boolean) => {
@@ -1995,8 +2750,36 @@ const CommunityView: React.FC = () => {
             }
           >
             <MessageCircle className="h-4 w-4" aria-hidden="true" />
-            <span>Messages</span>
+            <span className="relative inline-flex items-center gap-1">
+              Messages
+              {hasUnreadDirectMessages && (
+                <>
+                  <span className="ml-1 inline-flex h-2 w-2 rounded-full bg-brand" aria-hidden="true" />
+                  <span className="sr-only">New messages</span>
+                </>
+              )}
+            </span>
           </NavLink>
+          <button
+            type="button"
+            onClick={() => setNotificationsOpen(true)}
+            className={`mt-3 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
+              notificationsOpen
+                ? "border-brand bg-brand/10 text-brand shadow-sm"
+                : "border-transparent text-[var(--fg-muted)] hover:border-brand hover:text-brand"
+            }`}
+          >
+            <Bell className="h-4 w-4" aria-hidden="true" />
+            <span className="relative inline-flex items-center gap-1">
+              Notifications
+              {hasUnreadNotifications && (
+                <>
+                  <span className="ml-1 inline-flex h-2 w-2 rounded-full bg-brand" aria-hidden="true" />
+                  <span className="sr-only">New notifications</span>
+                </>
+              )}
+            </span>
+          </button>
           <div className="mt-8 flex-1 overflow-hidden">
             <h2 className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)]">{membersHeading}</h2>
             <div ref={memberScrollRef} className="mt-5 h-full overflow-y-auto pr-1">
@@ -2421,6 +3204,7 @@ const CommunityView: React.FC = () => {
                       quoteContext={quoteContext}
                       onClearQuote={() => setQuoteContext(null)}
                       onJumpToQuote={handleScrollToMessage}
+                      mentionTargets={mentionTargets}
                     />
                   </div>
                 </div>
@@ -2449,6 +3233,7 @@ const CommunityView: React.FC = () => {
                         initialLoading={feedInitialLoading}
                         initialThreadId={routePostId}
                         onThreadChange={handleThreadRouteChange}
+                        mentionTargets={mentionTargets}
                       />
                     </div>
                   </ErrorBoundary>
@@ -2478,6 +3263,7 @@ const CommunityView: React.FC = () => {
                         initialLoading={feedInitialLoading}
                         initialThreadId={routePostId}
                         onThreadChange={handleThreadRouteChange}
+                        mentionTargets={mentionTargets}
                       />
                     ) : (
                       <div className="flex flex-1 items-center justify-center px-6 py-12">
@@ -2527,6 +3313,12 @@ const CommunityView: React.FC = () => {
         </div>
       </div>
 
+      <NotificationsPanel
+        open={notificationsOpen}
+        items={notificationItems}
+        onClose={() => setNotificationsOpen(false)}
+        onAction={handleNotificationAction}
+      />
       {rawDataMessage && (
         <div
           role="dialog"

@@ -25,6 +25,8 @@ import {
   validateImageFile,
   type UploadedImageDetails,
 } from "../../utils/imageUpload";
+import { useDebouncedValue } from "../../hooks/useDebouncedValue";
+import type { MentionTarget } from "../../utils/mentions";
 
 interface BitcoinSquareFeedProps {
   posts: FeedPost[];
@@ -47,6 +49,7 @@ interface BitcoinSquareFeedProps {
   initialLoading: boolean;
   initialThreadId?: string | null;
   onThreadChange?: (postId: string | null) => void;
+  mentionTargets?: MentionTarget[];
 }
 
 type ActiveFilter =
@@ -62,6 +65,7 @@ type QuickFilterType = "media" | "mentions" | "mine";
 const LONG_POST_CHAR_THRESHOLD = 320;
 const LONG_POST_LINE_THRESHOLD = 6;
 const COMPOSER_STORAGE_KEY = "bitcoinsquare-feed-composer-state";
+const MENTION_SUGGESTION_LIMIT = 6;
 
 const createRelativeFormatter = () => {
   try {
@@ -219,6 +223,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   initialLoading,
   initialThreadId = null,
   onThreadChange,
+  mentionTargets: externalMentionTargets,
 }) => {
   const [content, setContent] = useState("");
   const [composerFocused, setComposerFocused] = useState(false);
@@ -249,9 +254,13 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string } | null>(null);
+  const [mentionState, setMentionState] = useState<{ active: boolean; start: number; query: string }>(
+    { active: false, start: 0, query: "" },
+  );
+  const [highlightedMentionIndex, setHighlightedMentionIndex] = useState(0);
   const relativeFormatter = useMemo(() => createRelativeFormatter(), []);
   const now = useRelativeNow();
-  const { requestProfile, resolveProfileSummary, openProfile } = useProfileIdentity();
+  const { requestProfile, resolveProfileSummary, openProfile, profiles, following } = useProfileIdentity();
   const { showToast } = useToast();
   const { user } = useAuth();
   const canModerate = user?.isAdmin === true;
@@ -319,6 +328,177 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       persistedComposerTargetIdRef.current = null;
     }
   }, [posts]);
+
+  const debouncedMentionQuery = useDebouncedValue(mentionState.query, 300);
+  const composerMentionTargets = useMemo<MentionTarget[]>(() => {
+    if (externalMentionTargets && externalMentionTargets.length > 0) {
+      return externalMentionTargets;
+    }
+    const targets = new Map<string, MentionTarget>();
+    const currentPubkey = pubkey?.toLowerCase() ?? null;
+
+    const addTarget = (candidate?: string | null) => {
+      if (!candidate) return;
+      const normalized = candidate.trim().toLowerCase();
+      if (normalized.length !== 64) {
+        return;
+      }
+      if (currentPubkey && normalized === currentPubkey) {
+        return;
+      }
+      if (targets.has(normalized)) {
+        return;
+      }
+      const profileEntry = profiles?.[normalized];
+      const summary = resolveProfileSummary(normalized);
+      const screenName = profileEntry?.data?.screenName ?? profileEntry?.data?.displayName ?? summary.displayName;
+      targets.set(normalized, {
+        pubkey: normalized,
+        screenName: screenName?.replace(/^@/, "") ?? summary.displayName,
+        displayName: summary.displayName,
+        avatarUrl: summary.avatarUrl,
+      });
+    };
+
+    posts.forEach((post) => addTarget(post.pubkey));
+    if (composerTarget) {
+      addTarget(composerTarget.pubkey);
+    }
+    following.forEach((followed) => addTarget(followed));
+    Object.keys(profiles).forEach((key) => addTarget(key));
+
+    const sorted = Array.from(targets.values());
+    sorted.sort((a, b) => {
+      const primaryA = a.screenName || a.displayName || a.pubkey;
+      const primaryB = b.screenName || b.displayName || b.pubkey;
+      const primaryCompare = primaryA.localeCompare(primaryB, undefined, {
+        sensitivity: "base",
+        numeric: true,
+      });
+      if (primaryCompare !== 0) {
+        return primaryCompare;
+      }
+      const secondaryA = a.displayName || a.pubkey;
+      const secondaryB = b.displayName || b.pubkey;
+      return secondaryA.localeCompare(secondaryB, undefined, { sensitivity: "base", numeric: true });
+    });
+    return sorted;
+  }, [composerTarget, externalMentionTargets, following, posts, profiles, pubkey, resolveProfileSummary]);
+  const filteredMentionTargets = useMemo(() => {
+    if (!mentionState.active) {
+      return [] as MentionTarget[];
+    }
+    const query = debouncedMentionQuery.trim().toLowerCase();
+    const source = composerMentionTargets.filter((target) => target.pubkey.length === 64);
+    if (query.length === 0) {
+      return source.slice(0, MENTION_SUGGESTION_LIMIT);
+    }
+    return source
+      .filter((target) => {
+        const screen = target.screenName?.toLowerCase() ?? "";
+        const display = target.displayName?.toLowerCase() ?? "";
+        return screen.includes(query) || display.includes(query);
+      })
+      .slice(0, MENTION_SUGGESTION_LIMIT);
+  }, [composerMentionTargets, debouncedMentionQuery, mentionState.active]);
+  const mentionDropdownVisible = mentionState.active && filteredMentionTargets.length > 0;
+  const requestedMentionProfilesRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    composerMentionTargets.forEach((target) => {
+      if (requestedMentionProfilesRef.current.has(target.pubkey)) {
+        return;
+      }
+      requestedMentionProfilesRef.current.add(target.pubkey);
+      void requestProfile(target.pubkey);
+    });
+  }, [composerMentionTargets, requestProfile]);
+
+  useEffect(() => {
+    if (!mentionDropdownVisible) {
+      setHighlightedMentionIndex(0);
+      return;
+    }
+    setHighlightedMentionIndex((current) => {
+      if (filteredMentionTargets.length === 0) {
+        return 0;
+      }
+      return Math.min(current, filteredMentionTargets.length - 1);
+    });
+  }, [filteredMentionTargets.length, mentionDropdownVisible]);
+
+  const closeMention = useCallback(() => {
+    setMentionState({ active: false, start: 0, query: "" });
+  }, []);
+
+  const updateMentionState = useCallback(
+    (text: string, caret: number) => {
+      if (!composerMentionTargets.length) {
+        return;
+      }
+      const safeCaret = Number.isFinite(caret) ? Math.max(0, Math.min(text.length, caret)) : text.length;
+      const slice = text.slice(0, safeCaret);
+      const match = slice.match(/(^|\s)@([0-9a-zA-Z_]{0,64})$/);
+      if (match) {
+        const query = match[2] ?? "";
+        const start = safeCaret - query.length - 1;
+        setMentionState({ active: true, start, query });
+      } else {
+        closeMention();
+      }
+    },
+    [closeMention, composerMentionTargets.length],
+  );
+
+  const applyMention = useCallback(
+    (target: MentionTarget) => {
+      if (!mentionState.active) {
+        return;
+      }
+      const textarea = textareaRef.current;
+      const currentValue = textarea ? textarea.value : content;
+      const selectionEnd = textarea?.selectionStart ?? currentValue.length;
+      const start = mentionState.start;
+      if (start < 0 || start > currentValue.length) {
+        closeMention();
+        return;
+      }
+      const before = currentValue.slice(0, start);
+      const after = currentValue.slice(selectionEnd);
+      const mentionText = `@${target.pubkey}`;
+      const needsTrailingSpace = after.length === 0 || /^\S/.test(after) ? " " : "";
+      const nextValue = `${before}${mentionText}${needsTrailingSpace}${after}`;
+      setContent(nextValue.slice(0, 500));
+      closeMention();
+      if (textarea) {
+        const position = before.length + mentionText.length + (needsTrailingSpace ? 1 : 0);
+        if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+          window.requestAnimationFrame(() => {
+            textarea.focus();
+            try {
+              textarea.setSelectionRange(position, position);
+            } catch {
+              // ignore selection errors
+            }
+          });
+        } else {
+          textarea.focus();
+          try {
+            textarea.setSelectionRange(position, position);
+          } catch {
+            // ignore selection errors
+          }
+        }
+      }
+    },
+    [closeMention, content, mentionState.active, mentionState.start],
+  );
+
+  const handleSelectionChange = useCallback(() => {
+    const node = textareaRef.current;
+    if (!node) return;
+    updateMentionState(node.value, node.selectionStart ?? node.value.length);
+  }, [updateMentionState]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -421,6 +601,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     setUploadError(null);
     setIsUploading(false);
     setLightboxImage(null);
+    setMentionState({ active: false, start: 0, query: "" });
     persistedComposerTargetIdRef.current = null;
     if (typeof window !== "undefined") {
       window.localStorage.removeItem(COMPOSER_STORAGE_KEY);
@@ -1192,30 +1373,108 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       )}
 
       <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-        <textarea
-          ref={textareaRef}
-          value={content}
-          onChange={(event) => {
-            const normalized = rewriteImgBbUrlsInText(event.target.value, { absolute: true });
-            setContent(normalized.slice(0, 500));
-          }}
-          onFocus={() => setComposerFocused(true)}
-          onBlur={() => {
-            if (content.trim().length === 0) {
-              setComposerFocused(false);
+        <div className="relative">
+          <textarea
+            ref={textareaRef}
+            value={content}
+            onChange={(event) => {
+              const normalized = rewriteImgBbUrlsInText(event.target.value, { absolute: true });
+              setContent(normalized.slice(0, 500));
+              const caret = event.target.selectionStart ?? normalized.length;
+              updateMentionState(normalized, caret);
+            }}
+            onKeyDown={(event) => {
+              if (mentionDropdownVisible && filteredMentionTargets.length > 0) {
+                if (event.key === "ArrowDown") {
+                  event.preventDefault();
+                  setHighlightedMentionIndex((current) => (current + 1) % filteredMentionTargets.length);
+                  return;
+                }
+                if (event.key === "ArrowUp") {
+                  event.preventDefault();
+                  setHighlightedMentionIndex((current) =>
+                    current === 0 ? filteredMentionTargets.length - 1 : current - 1,
+                  );
+                  return;
+                }
+                if ((event.key === "Enter" && !event.shiftKey) || event.key === "Tab") {
+                  event.preventDefault();
+                  const choice =
+                    filteredMentionTargets[highlightedMentionIndex] ?? filteredMentionTargets[0];
+                  if (choice) {
+                    applyMention(choice);
+                  }
+                  return;
+                }
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  closeMention();
+                  return;
+                }
+              }
+              if (event.key === "Escape" && mentionState.active) {
+                closeMention();
+              }
+            }}
+            onFocus={() => setComposerFocused(true)}
+            onBlur={() => {
+              if (content.trim().length === 0) {
+                setComposerFocused(false);
+              }
+              closeMention();
+            }}
+            onSelect={handleSelectionChange}
+            onKeyUp={handleSelectionChange}
+            onClick={handleSelectionChange}
+            rows={composerExpanded ? 6 : 1}
+            className={`w-full rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 px-4 py-3 text-sm leading-relaxed text-[var(--fg-default)] shadow-inner focus:border-brand focus:outline-none ${composerExpanded ? "resize-y" : "resize-none"}`}
+            placeholder={
+              composerMode === "reply"
+                ? "Share your thoughts…"
+                : composerMode === "quote"
+                  ? "Add your perspective…"
+                  : "What’s happening in your corner of BitcoinSquare?"
             }
-          }}
-          rows={composerExpanded ? 6 : 1}
-          className={`w-full rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 px-4 py-3 text-sm leading-relaxed text-[var(--fg-default)] shadow-inner focus:border-brand focus:outline-none ${composerExpanded ? "resize-y" : "resize-none"}`}
-          placeholder={
-            composerMode === "reply"
-              ? "Share your thoughts…"
-              : composerMode === "quote"
-                ? "Add your perspective…"
-                : "What’s happening in your corner of BitcoinSquare?"
-          }
-          disabled={!ready || publishing}
-        />
+            disabled={!ready || publishing}
+          />
+          {mentionDropdownVisible && (
+            <div className="pointer-events-auto absolute left-4 right-4 bottom-4 z-20 overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)]/95 shadow-xl">
+              <ul className="max-h-56 overflow-y-auto py-2" role="listbox" aria-label="Mention suggestions">
+                {filteredMentionTargets.map((target, index) => {
+                  const isActive = index === highlightedMentionIndex;
+                  return (
+                    <li key={target.pubkey}>
+                      <button
+                        type="button"
+                        onMouseDown={(event) => {
+                          event.preventDefault();
+                          applyMention(target);
+                        }}
+                        className={`flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition ${
+                          isActive
+                            ? "bg-brand/10 text-brand"
+                            : "text-[var(--fg-default)] hover:bg-[var(--bg-muted)]/60"
+                        }`}
+                        role="option"
+                        aria-selected={isActive}
+                      >
+                        <img src={target.avatarUrl} alt="" className="h-8 w-8 rounded-full object-cover" />
+                        <div className="min-w-0">
+                          <p className={`truncate font-semibold ${isActive ? "text-brand" : "text-[var(--fg-default)]"}`}>
+                            {target.displayName}
+                          </p>
+                          <p className="truncate text-xs text-[var(--fg-muted)]">
+                            @{target.screenName || target.displayName}
+                          </p>
+                        </div>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+        </div>
         {uploadedImages.length > 0 && (
           <div className="space-y-3">
             <div className="flex flex-wrap gap-3">
