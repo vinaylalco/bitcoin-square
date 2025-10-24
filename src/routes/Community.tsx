@@ -648,6 +648,14 @@ const Composer: React.FC<{
     setMentionState({ active: false, start: 0, query: "" });
   }, []);
 
+  const emitTyping = useCallback(() => {
+    if (!onTyping) return;
+    const now = Date.now();
+    if (now - typingEmitRef.current < 400) return;
+    typingEmitRef.current = now;
+    onTyping();
+  }, [onTyping]);
+
   const updateMentionState = useCallback(
     (text: string, caret: number) => {
       if (!mentionTargets.length) {
@@ -765,14 +773,6 @@ const Composer: React.FC<{
       return next;
     });
   }, [value]);
-
-  const emitTyping = useCallback(() => {
-    if (!onTyping) return;
-    const now = Date.now();
-    if (now - typingEmitRef.current < 400) return;
-    typingEmitRef.current = now;
-    onTyping();
-  }, [onTyping]);
 
   const handleSubmit = useCallback(async () => {
     if (disabled || isSending || isUploading) return;
