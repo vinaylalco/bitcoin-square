@@ -212,6 +212,11 @@ const MessagesPage: React.FC = () => {
     });
   }, [conversations, knownMembers, profiles, resolveProfileSummary, shortenPubkey, viewerPubkey]);
 
+  const conversation = activeConversation ? conversations[activeConversation] : null;
+  const draft = activeConversation ? getDraft(activeConversation) : "";
+  const summary = activeConversation ? resolveProfileSummary(activeConversation) : null;
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
   const applyMentionChange = useCallback(
     (nextValue: string) => {
       if (activeConversation) {
@@ -262,13 +267,9 @@ const MessagesPage: React.FC = () => {
     openConversation(pubkey);
   };
 
-  const conversation = activeConversation ? conversations[activeConversation] : null;
-  const draft = activeConversation ? getDraft(activeConversation) : "";
-  const summary = activeConversation ? resolveProfileSummary(activeConversation) : null;
   const [composerError, setComposerError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const listRef = useRef<HTMLDivElement | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   useEffect(() => {
     if (!activeConversation) {
       closeMention();
