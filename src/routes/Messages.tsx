@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, MessageCircle, Search } from "lucide-react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
@@ -11,6 +11,11 @@ import {
   type ProfileSummary,
 } from "../context/ProfileIdentityContext";
 import { useAuth } from "../context/AuthContext";
+import {
+  findActiveMention,
+  type MentionCandidate,
+  type MentionMatch,
+} from "../utils/mentions";
 
 const formatPreview = (value: string, limit = 140) => {
   const normalized = value.trim();
@@ -73,7 +78,10 @@ const MessagesPage: React.FC = () => {
     setDraft,
   } = useDirectMessages();
   const { profiles, resolveProfileSummary, requestProfile, shortenPubkey } = useProfileIdentity();
+  const { user } = useAuth();
   const [query, setQuery] = useState("");
+
+  const viewerPubkey = user?.nostrPublicKey?.trim() ?? "";
 
   const normalizedQuery = normalizeSearch(query);
 
@@ -172,6 +180,41 @@ const MessagesPage: React.FC = () => {
     return list.sort((a, b) => a.displayName.localeCompare(b.displayName));
   }, [conversations, profiles, resolveProfileSummary, shortenPubkey]);
 
+  const mentionCandidates = useMemo<MentionCandidate[]>(() => {
+    const map = new Map<string, MentionCandidate>();
+    const addCandidate = (pubkeyValue: string | null | undefined) => {
+      const trimmed = typeof pubkeyValue === "string" ? pubkeyValue.trim() : "";
+      if (!trimmed || map.has(trimmed)) {
+        return;
+      }
+      const summary = resolveProfileSummary(trimmed);
+      const profile = profiles[trimmed]?.data ?? null;
+      map.set(trimmed, {
+        pubkey: trimmed,
+        displayName: summary.displayName,
+        screenName: profile?.screenName?.trim() ?? "",
+        avatarUrl: summary.avatarUrl,
+        shortPubkey: shortenPubkey(trimmed),
+      });
+    };
+
+    Object.keys(conversations).forEach(addCandidate);
+    knownMembers.forEach((member) => addCandidate(member.pubkey));
+    Object.keys(profiles).forEach(addCandidate);
+    if (viewerPubkey) {
+      addCandidate(viewerPubkey);
+    }
+
+    return Array.from(map.values()).sort((a, b) => {
+      const aKey = (a.screenName || a.displayName || a.shortPubkey).toLowerCase();
+      const bKey = (b.screenName || b.displayName || b.shortPubkey).toLowerCase();
+      if (aKey === bKey) {
+        return a.displayName.localeCompare(b.displayName);
+      }
+      return aKey.localeCompare(bKey);
+    });
+  }, [conversations, knownMembers, profiles, resolveProfileSummary, shortenPubkey, viewerPubkey]);
+
   const filteredPeople = useMemo<KnownMember[]>(() => {
     if (!normalizedQuery) {
       return [];
@@ -199,6 +242,244 @@ const MessagesPage: React.FC = () => {
   const [composerError, setComposerError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const listRef = useRef<HTMLDivElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const [mentionActive, setMentionActive] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState("");
+  const [mentionRange, setMentionRange] = useState<MentionMatch | null>(null);
+  const [mentionResults, setMentionResults] = useState<MentionCandidate[]>([]);
+  const [mentionHighlightIndex, setMentionHighlightIndex] = useState(0);
+  const mentionDebounceRef = useRef<number | null>(null);
+  const mentionRangeRef = useRef<MentionMatch | null>(null);
+
+  useEffect(() => {
+    mentionRangeRef.current = mentionRange;
+  }, [mentionRange]);
+
+  const closeMention = useCallback(() => {
+    if (typeof window !== "undefined" && mentionDebounceRef.current !== null) {
+      window.clearTimeout(mentionDebounceRef.current);
+      mentionDebounceRef.current = null;
+    }
+    setMentionActive(false);
+    setMentionQuery("");
+    setMentionRange(null);
+    setMentionResults([]);
+    setMentionHighlightIndex(0);
+  }, []);
+
+  const updateMentionState = useCallback(
+    (text: string, caretPosition: number | null | undefined) => {
+      if (typeof caretPosition !== "number") {
+        closeMention();
+        return;
+      }
+      const match = findActiveMention(text, caretPosition);
+      if (!match) {
+        closeMention();
+        return;
+      }
+      setMentionActive(true);
+      setMentionRange(match);
+      setMentionQuery(match.query);
+    },
+    [closeMention],
+  );
+
+  const computeMentionResults = useCallback(
+    (query: string) => {
+      const normalizedQuery = query.trim().toLowerCase();
+      return mentionCandidates
+        .filter((candidate) => candidate.screenName || candidate.displayName || candidate.shortPubkey)
+        .filter((candidate) => {
+          if (!normalizedQuery) return true;
+          return (
+            candidate.screenName.toLowerCase().includes(normalizedQuery) ||
+            candidate.displayName.toLowerCase().includes(normalizedQuery) ||
+            candidate.shortPubkey.toLowerCase().includes(normalizedQuery)
+          );
+        })
+        .slice(0, 8);
+    },
+    [mentionCandidates],
+  );
+
+  useEffect(() => {
+    if (!mentionActive) {
+      if (typeof window !== "undefined" && mentionDebounceRef.current !== null) {
+        window.clearTimeout(mentionDebounceRef.current);
+        mentionDebounceRef.current = null;
+      }
+      setMentionResults([]);
+      return;
+    }
+
+    const applyResults = () => {
+      const results = computeMentionResults(mentionQuery);
+      setMentionResults(results);
+      setMentionHighlightIndex((prev) => {
+        if (results.length === 0) {
+          return 0;
+        }
+        return Math.min(prev, results.length - 1);
+      });
+    };
+
+    if (typeof window === "undefined") {
+      applyResults();
+      return;
+    }
+
+    if (mentionDebounceRef.current !== null) {
+      window.clearTimeout(mentionDebounceRef.current);
+    }
+
+    mentionDebounceRef.current = window.setTimeout(() => {
+      applyResults();
+      mentionDebounceRef.current = null;
+    }, 300);
+
+    return () => {
+      if (mentionDebounceRef.current !== null) {
+        window.clearTimeout(mentionDebounceRef.current);
+        mentionDebounceRef.current = null;
+      }
+    };
+  }, [computeMentionResults, mentionActive, mentionQuery]);
+
+  useEffect(() => {
+    if (!mentionActive) return;
+    setMentionHighlightIndex(0);
+  }, [mentionActive, mentionQuery]);
+
+  useEffect(() => {
+    if (!mentionActive) return;
+    setMentionHighlightIndex((prev) => {
+      if (mentionResults.length === 0) {
+        return 0;
+      }
+      return Math.min(prev, mentionResults.length - 1);
+    });
+  }, [mentionActive, mentionResults]);
+
+  useEffect(() => {
+    if (!activeConversation) {
+      closeMention();
+      return;
+    }
+    const node = textareaRef.current;
+    const caret =
+      node && typeof node.selectionStart === "number"
+        ? node.selectionStart
+        : draft.length;
+    updateMentionState(draft, caret);
+  }, [activeConversation, draft, closeMention, updateMentionState]);
+
+  useEffect(() => {
+    return () => {
+      if (typeof window !== "undefined" && mentionDebounceRef.current !== null) {
+        window.clearTimeout(mentionDebounceRef.current);
+      }
+    };
+  }, []);
+
+  const handleMentionSelection = useCallback(
+    (candidate: MentionCandidate) => {
+      const range = mentionRangeRef.current;
+      const node = textareaRef.current;
+      const existingValue = node?.value ?? draft;
+      if (!range || !activeConversation) {
+        return;
+      }
+      const baseHandle =
+        candidate.screenName.trim() || candidate.displayName.trim().replace(/\s+/g, "");
+      const sanitizedHandle = baseHandle.replace(/[^A-Za-z0-9._-]/g, "");
+      const fallbackHandle = candidate.pubkey;
+      const handleText = sanitizedHandle || fallbackHandle;
+      const mentionText = `@${handleText}`;
+      const before = existingValue.slice(0, range.start);
+      const after = existingValue.slice(range.end);
+      const shouldInsertSpace =
+        after.length === 0 || !/^[\s.,!?;:)}\]]/.test(after[0] ?? "");
+      const insertion = shouldInsertSpace ? `${mentionText} ` : mentionText;
+      const nextValue = `${before}${insertion}${after}`;
+      setDraft(activeConversation, nextValue);
+      closeMention();
+      const cursor = before.length + mentionText.length + (shouldInsertSpace ? 1 : 0);
+      const focusTextarea = () => {
+        const target = textareaRef.current;
+        if (!target) return;
+        target.focus();
+        try {
+          target.setSelectionRange(cursor, cursor);
+        } catch {
+          // ignore selection errors
+        }
+      };
+      if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+        window.requestAnimationFrame(focusTextarea);
+      } else {
+        focusTextarea();
+      }
+    },
+    [activeConversation, closeMention, draft, setDraft],
+  );
+
+  const selectMentionByIndex = useCallback(
+    (index: number) => {
+      const candidate = mentionResults[index];
+      if (candidate) {
+        handleMentionSelection(candidate);
+      }
+    },
+    [handleMentionSelection, mentionResults],
+  );
+
+  const handleTextareaKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    const hasMentionOptions = mentionActive && mentionResults.length > 0;
+    if (hasMentionOptions) {
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        setMentionHighlightIndex((prev) => (prev + 1) % mentionResults.length);
+        return;
+      }
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        setMentionHighlightIndex((prev) => (prev === 0 ? mentionResults.length - 1 : prev - 1));
+        return;
+      }
+      if ((event.key === "Enter" && !event.shiftKey) || event.key === "Tab") {
+        event.preventDefault();
+        selectMentionByIndex(mentionHighlightIndex);
+        return;
+      }
+    }
+
+    if (mentionActive && event.key === "Escape") {
+      event.preventDefault();
+      closeMention();
+    }
+  };
+
+  const handleTextareaChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const nextValue = event.target.value;
+    if (activeConversation) {
+      setDraft(activeConversation, nextValue);
+    }
+    updateMentionState(nextValue, event.target.selectionStart ?? nextValue.length);
+  };
+
+  const handleTextareaSelect = (event: React.SyntheticEvent<HTMLTextAreaElement>) => {
+    const node = event.currentTarget;
+    updateMentionState(node.value, node.selectionStart ?? node.value.length);
+  };
+
+  const handleTextareaFocus = (event: React.FocusEvent<HTMLTextAreaElement>) => {
+    updateMentionState(event.currentTarget.value, event.currentTarget.selectionStart ?? event.currentTarget.value.length);
+  };
+
+  const handleTextareaBlur = () => {
+    closeMention();
+  };
 
   useEffect(() => {
     if (!listRef.current) return;
@@ -226,6 +507,7 @@ const MessagesPage: React.FC = () => {
       setComposerError(message);
     } finally {
       setSending(false);
+      closeMention();
     }
   };
 
@@ -337,6 +619,12 @@ const MessagesPage: React.FC = () => {
       </span>
     </button>
   );
+
+  const mentionListId = "messages-composer-mentions";
+  const activeMentionOptionId =
+    mentionActive && mentionResults[mentionHighlightIndex]
+      ? `${mentionListId}-${mentionResults[mentionHighlightIndex].pubkey}`
+      : undefined;
 
   const showEmptyState = conversationEntries.length === 0;
 
@@ -523,12 +811,76 @@ const MessagesPage: React.FC = () => {
                     )}
                     {composerError && <p className="mb-2 text-xs text-red-500">{composerError}</p>}
                     <div className="flex items-end gap-3">
-                      <textarea
-                        value={draft}
-                        onChange={(event) => setDraft(activeConversation, event.target.value)}
-                        placeholder="Write a message…"
-                        className="h-24 flex-1 resize-none rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-4 py-3 text-sm text-[var(--fg-default)] outline-none transition focus:border-brand"
-                      />
+                      <div className="relative flex-1">
+                        <textarea
+                          ref={textareaRef}
+                          value={draft}
+                          onChange={handleTextareaChange}
+                          onKeyDown={handleTextareaKeyDown}
+                          onSelect={handleTextareaSelect}
+                          onClick={handleTextareaSelect}
+                          onFocus={handleTextareaFocus}
+                          onBlur={handleTextareaBlur}
+                          placeholder="Write a message…"
+                          aria-autocomplete="list"
+                          aria-haspopup="listbox"
+                          aria-controls={mentionActive ? mentionListId : undefined}
+                          aria-expanded={mentionActive}
+                          aria-activedescendant={activeMentionOptionId}
+                          className="h-24 w-full resize-none rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-4 py-3 text-sm text-[var(--fg-default)] outline-none transition focus:border-brand"
+                        />
+                        {mentionActive && (
+                          <div
+                            id={mentionListId}
+                            role="listbox"
+                            aria-label="Mention suggestions"
+                            className="absolute left-0 right-0 top-full z-20 mt-2 max-h-60 overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] shadow-xl"
+                          >
+                            {mentionResults.length === 0 ? (
+                              <p className="px-3 py-2 text-xs text-[var(--fg-muted)]">No matches found.</p>
+                            ) : (
+                              <ul className="max-h-60 overflow-y-auto py-1">
+                                {mentionResults.map((candidate, index) => {
+                                  const optionId = `${mentionListId}-${candidate.pubkey}`;
+                                  const isActive = index === mentionHighlightIndex;
+                                  return (
+                                    <li key={candidate.pubkey} role="presentation">
+                                      <button
+                                        id={optionId}
+                                        role="option"
+                                        aria-selected={isActive}
+                                        type="button"
+                                        onMouseDown={(event) => event.preventDefault()}
+                                        onClick={() => handleMentionSelection(candidate)}
+                                        onMouseEnter={() => setMentionHighlightIndex(index)}
+                                        className={`flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition ${
+                                          isActive
+                                            ? "bg-brand/10 text-brand"
+                                            : "text-[var(--fg-default)] hover:bg-[var(--bg-surface)]/80"
+                                        }`}
+                                      >
+                                        <img
+                                          src={candidate.avatarUrl}
+                                          alt={candidate.displayName}
+                                          className="h-8 w-8 rounded-full border border-[var(--border-subtle)] object-cover"
+                                        />
+                                        <div className="flex min-w-0 flex-col">
+                                          <span className="truncate text-sm font-semibold text-[var(--fg-default)]">
+                                            {candidate.displayName}
+                                          </span>
+                                          <span className="truncate text-xs text-[var(--fg-muted)]">
+                                            {candidate.screenName ? `@${candidate.screenName}` : candidate.shortPubkey}
+                                          </span>
+                                        </div>
+                                      </button>
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            )}
+                          </div>
+                        )}
+                      </div>
                       <button
                         type="submit"
                         disabled={!draft.trim() || sending}
