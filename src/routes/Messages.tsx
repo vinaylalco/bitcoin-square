@@ -7,10 +7,12 @@ import {
   type DirectMessageEntry,
 } from "../context/DirectMessageContext";
 import {
+  fallbackProfileAvatar,
   useProfileIdentity,
   type ProfileSummary,
 } from "../context/ProfileIdentityContext";
 import { useAuth } from "../context/AuthContext";
+import { searchUsersByScreenName, type ScreenNameUser } from "../api/users";
 import type { MentionCandidate } from "../utils/mentions";
 import useMentionAutocomplete from "../hooks/useMentionAutocomplete";
 
@@ -177,40 +179,45 @@ const MessagesPage: React.FC = () => {
     return list.sort((a, b) => a.displayName.localeCompare(b.displayName));
   }, [conversations, profiles, resolveProfileSummary, shortenPubkey]);
 
-  const mentionCandidates = useMemo<MentionCandidate[]>(() => {
-    const map = new Map<string, MentionCandidate>();
-    const addCandidate = (pubkeyValue: string | null | undefined) => {
-      const trimmed = typeof pubkeyValue === "string" ? pubkeyValue.trim() : "";
-      if (!trimmed || map.has(trimmed)) {
-        return;
+  const mapUserToMentionCandidate = useCallback(
+    (user: ScreenNameUser): MentionCandidate | null => {
+      const screenName = user.screenName.trim();
+      const pubkeyValue = user.nostrPubkey?.trim();
+      if (!screenName || !pubkeyValue) {
+        return null;
       }
-      const summary = resolveProfileSummary(trimmed);
-      const profile = profiles[trimmed]?.data ?? null;
-      map.set(trimmed, {
-        pubkey: trimmed,
-        displayName: summary.displayName,
-        screenName: profile?.screenName?.trim() ?? "",
-        avatarUrl: summary.avatarUrl,
-        shortPubkey: shortenPubkey(trimmed),
+      const summary = resolveProfileSummary(pubkeyValue);
+      const displayName = summary.displayName?.trim() || `@${screenName}`;
+      const avatarUrl =
+        summary.avatarUrl ||
+        user.avatarUrl ||
+        fallbackProfileAvatar(pubkeyValue);
+      return {
+        pubkey: pubkeyValue,
+        displayName,
+        screenName,
+        avatarUrl,
+        shortPubkey: shortenPubkey(pubkeyValue),
+      };
+    },
+    [fallbackProfileAvatar, resolveProfileSummary, shortenPubkey],
+  );
+
+  const fetchMentionCandidates = useCallback(
+    async (query: string, limit: number) => {
+      const users = await searchUsersByScreenName(query, limit);
+      users.forEach((user) => {
+        if (user.nostrPubkey) {
+          requestProfile(user.nostrPubkey).catch(() => undefined);
+        }
       });
-    };
-
-    Object.keys(conversations).forEach(addCandidate);
-    knownMembers.forEach((member) => addCandidate(member.pubkey));
-    Object.keys(profiles).forEach(addCandidate);
-    if (viewerPubkey) {
-      addCandidate(viewerPubkey);
-    }
-
-    return Array.from(map.values()).sort((a, b) => {
-      const aKey = (a.screenName || a.displayName || a.shortPubkey).toLowerCase();
-      const bKey = (b.screenName || b.displayName || b.shortPubkey).toLowerCase();
-      if (aKey === bKey) {
-        return a.displayName.localeCompare(b.displayName);
-      }
-      return aKey.localeCompare(bKey);
-    });
-  }, [conversations, knownMembers, profiles, resolveProfileSummary, shortenPubkey, viewerPubkey]);
+      const mapped = users
+        .map((user) => mapUserToMentionCandidate(user))
+        .filter((candidate): candidate is MentionCandidate => Boolean(candidate));
+      return mapped.slice(0, limit);
+    },
+    [mapUserToMentionCandidate, requestProfile],
+  );
 
   const conversation = activeConversation ? conversations[activeConversation] : null;
   const draft = activeConversation ? getDraft(activeConversation) : "";
@@ -241,7 +248,7 @@ const MessagesPage: React.FC = () => {
     value: draft,
     onChange: applyMentionChange,
     textareaRef,
-    candidates: mentionCandidates,
+    fetchCandidates: fetchMentionCandidates,
     limit: 5,
     listIdPrefix: "messages-composer-mentions",
   });

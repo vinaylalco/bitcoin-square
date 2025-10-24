@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { FeedPost, PublishContext } from "../../hooks/useBitcoinSquareFeed";
-import { useProfileIdentity, shortenPubkey } from "../../context/ProfileIdentityContext";
+import { searchUsersByScreenName, type ScreenNameUser } from "../../api/users";
+import { fallbackProfileAvatar, useProfileIdentity, shortenPubkey } from "../../context/ProfileIdentityContext";
 import type { ProfileSummary } from "../../context/ProfileIdentityContext";
 import { CASUAL_ROOM_ID, CASUAL_ROOM_NAME } from "../../hooks/useBitcoinSquareCasualChat";
 import { useCommunityTranslation } from "../../context/CommunityTranslationContext";
@@ -253,7 +254,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string } | null>(null);
   const relativeFormatter = useMemo(() => createRelativeFormatter(), []);
   const now = useRelativeNow();
-  const { requestProfile, resolveProfileSummary, openProfile, profiles } = useProfileIdentity();
+  const { requestProfile, resolveProfileSummary, openProfile } = useProfileIdentity();
   const { showToast } = useToast();
   const { user } = useAuth();
   const canModerate = user?.isAdmin === true;
@@ -278,50 +279,45 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     [],
   );
 
-  const mentionCandidates = useMemo<MentionCandidate[]>(() => {
-    const map = new Map<string, MentionCandidate>();
-
-    const addCandidate = (pubkeyValue: string | null | undefined) => {
-      const trimmed = typeof pubkeyValue === "string" ? pubkeyValue.trim() : "";
-      if (!trimmed || map.has(trimmed)) {
-        return;
+  const mapUserToMentionCandidate = useCallback(
+    (user: ScreenNameUser): MentionCandidate | null => {
+      const screenName = user.screenName.trim();
+      const pubkeyValue = user.nostrPubkey?.trim();
+      if (!screenName || !pubkeyValue) {
+        return null;
       }
-      const summary = resolveProfileSummary(trimmed);
-      const profileEntry = profiles[trimmed]?.data ?? null;
-      const screenName = profileEntry?.screenName?.trim() ?? "";
-      map.set(trimmed, {
-        pubkey: trimmed,
-        displayName: summary.displayName,
+      const summary = resolveProfileSummary(pubkeyValue);
+      const displayName = summary.displayName?.trim() || `@${screenName}`;
+      const avatarUrl =
+        summary.avatarUrl ||
+        user.avatarUrl ||
+        fallbackProfileAvatar(pubkeyValue);
+      return {
+        pubkey: pubkeyValue,
+        displayName,
         screenName,
-        avatarUrl: summary.avatarUrl,
-        shortPubkey: shortenPubkey(trimmed),
-      });
-    };
+        avatarUrl,
+        shortPubkey: shortenPubkey(pubkeyValue),
+      };
+    },
+    [fallbackProfileAvatar, resolveProfileSummary],
+  );
 
-    posts.forEach((post) => {
-      addCandidate(post.pubkey);
-      post.tags.forEach((tag) => {
-        if (Array.isArray(tag) && tag[0] === "p" && typeof tag[1] === "string") {
-          addCandidate(tag[1]);
+  const fetchMentionCandidates = useCallback(
+    async (query: string, limit: number) => {
+      const users = await searchUsersByScreenName(query, limit);
+      users.forEach((user) => {
+        if (user.nostrPubkey) {
+          requestProfile(user.nostrPubkey).catch(() => undefined);
         }
       });
-    });
-
-    if (composerTarget) {
-      addCandidate(composerTarget.pubkey);
-    }
-
-    Object.keys(profiles).forEach((pubkeyValue) => addCandidate(pubkeyValue));
-
-    return Array.from(map.values()).sort((a, b) => {
-      const aKey = (a.screenName || a.displayName || a.shortPubkey).toLowerCase();
-      const bKey = (b.screenName || b.displayName || b.shortPubkey).toLowerCase();
-      if (aKey === bKey) {
-        return a.displayName.localeCompare(b.displayName);
-      }
-      return aKey.localeCompare(bKey);
-    });
-  }, [composerTarget, posts, profiles, resolveProfileSummary]);
+      const mapped = users
+        .map((user) => mapUserToMentionCandidate(user))
+        .filter((candidate): candidate is MentionCandidate => Boolean(candidate));
+      return mapped.slice(0, limit);
+    },
+    [mapUserToMentionCandidate, requestProfile],
+  );
 
   const {
     mentionActive,
@@ -338,7 +334,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     value: content,
     onChange: (next) => setContent(next.slice(0, 500)),
     textareaRef,
-    candidates: mentionCandidates,
+    fetchCandidates: fetchMentionCandidates,
     limit: 5,
     listIdPrefix: "feed-composer-mentions",
     onMentionInserted: () => setComposerFocused(true),

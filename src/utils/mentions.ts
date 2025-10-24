@@ -18,12 +18,6 @@ const MENTION_CAPTURE_REGEX = /(^|[\s([\{>])@([A-Za-z0-9._-]+)/g;
 
 const normalizeHandle = (value: string) => value.trim().toLowerCase();
 
-const sanitizeDisplayNameForHandle = (value: string) =>
-  value
-    .trim()
-    .replace(/\s+/g, "")
-    .replace(/[^A-Za-z0-9._-]/g, "");
-
 export const extractMentionHandles = (text: string) => {
   const handles = new Set<string>();
   let match: RegExpExecArray | null;
@@ -41,13 +35,6 @@ const candidateHandles = (candidate: MentionCandidate) => {
   if (candidate.screenName.trim()) {
     handles.add(normalizeHandle(candidate.screenName));
   }
-  if (candidate.displayName.trim()) {
-    const sanitized = sanitizeDisplayNameForHandle(candidate.displayName);
-    if (sanitized) {
-      handles.add(normalizeHandle(sanitized));
-    }
-  }
-  handles.add(normalizeHandle(candidate.pubkey));
   return handles;
 };
 
@@ -91,34 +78,49 @@ export const findActiveMention = (text: string, caret: number): MentionMatch | n
   return { start: atIndex, end, query };
 };
 
-export const resolveMentionTargets = (
+export const resolveMentionTargets = async (
   text: string,
-  candidates: MentionCandidate[],
-): MentionCandidate[] => {
-  const handles = extractMentionHandles(text);
-  if (handles.size === 0) return [] as MentionCandidate[];
-  const matches = new Map<string, MentionCandidate>();
+  fetchCandidates: (handles: string[]) => Promise<MentionCandidate[]>,
+): Promise<MentionCandidate[]> => {
+  const handles = Array.from(extractMentionHandles(text));
+  if (handles.length === 0) {
+    return [];
+  }
+
+  const candidates = await fetchCandidates(handles);
+  if (!Array.isArray(candidates) || candidates.length === 0) {
+    return [];
+  }
+
+  const candidatesByHandle = new Map<string, MentionCandidate>();
   candidates.forEach((candidate) => {
-    const possibleHandles = candidateHandles(candidate);
-    for (const handle of handles) {
-      if (possibleHandles.has(handle)) {
-        matches.set(candidate.pubkey, candidate);
-        break;
-      }
+    const normalized = normalizeHandle(candidate.screenName);
+    if (!normalized || candidatesByHandle.has(normalized)) {
+      return;
     }
+    candidatesByHandle.set(normalized, candidate);
   });
-  return Array.from(matches.values());
+
+  const seenPubkeys = new Set<string>();
+  const results: MentionCandidate[] = [];
+  handles.forEach((handle) => {
+    const candidate = candidatesByHandle.get(handle);
+    if (!candidate) {
+      return;
+    }
+    if (seenPubkeys.has(candidate.pubkey)) {
+      return;
+    }
+    seenPubkeys.add(candidate.pubkey);
+    results.push(candidate);
+  });
+
+  return results;
 };
 
 const sortByScreenName = (a: MentionCandidate, b: MentionCandidate) => {
   const aKey = a.screenName.trim().toLowerCase();
   const bKey = b.screenName.trim().toLowerCase();
-  return aKey.localeCompare(bKey);
-};
-
-const sortByFallbackIdentity = (a: MentionCandidate, b: MentionCandidate) => {
-  const aKey = (a.displayName || a.shortPubkey).trim().toLowerCase();
-  const bKey = (b.displayName || b.shortPubkey).trim().toLowerCase();
   return aKey.localeCompare(bKey);
 };
 
@@ -138,15 +140,7 @@ export const searchMentionCandidatesByScreenName = (
     .sort(sortByScreenName);
 
   if (normalizedQuery.length === 0) {
-    if (withScreenName.length >= limit) {
-      return withScreenName.slice(0, limit);
-    }
-
-    const withoutScreenName = candidates
-      .filter((candidate) => candidate.screenName.trim().length === 0)
-      .sort(sortByFallbackIdentity);
-
-    return [...withScreenName, ...withoutScreenName].slice(0, limit);
+    return withScreenName.slice(0, limit);
   }
 
   return withScreenName

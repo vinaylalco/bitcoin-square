@@ -12,7 +12,8 @@ export interface UseMentionAutocompleteOptions {
   value: string;
   onChange: (nextValue: string) => void;
   textareaRef: RefObject<HTMLTextAreaElement>;
-  candidates: MentionCandidate[];
+  candidates?: MentionCandidate[];
+  fetchCandidates?: (query: string, limit: number) => Promise<MentionCandidate[]>;
   limit?: number;
   listIdPrefix?: string;
   onMentionInserted?: (details: { candidate: MentionCandidate; mentionText: string }) => void;
@@ -35,12 +36,14 @@ export const useMentionAutocomplete = ({
   value,
   onChange,
   textareaRef,
-  candidates,
+  candidates = [],
+  fetchCandidates,
   limit = 5,
   listIdPrefix = "mention-options",
   onMentionInserted,
 }: UseMentionAutocompleteOptions): UseMentionAutocompleteResult => {
   const mentionDebounceRef = useRef<number | null>(null);
+  const mentionFetchSequenceRef = useRef(0);
   const mentionRangeRef = useRef<MentionMatch | null>(null);
   const [mentionActive, setMentionActive] = useState(false);
   const [mentionQuery, setMentionQuery] = useState("");
@@ -57,6 +60,7 @@ export const useMentionAutocomplete = ({
       window.clearTimeout(mentionDebounceRef.current);
       mentionDebounceRef.current = null;
     }
+    mentionFetchSequenceRef.current += 1;
     setMentionActive(false);
     setMentionQuery("");
     setMentionRange(null);
@@ -84,8 +88,18 @@ export const useMentionAutocomplete = ({
   );
 
   const computeMentionResults = useCallback(
-    (query: string) => searchMentionCandidatesByScreenName(candidates, query, limit),
-    [candidates, limit],
+    async (query: string) => {
+      if (fetchCandidates) {
+        try {
+          const results = await fetchCandidates(query, limit);
+          return Array.isArray(results) ? results.slice(0, limit) : [];
+        } catch {
+          return [];
+        }
+      }
+      return searchMentionCandidatesByScreenName(candidates, query, limit);
+    },
+    [candidates, fetchCandidates, limit],
   );
 
   useEffect(() => {
@@ -98,8 +112,13 @@ export const useMentionAutocomplete = ({
       return;
     }
 
-    const applyResults = () => {
-      const results = computeMentionResults(mentionQuery);
+    const applyResults = async () => {
+      const requestId = mentionFetchSequenceRef.current + 1;
+      mentionFetchSequenceRef.current = requestId;
+      const results = await computeMentionResults(mentionQuery);
+      if (mentionFetchSequenceRef.current !== requestId) {
+        return;
+      }
       setMentionResults(results);
       setMentionHighlightIndex((prev) => {
         if (results.length === 0) {
@@ -110,7 +129,7 @@ export const useMentionAutocomplete = ({
     };
 
     if (typeof window === "undefined") {
-      applyResults();
+      void applyResults();
       return;
     }
 
@@ -119,7 +138,7 @@ export const useMentionAutocomplete = ({
     }
 
     mentionDebounceRef.current = window.setTimeout(() => {
-      applyResults();
+      void applyResults();
       mentionDebounceRef.current = null;
     }, 300);
 
@@ -164,10 +183,15 @@ export const useMentionAutocomplete = ({
       if (!range) {
         return;
       }
-      const baseHandle = candidate.screenName.trim() || candidate.displayName.trim().replace(/\s+/g, "");
+      const baseHandle = candidate.screenName.trim();
+      if (!baseHandle) {
+        return;
+      }
       const sanitizedHandle = baseHandle.replace(/[^A-Za-z0-9._-]/g, "");
-      const fallbackHandle = candidate.pubkey;
-      const handleText = sanitizedHandle || fallbackHandle;
+      if (!sanitizedHandle) {
+        return;
+      }
+      const handleText = sanitizedHandle;
       const mentionText = `@${handleText}`;
       const before = existingValue.slice(0, range.start);
       const after = existingValue.slice(range.end);

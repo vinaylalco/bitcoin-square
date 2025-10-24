@@ -14,7 +14,8 @@ import type { CasualAttachmentMeta } from "../hooks/useBitcoinSquareCasualChat";
 import { useBitcoinSquareFeed } from "../hooks/useBitcoinSquareFeed";
 import { decryptBinary } from "../utils/aes";
 import { getCachedMediaBlob, getCachedPreview, setCachedMediaBlob, setCachedPreview } from "../utils/mediaCache";
-import { useProfileIdentity } from "../context/ProfileIdentityContext";
+import { fetchUsersByScreenNames, searchUsersByScreenName, type ScreenNameUser } from "../api/users";
+import { fallbackProfileAvatar, useProfileIdentity } from "../context/ProfileIdentityContext";
 import type { ProfileSummary } from "../context/ProfileIdentityContext";
 import { useAuth } from "../context/AuthContext";
 import { useDirectMessages } from "../context/DirectMessageContext";
@@ -558,7 +559,7 @@ const Composer: React.FC<{
   quoteContext?: QuoteContextState | null;
   onClearQuote?: () => void;
   onJumpToQuote?: (messageId: string) => void;
-  mentionCandidates: MentionCandidate[];
+  fetchMentionCandidates: (query: string, limit: number) => Promise<MentionCandidate[]>;
 }> = ({
   disabled,
   onSend,
@@ -567,7 +568,7 @@ const Composer: React.FC<{
   quoteContext,
   onClearQuote,
   onJumpToQuote,
-  mentionCandidates,
+  fetchMentionCandidates,
 }) => {
   const initialDraft = rewriteImgBbUrlsInText(draft ?? "", { absolute: true });
   const [value, setValue] = useState(initialDraft);
@@ -650,7 +651,7 @@ const Composer: React.FC<{
     value,
     onChange: setValue,
     textareaRef,
-    candidates: mentionCandidates,
+    fetchCandidates: fetchMentionCandidates,
     limit: 5,
     listIdPrefix: "casual-composer-mentions",
     onMentionInserted: () => {
@@ -1192,44 +1193,60 @@ const CommunityView: React.FC = () => {
   );
   const hasFollowing = following.size > 0;
 
-  const mentionCandidates = useMemo<MentionCandidate[]>(() => {
-    const map = new Map<string, MentionCandidate>();
-    const addCandidate = (pubkeyValue: string | null | undefined) => {
-      const trimmed = typeof pubkeyValue === "string" ? pubkeyValue.trim() : "";
-      if (!trimmed || map.has(trimmed)) {
-        return;
+  const mapUserToMentionCandidate = useCallback(
+    (user: ScreenNameUser): MentionCandidate | null => {
+      const screenName = user.screenName.trim();
+      const pubkeyValue = user.nostrPubkey?.trim();
+      if (!screenName || !pubkeyValue) {
+        return null;
       }
-      const summary = resolveProfileSummary(trimmed);
-      const profileEntry = profiles[trimmed]?.data ?? null;
-      const screenName = profileEntry?.screenName?.trim() ?? "";
-      map.set(trimmed, {
-        pubkey: trimmed,
-        displayName: summary.displayName,
+      const summary = resolveProfileSummary(pubkeyValue);
+      const displayName = summary.displayName?.trim() || `@${screenName}`;
+      const avatarUrl =
+        summary.avatarUrl ||
+        user.avatarUrl ||
+        fallbackProfileAvatar(pubkeyValue);
+      return {
+        pubkey: pubkeyValue,
+        displayName,
         screenName,
-        avatarUrl: summary.avatarUrl,
-        shortPubkey: shortenPubkey(trimmed),
+        avatarUrl,
+        shortPubkey: shortenPubkey(pubkeyValue),
+      };
+    },
+    [fallbackProfileAvatar, resolveProfileSummary, shortenPubkey],
+  );
+
+  const fetchMentionCandidates = useCallback(
+    async (query: string, limit: number) => {
+      const users = await searchUsersByScreenName(query, limit);
+      users.forEach((user) => {
+        if (user.nostrPubkey) {
+          requestProfile(user.nostrPubkey).catch(() => undefined);
+        }
       });
-    };
+      const mapped = users
+        .map((user) => mapUserToMentionCandidate(user))
+        .filter((candidate): candidate is MentionCandidate => Boolean(candidate));
+      return mapped.slice(0, limit);
+    },
+    [mapUserToMentionCandidate, requestProfile],
+  );
 
-    messages.forEach((message) => {
-      addCandidate(message.pubkey);
-      if (message.quotePubkey) {
-        addCandidate(message.quotePubkey);
-      }
-      message.likePubkeys?.forEach((pubkeyValue) => addCandidate(pubkeyValue));
-    });
-    typingPubkeys.forEach((pubkeyValue) => addCandidate(pubkeyValue));
-    Object.keys(profiles).forEach((pubkeyValue) => addCandidate(pubkeyValue));
-
-    return Array.from(map.values()).sort((a, b) => {
-      const aKey = (a.screenName || a.displayName || a.shortPubkey).toLowerCase();
-      const bKey = (b.screenName || b.displayName || b.shortPubkey).toLowerCase();
-      if (aKey === bKey) {
-        return a.displayName.localeCompare(b.displayName);
-      }
-      return aKey.localeCompare(bKey);
-    });
-  }, [messages, profiles, resolveProfileSummary, shortenPubkey, typingPubkeys]);
+  const fetchMentionTargets = useCallback(
+    async (handles: string[]) => {
+      const users = await fetchUsersByScreenNames(handles);
+      users.forEach((user) => {
+        if (user.nostrPubkey) {
+          requestProfile(user.nostrPubkey).catch(() => undefined);
+        }
+      });
+      return users
+        .map((user) => mapUserToMentionCandidate(user))
+        .filter((candidate): candidate is MentionCandidate => Boolean(candidate));
+    },
+    [mapUserToMentionCandidate, requestProfile],
+  );
 
   useEffect(() => {
     if (!isCasualView) {
@@ -1998,7 +2015,7 @@ const CommunityView: React.FC = () => {
         const quotePubkey = quoteContext?.pubkey ?? null;
         const sentMessageId = await handleSend(text, attachments, { quoteId, quotePubkey });
 
-        const mentionTargets = resolveMentionTargets(text, mentionCandidates);
+        const mentionTargets = await resolveMentionTargets(text, fetchMentionTargets);
         if (mentionTargets.length > 0 && sentMessageId) {
           const senderSummary = pubkey ? resolveProfileSummary(pubkey) : null;
           const fallbackSenderName =
@@ -2051,8 +2068,8 @@ const CommunityView: React.FC = () => {
       }
     },
     [
+      fetchMentionTargets,
       handleSend,
-      mentionCandidates,
       pubkey,
       quoteContext,
       resolveProfileSummary,
@@ -2757,7 +2774,7 @@ const CommunityView: React.FC = () => {
                       quoteContext={quoteContext}
                       onClearQuote={() => setQuoteContext(null)}
                       onJumpToQuote={handleScrollToMessage}
-                      mentionCandidates={mentionCandidates}
+                      fetchMentionCandidates={fetchMentionCandidates}
                     />
                   </div>
                 </div>
