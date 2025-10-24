@@ -669,7 +669,7 @@ const MessagesPage: React.FC = () => {
                   )}
 
                   {activeConversation && conversation && (
-                    <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[var(--border-subtle)] bg-[var(--bg-card)]/95 backdrop-blur">
+                    <div className="absolute bottom-0 left-0 right-0 z-40 border-t border-[var(--border-subtle)] bg-[var(--bg-card)]/95 backdrop-blur">
                       <div className="mx-auto flex w-full max-w-5xl justify-center px-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pt-4 sm:px-6 lg:justify-end">
                         <form
                           onSubmit={handleSubmit}
