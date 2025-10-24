@@ -276,7 +276,7 @@ const resolveProfileApiTemplates = () => {
   }
 
   const base = trimTrailingSlash(PROFILE_API_BASE);
-  return [`${base}/users/{pubkey}.json`, `${base}/users/{pubkey}`];
+  return [`${base}/users/{pubkey}.json`];
 };
 
 const PROFILE_API_TEMPLATES = resolveProfileApiTemplates();

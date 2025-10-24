@@ -2254,9 +2254,17 @@ const CommunityView: React.FC = () => {
       if (!author || author === lowerViewer) {
         return;
       }
-      const tagMention = message.tags?.some(
-        (tag) => Array.isArray(tag) && tag[0] === "p" && typeof tag[1] === "string" && tag[1].trim().toLowerCase() === lowerViewer,
-      );
+      const tagMention = message.tags?.some((tag) => {
+        if (!Array.isArray(tag) || tag[0] !== "p") {
+          return false;
+        }
+        const value = typeof tag[1] === "string" ? tag[1].trim().toLowerCase() : "";
+        if (value !== lowerViewer) {
+          return false;
+        }
+        const marker = typeof tag[3] === "string" ? tag[3].trim().toLowerCase() : "";
+        return marker !== "reply";
+      });
       const textMention = includesMentionOfPubkey(message.body ?? message.markdown ?? "", lowerViewer);
       if (!tagMention && !textMention) {
         return;
@@ -2294,9 +2302,17 @@ const CommunityView: React.FC = () => {
       if (!author || author === lowerViewer) {
         return;
       }
-      const tagMention = post.tags?.some(
-        (tag) => Array.isArray(tag) && tag[0] === "p" && typeof tag[1] === "string" && tag[1].trim().toLowerCase() === lowerViewer,
-      );
+      const tagMention = post.tags?.some((tag) => {
+        if (!Array.isArray(tag) || tag[0] !== "p") {
+          return false;
+        }
+        const value = typeof tag[1] === "string" ? tag[1].trim().toLowerCase() : "";
+        if (value !== lowerViewer) {
+          return false;
+        }
+        const marker = typeof tag[3] === "string" ? tag[3].trim().toLowerCase() : "";
+        return marker !== "reply";
+      });
       const textMention = includesMentionOfPubkey(post.content ?? "", lowerViewer);
       if (!tagMention && !textMention) {
         return;

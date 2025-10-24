@@ -107,4 +107,33 @@ export const seedMentionSelectionsFromText = (
   return result;
 };
 
+export const extractMentionPubkeysFromTags = (
+  tags?: string[][] | null,
+  options?: { includeReplies?: boolean },
+): string[] => {
+  if (!Array.isArray(tags) || tags.length === 0) {
+    return [];
+  }
+  const includeReplies = options?.includeReplies ?? false;
+  const results = new Set<string>();
+  tags.forEach((tag) => {
+    if (!Array.isArray(tag) || tag.length < 2) {
+      return;
+    }
+    if (tag[0] !== "p") {
+      return;
+    }
+    const value = typeof tag[1] === "string" ? tag[1].trim().toLowerCase() : "";
+    if (value.length !== 64) {
+      return;
+    }
+    const marker = typeof tag[3] === "string" ? tag[3].trim().toLowerCase() : "";
+    if (!includeReplies && marker === "reply") {
+      return;
+    }
+    results.add(value);
+  });
+  return Array.from(results);
+};
+
 export default extractMentionedPubkeys;

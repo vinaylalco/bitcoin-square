@@ -1065,9 +1065,14 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
           ["lang", BROWSER_LANGUAGE_TAG],
         ];
 
+        let replyPubkey: string | null = null;
         if (context?.post) {
           tags.push(["e", context.post.id]);
-          tags.push(["p", context.post.pubkey]);
+          const normalizedReplyPubkey = context.post.pubkey.trim().toLowerCase();
+          if (normalizedReplyPubkey.length === 64) {
+            replyPubkey = normalizedReplyPubkey;
+            tags.push(["p", normalizedReplyPubkey, "", "reply"]);
+          }
           if (context.type === "quote") {
             tags.push(["q", context.post.id]);
           } else {
@@ -1076,17 +1081,18 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
         }
 
         const normalizedMentions = Array.isArray(mentionPubkeys) && mentionPubkeys.length > 0
-          ? Array.from(
-              new Set(
-                mentionPubkeys
-                  .map((value) => (typeof value === "string" ? value.trim().toLowerCase() : ""))
-                  .filter((value) => value.length === 64),
-              ),
+          ? new Set(
+              mentionPubkeys
+                .map((value) => (typeof value === "string" ? value.trim().toLowerCase() : ""))
+                .filter((value) => value.length === 64),
             )
-          : extractMentionedPubkeys(cleanedContent);
+          : new Set(extractMentionedPubkeys(cleanedContent));
         normalizedMentions.forEach((mention) => {
-          if (!tags.some((tag) => tag[0] === "p" && tag[1] === mention)) {
-            tags.push(["p", mention]);
+          if (mention === replyPubkey) {
+            return;
+          }
+          if (!tags.some((tag) => tag[0] === "p" && tag[1] === mention && tag[3] !== "reply")) {
+            tags.push(["p", mention, "", "mention"]);
           }
         });
 

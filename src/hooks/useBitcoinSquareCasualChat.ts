@@ -6,7 +6,11 @@ import { getConfiguredRoomKey } from "../config/nostr";
 import { cacheMessage, getCachedMessages, removeCachedMessages, type CachedMessage } from "../utils/chatCache";
 import { decryptChannelText, encryptChannelText } from "../utils/channelEncryption";
 import { markdownToHtml, stripImagePlaceholders } from "../utils/markdown";
-import { normalizeMentionLabel, type MentionSelection } from "../utils/mentions";
+import {
+  extractMentionPubkeysFromTags,
+  normalizeMentionLabel,
+  type MentionSelection,
+} from "../utils/mentions";
 import { useRoomKey } from "./useRoomKey";
 import { useNostrAccount } from "./useNostrAccount";
 import { useAuth } from "../context/AuthContext";
@@ -158,8 +162,17 @@ const cachedToMessage = (cached: CachedMessage): CasualChatMessage | null => {
     cached.tags?.find((tag) => tag[0] === "e" && tag[3] === "reply") ??
     cached.tags?.find((tag) => tag[0] === "q");
   const quoteId = quoteTag && typeof quoteTag[1] === "string" ? quoteTag[1] : undefined;
-  const quotePubkeyTag = cached.tags?.find((tag) => tag[0] === "p");
-  const quotePubkey = quotePubkeyTag && typeof quotePubkeyTag[1] === "string" ? quotePubkeyTag[1] : undefined;
+  const replyPubkeyTag =
+    cached.tags?.find(
+      (tag) =>
+        Array.isArray(tag) &&
+        tag[0] === "p" &&
+        typeof tag[1] === "string" &&
+        typeof tag[3] === "string" &&
+        tag[3].trim().toLowerCase() === "reply",
+    ) ?? cached.tags?.find((tag) => tag[0] === "p");
+  const quotePubkey = replyPubkeyTag && typeof replyPubkeyTag[1] === "string" ? replyPubkeyTag[1] : undefined;
+  const mentionPubkeys = extractMentionPubkeysFromTags(cached.tags);
 
   return {
     id: cached.id,
@@ -175,7 +188,7 @@ const cachedToMessage = (cached: CachedMessage): CasualChatMessage | null => {
     quoteId,
     quotePubkey,
     likePubkeys: [],
-    mentions: [],
+    mentions: mentionPubkeys.map((mention) => ({ pubkey: mention, screenName: mention })),
   };
 };
 
@@ -421,9 +434,18 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
               event.tags?.find((tag) => tag[0] === "e" && tag[3] === "reply") ??
               event.tags?.find((tag) => tag[0] === "q");
             const quoteId = quoteTag && typeof quoteTag[1] === "string" ? quoteTag[1] : undefined;
-            const quotePubkeyTag = event.tags?.find((tag) => tag[0] === "p");
+            const replyPubkeyTag =
+              event.tags?.find(
+                (tag) =>
+                  Array.isArray(tag) &&
+                  tag[0] === "p" &&
+                  typeof tag[1] === "string" &&
+                  typeof tag[3] === "string" &&
+                  tag[3].trim().toLowerCase() === "reply",
+              ) ?? event.tags?.find((tag) => tag[0] === "p");
             const quotePubkey =
-              quotePubkeyTag && typeof quotePubkeyTag[1] === "string" ? quotePubkeyTag[1] : undefined;
+              replyPubkeyTag && typeof replyPubkeyTag[1] === "string" ? replyPubkeyTag[1] : undefined;
+            const mentionPubkeys = extractMentionPubkeysFromTags(event.tags);
 
             const message: CasualChatMessage = {
               id: event.id,
@@ -439,7 +461,7 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
               quoteId,
               quotePubkey,
               likePubkeys: [],
-              mentions: [],
+              mentions: mentionPubkeys.map((mention) => ({ pubkey: mention, screenName: mention })),
             };
 
             if (deletedMessageIdsRef.current.has(message.id)) {
@@ -687,14 +709,13 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
       ];
 
       const mentionPubkeys = Array.isArray(options?.mentionPubkeys)
-        ? Array.from(
-            new Set(
-              options.mentionPubkeys
-                .map((value) => (typeof value === "string" ? value.trim().toLowerCase() : ""))
-                .filter((value) => value.length === 64),
-            ),
+        ? new Set(
+            options.mentionPubkeys
+              .map((value) => (typeof value === "string" ? value.trim().toLowerCase() : ""))
+              .filter((value) => value.length === 64),
           )
-        : [];
+        : new Set<string>();
+      let replyPubkey: string | null = null;
 
       if (options?.quoteId) {
         tags.push(["e", options.quoteId, "", "reply"]);
@@ -702,15 +723,18 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
       if (options?.quotePubkey) {
         const normalized = options.quotePubkey.trim().toLowerCase();
         if (normalized.length === 64) {
-          if (!mentionPubkeys.includes(normalized)) {
-            mentionPubkeys.push(normalized);
-          }
+          replyPubkey = normalized;
+          tags.push(["p", normalized, "", "reply"]);
+          mentionPubkeys.add(normalized);
         }
       }
 
       mentionPubkeys.forEach((mention) => {
-        if (!tags.some((tag) => tag[0] === "p" && tag[1] === mention)) {
-          tags.push(["p", mention]);
+        if (mention === replyPubkey) {
+          return;
+        }
+        if (!tags.some((tag) => tag[0] === "p" && tag[1] === mention && tag[3] !== "reply")) {
+          tags.push(["p", mention, "", "mention"]);
         }
       });
 
