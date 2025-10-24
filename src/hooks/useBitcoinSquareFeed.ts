@@ -16,6 +16,7 @@ import { useRoomKey } from "./useRoomKey";
 import { useAuth } from "../context/AuthContext";
 import { getBrowserLanguageTag } from "../utils/browserLanguage";
 import { stripImagePlaceholders } from "../utils/markdown";
+import { extractMentionedPubkeys } from "../utils/mentions";
 
 const RELAYS = [
   "wss://relay.damus.io",
@@ -1066,6 +1067,13 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
             tags.push(["reply", context.post.id]);
           }
         }
+
+        const mentionPubkeys = extractMentionedPubkeys(cleanedContent);
+        mentionPubkeys.forEach((mention) => {
+          if (!tags.some((tag) => tag[0] === "p" && tag[1] === mention)) {
+            tags.push(["p", mention]);
+          }
+        });
 
         const normalizedAttachments = attachments
           .map((attachment) => normalizeAttachment(attachment))

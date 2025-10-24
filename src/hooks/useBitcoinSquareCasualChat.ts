@@ -65,7 +65,7 @@ export interface UseBitcoinSquareCasualChatResult {
   sendMessage: (
     body: string,
     attachments?: CasualAttachmentMeta[],
-    options?: { quoteId?: string | null; quotePubkey?: string | null },
+    options?: { quoteId?: string | null; quotePubkey?: string | null; mentionPubkeys?: string[] },
   ) => Promise<void>;
   likeMessage: (message: CasualChatMessage) => Promise<void>;
   deleteMessage: (message: CasualChatMessage) => Promise<void>;
@@ -615,7 +615,7 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
     async (
       body: string,
       attachments: CasualAttachmentMeta[] = [],
-      options?: { quoteId?: string | null },
+      options?: { quoteId?: string | null; quotePubkey?: string | null; mentionPubkeys?: string[] },
     ) => {
       const trimmed = body.trim();
       const cleanedBody = stripImagePlaceholders(trimmed);
@@ -650,12 +650,33 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
         ["lang", BROWSER_LANGUAGE_TAG],
       ];
 
+      const mentionPubkeys = Array.isArray(options?.mentionPubkeys)
+        ? Array.from(
+            new Set(
+              options.mentionPubkeys
+                .map((value) => (typeof value === "string" ? value.trim().toLowerCase() : ""))
+                .filter((value) => value.length === 64),
+            ),
+          )
+        : [];
+
       if (options?.quoteId) {
         tags.push(["e", options.quoteId, "", "reply"]);
       }
       if (options?.quotePubkey) {
-        tags.push(["p", options.quotePubkey]);
+        const normalized = options.quotePubkey.trim().toLowerCase();
+        if (normalized.length === 64) {
+          if (!mentionPubkeys.includes(normalized)) {
+            mentionPubkeys.push(normalized);
+          }
+        }
       }
+
+      mentionPubkeys.forEach((mention) => {
+        if (!tags.some((tag) => tag[0] === "p" && tag[1] === mention)) {
+          tags.push(["p", mention]);
+        }
+      });
 
       attachments.forEach((attachment) => {
         const eventId =
