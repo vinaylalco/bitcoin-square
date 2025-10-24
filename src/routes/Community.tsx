@@ -1315,6 +1315,13 @@ const CommunityView: React.FC = () => {
       setHasUnreadMessages(false);
     }
   }, [isMessagesRouteActive]);
+  const isCasualView = activeView === "casual";
+  const isPublicFeedView = activeView === "feed";
+  const isPersonalFeedView = activeView === "personal";
+  const isNotificationsView = activeView === "notifications";
+  const isAnyFeedView = isPublicFeedView || isPersonalFeedView;
+  const isMembersView = activeView === "members";
+
   useEffect(() => {
     if (!isNotificationsView) {
       return;
@@ -1362,12 +1369,6 @@ const CommunityView: React.FC = () => {
     () => (theme === "dark" ? DARK_BACKGROUND_TEXTURE : LIGHT_BACKGROUND_TEXTURE),
     [theme],
   );
-  const isCasualView = activeView === "casual";
-  const isPublicFeedView = activeView === "feed";
-  const isPersonalFeedView = activeView === "personal";
-  const isNotificationsView = activeView === "notifications";
-  const isAnyFeedView = isPublicFeedView || isPersonalFeedView;
-  const isMembersView = activeView === "members";
   const personalFeedPosts = useMemo(
     () => feedPosts.filter((post) => following.has(post.pubkey)),
     [feedPosts, following],
