@@ -1505,6 +1505,12 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       referencedPost?.created_at ? formatAbsoluteTimestamp(referencedPost.created_at) : null;
     const showReferencePreview =
       !!reference && !!referencedId && !suppressReferencePreview;
+    const imageAttachments = post.attachments.filter((attachment) =>
+      attachment.mimeType.startsWith("image/"),
+    );
+    const otherAttachments = post.attachments.filter(
+      (attachment) => !attachment.mimeType.startsWith("image/"),
+    );
     const interactive = typeof onOpenThread === "function" && (variant === "list" || variant === "thread");
     const cardClassName = `rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-5 shadow-sm transition ${
       interactive ? "hover:border-brand/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 cursor-pointer" : ""
@@ -1572,8 +1578,52 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
           </button>
         )}
 
-        <div className="mt-4 whitespace-pre-wrap break-words text-sm leading-relaxed text-[var(--fg-default)]">
-          {renderContent(displayContent, handleTagClick, handleMentionClick)}
+        <div className="mt-4 text-sm leading-relaxed text-[var(--fg-default)]">
+          <div className={imageAttachments.length > 0 ? "flex items-start gap-3" : undefined}>
+            {imageAttachments.length > 0 && (
+              <div className="mr-3 flex shrink-0 flex-col gap-2">
+                {imageAttachments.map((attachment, index) => {
+                  const safeAttachmentUrl = rewriteImgBbUrlToProxy(attachment.url, { absolute: true });
+                  const metaParts: string[] = [];
+                  if (attachment.width && attachment.height) {
+                    metaParts.push(`${attachment.width}x${attachment.height}`);
+                  } else if (attachment.dimensions) {
+                    metaParts.push(attachment.dimensions);
+                  }
+                  if (attachment.size) {
+                    metaParts.push(`${(attachment.size / 1024).toFixed(1)} KB`);
+                  }
+
+                  return (
+                    <div key={`${post.id}-inline-image-${index}`} className="space-y-1">
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setLightboxImage({ src: safeAttachmentUrl, alt: "Feed attachment" });
+                        }}
+                        className="group block w-20 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)]/80 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+                        title="View full image"
+                      >
+                        <img
+                          src={safeAttachmentUrl}
+                          alt="Feed attachment"
+                          className="h-auto w-full object-cover transition duration-200 group-hover:scale-[1.02]"
+                          loading="lazy"
+                        />
+                      </button>
+                      {metaParts.length > 0 && (
+                        <p className="text-[10px] text-[var(--fg-muted)]">{metaParts.join(" • ")}</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <div className="min-w-0 whitespace-pre-wrap break-words">
+              {renderContent(displayContent, handleTagClick, handleMentionClick)}
+            </div>
+          </div>
         </div>
 
         {translationEnabled && (
@@ -1629,9 +1679,9 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
           </button>
         )}
 
-        {post.attachments.length > 0 && (
+        {otherAttachments.length > 0 && (
           <div className="mt-4 space-y-3">
-            {post.attachments.map((attachment, index) => {
+            {otherAttachments.map((attachment, index) => {
               const safeAttachmentUrl = rewriteImgBbUrlToProxy(attachment.url, { absolute: true });
               const metaParts: string[] = [];
               if (attachment.width && attachment.height) {
