@@ -13,6 +13,8 @@ type UnknownRecord = Record<string, unknown>;
 type RichCard = Card & UnknownRecord;
 type VideoCandidate = { key: string; value: string };
 
+type VideoKeyLocale = "en" | "es" | "neutral";
+
 const LOCALE_VIDEO_KEYS: Record<"en" | "es", string[]> = {
   en: [
     "youtube_video_link_en",
@@ -53,23 +55,27 @@ function standardizeKey(key: string): string {
     .toLowerCase();
 }
 
-function keyMatchesLocale(key: string, locale: "en" | "es"): boolean {
+function inferVideoKeyLocale(key: string): VideoKeyLocale {
   const normalized = standardizeKey(key);
-  if (locale === "en") {
-    return (
-      normalized.includes("english") ||
-      normalized.endsWith("_en") ||
-      normalized.includes("_en_") ||
-      normalized.startsWith("en_")
-    );
+
+  const mentionsEnglish =
+    normalized.includes("english") ||
+    normalized.includes("_en") ||
+    normalized.startsWith("en_");
+  const mentionsSpanish =
+    normalized.includes("spanish") ||
+    normalized.includes("_es") ||
+    normalized.startsWith("es_");
+
+  if (mentionsEnglish && !mentionsSpanish) {
+    return "en";
   }
 
-  return (
-    normalized.includes("spanish") ||
-    normalized.endsWith("_es") ||
-    normalized.includes("_es_") ||
-    normalized.startsWith("es_")
-  );
+  if (mentionsSpanish && !mentionsEnglish) {
+    return "es";
+  }
+
+  return "neutral";
 }
 
 function buildPreferredVideoKeys(locale?: "en" | "es"): string[] {
@@ -164,15 +170,50 @@ function extractVideoUrl(
   collectVideoStrings(record, results, new Set());
 
   if (normalizedLocale) {
-    const match = results.find((candidate) =>
-      keyMatchesLocale(candidate.key, normalizedLocale),
+    const localeMatches = results.filter(
+      (candidate) => inferVideoKeyLocale(candidate.key) === normalizedLocale,
     );
-    if (match) {
-      return match.value;
+    if (localeMatches.length > 0) {
+      return localeMatches[0]?.value;
     }
+
+    const neutralMatches = results.filter(
+      (candidate) => inferVideoKeyLocale(candidate.key) === "neutral",
+    );
+    if (neutralMatches.length > 0) {
+      return neutralMatches[0]?.value;
+    }
+
+    return undefined;
   }
 
   return results[0]?.value;
+}
+
+function extractNeutralVideoUrl(
+  record: UnknownRecord | undefined,
+): string | undefined {
+  if (!record) return undefined;
+
+  const directKeys = buildPreferredVideoKeys(undefined).filter(
+    (key) => inferVideoKeyLocale(key) === "neutral",
+  );
+
+  for (const key of directKeys) {
+    const candidate = (record as UnknownRecord)[key];
+    if (typeof candidate === "string" && looksLikeVideoCandidate(candidate)) {
+      return candidate.trim();
+    }
+  }
+
+  const results: VideoCandidate[] = [];
+  collectVideoStrings(record, results, new Set());
+
+  const neutralMatch = results.find(
+    (candidate) => inferVideoKeyLocale(candidate.key) === "neutral",
+  );
+
+  return neutralMatch?.value;
 }
 
 function extractLocaleSpecificVideoUrl(
@@ -241,11 +282,23 @@ function extractLocaleSpecificVideoUrl(
   const results: VideoCandidate[] = [];
   collectVideoStrings(record, results, new Set());
 
-  const match = results.find((candidate) =>
-    keyMatchesLocale(candidate.key, normalizedLocale),
+  const match = results.find(
+    (candidate) => inferVideoKeyLocale(candidate.key) === normalizedLocale,
   );
 
-  return match?.value ?? extractVideoUrl(record, normalizedLocale);
+  if (match) {
+    return match.value;
+  }
+
+  const neutralMatch = results.find(
+    (candidate) => inferVideoKeyLocale(candidate.key) === "neutral",
+  );
+
+  if (neutralMatch) {
+    return neutralMatch.value;
+  }
+
+  return extractVideoUrl(record, normalizedLocale);
 }
 
 function CourseAccessGate({
@@ -388,14 +441,35 @@ function ensureVideoCard(topic: Topic, locale?: string): {
 
   if (clonedCards.length > 0) {
     const [first, ...rest] = clonedCards;
-    const hasContent = isNonEmptyString(first.content);
-    const hasQuiz = Boolean(first.quiz);
     const title = typeof first.title === "string" ? first.title : "";
-    const videoHint = extractVideoUrl(first, locale) || title.toLowerCase().includes("video");
+    const normalizedLocale = normalizeLocale(locale);
+    const localizedVideoUrl = extractLocaleSpecificVideoUrl(
+      first,
+      normalizedLocale,
+    );
+    const neutralVideoUrl = extractNeutralVideoUrl(first);
+    const alternateLocale =
+      normalizedLocale === "en"
+        ? "es"
+        : normalizedLocale === "es"
+          ? "en"
+          : undefined;
+    const alternateVideoUrl = alternateLocale
+      ? extractLocaleSpecificVideoUrl(first, alternateLocale)
+      : undefined;
+    const anyVideoUrl =
+      localizedVideoUrl ??
+      neutralVideoUrl ??
+      alternateVideoUrl ??
+      extractVideoUrl(first);
+    const videoHint =
+      Boolean(anyVideoUrl) || title.toLowerCase().includes("video");
 
-    if (!hasContent && !hasQuiz && videoHint) {
+    if (videoHint) {
       videoCard = { ...first };
       lessonCards = rest;
+      const preferredVideoUrl = localizedVideoUrl ?? neutralVideoUrl;
+      videoCard.youtube = preferredVideoUrl;
       if (first.id != null) {
         videoSourceId = String(first.id);
       }
@@ -495,10 +569,12 @@ function buildLessonCard({
   const localizedVideoUrl = isVideoLesson
     ? extractLocaleSpecificVideoUrl(cardData, locale)
     : undefined;
-  const fallbackVideoUrl = isVideoLesson
-    ? extractVideoUrl(cardData, locale) ?? extractVideoUrl(cardData)
+  const neutralVideoUrl = isVideoLesson
+    ? extractNeutralVideoUrl(cardData)
     : undefined;
-  const videoUrl = isVideoLesson ? localizedVideoUrl ?? fallbackVideoUrl : undefined;
+  const videoUrl = isVideoLesson
+    ? localizedVideoUrl ?? neutralVideoUrl
+    : undefined;
   const youtubeValue = isVideoLesson
     ? videoUrl
     : isNonEmptyString(cardData.youtube) && looksLikeVideoCandidate(cardData.youtube)
