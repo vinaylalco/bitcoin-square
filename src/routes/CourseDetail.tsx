@@ -388,14 +388,16 @@ function ensureVideoCard(topic: Topic, locale?: string): {
 
   if (clonedCards.length > 0) {
     const [first, ...rest] = clonedCards;
-    const hasContent = isNonEmptyString(first.content);
-    const hasQuiz = Boolean(first.quiz);
     const title = typeof first.title === "string" ? first.title : "";
-    const videoHint = extractVideoUrl(first, locale) || title.toLowerCase().includes("video");
+    const videoUrl = extractVideoUrl(first, locale);
+    const videoHint = videoUrl || title.toLowerCase().includes("video");
 
-    if (!hasContent && !hasQuiz && videoHint) {
+    if (videoHint) {
       videoCard = { ...first };
       lessonCards = rest;
+      if (videoUrl && typeof videoCard.youtube !== "string") {
+        videoCard.youtube = videoUrl;
+      }
       if (first.id != null) {
         videoSourceId = String(first.id);
       }
