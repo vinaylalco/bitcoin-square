@@ -178,8 +178,11 @@ function extractVideoUrl(
 function extractLocaleSpecificVideoUrl(
   record: UnknownRecord | undefined,
   locale?: string,
+  visited: Set<UnknownRecord> = new Set(),
 ): string | undefined {
-  if (!record) return undefined;
+  if (!record || typeof record !== "object") return undefined;
+  if (visited.has(record as UnknownRecord)) return undefined;
+  visited.add(record as UnknownRecord);
 
   const normalizedLocale = normalizeLocale(locale);
   if (!normalizedLocale) {
@@ -193,6 +196,48 @@ function extractLocaleSpecificVideoUrl(
     }
   }
 
+  const unknownRecord = record as UnknownRecord;
+  const localizations = unknownRecord.localizations;
+  if (Array.isArray(localizations)) {
+    for (const entry of localizations) {
+      if (!entry || typeof entry !== "object") continue;
+
+      const entryRecord = entry as UnknownRecord;
+      const entryLocale = normalizeLocale(
+        typeof entryRecord.locale === "string"
+          ? entryRecord.locale
+          : typeof entryRecord.language === "string"
+            ? entryRecord.language
+            : typeof entryRecord.attributes === "object" && entryRecord.attributes
+              ? ((entryRecord.attributes as UnknownRecord).locale as string | undefined)
+              : undefined,
+      );
+
+      if (entryLocale && entryLocale !== normalizedLocale) {
+        continue;
+      }
+
+      const target =
+        entryRecord.attributes && typeof entryRecord.attributes === "object"
+          ? (entryRecord.attributes as UnknownRecord)
+          : entryRecord;
+
+      const localized = extractLocaleSpecificVideoUrl(
+        target,
+        normalizedLocale,
+        visited,
+      );
+      if (localized) {
+        return localized;
+      }
+
+      const fallback = extractVideoUrl(target, normalizedLocale);
+      if (fallback) {
+        return fallback;
+      }
+    }
+  }
+
   const results: VideoCandidate[] = [];
   collectVideoStrings(record, results, new Set());
 
@@ -200,7 +245,7 @@ function extractLocaleSpecificVideoUrl(
     keyMatchesLocale(candidate.key, normalizedLocale),
   );
 
-  return match?.value;
+  return match?.value ?? extractVideoUrl(record, normalizedLocale);
 }
 
 function CourseAccessGate({
@@ -450,7 +495,10 @@ function buildLessonCard({
   const localizedVideoUrl = isVideoLesson
     ? extractLocaleSpecificVideoUrl(cardData, locale)
     : undefined;
-  const videoUrl = isVideoLesson ? localizedVideoUrl : undefined;
+  const fallbackVideoUrl = isVideoLesson
+    ? extractVideoUrl(cardData, locale) ?? extractVideoUrl(cardData)
+    : undefined;
+  const videoUrl = isVideoLesson ? localizedVideoUrl ?? fallbackVideoUrl : undefined;
   const youtubeValue = isVideoLesson
     ? videoUrl
     : isNonEmptyString(cardData.youtube) && looksLikeVideoCandidate(cardData.youtube)
