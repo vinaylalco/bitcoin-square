@@ -1,6 +1,10 @@
-import type { LessonPlan } from "../types/lesson-plan";
+import type { LessonPlan, Module } from "../types/lesson-plan";
 import type { Product } from "../types/product";
-import { resolveLocale, type AppLocale } from "../utils/locale";
+import {
+  resolveLocale,
+  normalizeLocale as normalizeAppLocale,
+  type AppLocale,
+} from "../utils/locale";
 
 // Support both Node and browser environments. In the browser, Vite exposes env
 // variables on `import.meta.env` while in Node tests we rely on `process.env`.
@@ -12,6 +16,8 @@ const env = (typeof process !== "undefined" ? process.env : (import.meta as any)
 const API =
   env.VITE_STRAPI_URL || env.NEXT_PUBLIC_STRAPI_URL || env.VITE_API_URL || "";
 const TOKEN = env.STRAPI_TOKEN || env.VITE_STRAPI_TOKEN;
+
+type AnyRecord = Record<string, unknown>;
 
 function getFrontendBaseUrl(): string {
   if (typeof window !== "undefined" && window.location?.origin) {
@@ -59,6 +65,130 @@ function coerceBoolean(value: unknown): boolean | undefined {
   return undefined;
 }
 
+function unwrapLessonPlanEntry<T extends AnyRecord = AnyRecord>(entry: any): T {
+  if (!entry || typeof entry !== "object") {
+    return entry as T;
+  }
+
+  const attributes = (entry as AnyRecord).attributes;
+  if (attributes && typeof attributes === "object") {
+    const plain: AnyRecord = { ...(attributes as AnyRecord) };
+
+    if (entry.id !== undefined && plain.id === undefined) {
+      plain.id = entry.id;
+    }
+
+    if (entry.documentId !== undefined && plain.documentId === undefined) {
+      plain.documentId = entry.documentId;
+    }
+
+    if (entry.slug !== undefined && plain.slug === undefined) {
+      plain.slug = entry.slug;
+    }
+
+    const rawLocalizations = (attributes as AnyRecord).localizations;
+    if (!plain.localizations && rawLocalizations && typeof rawLocalizations === "object") {
+      const data = (rawLocalizations as AnyRecord).data;
+      if (Array.isArray(data)) {
+        plain.localizations = data;
+      }
+    }
+
+    return plain as T;
+  }
+
+  return entry as T;
+}
+
+function getLocalizationEntries(entry: any): AnyRecord[] {
+  const raw = (entry as AnyRecord)?.localizations;
+  if (Array.isArray(raw)) {
+    return raw as AnyRecord[];
+  }
+
+  if (raw && typeof raw === "object") {
+    const data = (raw as AnyRecord).data;
+    if (Array.isArray(data)) {
+      return data as AnyRecord[];
+    }
+  }
+
+  const unwrapped = unwrapLessonPlanEntry(entry);
+  const normalized = (unwrapped as AnyRecord)?.localizations;
+
+  if (Array.isArray(normalized)) {
+    return normalized as AnyRecord[];
+  }
+
+  if (normalized && typeof normalized === "object") {
+    const data = (normalized as AnyRecord).data;
+    if (Array.isArray(data)) {
+      return data as AnyRecord[];
+    }
+  }
+
+  return [];
+}
+
+function selectLocalizedEntry(entry: any, locale: string): AnyRecord {
+  const normalizedTarget = normalizeAppLocale(locale);
+  const base = unwrapLessonPlanEntry(entry);
+  const baseLocale = normalizeAppLocale((base as AnyRecord)?.locale as string | undefined);
+
+  if (!normalizedTarget || baseLocale === normalizedTarget) {
+    return base;
+  }
+
+  for (const candidate of getLocalizationEntries(entry)) {
+    const plainCandidate = unwrapLessonPlanEntry(candidate);
+    const candidateLocale = normalizeAppLocale(
+      (plainCandidate as AnyRecord)?.locale as string | undefined,
+    );
+
+    if (candidateLocale === normalizedTarget) {
+      return plainCandidate;
+    }
+  }
+
+  return base;
+}
+
+function extractMediaUrl(value: unknown): string | undefined {
+  if (!value) return undefined;
+
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (typeof value === "object") {
+    const record = value as AnyRecord;
+    if (typeof record.url === "string") {
+      return record.url;
+    }
+
+    if (record.data) {
+      const data = record.data as unknown;
+      if (Array.isArray(data)) {
+        for (const item of data) {
+          const resolved = extractMediaUrl(
+            typeof item === "object" && item
+              ? ((item as AnyRecord).attributes as unknown) ?? item
+              : item,
+          );
+          if (resolved) return resolved;
+        }
+      } else if (typeof data === "object" && data) {
+        const nested = extractMediaUrl(
+          ((data as AnyRecord).attributes as unknown) ?? data,
+        );
+        if (nested) return nested;
+      }
+    }
+  }
+
+  return undefined;
+}
+
 export async function strapiFetch(path: string, init: RequestInit = {}): Promise<any> {
   const url = `${API}${path}`;
   const headers: HeadersInit = {
@@ -92,31 +222,43 @@ export async function getLessonPlans(locale: string): Promise<LessonPlan[]> {
 
   const entries: any[] = json?.data || [];
   return entries.map((entry) => {
-    const course = entry.LessonPlanJSON?.course || {};
-    const title = course.name || entry.title;
+    const unwrapped = unwrapLessonPlanEntry(entry);
+    const course = (unwrapped?.LessonPlanJSON as AnyRecord | undefined)?.course || {};
+    const title = course.name || unwrapped?.title;
     const slug =
-      entry.slug ||
+      unwrapped?.slug ||
       toSlug(title) ||
       (course.id != null ? String(course.id) : undefined) ||
-      String(entry.id);
+      String(unwrapped?.id ?? entry.id);
     const price =
-      parseNumber(entry.price ?? course.price) ??
-      parseNumber(entry.Price ?? entry.price_usd);
+      parseNumber(unwrapped?.price ?? course.price) ??
+      parseNumber(unwrapped?.Price ?? unwrapped?.price_usd);
     const stripePriceId =
-      entry.stripePriceId || entry.stripe_price_id || course.stripePriceId;
+      (unwrapped?.stripePriceId as string | undefined) ||
+      (unwrapped?.stripe_price_id as string | undefined) ||
+      (course.stripePriceId as string | undefined);
     const stripeProductId =
-      entry.stripeProductId || entry.stripe_product_id || course.stripeProductId;
+      (unwrapped?.stripeProductId as string | undefined) ||
+      (unwrapped?.stripe_product_id as string | undefined) ||
+      (course.stripeProductId as string | undefined);
     const isPaid =
-      coerceBoolean(entry.isPaid ?? entry.is_paid ?? course.isPaid) ?? false;
+      coerceBoolean(
+        unwrapped?.isPaid ??
+          unwrapped?.is_paid ??
+          (course.isPaid as unknown) ??
+          (course.is_paid as unknown),
+      ) ?? false;
+    const coverUrl = extractMediaUrl(unwrapped?.coverImage);
+    const modules = Array.isArray(course.modules) ? course.modules : [];
     return {
       id: entry.id,
-      documentId: entry.documentId,
+      documentId: unwrapped?.documentId ?? entry.documentId,
       title,
       slug,
-      description: entry.description,
-      coverImage: resolveMedia(entry.coverImage?.url),
-      modules: course.modules || [],
-      locale: entry.locale || locale,
+      description: unwrapped?.description,
+      coverImage: resolveMedia(coverUrl),
+      modules,
+      locale: (unwrapped?.locale as string | undefined) || locale,
       price,
       stripePriceId,
       stripeProductId,
@@ -136,65 +278,78 @@ export async function getLessonPlan(
 
   const entries: any[] = json?.data || [];
   const entry = entries.find((e) => {
-      const s =
-      e.slug ||
-      e.LessonPlanJSON?.course?.id ||
-      toSlug(e.LessonPlanJSON?.course?.name) ||
-      toSlug(e.title) ||
-      String(e.id);
-    return s === slug;
+    const unwrapped = unwrapLessonPlanEntry(e);
+    const course = (unwrapped?.LessonPlanJSON as AnyRecord | undefined)?.course || {};
+    const candidateSlug =
+      unwrapped?.slug ||
+      (course.id != null ? String(course.id) : undefined) ||
+      toSlug(course.name) ||
+      toSlug(unwrapped?.title) ||
+      String(unwrapped?.id ?? e.id);
+    return candidateSlug === slug;
   });
   if (!entry) {
     throw new Error("Not Found");
   }
 
-  let source = entry;
-  if (entry.locale !== locale) {
-    const match = entry.localizations?.find((l: any) => l.locale === locale);
-    if (match) source = match;
-  }
+  const base = unwrapLessonPlanEntry(entry);
+  const source = selectLocalizedEntry(entry, locale);
+  const baseCourse = (base?.LessonPlanJSON as AnyRecord | undefined)?.course || {};
+  const localizedCourse = (source?.LessonPlanJSON as AnyRecord | undefined)?.course || {};
+  const mergedCourse: AnyRecord = {
+    ...baseCourse,
+    ...localizedCourse,
+    modules: Array.isArray(localizedCourse.modules)
+      ? localizedCourse.modules
+      : Array.isArray(baseCourse.modules)
+        ? baseCourse.modules
+        : [],
+  };
 
-  const course = source?.LessonPlanJSON?.course || {};
   const lesson: LessonPlan = {
-    modules: course.modules || [],
+    modules: (mergedCourse.modules as Module[]) || [],
   } as LessonPlan;
-  lesson.locale = source?.locale || locale;
-  lesson.title = course.name || source?.title;
+  lesson.locale = (source?.locale as string | undefined) || (base?.locale as string | undefined) || locale;
+  lesson.title = (mergedCourse.name as string | undefined) || (source?.title as string | undefined) || (base?.title as string | undefined);
   // lesson.slug = entry.slug || toSlug(lesson.title) || course.id || String(entry.id);
   lesson.slug =
-    entry.slug ||
-    (entry.LessonPlanJSON?.course?.id != null
-      ? String(entry.LessonPlanJSON?.course?.id)
-      : undefined) ||
-    toSlug(entry.LessonPlanJSON?.course?.name) ||
-    toSlug(entry.title) ||
-    String(entry.id);
-  lesson.description = source?.description;
-  lesson.coverImage = resolveMedia(source?.coverImage?.url);
+    (base?.slug as string | undefined) ||
+    (baseCourse.id != null ? String(baseCourse.id) : undefined) ||
+    toSlug(baseCourse.name) ||
+    toSlug(base?.title as string | undefined) ||
+    String(base?.id ?? entry.id);
+  lesson.description = (source?.description as string | undefined) ?? (base?.description as string | undefined);
+  const coverUrl = extractMediaUrl(source?.coverImage ?? base?.coverImage);
+  lesson.coverImage = resolveMedia(coverUrl);
   lesson.id = entry.id;
-  lesson.documentId = entry.documentId;
+  lesson.documentId = entry.documentId ?? (source?.documentId as string | undefined) ?? (base?.documentId as string | undefined);
   lesson.price =
-    parseNumber(source?.price ?? entry.price ?? course.price) ??
-    parseNumber(entry.Price ?? entry.price_usd);
+    parseNumber(
+      (source?.price as unknown) ??
+        (source?.LessonPlanJSON as AnyRecord | undefined)?.course?.price ??
+        (base?.price as unknown) ??
+        baseCourse.price,
+    ) ?? parseNumber((base?.Price as unknown) ?? (base?.price_usd as unknown));
   lesson.stripePriceId =
-    source?.stripePriceId ||
-    source?.stripe_price_id ||
-    entry.stripePriceId ||
-    entry.stripe_price_id ||
-    course.stripePriceId;
+    (source?.stripePriceId as string | undefined) ||
+    (source?.stripe_price_id as string | undefined) ||
+    (base?.stripePriceId as string | undefined) ||
+    (base?.stripe_price_id as string | undefined) ||
+    (baseCourse.stripePriceId as string | undefined);
   lesson.stripeProductId =
-    source?.stripeProductId ||
-    source?.stripe_product_id ||
-    entry.stripeProductId ||
-    entry.stripe_product_id ||
-    course.stripeProductId;
+    (source?.stripeProductId as string | undefined) ||
+    (source?.stripe_product_id as string | undefined) ||
+    (base?.stripeProductId as string | undefined) ||
+    (base?.stripe_product_id as string | undefined) ||
+    (baseCourse.stripeProductId as string | undefined);
   lesson.isPaid =
     coerceBoolean(
-      source?.isPaid ??
-        source?.is_paid ??
-        entry.isPaid ??
-        entry.is_paid ??
-        course.isPaid,
+      (source?.isPaid as unknown) ??
+        (source?.is_paid as unknown) ??
+        (base?.isPaid as unknown) ??
+        (base?.is_paid as unknown) ??
+        (baseCourse.isPaid as unknown) ??
+        (baseCourse.is_paid as unknown),
     ) ?? false;
   return lesson;
 }
