@@ -505,6 +505,10 @@ const DirectMessageOverlay: React.FC = () => {
     listRef.current.scrollTop = listRef.current.scrollHeight;
   }, [conversation?.messages.length, activeConversation, disableOverlay]);
 
+  useEffect(() => {
+    setComposerFocused(false);
+  }, [activeConversation]);
+
   if (disableOverlay || !activeConversation || !conversation || !summary) {
     return null;
   }
@@ -525,10 +529,6 @@ const DirectMessageOverlay: React.FC = () => {
       setSending(false);
     }
   };
-
-  useEffect(() => {
-    setComposerFocused(false);
-  }, [activeConversation]);
 
   const formatTimestamp = (seconds: number) => {
     if (!Number.isFinite(seconds)) {
