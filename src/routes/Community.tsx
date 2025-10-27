@@ -2410,7 +2410,7 @@ const CommunityView: React.FC = () => {
                 id="community-panel-casual"
                 role="tabpanel"
                 aria-labelledby="community-tab-casual"
-                className="relative flex flex-1 min-h-0 flex-col"
+                className="relative flex h-full flex-1 min-h-0 flex-col"
               >
                 {showJumpToLatest && (
                   <button
@@ -2821,38 +2821,38 @@ const CommunityView: React.FC = () => {
                 id="community-panel-feed"
                 role="tabpanel"
                 aria-labelledby="community-tab-feed"
-                className="flex flex-1 min-h-0"
-                >
-                  <ErrorBoundary fallback={feedFallback}>
-                    <div className="flex h-full flex-1 min-h-0 overflow-hidden">
-                      <BitcoinSquareFeed
-                        posts={feedPosts}
-                        ready={feedReady}
-                        publishing={feedPublishing}
-                        publishStatus={publishFeedStatus}
-                        likePost={likeFeedPost}
-                        deletePost={deleteFeedPost}
-                        loadMore={loadMoreFeed}
-                        loadingMore={feedLoadingMore}
-                        hasMore={feedHasMore}
-                        error={feedError}
-                        pubkey={feedPubkey}
-                        initialLoading={feedInitialLoading}
-                        initialThreadId={routePostId}
-                        onThreadChange={handleThreadRouteChange}
-                      />
-                    </div>
-                  </ErrorBoundary>
-                </section>
+                className="relative flex h-full flex-1 min-h-0"
+              >
+                <ErrorBoundary fallback={feedFallback}>
+                  <div className="relative flex h-full flex-1 min-h-0 overflow-hidden">
+                    <BitcoinSquareFeed
+                      posts={feedPosts}
+                      ready={feedReady}
+                      publishing={feedPublishing}
+                      publishStatus={publishFeedStatus}
+                      likePost={likeFeedPost}
+                      deletePost={deleteFeedPost}
+                      loadMore={loadMoreFeed}
+                      loadingMore={feedLoadingMore}
+                      hasMore={feedHasMore}
+                      error={feedError}
+                      pubkey={feedPubkey}
+                      initialLoading={feedInitialLoading}
+                      initialThreadId={routePostId}
+                      onThreadChange={handleThreadRouteChange}
+                    />
+                  </div>
+                </ErrorBoundary>
+              </section>
             ) : isPersonalFeedView ? (
               <section
                 id="community-panel-personal"
                 role="tabpanel"
                 aria-labelledby="community-tab-personal"
-                className="flex flex-1 min-h-0"
+                className="relative flex h-full flex-1 min-h-0"
               >
                 <ErrorBoundary fallback={feedFallback}>
-                  <div className="flex h-full flex-1 min-h-0 overflow-hidden">
+                  <div className="relative flex h-full flex-1 min-h-0 overflow-hidden">
                     {hasFollowing ? (
                       <BitcoinSquareFeed
                         posts={personalFeedPosts}
