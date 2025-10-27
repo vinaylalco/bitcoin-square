@@ -675,6 +675,9 @@ export default function CourseDetail() {
     (module.topics ?? []).flatMap((topic) => topic.cards as LessonCard[]),
   );
 
+  const normalizedSlug = String(data?.slug ?? slug ?? "").toLowerCase();
+  const enableCustomize = normalizedSlug === "full-btc-course";
+
   return (
     <div className="w-full">
       <section className="bg-[var(--bg-card)]">
@@ -724,6 +727,7 @@ export default function CourseDetail() {
                 modules={modules}
                 courseTitle={data?.title || "Education"}
                 lessonSlug={data?.slug || slug}
+                enableCustomize={enableCustomize}
               />
             ) : (
               <p className="px-6 py-12 text-center text-sm font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">
