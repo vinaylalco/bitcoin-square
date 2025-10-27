@@ -1143,94 +1143,121 @@ export default function Slider({
         className="lg:flex lg:items-start lg:min-h-0"
         style={{ "--chrome": `${chrome}px` } as CSSProperties}
       >
-      <div ref={columnRef} className={columnClassNames}>
-        <div ref={progressContainerRef} className="flex items-center">
-          <div
-            ref={progressRef}
-            className="h-2 flex-1 bg-neutral-200 rounded overflow-hidden"
-            role="progressbar"
-            aria-label={`Lesson ${index + 1} of ${total} (${percent}%)`}
-            aria-valuemin={1}
-            aria-valuemax={total}
-            aria-valuenow={index + 1}
-          >
-            <div className="h-full bg-brand" style={{ width: `${percent}%` }} />
+        <div ref={columnRef} className={columnClassNames}>
+          <div ref={progressContainerRef} className="flex items-center">
+            <div
+              ref={progressRef}
+              className="h-2 flex-1 bg-neutral-200 rounded overflow-hidden"
+              role="progressbar"
+              aria-label={`Lesson ${index + 1} of ${total} (${percent}%)`}
+              aria-valuemin={1}
+              aria-valuemax={total}
+              aria-valuenow={index + 1}
+            >
+              <div className="h-full bg-brand" style={{ width: `${percent}%` }} />
+            </div>
+            <span className="ml-2 text-sm">{percent}%</span>
           </div>
-          <span className="ml-2 text-sm">{percent}%</span>
-        </div>
-        <div className="relative lg:flex-1 lg:min-h-0">
-          <div
-            ref={containerRef}
-            className="flex overflow-x-auto touch-momentum snap-x snap-mandatory lg:h-full"
-            data-tour-id="lesson-flow"
-          >
-            {displayCards.map((c) => {
-              const key = toCardKey(c.id);
-              const isActive = key === activeCardId;
-              return (
-                <div
-                  key={key}
-                  className="w-full flex-shrink-0 snap-start lg:flex lg:h-full lg:flex-col"
-                >
-                  <div ref={registerCardWrapper(key)}>
-                    <Card
-                      card={c}
-                      headerLabel={c.moduleName ?? undefined}
-                      topicName={c.topicName}
-                      onQuizComplete={(cardMeta, meta) => handleCardResult(cardMeta, meta)}
-                      onVideoComplete={(cardMeta, meta) => handleCardResult(cardMeta, meta)}
-                      onVideoPlay={handleVideoPlay}
-                      onRequestNext={next}
-                      isActive={isActive}
-                      quizCompleted={completedCardIds.has(
-                        toCardKey(c.sourceCardId ?? c.id),
-                      )}
-                    />
+          <div className="relative flex-1 min-h-0">
+            <div
+              ref={containerRef}
+              className="flex h-full overflow-x-auto touch-momentum snap-x snap-mandatory"
+              data-tour-id="lesson-flow"
+            >
+              {displayCards.map((c) => {
+                const key = toCardKey(c.id);
+                const isActive = key === activeCardId;
+                return (
+                  <div
+                    key={key}
+                    className="w-full flex-shrink-0 snap-start lg:flex lg:h-full lg:flex-col"
+                  >
+                    <div ref={registerCardWrapper(key)}>
+                      <Card
+                        card={c}
+                        headerLabel={c.moduleName ?? undefined}
+                        topicName={c.topicName}
+                        onQuizComplete={(cardMeta, meta) => handleCardResult(cardMeta, meta)}
+                        onVideoComplete={(cardMeta, meta) => handleCardResult(cardMeta, meta)}
+                        onVideoPlay={handleVideoPlay}
+                        onRequestNext={next}
+                        isActive={isActive}
+                        quizCompleted={completedCardIds.has(
+                          toCardKey(c.sourceCardId ?? c.id),
+                        )}
+                      />
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
+            {index > 0 && (
+              <button
+                onClick={prev}
+                aria-label="Previous"
+                className={[
+                  "hidden lg:flex items-center justify-center absolute left-0 top-1/2 -translate-y-1/2 -translate-x-full",
+                  "w-10 h-10 bg-white border rounded-full shadow",
+                ].join(" ")}
+              >
+                <ChevronLeft />
+              </button>
+            )}
+            {index < total - 1 && (
+              <button
+                onClick={next}
+                aria-label="Next"
+                className={[
+                  "hidden lg:flex items-center justify-center absolute right-0 top-1/2 -translate-y-1/2 translate-x-full",
+                  "w-10 h-10 bg-white border rounded-full shadow",
+                ].join(" ")}
+              >
+                <ChevronRight />
+              </button>
+            )}
+            <div
+              id="toc-drawer"
+              ref={drawerRef}
+              role="dialog"
+              aria-labelledby="course-title-mobile"
+              className={`lg:hidden absolute inset-0 z-10 bg-white dark:bg-neutral-900 overflow-y-auto touch-momentum p-4 ${
+                reduceMotion ? "" : "transition duration-200 ease-out transform"
+              } ${
+                tocOpen
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 -translate-y-2 pointer-events-none"
+              }`}
+            >
+              <div className="bg-white dark:bg-neutral-900 pb-3">
+                <h2
+                  id="course-title-mobile"
+                  className="text-lg font-semibold text-neutral-900 dark:text-neutral-100"
+                >
+                  {courseTitle || t("lesson.courseContent.title")}
+                </h2>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                  {t("lesson.courseContent.label")}
+                </p>
+              </div>
+              {tocContent}
+            </div>
           </div>
-          {index > 0 && (
-            <button
-              onClick={prev}
-              aria-label="Previous"
-              className={[
-                "hidden lg:flex items-center justify-center absolute left-0 top-1/2 -translate-y-1/2 -translate-x-full",
-                "w-10 h-10 bg-white border rounded-full shadow",
-              ].join(" ")}
-            >
-              <ChevronLeft />
-            </button>
-          )}
-          {index < total - 1 && (
-            <button
-              onClick={next}
-              aria-label="Next"
-              className={[
-                "hidden lg:flex items-center justify-center absolute right-0 top-1/2 -translate-y-1/2 translate-x-full",
-                "w-10 h-10 bg-white border rounded-full shadow",
-              ].join(" ")}
-            >
-              <ChevronRight />
-            </button>
-          )}
-          <div
-            id="toc-drawer"
-            ref={drawerRef}
-            role="dialog"
-            aria-labelledby="course-title-mobile"
-            className={`lg:hidden absolute inset-0 z-10 bg-white dark:bg-neutral-900 overflow-y-auto touch-momentum p-4 ${
-              reduceMotion ? "" : "transition duration-200 ease-out transform"
-            } ${
-              tocOpen
-                ? "opacity-100 translate-y-0"
-                : "opacity-0 -translate-y-2 pointer-events-none"
-            }`}
-          >
-            <div className="bg-white dark:bg-neutral-900 pb-3">
+        </div>
+        <nav
+          className={[
+            "hidden",
+            "lg:flex",
+            "lg:w-1/3 lg:pl-4 bg-white dark:bg-neutral-900",
+            "lg:min-h-0",
+          ].join(" ")}
+          style={navStyle}
+          aria-labelledby="course-title-desktop"
+          data-tour-id="course-nav"
+        >
+          <div className="flex h-full w-full flex-col min-h-0">
+            <div className="space-y-1 shrink-0">
               <h2
-                id="course-title-mobile"
+                id="course-title-desktop"
                 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100"
               >
                 {courseTitle || t("lesson.courseContent.title")}
@@ -1239,38 +1266,11 @@ export default function Slider({
                 {t("lesson.courseContent.label")}
               </p>
             </div>
-            {tocContent}
+            <div className="mt-4 flex-1 overflow-y-auto touch-momentum pr-2 lg:min-h-0">
+              {tocContent}
+            </div>
           </div>
-        </div>
-      </div>
-      <nav
-        className={[
-          "hidden",
-          "lg:flex",
-          "lg:w-1/3 lg:pl-4 bg-white dark:bg-neutral-900",
-          "lg:min-h-0",
-        ].join(" ")}
-        style={navStyle}
-        aria-labelledby="course-title-desktop"
-        data-tour-id="course-nav"
-      >
-        <div className="flex h-full w-full flex-col min-h-0">
-          <div className="space-y-1 shrink-0">
-            <h2
-              id="course-title-desktop"
-              className="text-lg font-semibold text-neutral-900 dark:text-neutral-100"
-            >
-              {courseTitle || t("lesson.courseContent.title")}
-            </h2>
-            <p className="text-sm text-neutral-500 dark:text-neutral-400">
-              {t("lesson.courseContent.label")}
-            </p>
-          </div>
-          <div className="mt-4 flex-1 overflow-y-auto touch-momentum pr-2 lg:min-h-0">
-            {tocContent}
-          </div>
-        </div>
-      </nav>
+        </nav>
       </div>
       {enableCustomize && customizeOpen && (
         <CustomizeDialog
