@@ -243,8 +243,25 @@ body.dark {
   border: 1px solid var(--points-hud-border);
   background: var(--points-hud-background);
   box-shadow: var(--points-hud-shadow);
+  -webkit-backdrop-filter: blur(22px);
   backdrop-filter: blur(22px);
   color: var(--points-hud-text);
+}
+
+@media (min-width: 1024px) {
+  .points-hud {
+    position: fixed;
+    border-radius: 1.5rem;
+    overflow: hidden;
+    border: 1px solid var(--points-hud-border);
+    background: var(--points-hud-background);
+    box-shadow: var(--points-hud-shadow);
+    -webkit-backdrop-filter: blur(22px);
+    backdrop-filter: blur(22px);
+    color: var(--points-hud-text);
+    right: 0;
+    top: 25%;
+  }
 }
 
 .points-hud-panel {
