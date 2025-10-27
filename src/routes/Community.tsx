@@ -2346,6 +2346,53 @@ const CommunityView: React.FC = () => {
     </div>
   );
 
+  const composerPanel = (
+    <div className="mx-auto w-full max-w-3xl space-y-3">
+      {typingSummaries.length > 0 && (
+        <div className="flex justify-center">
+          <div className="inline-flex items-center gap-2 rounded-full bg-[var(--bg-card)] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-[var(--fg-muted)]">
+            {`${typingSummaries.map((entry) => entry.displayName).join(", ")} typing…`}
+          </div>
+        </div>
+      )}
+      {roomKeyError && <p className="text-sm text-red-500">{roomKeyError}</p>}
+      {sendError && <p className="text-sm text-red-500">{sendError}</p>}
+      {composerError && <p className="text-sm text-red-500">{composerError}</p>}
+      <Composer
+        disabled={!ready}
+        onSend={handleComposerSend}
+        draft={composerDraft}
+        onTyping={sendTyping}
+        quoteContext={quoteContext}
+        onClearQuote={() => setQuoteContext(null)}
+        onJumpToQuote={handleScrollToMessage}
+        fetchMentionCandidates={fetchMentionCandidates}
+        mentionCandidates={localMentionCandidates}
+      />
+    </div>
+  );
+
+  const composerOverlay = !isCasualView
+    ? null
+    : typeof document !== "undefined"
+      ? createPortal(
+          <div
+            ref={composerContainerRef}
+            className="fixed bottom-0 left-0 right-0 z-40 border-t border-[var(--border-subtle)] bg-[var(--bg-card)]/95 px-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pt-4 backdrop-blur sm:px-8 lg:left-80"
+          >
+            {composerPanel}
+          </div>,
+          document.body,
+        )
+      : (
+          <div
+            ref={composerContainerRef}
+            className="fixed bottom-0 left-0 right-0 z-40 border-t border-[var(--border-subtle)] bg-[var(--bg-card)]/95 px-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pt-4 backdrop-blur sm:px-8 lg:left-80"
+          >
+            {composerPanel}
+          </div>
+        );
+
   return (
     <div className="relative flex min-h-screen w-full overflow-hidden bg-[var(--bg-app)] transition-colors">
       <div
@@ -2787,34 +2834,6 @@ const CommunityView: React.FC = () => {
                     </div>
                   </div>
                 </ErrorBoundary>
-                <div
-                  ref={composerContainerRef}
-                  className="absolute bottom-0 left-0 right-0 z-40 border-t border-[var(--border-subtle)] bg-[var(--bg-card)]/95 px-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pt-4 backdrop-blur sm:px-8 lg:left-80"
-                >
-                  <div className="mx-auto w-full max-w-3xl space-y-3">
-                    {typingSummaries.length > 0 && (
-                      <div className="flex justify-center">
-                          <div className="inline-flex items-center gap-2 rounded-full bg-[var(--bg-card)] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-[var(--fg-muted)]">
-                            {`${typingSummaries.map((entry) => entry.displayName).join(", ")} typing…`}
-                          </div>
-                      </div>
-                    )}
-                    {roomKeyError && <p className="text-sm text-red-500">{roomKeyError}</p>}
-                    {sendError && <p className="text-sm text-red-500">{sendError}</p>}
-                    {composerError && <p className="text-sm text-red-500">{composerError}</p>}
-                    <Composer
-                      disabled={!ready}
-                      onSend={handleComposerSend}
-                      draft={composerDraft}
-                      onTyping={sendTyping}
-                      quoteContext={quoteContext}
-                      onClearQuote={() => setQuoteContext(null)}
-                      onJumpToQuote={handleScrollToMessage}
-                      fetchMentionCandidates={fetchMentionCandidates}
-                      mentionCandidates={localMentionCandidates}
-                    />
-                  </div>
-                </div>
               </section>
             ) : isPublicFeedView ? (
               <section
@@ -3012,6 +3031,8 @@ const CommunityView: React.FC = () => {
           </div>
         </div>
       )}
+
+      {composerOverlay}
 
     </div>
   );

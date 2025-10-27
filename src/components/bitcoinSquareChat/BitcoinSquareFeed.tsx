@@ -1893,8 +1893,28 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     );
   };
 
+  const createPostButton = (
+    <button
+      type="button"
+      onClick={handlePost}
+      disabled={!ready}
+      className="fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom,0px))] right-6 z-50 inline-flex items-center gap-3 rounded-full bg-brand px-5 py-3 text-xs font-semibold uppercase tracking-[0.24em] text-white shadow-lg transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-brand disabled:cursor-not-allowed disabled:bg-brand/40 sm:bottom-10 sm:px-6"
+      aria-label="Create New Post"
+    >
+      <Plus className="h-5 w-5" />
+      <span className="hidden sm:inline">Create New Post</span>
+      <span className="sr-only sm:hidden">Create New Post</span>
+    </button>
+  );
+
+  const createPostPortal =
+    typeof document !== "undefined"
+      ? createPortal(createPostButton, document.body)
+      : createPostButton;
+
   return (
-    <div className="relative flex h-full flex-1 flex-col overflow-hidden">
+    <>
+      <div className="relative flex h-full flex-1 flex-col overflow-hidden">
       <div className="border-b border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 px-4 py-3 text-xs sm:px-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
@@ -2100,23 +2120,14 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={handlePost}
-        disabled={!ready}
-        className="absolute bottom-[calc(1.5rem+env(safe-area-inset-bottom,0px))] right-6 z-50 inline-flex items-center gap-3 rounded-full bg-brand px-5 py-3 text-xs font-semibold uppercase tracking-[0.24em] text-white shadow-lg transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-brand disabled:cursor-not-allowed disabled:bg-brand/40 sm:bottom-10 sm:px-6"
-        aria-label="Create New Post"
-      >
-        <Plus className="h-5 w-5" />
-        <span className="hidden sm:inline">Create New Post</span>
-        <span className="sr-only sm:hidden">Create New Post</span>
-      </button>
-
       {lightboxOverlay &&
         (typeof document !== "undefined"
           ? createPortal(lightboxOverlay, document.body)
           : lightboxOverlay)}
-    </div>
+      </div>
+
+      {createPostPortal}
+    </>
   );
 };
 
