@@ -245,7 +245,10 @@ export default function LessonTour({
         role="dialog"
         aria-modal="true"
         aria-labelledby={`lesson-tour-step-${activeStep.id}`}
-        className="relative z-10 w-full max-w-lg rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-[var(--shadow-soft)]"
+        className="absolute left-1/2 z-10 w-full max-w-lg -translate-x-1/2 rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-[var(--shadow-soft)]"
+        style={{
+          top: "calc(env(safe-area-inset-top, 0px) + 24px)",
+        }}
       >
         <div className="flex items-start justify-between gap-4">
           <div>
