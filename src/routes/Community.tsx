@@ -2346,6 +2346,53 @@ const CommunityView: React.FC = () => {
     </div>
   );
 
+  const composerPanel = (
+    <div className="mx-auto w-full max-w-3xl space-y-3">
+      {typingSummaries.length > 0 && (
+        <div className="flex justify-center">
+          <div className="inline-flex items-center gap-2 rounded-full bg-[var(--bg-card)] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-[var(--fg-muted)]">
+            {`${typingSummaries.map((entry) => entry.displayName).join(", ")} typing…`}
+          </div>
+        </div>
+      )}
+      {roomKeyError && <p className="text-sm text-red-500">{roomKeyError}</p>}
+      {sendError && <p className="text-sm text-red-500">{sendError}</p>}
+      {composerError && <p className="text-sm text-red-500">{composerError}</p>}
+      <Composer
+        disabled={!ready}
+        onSend={handleComposerSend}
+        draft={composerDraft}
+        onTyping={sendTyping}
+        quoteContext={quoteContext}
+        onClearQuote={() => setQuoteContext(null)}
+        onJumpToQuote={handleScrollToMessage}
+        fetchMentionCandidates={fetchMentionCandidates}
+        mentionCandidates={localMentionCandidates}
+      />
+    </div>
+  );
+
+  const composerOverlay = !isCasualView
+    ? null
+    : typeof document !== "undefined"
+      ? createPortal(
+          <div
+            ref={composerContainerRef}
+            className="fixed bottom-0 left-0 right-0 z-40 border-t border-[var(--border-subtle)] bg-[var(--bg-card)]/95 px-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pt-4 backdrop-blur sm:px-8 lg:left-80"
+          >
+            {composerPanel}
+          </div>,
+          document.body,
+        )
+      : (
+          <div
+            ref={composerContainerRef}
+            className="fixed bottom-0 left-0 right-0 z-40 border-t border-[var(--border-subtle)] bg-[var(--bg-card)]/95 px-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pt-4 backdrop-blur sm:px-8 lg:left-80"
+          >
+            {composerPanel}
+          </div>
+        );
+
   return (
     <div className="relative flex min-h-screen w-full overflow-hidden bg-[var(--bg-app)] transition-colors">
       <div
@@ -2410,7 +2457,7 @@ const CommunityView: React.FC = () => {
                 id="community-panel-casual"
                 role="tabpanel"
                 aria-labelledby="community-tab-casual"
-                className="relative flex flex-1 min-h-0 flex-col"
+                className="relative flex h-full flex-1 min-h-0 flex-col"
               >
                 {showJumpToLatest && (
                   <button
@@ -2787,72 +2834,44 @@ const CommunityView: React.FC = () => {
                     </div>
                   </div>
                 </ErrorBoundary>
-                <div
-                  ref={composerContainerRef}
-                  className="absolute bottom-0 left-0 right-0 z-40 border-t border-[var(--border-subtle)] bg-[var(--bg-card)]/95 px-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pt-4 backdrop-blur sm:px-8 lg:left-80"
-                >
-                  <div className="mx-auto w-full max-w-3xl space-y-3">
-                    {typingSummaries.length > 0 && (
-                      <div className="flex justify-center">
-                          <div className="inline-flex items-center gap-2 rounded-full bg-[var(--bg-card)] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-[var(--fg-muted)]">
-                            {`${typingSummaries.map((entry) => entry.displayName).join(", ")} typing…`}
-                          </div>
-                      </div>
-                    )}
-                    {roomKeyError && <p className="text-sm text-red-500">{roomKeyError}</p>}
-                    {sendError && <p className="text-sm text-red-500">{sendError}</p>}
-                    {composerError && <p className="text-sm text-red-500">{composerError}</p>}
-                    <Composer
-                      disabled={!ready}
-                      onSend={handleComposerSend}
-                      draft={composerDraft}
-                      onTyping={sendTyping}
-                      quoteContext={quoteContext}
-                      onClearQuote={() => setQuoteContext(null)}
-                      onJumpToQuote={handleScrollToMessage}
-                      fetchMentionCandidates={fetchMentionCandidates}
-                      mentionCandidates={localMentionCandidates}
-                    />
-                  </div>
-                </div>
               </section>
             ) : isPublicFeedView ? (
               <section
                 id="community-panel-feed"
                 role="tabpanel"
                 aria-labelledby="community-tab-feed"
-                className="flex flex-1 min-h-0"
-                >
-                  <ErrorBoundary fallback={feedFallback}>
-                    <div className="flex h-full flex-1 min-h-0 overflow-hidden">
-                      <BitcoinSquareFeed
-                        posts={feedPosts}
-                        ready={feedReady}
-                        publishing={feedPublishing}
-                        publishStatus={publishFeedStatus}
-                        likePost={likeFeedPost}
-                        deletePost={deleteFeedPost}
-                        loadMore={loadMoreFeed}
-                        loadingMore={feedLoadingMore}
-                        hasMore={feedHasMore}
-                        error={feedError}
-                        pubkey={feedPubkey}
-                        initialLoading={feedInitialLoading}
-                        initialThreadId={routePostId}
-                        onThreadChange={handleThreadRouteChange}
-                      />
-                    </div>
-                  </ErrorBoundary>
-                </section>
+                className="relative flex h-full flex-1 min-h-0"
+              >
+                <ErrorBoundary fallback={feedFallback}>
+                  <div className="relative flex h-full flex-1 min-h-0 overflow-hidden">
+                    <BitcoinSquareFeed
+                      posts={feedPosts}
+                      ready={feedReady}
+                      publishing={feedPublishing}
+                      publishStatus={publishFeedStatus}
+                      likePost={likeFeedPost}
+                      deletePost={deleteFeedPost}
+                      loadMore={loadMoreFeed}
+                      loadingMore={feedLoadingMore}
+                      hasMore={feedHasMore}
+                      error={feedError}
+                      pubkey={feedPubkey}
+                      initialLoading={feedInitialLoading}
+                      initialThreadId={routePostId}
+                      onThreadChange={handleThreadRouteChange}
+                    />
+                  </div>
+                </ErrorBoundary>
+              </section>
             ) : isPersonalFeedView ? (
               <section
                 id="community-panel-personal"
                 role="tabpanel"
                 aria-labelledby="community-tab-personal"
-                className="flex flex-1 min-h-0"
+                className="relative flex h-full flex-1 min-h-0"
               >
                 <ErrorBoundary fallback={feedFallback}>
-                  <div className="flex h-full flex-1 min-h-0 overflow-hidden">
+                  <div className="relative flex h-full flex-1 min-h-0 overflow-hidden">
                     {hasFollowing ? (
                       <BitcoinSquareFeed
                         posts={personalFeedPosts}
@@ -3012,6 +3031,8 @@ const CommunityView: React.FC = () => {
           </div>
         </div>
       )}
+
+      {composerOverlay}
 
     </div>
   );
