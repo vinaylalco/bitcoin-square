@@ -97,11 +97,13 @@ export default function Slider({
   modules,
   courseTitle,
   lessonSlug,
+  enableCustomize = true,
 }: {
   cards: LessonCard[];
   modules: Module[];
   courseTitle?: string;
   lessonSlug?: string;
+  enableCustomize?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const [index, setIndex] = useState(0);
@@ -303,8 +305,8 @@ export default function Slider({
     return ordered;
   }, [modules, personalizedPlan, topicsById]);
 
-  const tourSteps = useMemo<LessonTourStep[]>(
-    () => [
+  const tourSteps = useMemo<LessonTourStep[]>(() => {
+    const steps: LessonTourStep[] = [
       {
         id: "course-navigation",
         title: t("lesson.tour.steps.courseNavigation.title"),
@@ -340,7 +342,10 @@ export default function Slider({
           mobile: '[data-tour-id="hud-auth-mobile"]',
         },
       },
-      {
+    ];
+
+    if (enableCustomize) {
+      steps.push({
         id: "customize",
         title: t("lesson.tour.steps.customize.title"),
         description: t("lesson.tour.steps.customize.description"),
@@ -348,10 +353,11 @@ export default function Slider({
           desktop: '[data-tour-id="lesson-customize-desktop"]',
           mobile: '[data-tour-id="lesson-customize-mobile"]',
         },
-      },
-    ],
-    [t, i18n.language],
-  );
+      });
+    }
+
+    return steps;
+  }, [enableCustomize, t, i18n.language]);
 
   const calculateCompletionBonus = useCallback(
     (card: LessonCard, previous: string[], next: string[]) => {
@@ -1024,9 +1030,18 @@ export default function Slider({
     setTourOpen(false);
   }, []);
 
-  const columnClassNames = ["flex flex-col gap-4", "lg:w-2/3 lg:pr-4"].join(" ");
+  useEffect(() => {
+    if (!enableCustomize) {
+      setCustomizeOpen(false);
+    }
+  }, [enableCustomize]);
+
+  const columnClassNames =
+    ["flex flex-col gap-4 min-h-0", "lg:w-2/3 lg:pr-4 lg:min-h-0"].join(" ");
   const navStyle =
-    navHeight != null ? { height: navHeight, maxHeight: navHeight } : undefined;
+    navHeight != null
+      ? { height: navHeight, maxHeight: navHeight, minHeight: 0 }
+      : { minHeight: 0 };
 
   const renderTopicCards = (
     topicCards: LessonPlanTopic["cards"] | undefined,
@@ -1125,7 +1140,7 @@ export default function Slider({
   return (
     <>
       <div
-        className="lg:flex lg:items-start"
+        className="lg:flex lg:items-start lg:min-h-0"
         style={{ "--chrome": `${chrome}px` } as CSSProperties}
       >
       <div ref={columnRef} className={columnClassNames}>
@@ -1233,6 +1248,7 @@ export default function Slider({
           "hidden",
           "lg:flex",
           "lg:w-1/3 lg:pl-4 bg-white dark:bg-neutral-900",
+          "lg:min-h-0",
         ].join(" ")}
         style={navStyle}
         aria-labelledby="course-title-desktop"
@@ -1256,7 +1272,7 @@ export default function Slider({
         </div>
       </nav>
       </div>
-      {customizeOpen && (
+      {enableCustomize && customizeOpen && (
         <CustomizeDialog
           open={customizeOpen}
           onClose={() => setCustomizeOpen(false)}
@@ -1281,7 +1297,9 @@ export default function Slider({
         onToggleCourseContent={() => setTocOpen((open) => !open)}
         courseContentOpen={tocOpen}
         courseContentButtonRef={toggleRef}
-        onRequestCustomize={() => setCustomizeOpen(true)}
+        onRequestCustomize={
+          enableCustomize ? () => setCustomizeOpen(true) : undefined
+        }
       />
     </>
   );

@@ -193,94 +193,96 @@ export default function LessonPointsCounter({
   return (
     <>
       <div
-        className="hidden lg:flex fixed bottom-6 right-6 z-40 flex-col gap-4 text-neutral-900 dark:text-white"
+        className="hidden lg:flex fixed inset-x-0 bottom-0 z-40 justify-center px-4 pb-4 pointer-events-none"
         data-tour-id="points-hud-desktop"
       >
-        <div className={`points-hud ${animateStrike ? "points-hud--lightning" : ""}`}>
-          <div className="points-hud__glow" aria-hidden />
-          <div className="points-hud__noise" aria-hidden />
-          <div className="points-hud__surface relative z-10 flex flex-col items-center gap-5 px-4 py-5 text-center">
-            <div className="flex flex-col items-center gap-2">
-              <span className="points-hud__icon points-hud__icon--points" aria-hidden>
-                <Zap className="h-4 w-4" />
-              </span>
-              <span className={`points-hud__value ${animateStrike ? "points-hud__value--lightning" : ""}`}>
-                {formattedPoints}
-              </span>
-            </div>
-            <div className="points-hud__divider" aria-hidden />
-            <div className="flex flex-col items-center gap-2">
-              <span className="points-hud__icon points-hud__icon--streak" aria-hidden>
-                <Flame className="h-4 w-4" />
-              </span>
-              <span className="points-hud__value text-lg">
-                {normalizedStreak}
-              </span>
-            </div>
-            <div className="points-hud__divider" aria-hidden />
-            <div className="flex flex-col items-center gap-3">
-              <div className="flex justify-center" data-tour-id="hud-auth-desktop">
-                {isLoggedIn ? (
-                  <Link
-                    to="/dashboard"
-                    className="points-hud__account"
-                    aria-label={t("lesson.hud.account")}
-                  >
-                    <UserRound className="h-5 w-5" aria-hidden="true" />
-                  </Link>
-                ) : (
-                  <Link
-                    to="/login"
-                    className="points-hud__login"
-                    aria-label={t("lesson.hud.logIn")}
-                  >
-                    <LogIn className="h-4 w-4" aria-hidden="true" />
-                  </Link>
-                )}
+        <div className="flex flex-col items-center gap-4 text-neutral-900 dark:text-white pointer-events-auto">
+          <div className={`points-hud ${animateStrike ? "points-hud--lightning" : ""}`}>
+            <div className="points-hud__glow" aria-hidden />
+            <div className="points-hud__noise" aria-hidden />
+            <div className="points-hud__surface relative z-10 flex flex-col items-center gap-5 px-4 py-5 text-center">
+              <div className="flex flex-col items-center gap-2">
+                <span className="points-hud__icon points-hud__icon--points" aria-hidden>
+                  <Zap className="h-4 w-4" />
+                </span>
+                <span className={`points-hud__value ${animateStrike ? "points-hud__value--lightning" : ""}`}>
+                  {formattedPoints}
+                </span>
               </div>
-              <button
-                type="button"
-                onClick={onRequestCustomize}
-                disabled={!onRequestCustomize}
-                data-tour-id="lesson-customize-desktop"
-                className="flex h-11 w-11 items-center justify-center rounded-full bg-brand text-white shadow-[0_12px_30px_rgba(169,21,255,0.35)] transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-60"
-                aria-label={t("lesson.hud.customize")}
-                title={t("lesson.hud.customize")}
-              >
-                <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
-              </button>
+              <div className="points-hud__divider" aria-hidden />
+              <div className="flex flex-col items-center gap-2">
+                <span className="points-hud__icon points-hud__icon--streak" aria-hidden>
+                  <Flame className="h-4 w-4" />
+                </span>
+                <span className="points-hud__value text-lg">
+                  {normalizedStreak}
+                </span>
+              </div>
+              <div className="points-hud__divider" aria-hidden />
+              <div className="flex flex-col items-center gap-3">
+                <div className="flex justify-center" data-tour-id="hud-auth-desktop">
+                  {isLoggedIn ? (
+                    <Link
+                      to="/dashboard"
+                      className="points-hud__account"
+                      aria-label={t("lesson.hud.account")}
+                    >
+                      <UserRound className="h-5 w-5" aria-hidden="true" />
+                    </Link>
+                  ) : (
+                    <Link
+                      to="/login"
+                      className="points-hud__login"
+                      aria-label={t("lesson.hud.logIn")}
+                    >
+                      <LogIn className="h-4 w-4" aria-hidden="true" />
+                    </Link>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={onRequestCustomize}
+                  disabled={!onRequestCustomize}
+                  data-tour-id="lesson-customize-desktop"
+                  className="flex h-11 w-11 items-center justify-center rounded-full bg-brand text-white shadow-[0_12px_30px_rgba(169,21,255,0.35)] transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-60"
+                  aria-label={t("lesson.hud.customize")}
+                  title={t("lesson.hud.customize")}
+                >
+                  <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </div>
             </div>
           </div>
+          {!isLoggedIn && showLoginPrompt && (
+            <div className="points-hud__prompt">
+              <p className="mb-3 font-medium text-neutral-900 dark:text-neutral-100">
+                {t("lesson.hud.loginPrompt")}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Link
+                  to="/register"
+                  className="points-hud__cta points-hud__cta--primary"
+                >
+                  {t("lesson.hud.signUp")}
+                </Link>
+                <Link
+                  to="/login"
+                  className="points-hud__cta points-hud__cta--ghost"
+                >
+                  {t("lesson.hud.logIn")}
+                </Link>
+                <button
+                  type="button"
+                  onClick={onDismissPrompt}
+                  className="ml-auto text-xs font-semibold uppercase tracking-wide text-neutral-500 transition hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200"
+                >
+                  {t("lesson.hud.dismiss")}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
-      {!isLoggedIn && showLoginPrompt && (
-        <div className="hidden lg:block points-hud__prompt">
-          <p className="mb-3 font-medium text-neutral-900 dark:text-neutral-100">
-            {t("lesson.hud.loginPrompt")}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <Link
-              to="/register"
-              className="points-hud__cta points-hud__cta--primary"
-            >
-              {t("lesson.hud.signUp")}
-            </Link>
-            <Link
-              to="/login"
-              className="points-hud__cta points-hud__cta--ghost"
-            >
-              {t("lesson.hud.logIn")}
-            </Link>
-            <button
-              type="button"
-              onClick={onDismissPrompt}
-              className="ml-auto text-xs font-semibold uppercase tracking-wide text-neutral-500 transition hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200"
-            >
-              {t("lesson.hud.dismiss")}
-            </button>
-          </div>
-        </div>
-      )}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 px-4 pb-5 pt-2 pointer-events-none">
         <nav
           className="points-hud-panel relative z-10 mx-auto w-full max-w-xl transform transition-all duration-200 ease-out scale-100 opacity-100 pointer-events-auto rounded-3xl overflow-hidden p-3"
