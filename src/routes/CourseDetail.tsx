@@ -4,8 +4,6 @@ import Slider from "../components/lesson/Slider";
 import CourseDetailSkeleton from "../components/course/CourseDetailSkeleton";
 import { useLessonPlan } from "../hooks/useLessonPlan";
 import type { Card, LessonCard, Module, Topic } from "../types/lesson-plan";
-import BuyCourseButton from "../components/course/BuyCourseButton";
-import { formatCurrency } from "../utils/currency";
 
 type UnknownRecord = Record<string, unknown>;
 type RichCard = Card & UnknownRecord;
@@ -499,18 +497,6 @@ export default function CourseDetail() {
 
   const effectiveLocale = data?.locale ?? locale;
   const rawModules = data?.modules ?? [];
-  const isPaidCourse = data?.isPaid ?? false;
-  const hasPrice = data?.price !== undefined && data?.price !== null;
-  const formattedPrice = hasPrice ? formatCurrency(data?.price) : "";
-  const priceLabel =
-    formattedPrice && formattedPrice.length > 0 ? formattedPrice : "Contact us";
-  const canPurchase = Boolean(
-    isPaidCourse &&
-      data?.stripePriceId &&
-      typeof data?.id === "number",
-  );
-  const showPurchaseCard = isPaidCourse;
-
   const modules = rawModules.map((module, moduleIndex) => {
     const moduleTopics = module.topics ?? [];
     const topicCount = moduleTopics.length;
@@ -557,44 +543,15 @@ export default function CourseDetail() {
 
   return (
     <div className="w-full">
-      <section className="bg-[var(--bg-card)]">
-        <div className="mx-auto max-w-6xl px-4 py-12 sm:px-10">
-          {data && data.locale !== locale && (
-            <p className="max-w-xl text-xs font-medium uppercase tracking-[0.32em] text-[var(--fg-muted)]">
-              {t("courses.localeFallback", {
-                defaultValue: "Showing default language for this course.",
-              })}
-            </p>
-          )}
+      {data && data.locale !== locale && (
+        <div className="mx-auto max-w-6xl px-4 pt-12 sm:px-10">
+          <p className="max-w-xl text-xs font-medium uppercase tracking-[0.32em] text-[var(--fg-muted)]">
+            {t("courses.localeFallback", {
+              defaultValue: "Showing default language for this course.",
+            })}
+          </p>
         </div>
-        {showPurchaseCard && (
-          <div className="fixed bottom-6 left-6 z-20 w-full max-w-sm space-y-4 rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-app)] p-6 shadow-[var(--shadow-soft)]">
-            <div className="space-y-1">
-              <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">
-                Price
-              </p>
-              <p className="text-3xl font-black tracking-[0.08em] text-[var(--fg-default)]">
-                {priceLabel}
-              </p>
-            </div>
-            {canPurchase ? (
-              <BuyCourseButton
-                lessonPlanId={data?.id}
-                stripePriceId={data?.stripePriceId}
-                className="w-full justify-center px-6 py-3 text-[0.65rem]"
-                label="Buy Course"
-              />
-            ) : (
-              <p className="text-xs font-medium text-[var(--fg-muted)]">
-                Checkout is currently unavailable for this course.
-              </p>
-            )}
-            <p className="text-xs leading-relaxed text-[var(--fg-muted)]">
-              Payments are processed securely via Stripe. You will be redirected to complete your purchase.
-            </p>
-          </div>
-        )}
-      </section>
+      )}
       <div className="w-full shadow-[var(--shadow-soft)]">
         <div className="space-y-6 px-4 pt-10 pb-6 sm:px-10 sm:pb-8 lg:pb-6">
           {cards.length > 0 ? (

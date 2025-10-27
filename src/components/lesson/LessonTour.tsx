@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -213,9 +214,55 @@ export default function LessonTour({
     setCurrentIndex((idx) => Math.min(idx + 1, totalSteps - 1));
   };
 
+  const dialogSide = useMemo(() => {
+    if (typeof window === "undefined") {
+      return "center" as const;
+    }
+
+    if (!highlightRect) {
+      return "center" as const;
+    }
+
+    const viewportWidth = window.innerWidth;
+    if (viewportWidth < DESKTOP_BREAKPOINT) {
+      return "center" as const;
+    }
+
+    const highlightCenter = highlightRect.left + highlightRect.width / 2;
+    return highlightCenter < viewportWidth / 2 ? "right" : "left";
+  }, [highlightRect]);
+
+  const dialogStyle = useMemo<CSSProperties>(() => {
+    const base: CSSProperties = {
+      top: "50%",
+    };
+
+    if (dialogSide === "center") {
+      return {
+        ...base,
+        left: "50%",
+        transform: "translate(-50%, -50%)",
+      };
+    }
+
+    if (dialogSide === "left") {
+      return {
+        ...base,
+        left: "calc(env(safe-area-inset-left, 0px) + 24px)",
+        transform: "translateY(-50%)",
+      };
+    }
+
+    return {
+      ...base,
+      right: "calc(env(safe-area-inset-right, 0px) + 24px)",
+      transform: "translateY(-50%)",
+    };
+  }, [dialogSide]);
+
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-end justify-center px-4"
+      className="fixed inset-0 z-[70] px-4"
       style={{
         paddingBottom: `${containerPadding}px`,
       }}
@@ -245,10 +292,8 @@ export default function LessonTour({
         role="dialog"
         aria-modal="true"
         aria-labelledby={`lesson-tour-step-${activeStep.id}`}
-        className="absolute left-1/2 z-10 w-full max-w-lg -translate-x-1/2 rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-[var(--shadow-soft)]"
-        style={{
-          top: "calc(env(safe-area-inset-top, 0px) + 24px)",
-        }}
+        className="absolute z-10 w-full max-w-lg rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-[var(--shadow-soft)]"
+        style={dialogStyle}
       >
         <div className="flex items-start justify-between gap-4">
           <div>

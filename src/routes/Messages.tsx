@@ -623,7 +623,7 @@ const MessagesPage: React.FC = () => {
                 <div className="relative flex h-full flex-1 flex-col bg-[var(--bg-surface)]/60">
                   <div
                     ref={listRef}
-                    className="flex-1 space-y-3 overflow-y-auto px-5 py-4 pb-52"
+                    className="flex-1 space-y-3 overflow-y-auto px-5 py-4"
                   >
                     {conversation.messages.length === 0 ? (
                       <p className="mt-8 text-center text-xs uppercase tracking-[0.2em] text-[var(--fg-muted)]">
@@ -669,11 +669,11 @@ const MessagesPage: React.FC = () => {
                   )}
 
                   {activeConversation && conversation && (
-                    <div className="absolute bottom-0 left-0 right-0 z-40 border-t border-[var(--border-subtle)] bg-[var(--bg-card)]/95 backdrop-blur">
+                    <div className="border-t border-[var(--border-subtle)] bg-[var(--bg-card)]/95 backdrop-blur">
                       <div className="mx-auto flex w-full max-w-5xl justify-center px-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pt-4 sm:px-6 lg:justify-end">
                         <form
                           onSubmit={handleSubmit}
-                          className="w-full rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)]/95 px-5 py-4 shadow-lg lg:w-[calc(100%_-_22rem_-_1.5rem)]"
+                          className="w-full rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)]/95 px-5 py-4 shadow-lg"
                         >
                           {!ready && (
                             <p className="mb-2 text-xs text-[var(--fg-muted)]">
