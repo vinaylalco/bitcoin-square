@@ -60,7 +60,7 @@ import useMentionAutocomplete from "../hooks/useMentionAutocomplete";
 
 type ActiveView = "casual" | "feed" | "personal" | "notifications" | "members";
 
-type ViewTab = { key: ActiveView; label: string; icon: LucideIcon };
+type ViewTab = { key: ActiveView | "messages"; label: string; icon: LucideIcon };
 
 const PRIMARY_VIEW_TABS: ViewTab[] = [
   { key: "casual", label: "Chat", icon: MessageCircle },
@@ -74,6 +74,7 @@ const DESKTOP_VIEW_TABS: ViewTab[] = PRIMARY_VIEW_TABS;
 
 const MOBILE_VIEW_TABS: ViewTab[] = [
   ...PRIMARY_VIEW_TABS,
+  { key: "messages", label: "Messages", icon: MessageCircle },
   NOTIFICATIONS_TAB,
   { key: "members", label: "Members", icon: Users },
 ];
@@ -1935,12 +1936,51 @@ const CommunityView: React.FC = () => {
     );
   const renderTabButton = (tab: ViewTab, variant: "mobile" | "desktop") => {
     const Icon = tab.icon;
-    const isActive = activeView === tab.key;
     const tabId = `community-tab-${tab.key}`;
     const panelId = `community-panel-${tab.key}`;
     const layoutClass = variant === "mobile" ? "min-w-[10rem] shrink-0 snap-start" : "w-full";
     const baseClasses =
       "flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 sm:text-sm";
+
+    if (tab.key === "messages") {
+      const isActive = isMessagesRouteActive;
+      return (
+        <NavLink
+          key={tab.key}
+          to={directMessagesPath}
+          id={tabId}
+          role="tab"
+          aria-selected={isActive}
+          tabIndex={isActive ? 0 : -1}
+          className={({ isActive: navIsActive }) =>
+            `${baseClasses} ${layoutClass} ${
+              navIsActive
+                ? "border-brand bg-brand/10 text-brand shadow-sm"
+                : "border-transparent text-[var(--fg-muted)] hover:border-brand hover:text-brand"
+            }`
+          }
+        >
+          {({ isActive: navIsActive }) => (
+            <>
+              <Icon className="h-4 w-4" aria-hidden="true" />
+              <span className="flex items-center gap-2">
+                <span>{tab.label}</span>
+                {hasUnreadMessages && !navIsActive && (
+                  <span aria-hidden="true" className="text-brand text-xs leading-none">
+                    ●
+                  </span>
+                )}
+              </span>
+              {hasUnreadMessages && !navIsActive && (
+                <span className="sr-only">Unread messages available</span>
+              )}
+            </>
+          )}
+        </NavLink>
+      );
+    }
+
+    const isActive = activeView === tab.key;
     const paletteClasses = isActive
       ? "border-brand bg-brand/10 text-brand shadow-sm"
       : "border-transparent text-[var(--fg-muted)] hover:border-brand hover:text-brand";
