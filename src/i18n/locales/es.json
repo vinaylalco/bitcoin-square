@@ -28,7 +28,8 @@
       "close": "Cerrar",
       "openAria": "Abrir menú",
       "closeAria": "Cerrar menú",
-      "ariaLabel": "Menú principal"
+      "ariaLabel": "Menú principal",
+      "toggleEducation": "Alternar submenú de educación"
     }
   },
   "settings": {
