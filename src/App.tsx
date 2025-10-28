@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation, useMatch } from "react-router-dom";
 import {
   BookOpen,
+  ChevronDown,
   Home as HomeIcon,
   LayoutDashboard,
   Mail,
@@ -19,10 +20,12 @@ import { useAuth } from "./context/AuthContext";
 import Footer from "./components/Footer";
 import ProfileModalPortal from "./components/profile/ProfileModal";
 import { cn } from "./utils/cn";
+import { useLessonPlans } from "./hooks/useLessonPlans";
 
 export default function App() {
   const [open, setOpen] = useState(false);
   const [mobileEducationOpen, setMobileEducationOpen] = useState(false);
+  const [desktopEducationOpen, setDesktopEducationOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const drawerRef = useRef<HTMLDivElement | null>(null);
 
@@ -37,12 +40,35 @@ export default function App() {
   const lang = (i18n.language || "en").toLowerCase().startsWith("es") ? "es" : "en";
   const changeLang = (lng: "en" | "es") => i18n.changeLanguage(lng);
 
-  const educationChildren = [
-    {
-      label: t("app.btcFullCourse"),
-      to: "/education/full-btc-course",
-    },
-  ];
+  const { data: lessonPlans } = useLessonPlans(lang);
+  const educationChildren = (() => {
+    const normalized = (lessonPlans ?? [])
+      .map((course) => {
+        const rawSlug =
+          course.slug || course.documentId || (course.id != null ? String(course.id) : "");
+        const slug = rawSlug ? String(rawSlug).replace(/^\/+/, "") : "";
+        if (!slug) return null;
+
+        const label = course.title?.trim() || slug.replace(/-/g, " ");
+
+        return {
+          label,
+          to: `/education/${slug}`,
+        };
+      })
+      .filter((item): item is { label: string; to: string } => Boolean(item));
+
+    if (normalized.length > 0) {
+      return normalized;
+    }
+
+    return [
+      {
+        label: t("app.btcFullCourse"),
+        to: "/education/full-btc-course",
+      },
+    ];
+  })();
 
   const desktopNav = [
     { label: t("nav.education"), to: "/education", dropdown: educationChildren },
@@ -50,7 +76,15 @@ export default function App() {
     { label: t("nav.community"), to: "/community" },
   ];
 
-  useEffect(() => setOpen(false), [loc.pathname]);
+  const educationRootMatch = useMatch("/education");
+  const educationDetailMatch = useMatch("/education/:slug");
+  const isEducationActive = Boolean(educationRootMatch || educationDetailMatch);
+
+  useEffect(() => {
+    setOpen(false);
+    setMobileEducationOpen(false);
+    setDesktopEducationOpen(false);
+  }, [loc.pathname]);
 
   useEffect(() => {
     const el = document.documentElement;
@@ -134,23 +168,91 @@ export default function App() {
             </div>
 
             <nav className="hidden lg:flex items-center gap-8 text-sm font-semibold uppercase tracking-[0.22em]">
-              {desktopNav.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  className={({ isActive }) =>
-                    cn(
-                      "inline-flex items-center gap-2 py-2 transition",
-                      item.highlight
-                        ? "rounded-full border border-brand px-4 text-xs tracking-[0.32em] text-brand hover:-translate-y-0.5 hover:border-brand hover:shadow-[0_12px_30px_rgba(169,21,255,0.35)]"
-                        : "text-[var(--fg-muted)] hover:text-brand",
-                      isActive && (item.highlight ? "bg-brand text-white" : "text-brand"),
-                    )
-                  }
-                >
-                  {item.label}
-                </NavLink>
-              ))}
+              {desktopNav.map((item) => {
+                if (item.dropdown && item.dropdown.length > 0) {
+                  return (
+                    <div
+                      key={item.to}
+                      className="relative"
+                      onMouseEnter={() => setDesktopEducationOpen(true)}
+                      onMouseLeave={() => setDesktopEducationOpen(false)}
+                      onFocusCapture={() => setDesktopEducationOpen(true)}
+                      onBlurCapture={(event) => {
+                        const nextFocus = event.relatedTarget as Node | null;
+                        if (!nextFocus || !event.currentTarget.contains(nextFocus)) {
+                          setDesktopEducationOpen(false);
+                        }
+                      }}
+                    >
+                      <NavLink
+                        to={item.to}
+                        className={({ isActive }) =>
+                          cn(
+                            "inline-flex items-center gap-2 py-2 transition",
+                            item.highlight
+                              ? "rounded-full border border-brand px-4 text-xs tracking-[0.32em] text-brand hover:-translate-y-0.5 hover:border-brand hover:shadow-[0_12px_30px_rgba(169,21,255,0.35)]"
+                              : "text-[var(--fg-muted)] hover:text-brand",
+                            (isActive || desktopEducationOpen) &&
+                              (item.highlight ? "bg-brand text-white" : "text-brand"),
+                          )
+                        }
+                        onClick={() => setDesktopEducationOpen(false)}
+                      >
+                        {item.label}
+                        <ChevronDown
+                          className={cn(
+                            "h-3 w-3 transition-transform",
+                            desktopEducationOpen && "rotate-180",
+                          )}
+                          aria-hidden
+                        />
+                      </NavLink>
+                      <div
+                        className={cn(
+                          "absolute left-1/2 top-full z-20 mt-3 hidden w-60 -translate-x-1/2 rounded-2xl border border-brand/30 bg-[var(--bg-card)] p-3 text-[0.6rem] font-semibold shadow-[0_24px_60px_rgba(169,21,255,0.25)]",
+                          desktopEducationOpen && "block",
+                        )}
+                      >
+                        <div className="flex flex-col gap-2">
+                          {item.dropdown.map((child) => (
+                            <NavLink
+                              key={child.to}
+                              to={child.to}
+                              className={({ isActive }) =>
+                                cn(
+                                  "block rounded-xl border border-transparent px-4 py-2 tracking-[0.32em] text-[var(--fg-muted)] transition hover:border-brand/40 hover:bg-brand/5 hover:text-brand",
+                                  isActive && "border-brand bg-brand/10 text-brand",
+                                )
+                              }
+                              onClick={() => setDesktopEducationOpen(false)}
+                            >
+                              {child.label}
+                            </NavLink>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    className={({ isActive }) =>
+                      cn(
+                        "inline-flex items-center gap-2 py-2 transition",
+                        item.highlight
+                          ? "rounded-full border border-brand px-4 text-xs tracking-[0.32em] text-brand hover:-translate-y-0.5 hover:border-brand hover:shadow-[0_12px_30px_rgba(169,21,255,0.35)]"
+                          : "text-[var(--fg-muted)] hover:text-brand",
+                        isActive && (item.highlight ? "bg-brand text-white" : "text-brand"),
+                      )
+                    }
+                  >
+                    {item.label}
+                  </NavLink>
+                );
+              })}
             </nav>
 
             <div className="hidden items-center gap-3 lg:flex">
@@ -241,20 +343,51 @@ export default function App() {
               >
                 <HomeIcon className="h-5 w-5" /> {t("nav.home")}
               </NavLink>
-              <div>
-                <button
-                  onClick={() => setMobileEducationOpen((prev) => !prev)}
-                  className={cn(
-                    "flex w-full items-center justify-between gap-3 rounded-2xl border border-transparent px-4 py-3 transition hover:border-brand/40 hover:bg-brand/5",
-                    mobileEducationOpen && "border-brand bg-brand/10 text-brand",
-                  )}
-                >
-                  <span className="inline-flex items-center gap-3">
+              <div
+                className={cn(
+                  "rounded-2xl border border-transparent transition hover:border-brand/40 hover:bg-brand/5",
+                  (mobileEducationOpen || isEducationActive) && "border-brand bg-brand/10 text-brand",
+                )}
+              >
+                <div className="flex items-center justify-between">
+                  <NavLink
+                    to="/education"
+                    onClick={() => {
+                      setOpen(false);
+                      setMobileEducationOpen(false);
+                    }}
+                    className={({ isActive }) =>
+                      cn(
+                        "flex flex-1 items-center gap-3 px-4 py-3",
+                        isActive && "text-brand",
+                      )
+                    }
+                  >
                     <BookOpen className="h-5 w-5" /> {t("nav.education")}
-                  </span>
-                  <span className="text-[0.65rem]">{mobileEducationOpen ? "−" : "+"}</span>
-                </button>
-                <div className={cn("mt-2 space-y-2 pl-10 text-[0.65rem] font-semibold", mobileEducationOpen ? "block" : "hidden")}
+                  </NavLink>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      setMobileEducationOpen((prev) => !prev);
+                    }}
+                    aria-expanded={mobileEducationOpen}
+                    aria-controls="mobile-education-submenu"
+                    className="px-4 py-3 text-[0.65rem] font-semibold uppercase tracking-[0.4em] text-[var(--fg-muted)] transition hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                    aria-label={t("app.mobileMenu.toggleEducation", {
+                      defaultValue: "Toggle education submenu",
+                    })}
+                  >
+                    {mobileEducationOpen ? "−" : "+"}
+                  </button>
+                </div>
+                <div
+                  id="mobile-education-submenu"
+                  className={cn(
+                    "mt-2 space-y-2 pb-3 text-[0.65rem] font-semibold",
+                    mobileEducationOpen ? "block" : "hidden",
+                  )}
                 >
                   {educationChildren.map((item) => (
                     <NavLink
@@ -263,7 +396,7 @@ export default function App() {
                       onClick={() => setOpen(false)}
                       className={({ isActive }) =>
                         cn(
-                          "block rounded-2xl border border-transparent px-3 py-2 tracking-[0.4em] text-[var(--fg-muted)] transition hover:border-brand/40 hover:bg-brand/5 hover:text-brand dark:text-white dark:hover:text-brand",
+                          "block rounded-2xl border border-transparent px-6 py-2 tracking-[0.4em] text-[var(--fg-muted)] transition hover:border-brand/40 hover:bg-brand/5 hover:text-brand dark:text-white dark:hover:text-brand",
                           isActive && "border-brand bg-brand/10 text-brand",
                         )
                       }

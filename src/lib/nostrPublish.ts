@@ -9,6 +9,8 @@ type PublishResult = PublishEmitter | PromiseLike<unknown> | void;
 
 type RelayLike = {
   publish: (event: Event) => PublishResult;
+  close?: () => void;
+  connect?: () => Promise<void>;
 };
 
 type PoolLike = {
@@ -75,14 +77,39 @@ export const awaitPublishResult = async (result: PublishResult): Promise<void> =
   await waitForEmitter(result);
 };
 
+const isClosingSocketError = (error: unknown): error is Error =>
+  error instanceof Error && error.message.includes("WebSocket is already in CLOSING or CLOSED state");
+
+const ensureRelayConnection = async (relay: RelayLike) => {
+  if (typeof relay.connect === "function") {
+    await relay.connect();
+  }
+};
+
 const publishToRelay = async (
   pool: PoolLike,
   relayUrl: string,
   event: Event,
 ): Promise<void> => {
   const relay = await pool.ensureRelay(relayUrl);
-  const publication = relay.publish(event);
-  await awaitPublishResult(publication);
+  await ensureRelayConnection(relay);
+
+  const attemptPublish = async () => {
+    const publication = relay.publish(event);
+    await awaitPublishResult(publication);
+  };
+
+  try {
+    await attemptPublish();
+  } catch (error) {
+    if (!isClosingSocketError(error)) {
+      throw error;
+    }
+
+    relay.close?.();
+    await ensureRelayConnection(relay);
+    await attemptPublish();
+  }
 };
 
 export const publishWithPool = async (
