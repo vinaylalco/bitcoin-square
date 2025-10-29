@@ -115,7 +115,7 @@ export default function Dashboard() {
       setProfileError(null);
 
       try {
-        const { url: uploadedUrl } = await uploadProfileAvatar(file, token);
+        const { url: uploadedUrl } = await uploadProfileAvatar(file);
         const normalizedUrl = normalizeAvatarUrl(uploadedUrl, profileSeed);
         setAvatarUrl(normalizedUrl);
 
