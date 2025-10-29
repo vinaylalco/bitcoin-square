@@ -6,6 +6,7 @@ import { updateProfileSettings } from '../api/account';
 import { uploadProfileAvatar } from '../api/media';
 import { validateImageFile } from '../utils/imageUpload';
 import { generateScreenName, normalizeAvatarUrl, normalizeScreenName } from '../utils/profileDefaults';
+import { COMMUNITY_MESSAGES_PATH } from '../utils/routes';
 
 export default function Dashboard() {
   const { user, logout, nostrPrivKey, token, updateUser } = useAuth();
@@ -477,7 +478,7 @@ export default function Dashboard() {
             </p>
             {user.nostrPublicKey ? (
               <Link
-                to={`/profile/${user.nostrPublicKey}/messages`}
+                to={COMMUNITY_MESSAGES_PATH}
                 className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand px-5 py-2 text-sm font-semibold uppercase tracking-[0.3em] text-white transition hover:bg-brand/90"
               >
                 <MessageCircle className="h-4 w-4" />
