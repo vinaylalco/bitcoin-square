@@ -15,6 +15,11 @@ import { useAuth } from "../context/AuthContext";
 import { searchUsersByScreenName, type ScreenNameUser } from "../api/users";
 import type { MentionCandidate } from "../utils/mentions";
 import useMentionAutocomplete from "../hooks/useMentionAutocomplete";
+import { normalizeToHexPubkey } from "../utils/nostr";
+import {
+  CommunityTranslationProvider,
+  useCommunityTranslation,
+} from "../context/CommunityTranslationContext";
 
 const formatPreview = (value: string, limit = 140) => {
   const normalized = value.trim();
@@ -46,6 +51,19 @@ const formatTimestamp = (timestamp?: number | null) => {
 
 const normalizeSearch = (value: string) => value.trim().toLowerCase();
 
+const createMessageTranslationKey = (
+  message: DirectMessageEntry,
+  index: number,
+): string => {
+  if (message.id && message.id.trim().length > 0) {
+    return `dm:${message.id}`;
+  }
+  if (message.clientId && message.clientId.trim().length > 0) {
+    return `dm:client:${message.clientId}`;
+  }
+  return `dm:fallback:${message.createdAt}:${index}`;
+};
+
 interface ConversationListEntry {
   pubkey: string;
   summary: ProfileSummary;
@@ -59,9 +77,9 @@ interface ConversationListEntry {
 interface KnownMember {
   pubkey: string;
   displayName: string;
-  username: string;
+  screenName: string;
+  screenNameLower: string;
   avatarUrl: string;
-  searchText: string;
 }
 
 const MessagesPage: React.FC = () => {
@@ -76,13 +94,44 @@ const MessagesPage: React.FC = () => {
     getDraft,
     setDraft,
   } = useDirectMessages();
-  const { profiles, resolveProfileSummary, requestProfile, shortenPubkey } = useProfileIdentity();
+  const {
+    profiles,
+    resolveProfileSummary,
+    requestProfile,
+    followersFor,
+    following,
+    shortenPubkey,
+  } = useProfileIdentity();
   const { user } = useAuth();
   const [query, setQuery] = useState("");
+  const [relationshipPubkeys, setRelationshipPubkeys] = useState<string[]>([]);
+  const [relationshipsLoading, setRelationshipsLoading] = useState(false);
+  const [relationshipsError, setRelationshipsError] = useState<string | null>(null);
+
+  const {
+    isSupported: translationSupported,
+    autoTranslateEnabled,
+    ensureTranslation,
+    refreshTranslation,
+    getTranslation,
+    isOriginalVisible,
+    toggleOriginal,
+    formatLanguageName,
+    targetLanguageLabel,
+  } = useCommunityTranslation();
 
   const viewerPubkey = user?.nostrPublicKey?.trim() ?? "";
+  const viewerProfile = viewerPubkey ? profiles[viewerPubkey]?.data ?? null : null;
 
   const normalizedQuery = normalizeSearch(query);
+
+  const translationContextAvailable = Boolean(
+    translationSupported &&
+      activeConversation &&
+      conversation &&
+      conversation.messages.length > 0,
+  );
+  const translationEnabled = translationContextAvailable && autoTranslateEnabled;
 
   useEffect(() => {
     const keys = Object.keys(conversations);
@@ -90,6 +139,99 @@ const MessagesPage: React.FC = () => {
       requestProfile(pubkey).catch(() => undefined);
     });
   }, [conversations, requestProfile]);
+
+  useEffect(() => {
+    if (!viewerPubkey) {
+      setRelationshipPubkeys([]);
+      setRelationshipsLoading(false);
+      setRelationshipsError(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadRelationships = async () => {
+      setRelationshipsLoading(true);
+      setRelationshipsError(null);
+      let loadError: string | null = null;
+
+      const rawCandidates = new Set<string>();
+      const addCandidate = (value: string | null | undefined) => {
+        if (!value || typeof value !== "string") {
+          return;
+        }
+        const trimmed = value.trim();
+        if (trimmed.length === 0) {
+          return;
+        }
+        rawCandidates.add(trimmed);
+      };
+
+      Array.from(following).forEach((value) => addCandidate(value));
+      followersFor(viewerPubkey).forEach((value) => addCandidate(value));
+
+      try {
+        const profile = await requestProfile(viewerPubkey);
+        profile?.following?.forEach((value) => addCandidate(value));
+        profile?.followers?.forEach((value) => addCandidate(value));
+      } catch (profileError) {
+        loadError =
+          profileError instanceof Error && profileError.message
+            ? profileError.message
+            : "Unable to load social connections right now.";
+      }
+
+      const normalized = await Promise.all(
+        Array.from(rawCandidates).map(async (candidate) => normalizeToHexPubkey(candidate)),
+      );
+
+      const next = new Set<string>();
+      normalized.forEach((pubkey) => {
+        if (!pubkey || pubkey === viewerPubkey) {
+          return;
+        }
+        next.add(pubkey);
+      });
+
+      if (!cancelled) {
+        setRelationshipPubkeys(Array.from(next));
+        setRelationshipsError(loadError && next.size === 0 ? loadError : null);
+      }
+
+      await Promise.all(
+        Array.from(next).map((pubkey) => requestProfile(pubkey).catch(() => undefined)),
+      );
+    };
+
+    loadRelationships()
+      .catch((error) => {
+        if (cancelled) {
+          return;
+        }
+        const message =
+          error instanceof Error && error.message
+            ? error.message
+            : "Unable to load social connections right now.";
+        setRelationshipsError(message);
+        setRelationshipPubkeys([]);
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setRelationshipsLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    followersFor,
+    following,
+    requestProfile,
+    viewerPubkey,
+    viewerProfile?.followers,
+    viewerProfile?.following,
+  ]);
 
   const conversationEntries = useMemo<ConversationListEntry[]>(() => {
     const entries: ConversationListEntry[] = Object.entries(conversations).map(
@@ -134,50 +276,35 @@ const MessagesPage: React.FC = () => {
     return conversationEntries.filter((entry) => entry.searchText.includes(normalizedQuery));
   }, [conversationEntries, normalizedQuery]);
 
-  const knownMembers = useMemo<KnownMember[]>(() => {
-    const list: KnownMember[] = [];
-    const seen = new Set<string>();
+  const relationshipMembers = useMemo<KnownMember[]>(() => {
+    if (relationshipPubkeys.length === 0) {
+      return [];
+    }
 
-    Object.keys(conversations).forEach((pubkey) => {
-      if (seen.has(pubkey)) {
-        return;
-      }
+    const members = relationshipPubkeys.map((pubkey) => {
       const summary = resolveProfileSummary(pubkey);
       const profile = profiles[pubkey]?.data ?? null;
-      const username = profile?.screenName ?? "";
-      list.push({
+      const screenName = profile?.screenName?.trim() ?? "";
+      return {
         pubkey,
         displayName: summary.displayName,
-        username,
+        screenName,
+        screenNameLower: screenName.toLowerCase(),
         avatarUrl: summary.avatarUrl,
-        searchText: normalizeSearch(
-          `${summary.displayName} ${username} ${shortenPubkey(pubkey)} ${pubkey}`,
-        ),
-      });
-      seen.add(pubkey);
+      };
     });
 
-    Object.entries(profiles).forEach(([pubkey, entry]) => {
-      if (seen.has(pubkey) || !entry.data) {
-        return;
+    members.sort((a, b) => {
+      const aKey = a.screenNameLower || a.displayName.toLowerCase();
+      const bKey = b.screenNameLower || b.displayName.toLowerCase();
+      if (aKey === bKey) {
+        return a.displayName.localeCompare(b.displayName);
       }
-      const { data } = entry;
-      const displayName = data.displayName || shortenPubkey(pubkey);
-      const username = data.screenName ?? "";
-      list.push({
-        pubkey,
-        displayName,
-        username,
-        avatarUrl: data.avatarUrl,
-        searchText: normalizeSearch(
-          `${displayName} ${username} ${shortenPubkey(pubkey)} ${pubkey}`,
-        ),
-      });
-      seen.add(pubkey);
+      return aKey.localeCompare(bKey);
     });
 
-    return list.sort((a, b) => a.displayName.localeCompare(b.displayName));
-  }, [conversations, profiles, resolveProfileSummary, shortenPubkey]);
+    return members;
+  }, [relationshipPubkeys, resolveProfileSummary, profiles]);
 
   const mapUserToMentionCandidate = useCallback(
     (user: ScreenNameUser): MentionCandidate | null => {
@@ -285,18 +412,17 @@ const MessagesPage: React.FC = () => {
     if (!normalizedQuery) {
       return [];
     }
-    return knownMembers.filter(
-      (member) =>
-        !conversationPubkeys.has(member.pubkey) && member.searchText.includes(normalizedQuery),
+    return relationshipMembers.filter(
+      (member) => member.screenNameLower && member.screenNameLower.includes(normalizedQuery),
     );
-  }, [conversationPubkeys, knownMembers, normalizedQuery]);
+  }, [relationshipMembers, normalizedQuery]);
 
   const suggestedPeople = useMemo<KnownMember[]>(() => {
-    if (normalizedQuery || knownMembers.length === 0) {
+    if (normalizedQuery || relationshipMembers.length === 0) {
       return [];
     }
-    return knownMembers.filter((member) => !conversationPubkeys.has(member.pubkey)).slice(0, 5);
-  }, [conversationPubkeys, knownMembers, normalizedQuery]);
+    return relationshipMembers.slice(0, 8);
+  }, [relationshipMembers, normalizedQuery]);
 
   const handleOpenConversation = (pubkey: string) => {
     openConversation(pubkey);
@@ -349,6 +475,29 @@ const MessagesPage: React.FC = () => {
     if (!listRef.current) return;
     listRef.current.scrollTop = listRef.current.scrollHeight;
   }, [conversation?.messages.length, activeConversation]);
+
+  const latestMessageIndex = conversation ? conversation.messages.length - 1 : -1;
+  const latestMessage =
+    latestMessageIndex >= 0 ? conversation?.messages[latestMessageIndex] ?? null : null;
+  const latestTranslationKey =
+    latestMessage && latestMessageIndex >= 0
+      ? createMessageTranslationKey(latestMessage, latestMessageIndex)
+      : null;
+
+  useEffect(() => {
+    if (!translationEnabled || !latestMessage || !latestTranslationKey) {
+      return;
+    }
+    ensureTranslation(latestTranslationKey, latestMessage.plaintext);
+  }, [
+    ensureTranslation,
+    latestMessage?.clientId,
+    latestMessage?.createdAt,
+    latestMessage?.id,
+    latestMessage?.plaintext,
+    latestTranslationKey,
+    translationEnabled,
+  ]);
 
   useEffect(() => {
     if (!activeConversation) {
@@ -458,7 +607,7 @@ const MessagesPage: React.FC = () => {
     );
   };
 
-  const renderPersonRow = (member: (typeof knownMembers)[number]) => (
+  const renderPersonRow = (member: (typeof relationshipMembers)[number]) => (
     <button
       key={member.pubkey}
       type="button"
@@ -473,13 +622,13 @@ const MessagesPage: React.FC = () => {
       <div className="flex flex-col gap-1">
         <p className="text-sm font-semibold text-[var(--fg-default)]">{member.displayName}</p>
         <div className="flex flex-wrap items-center gap-2 text-[0.65rem] uppercase tracking-[0.24em] text-[var(--fg-muted)]">
-          {member.username && <span>@{member.username}</span>}
+          {member.screenName && <span>@{member.screenName}</span>}
           <span>{shortenPubkey(member.pubkey)}</span>
         </div>
       </div>
       <span className="ml-auto inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.24em] text-[var(--fg-muted)]">
         <MessageCircle className="h-3.5 w-3.5" />
-        Open chat
+        Message
       </span>
     </button>
   );
@@ -509,7 +658,7 @@ const MessagesPage: React.FC = () => {
                 type="search"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search conversations by name or username"
+                placeholder="Search conversations or screen names"
                 className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/70 py-3 pl-11 pr-4 text-sm text-[var(--fg-default)] outline-none transition focus:border-brand"
               />
             </div>
@@ -542,10 +691,14 @@ const MessagesPage: React.FC = () => {
                   )}
                 </div>
                 <div>
-                  <h2 className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)]">People</h2>
-                  {filteredPeople.length === 0 ? (
+                  <h2 className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)]">Connections</h2>
+                  {relationshipsLoading ? (
                     <p className="mt-3 rounded-2xl bg-[var(--bg-surface)]/60 p-4 text-xs text-[var(--fg-muted)]">
-                      No members found. Try another name or username.
+                      Loading connections…
+                    </p>
+                  ) : filteredPeople.length === 0 ? (
+                    <p className="mt-3 rounded-2xl bg-[var(--bg-surface)]/60 p-4 text-xs text-[var(--fg-muted)]">
+                      {relationshipsError ?? "No members found. Try another screen name."}
                     </p>
                   ) : (
                     <div className="mt-3 space-y-3">
@@ -554,21 +707,41 @@ const MessagesPage: React.FC = () => {
                   )}
                 </div>
               </div>
-            ) : showEmptyState ? (
-              <div className="rounded-2xl bg-[var(--bg-surface)]/60 p-6 text-sm text-[var(--fg-muted)]">
-                <p>You haven&apos;t started any private conversations yet.</p>
-                {suggestedPeople.length > 0 && (
-                  <div className="mt-6 space-y-3">
-                    <h2 className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)]">
-                      Suggested members
-                    </h2>
-                    {suggestedPeople.map((member) => renderPersonRow(member))}
+            ) : (
+              <div className="space-y-8">
+                {showEmptyState ? (
+                  <div className="rounded-2xl bg-[var(--bg-surface)]/60 p-6 text-sm text-[var(--fg-muted)]">
+                    <p>You haven&apos;t started any private conversations yet.</p>
+                    {suggestedPeople.length > 0 && (
+                      <div className="mt-6 space-y-3">
+                        <h2 className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)]">
+                          Suggested members
+                        </h2>
+                        {suggestedPeople.map((member) => renderPersonRow(member))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {conversationEntries.map((entry) => renderConversationRow(entry))}
                   </div>
                 )}
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {conversationEntries.map((entry) => renderConversationRow(entry))}
+                <div>
+                  <h2 className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)]">Connections</h2>
+                  {relationshipsLoading ? (
+                    <p className="mt-3 rounded-2xl bg-[var(--bg-surface)]/60 p-4 text-xs text-[var(--fg-muted)]">
+                      Loading connections…
+                    </p>
+                  ) : relationshipMembers.length === 0 ? (
+                    <p className="mt-3 rounded-2xl bg-[var(--bg-surface)]/60 p-4 text-xs text-[var(--fg-muted)]">
+                      {relationshipsError ?? "You don&apos;t have any followers or following yet."}
+                    </p>
+                  ) : (
+                    <div className="mt-3 space-y-3">
+                      {relationshipMembers.map((member) => renderPersonRow(member))}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </section>
@@ -630,19 +803,115 @@ const MessagesPage: React.FC = () => {
                         No messages yet. Say hello!
                       </p>
                     ) : (
-                      conversation.messages.map((message) => (
-                        <div
-                          key={message.id || message.clientId}
-                          className={`flex ${message.direction === "outgoing" ? "justify-end" : "justify-start"}`}
-                        >
+                      conversation.messages.map((message, index) => {
+                        const messageTranslationKey = createMessageTranslationKey(message, index);
+                        const translationEntry = translationContextAvailable
+                          ? getTranslation(messageTranslationKey)
+                          : undefined;
+                        const translationStatus = translationEntry?.status ?? "idle";
+                        const rawTranslatedText =
+                          translationEntry?.translatedText &&
+                          translationEntry.translatedText.trim().length > 0
+                            ? translationEntry.translatedText
+                            : undefined;
+                        const translationReady = translationStatus === "ready" && !!rawTranslatedText;
+                        const showOriginal =
+                          !translationReady || isOriginalVisible(messageTranslationKey);
+                        const detectedLanguageLabel =
+                          translationEntry?.detectedLanguage &&
+                          translationEntry.detectedLanguage.trim().length > 0
+                            ? formatLanguageName(translationEntry.detectedLanguage)
+                            : null;
+                        const isLatestMessage = index === latestMessageIndex;
+                        const allowManualTranslation =
+                          translationContextAvailable &&
+                          !isLatestMessage &&
+                          translationStatus === "idle";
+                        const showTranslationControls =
+                          translationContextAvailable &&
+                          (translationStatus === "loading" ||
+                            translationStatus === "error" ||
+                            translationReady ||
+                            allowManualTranslation);
+                        const translationMetaColor =
+                          message.direction === "outgoing"
+                            ? "text-white/70"
+                            : "text-[var(--fg-muted)]";
+                        const displayedText =
+                          showOriginal || !rawTranslatedText ? message.plaintext : rawTranslatedText;
+
+                        return (
                           <div
+                            key={message.id || message.clientId || messageTranslationKey}
+                            className={`flex ${message.direction === "outgoing" ? "justify-end" : "justify-start"}`}
+                          >
+                            <div
                             className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow-md ${
                               message.direction === "outgoing"
                                 ? "bg-brand/90 text-white"
                                 : "border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--fg-default)]"
                             }`}
                           >
-                            <p className="whitespace-pre-wrap break-words leading-relaxed">{message.plaintext}</p>
+                            <p className="whitespace-pre-wrap break-words leading-relaxed">{displayedText}</p>
+                            {showTranslationControls && (
+                              <div className="mt-2 space-y-1">
+                                {translationStatus === "loading" ? (
+                                  <p
+                                    className={`text-[10px] uppercase tracking-[0.2em] ${translationMetaColor}`}
+                                  >
+                                    Translating to {targetLanguageLabel}…
+                                  </p>
+                                ) : translationStatus === "error" ? (
+                                  <div
+                                    className={`flex flex-wrap items-center justify-between gap-2 text-[10px] uppercase tracking-[0.2em] ${translationMetaColor}`}
+                                  >
+                                    <span>Translation failed.</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => refreshTranslation(messageTranslationKey, message.plaintext)}
+                                      className="font-semibold uppercase tracking-[0.2em] transition hover:opacity-80"
+                                    >
+                                      Retry
+                                    </button>
+                                  </div>
+                                ) : translationReady ? (
+                                  <div
+                                    className={`flex flex-wrap items-center justify-between gap-2 text-[10px] uppercase tracking-[0.2em] ${translationMetaColor}`}
+                                  >
+                                    <span className="flex-1">
+                                      {detectedLanguageLabel
+                                        ? `Translated from ${detectedLanguageLabel}`
+                                        : "Translated"}
+                                      {translationEntry?.provider
+                                        ? ` · ${translationEntry.provider}`
+                                        : ""}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleOriginal(messageTranslationKey)}
+                                      className="font-semibold uppercase tracking-[0.2em] transition hover:opacity-80"
+                                    >
+                                      {showOriginal ? "View translation" : "View original"}
+                                    </button>
+                                  </div>
+                                ) : null}
+                                {allowManualTranslation && (
+                                  <div className="flex justify-end">
+                                    <button
+                                      type="button"
+                                      onClick={() => refreshTranslation(messageTranslationKey, message.plaintext)}
+                                      className={`text-[10px] font-semibold uppercase tracking-[0.2em] transition hover:opacity-80 ${
+                                        message.direction === "outgoing"
+                                          ? "text-white"
+                                          : "text-[var(--fg-default)]"
+                                      }`}
+                                    >
+                                      Translate
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                             <div className="mt-2 flex items-center justify-between gap-3 text-[10px] uppercase tracking-[0.2em] text-[var(--fg-muted)]">
                               <span className="opacity-80">{formatMessageTimestamp(message.createdAt)}</span>
                               {message.direction === "outgoing" && (
@@ -659,8 +928,9 @@ const MessagesPage: React.FC = () => {
                               <p className="mt-1 text-[10px] uppercase tracking-[0.2em] text-red-500">{message.error}</p>
                             )}
                           </div>
-                        </div>
-                      ))
+                          </div>
+                        );
+                      })
                     )}
                   </div>
 
@@ -681,8 +951,8 @@ const MessagesPage: React.FC = () => {
                             </p>
                           )}
                           {composerError && <p className="mb-2 text-xs text-red-500">{composerError}</p>}
-                          <div className="flex items-end gap-3">
-                            <div className="relative flex-1">
+                          <div className="flex w-full flex-col gap-3 sm:gap-4">
+                            <div className="relative w-full">
                               <textarea
                                 ref={textareaRef}
                                 value={draft}
@@ -752,13 +1022,15 @@ const MessagesPage: React.FC = () => {
                                 </div>
                               )}
                             </div>
-                            <button
-                              type="submit"
-                              disabled={!draft.trim() || sending}
-                              className="rounded-full bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-white transition disabled:cursor-not-allowed disabled:bg-brand/40"
-                            >
-                              {sending ? "Sending…" : "Send"}
-                            </button>
+                            <div className="flex justify-end">
+                              <button
+                                type="submit"
+                                disabled={!draft.trim() || sending}
+                                className="rounded-full bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-white transition disabled:cursor-not-allowed disabled:bg-brand/40"
+                              >
+                                {sending ? "Sending…" : "Send"}
+                              </button>
+                            </div>
                           </div>
                         </form>
                       </div>
@@ -814,7 +1086,11 @@ const MessagesRoute: React.FC = () => {
     return null;
   }
 
-  return <MessagesPage />;
+  return (
+    <CommunityTranslationProvider>
+      <MessagesPage />
+    </CommunityTranslationProvider>
+  );
 };
 
 export default MessagesRoute;

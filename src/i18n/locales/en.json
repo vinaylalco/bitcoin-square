@@ -20,6 +20,16 @@
     "login": "Login",
     "logout": "Logout"
   },
+  "community": {
+    "tabs": {
+      "chat": "Chat",
+      "forum": "Forum",
+      "personal": "Your Feed",
+      "notifications": "Notifications",
+      "messages": "Messages",
+      "members": "Members"
+    }
+  },
   "app": {
     "btcFullCourse": "BTC Full Course",
     "brandTagline": "Crafted with conviction.",
@@ -85,6 +95,33 @@
       "subscribeError": "Subscription failed.",
       "unsubscribeSuccess": "Unsubscribed successfully.",
       "unsubscribeError": "Unsubscribe failed."
+    }
+  },
+  "home": {
+    "error": "Failed to load home.",
+    "imagePlaceholder": "Image coming soon"
+  },
+  "blog": {
+    "title": "Blog",
+    "empty": "No posts yet."
+  },
+  "checkout": {
+    "actions": {
+      "browseCourses": "Browse Courses",
+      "contactSupport": "Contact Support"
+    },
+    "success": {
+      "badge": "Payment successful",
+      "title": "Thank you for your purchase!",
+      "description": "Your access to the course will be unlocked shortly. Log in to your account to view your courses and start learning.",
+      "ctaPrompt": "Ready to start learning?",
+      "helper": "Need a refresher on the curriculum? Head back to the course directory any time."
+    },
+    "cancelled": {
+      "badge": "Checkout canceled",
+      "title": "Your course is still waiting for you",
+      "description": "The payment was not completed. You can retry the checkout or explore other courses in our directory.",
+      "support": "Need help finishing your purchase? Email us at <link>{{email}}</link>."
     }
   },
   "lesson": {

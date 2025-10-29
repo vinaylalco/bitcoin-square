@@ -2,9 +2,16 @@ import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 import en from "./locales/en.json";
 import es from "./locales/es.json";
-import { detectPreferredLocale } from "../utils/locale";
+import {
+  applyDocumentLocale,
+  detectPreferredLocale,
+  persistLocale,
+  resolveLocale,
+} from "../utils/locale";
 
 const initialLocale = detectPreferredLocale();
+
+applyDocumentLocale(initialLocale);
 
 i18n.use(initReactI18next).init({
   resources: { en: { translation: en }, es: { translation: es } },
@@ -12,6 +19,12 @@ i18n.use(initReactI18next).init({
   fallbackLng: "en",
   supportedLngs: ["en", "es"],
   interpolation: { escapeValue: false },
+});
+
+i18n.on("languageChanged", (lng) => {
+  const locale = resolveLocale(lng);
+  persistLocale(locale);
+  applyDocumentLocale(locale);
 });
 
 export default i18n;

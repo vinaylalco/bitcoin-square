@@ -51,6 +51,7 @@ interface BitcoinSquareFeedProps {
   initialLoading: boolean;
   initialThreadId?: string | null;
   onThreadChange?: (postId: string | null) => void;
+  emptyStateMessage?: React.ReactNode;
 }
 
 type ActiveFilter =
@@ -223,6 +224,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   initialLoading,
   initialThreadId = null,
   onThreadChange,
+  emptyStateMessage,
 }) => {
   const [content, setContent] = useState("");
   const [composerFocused, setComposerFocused] = useState(false);
@@ -1981,9 +1983,11 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
           )}
 
           {initialLoading && posts.length === 0 ? null : filteredPosts.length === 0 ? (
-            <p className="text-sm text-[var(--fg-muted)]">
-              No posts yet{activeFilter ? " for this filter." : "."} Be the first to share what you’re working on!
-            </p>
+            emptyStateMessage ?? (
+              <p className="text-sm text-[var(--fg-muted)]">
+                No posts yet{activeFilter ? " for this filter." : "."} Be the first to share what you’re working on!
+              </p>
+            )
           ) : (
             filteredPosts.map((post) =>
               renderPostCard(post, {

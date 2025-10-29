@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Navigate, NavLink, useLocation, useNavigate, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 import BitcoinSquareFeed from "../components/bitcoinSquareChat/BitcoinSquareFeed";
 import ErrorBoundary from "../components/ErrorBoundary";
@@ -57,26 +58,31 @@ import {
 import { rewriteImgBbUrlToProxy, rewriteImgBbUrlsInText } from "../utils/imageProxy";
 import { resolveMentionTargets, type MentionCandidate } from "../utils/mentions";
 import useMentionAutocomplete from "../hooks/useMentionAutocomplete";
+import { normalizeToHexPubkey } from "../utils/nostr";
 
 type ActiveView = "casual" | "feed" | "personal" | "notifications" | "members";
 
-type ViewTab = { key: ActiveView | "messages"; label: string; icon: LucideIcon };
+type ViewTab = { key: ActiveView | "messages"; labelKey: string; icon: LucideIcon };
 
 const PRIMARY_VIEW_TABS: ViewTab[] = [
-  { key: "casual", label: "Chat", icon: MessageCircle },
-  { key: "feed", label: "Forum", icon: Newspaper },
-  { key: "personal", label: "Your Feed", icon: Sparkles },
+  { key: "casual", labelKey: "community.tabs.chat", icon: MessageCircle },
+  { key: "feed", labelKey: "community.tabs.forum", icon: Newspaper },
+  { key: "personal", labelKey: "community.tabs.personal", icon: Sparkles },
 ];
 
-const NOTIFICATIONS_TAB: ViewTab = { key: "notifications", label: "Notifications", icon: Bell };
+const NOTIFICATIONS_TAB: ViewTab = {
+  key: "notifications",
+  labelKey: "community.tabs.notifications",
+  icon: Bell,
+};
 
 const DESKTOP_VIEW_TABS: ViewTab[] = PRIMARY_VIEW_TABS;
 
 const MOBILE_VIEW_TABS: ViewTab[] = [
   ...PRIMARY_VIEW_TABS,
-  { key: "messages", label: "Messages", icon: MessageCircle },
+  { key: "messages", labelKey: "community.tabs.messages", icon: MessageCircle },
   NOTIFICATIONS_TAB,
-  { key: "members", label: "Members", icon: Users },
+  { key: "members", labelKey: "community.tabs.members", icon: Users },
 ];
 
 type CommunityNotification = {
@@ -1031,6 +1037,7 @@ const Composer: React.FC<{
 
 const CommunityView: React.FC = () => {
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const {
     roomId,
     messages: rawMessages,
@@ -1193,15 +1200,108 @@ const CommunityView: React.FC = () => {
     following,
     shortenPubkey,
   } = useProfileIdentity();
+  const followingValues = useMemo(() => Array.from(following), [following]);
+  const [normalizedFollowing, setNormalizedFollowing] = useState<ReadonlySet<string>>(
+    () => new Set<string>(),
+  );
+  useEffect(() => {
+    let cancelled = false;
+
+    const updateNormalizedFollowing = async () => {
+      const values = followingValues;
+      if (values.length === 0) {
+        setNormalizedFollowing((prev) => {
+          if (prev.size === 0) {
+            return prev;
+          }
+          return new Set<string>();
+        });
+        return;
+      }
+
+      const normalized = await Promise.all(values.map((value) => normalizeToHexPubkey(value)));
+      if (cancelled) {
+        return;
+      }
+      const next = new Set<string>();
+      normalized.forEach((value) => {
+        if (value) {
+          next.add(value);
+        }
+      });
+      setNormalizedFollowing((prev) => {
+        if (prev.size === next.size) {
+          let identical = true;
+          prev.forEach((entry) => {
+            if (!next.has(entry)) {
+              identical = false;
+            }
+          });
+          if (identical) {
+            return prev;
+          }
+        }
+        return next;
+      });
+    };
+
+    void updateNormalizedFollowing();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [followingValues]);
+  const viewerFeedPubkey = useMemo(() => {
+    if (typeof feedPubkey !== "string") {
+      return null;
+    }
+    const trimmed = feedPubkey.trim().toLowerCase();
+    return trimmed.length > 0 ? trimmed : null;
+  }, [feedPubkey]);
+  const isFollowingPubkey = useCallback(
+    (pubkey: string | null | undefined) => {
+      if (typeof pubkey !== "string") {
+        return false;
+      }
+      const normalized = pubkey.trim().toLowerCase();
+      if (normalized.length === 0) {
+        return false;
+      }
+      return normalizedFollowing.has(normalized);
+    },
+    [normalizedFollowing],
+  );
+  const isPersonalFeedAuthor = useCallback(
+    (pubkey: string | null | undefined) => {
+      if (typeof pubkey !== "string") {
+        return false;
+      }
+      const normalized = pubkey.trim().toLowerCase();
+      if (normalized.length === 0) {
+        return false;
+      }
+      if (viewerFeedPubkey && normalized === viewerFeedPubkey) {
+        return true;
+      }
+      return normalizedFollowing.has(normalized);
+    },
+    [normalizedFollowing, viewerFeedPubkey],
+  );
   const backgroundTexture = useMemo(
     () => (theme === "dark" ? DARK_BACKGROUND_TEXTURE : LIGHT_BACKGROUND_TEXTURE),
     [theme],
   );
   const personalFeedPosts = useMemo(
-    () => feedPosts.filter((post) => following.has(post.pubkey)),
-    [feedPosts, following],
+    () => feedPosts.filter((post) => isPersonalFeedAuthor(post.pubkey)),
+    [feedPosts, isPersonalFeedAuthor],
   );
-  const hasFollowing = following.size > 0;
+  const hasFollowing = normalizedFollowing.size > 0;
+  const shouldShowPersonalFeed = hasFollowing || personalFeedPosts.length > 0 || feedInitialLoading;
+  const personalFeedEmptyState = hasFollowing ? (
+    <p className="text-sm text-[var(--fg-muted)]">
+      People you follow haven&apos;t posted in the forum yet. Check back soon or explore the Forum.
+    </p>
+  ) : undefined;
 
   const mapUserToMentionCandidate = useCallback(
     (user: ScreenNameUser): MentionCandidate | null => {
@@ -1680,7 +1780,7 @@ const CommunityView: React.FC = () => {
         current = member;
         return;
       }
-      if (following.has(member.pubkey)) {
+      if (isFollowingPubkey(member.pubkey)) {
         followed.push(member);
         return;
       }
@@ -1698,7 +1798,7 @@ const CommunityView: React.FC = () => {
       followingMemberEntries: followed,
       otherOnlineMemberEntries: otherOnline,
     };
-  }, [contextMembers, following]);
+  }, [contextMembers, isFollowingPubkey]);
 
   const totalMemberPool = followingMemberEntries.length + otherOnlineMemberEntries.length;
   const displayedFollowingMembers = followingMemberEntries.slice(0, visibleMemberCount);
@@ -1709,7 +1809,7 @@ const CommunityView: React.FC = () => {
     setMemberScrollContainer(node);
   }, []);
 
-  const followingCount = following.size;
+  const followingCount = normalizedFollowing.size;
 
   useEffect(() => {
     setVisibleMemberCount(MEMBER_LIST_INITIAL_LIMIT);
@@ -1758,9 +1858,9 @@ const CommunityView: React.FC = () => {
   const recommendedMembers = useMemo(
     () =>
       contextMembers
-        .filter((member) => !member.isCurrentUser && !following.has(member.pubkey))
+        .filter((member) => !member.isCurrentUser && !isFollowingPubkey(member.pubkey))
         .slice(0, 6),
-    [contextMembers, following],
+    [contextMembers, isFollowingPubkey],
   );
 
   const renderMemberRow = (member: MemberListEntry) => {
@@ -1964,7 +2064,7 @@ const CommunityView: React.FC = () => {
             <>
               <Icon className="h-4 w-4" aria-hidden="true" />
               <span className="flex items-center gap-2">
-                <span>{tab.label}</span>
+                <span>{t(tab.labelKey)}</span>
                 {hasUnreadMessages && !navIsActive && (
                   <span aria-hidden="true" className="text-brand text-xs leading-none">
                     ●
@@ -2003,7 +2103,7 @@ const CommunityView: React.FC = () => {
       >
         <Icon className="h-4 w-4" aria-hidden="true" />
         <span className="flex items-center gap-2">
-          <span>{tab.label}</span>
+        <span>{t(tab.labelKey)}</span>
           {tab.key === "notifications" && hasUnreadNotifications && (
             <span aria-hidden="true" className="text-brand text-xs leading-none">
               ●
@@ -2912,7 +3012,7 @@ const CommunityView: React.FC = () => {
               >
                 <ErrorBoundary fallback={feedFallback}>
                   <div className="relative flex h-full flex-1 min-h-0 overflow-hidden">
-                    {hasFollowing ? (
+                    {shouldShowPersonalFeed ? (
                       <BitcoinSquareFeed
                         posts={personalFeedPosts}
                         ready={feedReady}
@@ -2928,6 +3028,7 @@ const CommunityView: React.FC = () => {
                         initialLoading={feedInitialLoading}
                         initialThreadId={routePostId}
                         onThreadChange={handleThreadRouteChange}
+                        emptyStateMessage={personalFeedEmptyState}
                       />
                     ) : (
                       <div className="flex flex-1 items-center justify-center px-6 py-12">

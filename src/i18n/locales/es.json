@@ -20,6 +20,16 @@
     "login": "Iniciar sesión",
     "logout": "Cerrar sesión"
   },
+  "community": {
+    "tabs": {
+      "chat": "Chat",
+      "forum": "Foro",
+      "personal": "Tu feed",
+      "notifications": "Notificaciones",
+      "messages": "Mensajes",
+      "members": "Miembros"
+    }
+  },
   "app": {
     "btcFullCourse": "Curso completo de BTC",
     "brandTagline": "Creado con convicción.",
@@ -85,6 +95,33 @@
       "subscribeError": "Error al suscribirse.",
       "unsubscribeSuccess": "Suscripción cancelada con éxito.",
       "unsubscribeError": "Error al cancelar la suscripción."
+    }
+  },
+  "home": {
+    "error": "No se pudo cargar la página de inicio.",
+    "imagePlaceholder": "Imagen disponible próximamente"
+  },
+  "blog": {
+    "title": "Blog",
+    "empty": "Aún no hay publicaciones."
+  },
+  "checkout": {
+    "actions": {
+      "browseCourses": "Ver cursos",
+      "contactSupport": "Contactar soporte"
+    },
+    "success": {
+      "badge": "Pago exitoso",
+      "title": "¡Gracias por tu compra!",
+      "description": "Tu acceso al curso se desbloqueará en breve. Inicia sesión en tu cuenta para ver tus cursos y empezar a aprender.",
+      "ctaPrompt": "¿Listo para empezar a aprender?",
+      "helper": "¿Necesitas repasar el plan de estudios? Vuelve al directorio de cursos cuando quieras."
+    },
+    "cancelled": {
+      "badge": "Pago cancelado",
+      "title": "Tu curso aún te está esperando",
+      "description": "El pago no se completó. Puedes intentar el proceso nuevamente o explorar otros cursos en nuestro directorio.",
+      "support": "¿Necesitas ayuda para completar tu compra? Escríbenos a <link>{{email}}</link>."
     }
   },
   "lesson": {
