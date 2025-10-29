@@ -3,6 +3,8 @@ import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { Copy, Flame, Layers, LogOut, MessageCircle, Sparkles, Trophy } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { updateProfileSettings } from '../api/account';
+import { uploadProfileAvatar } from '../api/media';
+import { validateImageFile } from '../utils/imageUpload';
 import { generateScreenName, normalizeAvatarUrl, normalizeScreenName } from '../utils/profileDefaults';
 
 export default function Dashboard() {
@@ -85,54 +87,67 @@ export default function Dashboard() {
     [lightningAddress, token, updateUser, user],
   );
 
-  const uploadAvatarFile = useCallback(async (file: File) => {
-    setAvatarUploadStatus('uploading');
-    setAvatarUploadError(null);
-    try {
-      const formData = new FormData();
-      formData.append('fileToUpload', file);
-      const response = await fetch('https://nostr.build/api/v2/upload/files', {
-        method: 'POST',
-        body: formData,
-      });
-      if (!response.ok) {
-        throw new Error(`Upload failed with status ${response.status}`);
-      }
-      const payload = await response.json();
-      const candidateUrl =
-        (payload && typeof payload.url === 'string' && payload.url) ||
-        (Array.isArray(payload?.data) && payload.data[0] && typeof payload.data[0].url === 'string'
-          ? payload.data[0].url
-          : null);
-      if (!candidateUrl) {
-        throw new Error('Upload succeeded but no URL was returned by the host.');
-      }
-      setAvatarUrl(candidateUrl);
-      setAvatarUploadStatus('success');
-      return candidateUrl as string;
-    } catch (error) {
-      setAvatarUploadStatus('error');
-      setAvatarUploadError(
-        error instanceof Error ? error.message : 'We were unable to upload that photo. Please try again.',
-      );
-      throw error;
-    }
-  }, []);
-
   const handleAvatarFileChange = useCallback(
     async (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
       if (!file) return;
+      if (!user || !token) {
+        const message = 'You must be signed in to update your profile photo.';
+        setAvatarUploadStatus('error');
+        setAvatarUploadError(message);
+        event.target.value = '';
+        return;
+      }
+
+      const validationMessage = validateImageFile(file);
+      if (validationMessage) {
+        setAvatarUploadStatus('error');
+        setAvatarUploadError(validationMessage);
+        event.target.value = '';
+        return;
+      }
+
+      const previousAvatarUrl = avatarUrl;
+
+      setAvatarUploadStatus('uploading');
+      setAvatarUploadError(null);
+      setProfileStatus('saving');
+      setProfileError(null);
+
       try {
-        await uploadAvatarFile(file);
-        setProfileStatus('idle');
-      } catch {
-        // errors handled in uploadAvatarFile
+        const { url: uploadedUrl } = await uploadProfileAvatar(file, token);
+        const normalizedUrl = normalizeAvatarUrl(uploadedUrl, profileSeed);
+        setAvatarUrl(normalizedUrl);
+
+        const response = await updateProfileSettings(user.id, token, {
+          avatarUrl: normalizedUrl,
+        });
+
+        const nextAvatar = normalizeAvatarUrl(response.avatarUrl ?? normalizedUrl, profileSeed);
+
+        setAvatarUrl(nextAvatar);
+        updateUser((prev) => (prev ? { ...prev, avatarUrl: nextAvatar } : prev));
+
+        setAvatarUploadStatus('success');
+        setAvatarUploadError(null);
+        setProfileStatus('success');
+        setProfileError(null);
+      } catch (error) {
+        console.error('Profile photo upload failed', error);
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'We were unable to upload that photo. Please try again.';
+        setAvatarUploadStatus('error');
+        setAvatarUploadError(message);
+        setProfileStatus('error');
+        setProfileError(message);
+        setAvatarUrl(previousAvatarUrl);
       } finally {
         event.target.value = '';
       }
     },
-    [uploadAvatarFile],
+    [avatarUrl, profileSeed, token, updateUser, user],
   );
 
   const handleProfileSubmit = useCallback(
@@ -369,16 +384,23 @@ export default function Dashboard() {
                         placeholder="https://"
                         autoComplete="off"
                       />
-                      {avatarUploadStatus === 'uploading' && (
-                        <p className="text-xs text-neutral-500">Uploading photo…</p>
-                      )}
-                      {avatarUploadStatus === 'error' && avatarUploadError && (
-                        <p className="text-xs text-red-500">{avatarUploadError}</p>
-                      )}
                     </div>
                   )}
                 </div>
               </div>
+              {(avatarUploadStatus === 'uploading' || avatarUploadStatus === 'success' || avatarUploadStatus === 'error') && (
+                <div className="mt-2 space-y-1">
+                  {avatarUploadStatus === 'uploading' && (
+                    <p className="text-xs text-neutral-500">Uploading photo…</p>
+                  )}
+                  {avatarUploadStatus === 'success' && (
+                    <p className="text-xs text-emerald-500">Profile photo updated!</p>
+                  )}
+                  {avatarUploadStatus === 'error' && avatarUploadError && (
+                    <p className="text-xs text-red-500">{avatarUploadError}</p>
+                  )}
+                </div>
+              )}
               {profileError && <p className="text-xs text-red-500">{profileError}</p>}
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <input
@@ -393,7 +415,7 @@ export default function Dashboard() {
                 </span>
                 <button
                   type="submit"
-                  disabled={isProfileSaving || !token}
+                  disabled={isProfileSaving || avatarUploadStatus === 'uploading' || !token}
                   className="inline-flex items-center justify-center rounded-full bg-brand px-5 py-2 text-sm font-semibold uppercase tracking-[0.3em] text-white transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:bg-brand/40"
                 >
                   {isProfileSaving ? 'Saving…' : 'Save profile'}

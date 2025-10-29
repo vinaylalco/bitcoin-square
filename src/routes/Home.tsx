@@ -1,16 +1,18 @@
+import { useTranslation } from "react-i18next";
 import { useStrapiQuery } from "../hooks/useStrapiQuery";
 import type { Home } from "../types/strapi";
 import HomeGhost from "../components/home/HomeGhost";
 import { cn } from "../utils/cn";
 
 export default function HomePage() {
+  const { t } = useTranslation();
   const { data, isLoading, error } = useStrapiQuery<{ data: Home }>(
     "home",
     "/api/home-page?populate[HomePageSection][populate]=SectionImage",
   );
 
   if (isLoading) return <HomeGhost />;
-  if (error || !data) return <p className="px-4 py-10 text-brand">Failed to load home.</p>;
+  if (error || !data) return <p className="px-4 py-10 text-brand">{t("home.error")}</p>;
 
   const home = data.data as unknown as Record<string, any>;
   const sections: Array<Record<string, any>> = home?.HomePageSection ?? [];
@@ -60,7 +62,7 @@ export default function HomePage() {
                       />
                     ) : (
                       <div className="flex aspect-[4/3] items-center justify-center text-sm uppercase tracking-[0.32em] text-neutral-400 transition-colors duration-300 dark:text-neutral-500">
-                        Image coming soon
+                        {t("home.imagePlaceholder")}
                       </div>
                     )}
                     <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-brand/20 via-transparent to-transparent opacity-0 transition duration-500 group-hover:opacity-70" />

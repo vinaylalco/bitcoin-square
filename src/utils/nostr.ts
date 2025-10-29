@@ -1,3 +1,5 @@
+import { decodeBech32 } from "../lib/nostrToolsShim";
+
 // Minimal secp256k1 implementation for browser-compatible key generation
 // Uses BigInt math to derive a public key from a randomly generated private key.
 
@@ -9,6 +11,8 @@ const G: Point = {
   x: BigInt('0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798'),
   y: BigInt('0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8'),
 };
+
+const HEX_PUBKEY_REGEX = /^[0-9a-f]{64}$/i;
 
 function mod(a: bigint, m = P): bigint {
   const res = a % m;
@@ -161,3 +165,40 @@ export async function decryptPrivateKey(data: string, password: string): Promise
   return new TextDecoder().decode(plain);
 }
 
+export async function normalizeToHexPubkey(value: string | null | undefined): Promise<string | null> {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  if (HEX_PUBKEY_REGEX.test(trimmed)) {
+    return trimmed.toLowerCase();
+  }
+
+  if (/^npub/i.test(trimmed)) {
+    try {
+      const decoded = await decodeBech32(trimmed);
+      if (decoded.type === 'npub') {
+        if (typeof decoded.data === 'string' && HEX_PUBKEY_REGEX.test(decoded.data)) {
+          return decoded.data.toLowerCase();
+        }
+        if (decoded.data instanceof Uint8Array) {
+          const normalized = bytesToHex(decoded.data).toLowerCase();
+          if (HEX_PUBKEY_REGEX.test(normalized)) {
+            return normalized;
+          }
+        }
+      }
+    } catch (error) {
+      if (import.meta.env?.DEV) {
+        console.warn('Failed to decode bech32 pubkey', error);
+      }
+    }
+  }
+
+  return null;
+}

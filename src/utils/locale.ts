@@ -1,5 +1,7 @@
 const SUPPORTED_LOCALES = ["en", "es"] as const;
 
+const LOCALE_STORAGE_KEY = "pref:locale";
+
 export type AppLocale = (typeof SUPPORTED_LOCALES)[number];
 
 export const DEFAULT_LOCALE: AppLocale = "en";
@@ -18,6 +20,31 @@ export function normalizeLocale(value?: string | null): AppLocale | undefined {
 
 export function resolveLocale(value?: string | null): AppLocale {
   return normalizeLocale(value) ?? DEFAULT_LOCALE;
+}
+
+export function readPersistedLocale(): AppLocale | undefined {
+  if (typeof window === "undefined") return undefined;
+  try {
+    const stored = window.localStorage.getItem(LOCALE_STORAGE_KEY);
+    if (!stored) return undefined;
+    return normalizeLocale(stored) ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function persistLocale(locale: AppLocale) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(LOCALE_STORAGE_KEY, locale);
+  } catch {
+    // ignore
+  }
+}
+
+export function applyDocumentLocale(locale: AppLocale) {
+  if (typeof document === "undefined") return;
+  document.documentElement.lang = locale;
 }
 
 function detectNavigatorLocale(): AppLocale | undefined {
@@ -104,6 +131,7 @@ function detectEnvironmentLocale(): AppLocale | undefined {
 
 export function detectPreferredLocale(): AppLocale {
   return (
+    readPersistedLocale() ||
     detectNavigatorLocale() ||
     detectIntlLocale() ||
     detectEnvironmentLocale() ||

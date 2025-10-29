@@ -230,7 +230,7 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
         }
       });
 
-      if (!autoTranslateEnabled) {
+      if (!autoTranslateEnabled && !options?.force) {
         return;
       }
 
