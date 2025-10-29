@@ -125,6 +125,10 @@ const MessagesPage: React.FC = () => {
 
   const normalizedQuery = normalizeSearch(query);
 
+  const conversation = activeConversation ? conversations[activeConversation] : null;
+  const draft = activeConversation ? getDraft(activeConversation) : "";
+  const summary = activeConversation ? resolveProfileSummary(activeConversation) : null;
+
   const translationContextAvailable = Boolean(
     translationSupported &&
       activeConversation &&
@@ -373,9 +377,6 @@ const MessagesPage: React.FC = () => {
     [mapUserToMentionCandidate, requestProfile],
   );
 
-  const conversation = activeConversation ? conversations[activeConversation] : null;
-  const draft = activeConversation ? getDraft(activeConversation) : "";
-  const summary = activeConversation ? resolveProfileSummary(activeConversation) : null;
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const applyMentionChange = useCallback(
