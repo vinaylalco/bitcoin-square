@@ -82,7 +82,12 @@ interface KnownMember {
   avatarUrl: string;
 }
 
-const MessagesPage: React.FC = () => {
+interface MessagesPageProps {
+  variant?: "standalone" | "embedded";
+}
+
+const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) => {
+  const isEmbedded = variant === "embedded";
   const {
     conversations,
     openConversation,
@@ -637,8 +642,20 @@ const MessagesPage: React.FC = () => {
   const showEmptyState = conversationEntries.length === 0;
 
   return (
-    <div className="min-h-screen bg-[var(--bg-app)] px-4 py-10 text-[var(--fg-default)] sm:px-6">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-8">
+    <div
+      className={
+        isEmbedded
+          ? "flex h-full min-h-0 flex-col overflow-hidden text-[var(--fg-default)]"
+          : "min-h-screen bg-[var(--bg-app)] px-4 py-10 text-[var(--fg-default)] sm:px-6"
+      }
+    >
+      <div
+        className={
+          isEmbedded
+            ? "flex flex-1 min-h-0 flex-col gap-6"
+            : "mx-auto flex w-full max-w-5xl flex-col gap-8"
+        }
+      >
         <header className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-sm">
           <h1 className="text-2xl font-semibold">Messages</h1>
           <p className="mt-2 text-sm text-[var(--fg-muted)]">
@@ -647,7 +664,11 @@ const MessagesPage: React.FC = () => {
           </p>
         </header>
 
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
+        <div
+          className={`grid gap-6 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] ${
+            isEmbedded ? "flex-1 overflow-y-auto" : ""
+          }`}
+        >
           <section
             className={`space-y-6 rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-sm ${
               activeConversation ? "hidden lg:block" : "block"
@@ -1094,4 +1115,5 @@ const MessagesRoute: React.FC = () => {
   );
 };
 
+export { MessagesPage };
 export default MessagesRoute;

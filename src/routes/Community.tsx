@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Navigate, NavLink, useLocation, useNavigate, useParams } from "react-router-dom";
+import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import BitcoinSquareFeed from "../components/bitcoinSquareChat/BitcoinSquareFeed";
@@ -28,6 +28,13 @@ import {
   CommunityTranslationProvider,
   useCommunityTranslation,
 } from "../context/CommunityTranslationContext";
+import { MessagesPage } from "./Messages";
+import {
+  COMMUNITY_MESSAGES_PATH,
+  COMMUNITY_MESSAGES_VIEW_PARAM,
+  COMMUNITY_PATH,
+  isCommunityMessagesLocation,
+} from "../utils/routes";
 import type { LucideIcon } from "lucide-react";
 import {
   ArrowUp,
@@ -60,9 +67,15 @@ import { resolveMentionTargets, type MentionCandidate } from "../utils/mentions"
 import useMentionAutocomplete from "../hooks/useMentionAutocomplete";
 import { normalizeToHexPubkey } from "../utils/nostr";
 
-type ActiveView = "casual" | "feed" | "personal" | "notifications" | "members";
+type ActiveView =
+  | "casual"
+  | "feed"
+  | "personal"
+  | "messages"
+  | "notifications"
+  | "members";
 
-type ViewTab = { key: ActiveView | "messages"; labelKey: string; icon: LucideIcon };
+type ViewTab = { key: ActiveView; labelKey: string; icon: LucideIcon };
 
 const PRIMARY_VIEW_TABS: ViewTab[] = [
   { key: "casual", labelKey: "community.tabs.chat", icon: MessageCircle },
@@ -70,17 +83,23 @@ const PRIMARY_VIEW_TABS: ViewTab[] = [
   { key: "personal", labelKey: "community.tabs.personal", icon: Sparkles },
 ];
 
+const MESSAGES_TAB: ViewTab = {
+  key: "messages",
+  labelKey: "community.tabs.messages",
+  icon: MessageCircle,
+};
+
 const NOTIFICATIONS_TAB: ViewTab = {
   key: "notifications",
   labelKey: "community.tabs.notifications",
   icon: Bell,
 };
 
-const DESKTOP_VIEW_TABS: ViewTab[] = PRIMARY_VIEW_TABS;
+const DESKTOP_VIEW_TABS: ViewTab[] = [...PRIMARY_VIEW_TABS, MESSAGES_TAB];
 
 const MOBILE_VIEW_TABS: ViewTab[] = [
   ...PRIMARY_VIEW_TABS,
-  { key: "messages", labelKey: "community.tabs.messages", icon: MessageCircle },
+  MESSAGES_TAB,
   NOTIFICATIONS_TAB,
   { key: "members", labelKey: "community.tabs.members", icon: Users },
 ];
@@ -1104,9 +1123,6 @@ const CommunityView: React.FC = () => {
     [cameFromCommunity, navigate, routePostId],
   );
 
-  const directMessagesPath = user?.nostrPublicKey?.trim()
-    ? `/profile/${user.nostrPublicKey.trim()}/messages`
-    : "/messages";
   const {
     ready: accountReady,
     loading: accountLoading,
@@ -1129,6 +1145,7 @@ const CommunityView: React.FC = () => {
 
   const { conversations } = useDirectMessages();
   const [activeView, setActiveView] = useState<ActiveView>("casual");
+  const lastNonMessagesViewRef = useRef<Exclude<ActiveView, "messages">>("casual");
   const [notificationGroups, setNotificationGroups] = useState<CommunityNotificationGroup[]>(
     INITIAL_NOTIFICATION_GROUPS,
   );
@@ -1144,7 +1161,26 @@ const CommunityView: React.FC = () => {
       setActiveView("feed");
     }
   }, [routePostId]);
-  const isMessagesRouteActive = location.pathname.startsWith(directMessagesPath);
+
+  useEffect(() => {
+    if (activeView !== "messages") {
+      lastNonMessagesViewRef.current = activeView;
+    }
+  }, [activeView]);
+
+  useEffect(() => {
+    const shouldShowMessages = isCommunityMessagesLocation(location.pathname, location.search);
+    if (shouldShowMessages) {
+      if (activeView !== "messages") {
+        setActiveView("messages");
+      }
+      return;
+    }
+
+    if (activeView === "messages") {
+      setActiveView(lastNonMessagesViewRef.current);
+    }
+  }, [activeView, location.pathname, location.search]);
 
   const hasUnreadMessages = useMemo(
     () => Object.values(conversations).some((conversation) => conversation.unreadCount > 0),
@@ -1153,6 +1189,7 @@ const CommunityView: React.FC = () => {
   const isCasualView = activeView === "casual";
   const isPublicFeedView = activeView === "feed";
   const isPersonalFeedView = activeView === "personal";
+  const isMessagesView = activeView === "messages";
   const isNotificationsView = activeView === "notifications";
   const isAnyFeedView = isPublicFeedView || isPersonalFeedView;
   const isMembersView = activeView === "members";
@@ -2034,6 +2071,41 @@ const CommunityView: React.FC = () => {
         )}
       </div>
     );
+  const handleSelectView = useCallback(
+    (view: ActiveView) => {
+      const isMessagesLocation = isCommunityMessagesLocation(location.pathname, location.search);
+
+      if (view === "messages") {
+        setActiveView("messages");
+        if (routePostId) {
+          handleThreadRouteChange(null);
+        }
+        if (!isMessagesLocation || location.pathname !== COMMUNITY_PATH) {
+          navigate(COMMUNITY_MESSAGES_PATH);
+        }
+        return;
+      }
+
+      setActiveView(view);
+      if (routePostId && view !== "feed") {
+        handleThreadRouteChange(null);
+      }
+
+      if (isMessagesLocation && location.pathname === COMMUNITY_PATH) {
+        const params = new URLSearchParams(location.search);
+        params.delete(COMMUNITY_MESSAGES_VIEW_PARAM);
+        const nextSearch = params.toString();
+        navigate(nextSearch ? `${COMMUNITY_PATH}?${nextSearch}` : COMMUNITY_PATH);
+      }
+    },
+    [
+      handleThreadRouteChange,
+      location.pathname,
+      location.search,
+      navigate,
+      routePostId,
+    ],
+  );
   const renderTabButton = (tab: ViewTab, variant: "mobile" | "desktop") => {
     const Icon = tab.icon;
     const tabId = `community-tab-${tab.key}`;
@@ -2042,48 +2114,13 @@ const CommunityView: React.FC = () => {
     const baseClasses =
       "flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 sm:text-sm";
 
-    if (tab.key === "messages") {
-      const isActive = isMessagesRouteActive;
-      return (
-        <NavLink
-          key={tab.key}
-          to={directMessagesPath}
-          id={tabId}
-          role="tab"
-          aria-selected={isActive}
-          tabIndex={isActive ? 0 : -1}
-          className={({ isActive: navIsActive }) =>
-            `${baseClasses} ${layoutClass} ${
-              navIsActive
-                ? "border-brand bg-brand/10 text-brand shadow-sm"
-                : "border-transparent text-[var(--fg-muted)] hover:border-brand hover:text-brand"
-            }`
-          }
-        >
-          {({ isActive: navIsActive }) => (
-            <>
-              <Icon className="h-4 w-4" aria-hidden="true" />
-              <span className="flex items-center gap-2">
-                <span>{t(tab.labelKey)}</span>
-                {hasUnreadMessages && !navIsActive && (
-                  <span aria-hidden="true" className="text-brand text-xs leading-none">
-                    ●
-                  </span>
-                )}
-              </span>
-              {hasUnreadMessages && !navIsActive && (
-                <span className="sr-only">Unread messages available</span>
-              )}
-            </>
-          )}
-        </NavLink>
-      );
-    }
-
     const isActive = activeView === tab.key;
     const paletteClasses = isActive
       ? "border-brand bg-brand/10 text-brand shadow-sm"
       : "border-transparent text-[var(--fg-muted)] hover:border-brand hover:text-brand";
+    const showNotificationDot = tab.key === "notifications" && hasUnreadNotifications;
+    const showMessageDot = tab.key === "messages" && hasUnreadMessages && !isMessagesView;
+
     return (
       <button
         key={tab.key}
@@ -2093,26 +2130,27 @@ const CommunityView: React.FC = () => {
         aria-selected={isActive}
         aria-controls={panelId}
         tabIndex={isActive ? 0 : -1}
-        onClick={() => {
-          setActiveView(tab.key);
-          if (routePostId && tab.key !== "feed") {
-            handleThreadRouteChange(null);
-          }
-        }}
+        onClick={() => handleSelectView(tab.key)}
         className={`${baseClasses} ${layoutClass} ${paletteClasses}`}
       >
         <Icon className="h-4 w-4" aria-hidden="true" />
         <span className="flex items-center gap-2">
-        <span>{t(tab.labelKey)}</span>
-          {tab.key === "notifications" && hasUnreadNotifications && (
+          <span>{t(tab.labelKey)}</span>
+          {showNotificationDot && (
+            <span aria-hidden="true" className="text-brand text-xs leading-none">
+              ●
+            </span>
+          )}
+          {showMessageDot && (
             <span aria-hidden="true" className="text-brand text-xs leading-none">
               ●
             </span>
           )}
         </span>
-        {tab.key === "notifications" && hasUnreadNotifications && (
+        {showNotificationDot && (
           <span className="sr-only">Unread notifications available</span>
         )}
+        {showMessageDot && <span className="sr-only">Unread messages available</span>}
       </button>
     );
   };
@@ -2549,29 +2587,6 @@ const CommunityView: React.FC = () => {
           >
             {DESKTOP_VIEW_TABS.map((tab) => renderTabButton(tab, "desktop"))}
           </nav>
-          <NavLink
-            to={directMessagesPath}
-            className={({ isActive }) =>
-              `mt-3 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
-                isActive
-                  ? "border-brand bg-brand/10 text-brand shadow-sm"
-                  : "border-transparent text-[var(--fg-muted)] hover:border-brand hover:text-brand"
-              }`
-            }
-          >
-            <MessageCircle className="h-4 w-4" aria-hidden="true" />
-            <span className="flex items-center gap-2">
-              <span>Messages</span>
-              {hasUnreadMessages && !isMessagesRouteActive && (
-                <span aria-hidden="true" className="text-brand text-xs leading-none">
-                  ●
-                </span>
-              )}
-            </span>
-            {hasUnreadMessages && !isMessagesRouteActive && (
-              <span className="sr-only">Unread messages available</span>
-            )}
-          </NavLink>
           <div className="mt-2">{renderTabButton(NOTIFICATIONS_TAB, "desktop")}</div>
           <div className="mt-8 flex-1 overflow-hidden">
             <h2 className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)]">{membersHeading}</h2>
@@ -3056,6 +3071,17 @@ const CommunityView: React.FC = () => {
                     )}
                   </div>
                 </ErrorBoundary>
+              </section>
+            ) : isMessagesView ? (
+              <section
+                id="community-panel-messages"
+                role="tabpanel"
+                aria-labelledby="community-tab-messages"
+                className="flex flex-1 flex-col"
+              >
+                <div className="flex flex-1 flex-col overflow-hidden px-5 py-6 sm:px-8">
+                  <MessagesPage variant="embedded" />
+                </div>
               </section>
             ) : isNotificationsView ? (
               <section

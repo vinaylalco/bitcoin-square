@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
 import { Copy, MessageCircle, RefreshCw } from "lucide-react";
+import { COMMUNITY_MESSAGES_PATH } from "../utils/routes";
 
 import {
   formatMemberSince,
@@ -84,7 +85,7 @@ const Profile: React.FC = () => {
             </button>
             {isViewerProfile ? (
               <Link
-                to={`/profile/${pubkey}/messages`}
+                to={COMMUNITY_MESSAGES_PATH}
                 className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--fg-default)] transition hover:border-brand hover:text-brand"
               >
                 <MessageCircle className="h-4 w-4" /> Inbox

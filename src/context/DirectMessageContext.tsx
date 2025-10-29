@@ -16,6 +16,7 @@ import { publishWithPool } from "../lib/nostrPublish";
 import { SimplePool, type Event, type EventTemplate } from "../lib/nostrToolsShim";
 import { useProfileIdentity } from "./ProfileIdentityContext";
 import { decryptDirectMessage, encryptDirectMessage } from "../utils/directMessageEncryption";
+import { isCommunityMessagesLocation } from "../utils/routes";
 
 const DM_RELAYS = ["wss://relay.damus.io", "wss://relay.primal.net", "wss://nos.lol"];
 const PORTAL_ELEMENT_ID = "direct-message-root";
@@ -497,7 +498,9 @@ const DirectMessageOverlay: React.FC = () => {
   const draft = activeConversation ? getDraft(activeConversation) : "";
   const summary = activeConversation ? resolveProfileSummary(activeConversation) : null;
   const disableOverlay =
-    typeof window !== "undefined" && window.location.pathname.includes("/messages");
+    typeof window !== "undefined" &&
+    (window.location.pathname.includes("/messages") ||
+      isCommunityMessagesLocation(window.location.pathname, window.location.search));
 
   useEffect(() => {
     if (disableOverlay) return;
