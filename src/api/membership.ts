@@ -165,10 +165,15 @@ export async function fetchMembershipStatusByEmail(
     throw new Error("Email is required to check membership status.");
   }
 
-  assertApiBaseUrl();
+  const baseUrl = assertApiBaseUrl();
+  const normalizedBase = baseUrl.replace(/\/$/, "");
+  const resolvedUrl =
+    normalizedBase.endsWith("/api") || normalizedBase.includes("/api/")
+      ? `${normalizedBase}/memberships`
+      : `${normalizedBase}/api/memberships`;
 
   const response = await apiClient.get<StrapiCollectionResponse<MembershipEntity[]>>(
-    "/memberships",
+    resolvedUrl,
     {
       params: {
         "filters[user][email][$eq]": trimmed,
