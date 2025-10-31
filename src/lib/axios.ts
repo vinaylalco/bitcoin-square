@@ -203,5 +203,5 @@ const axios = Object.assign(create, {
   isAxiosError,
 });
 
-export { create, isAxiosError, AxiosError };
+export { create, isAxiosError };
 export default axios;
