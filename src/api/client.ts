@@ -50,4 +50,59 @@ export function assertApiBaseUrl(): string {
   return baseUrl;
 }
 
+function basePathContainsApiSegment(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    const pathname = parsed.pathname.replace(/\/$/, "");
+    return pathname === "/api" || pathname.startsWith("/api/");
+  } catch (error) {
+    if (error instanceof Error) {
+      // Fall back to a simple substring check on the path portion only.
+      const [, path = ""] = url.split(/https?:\/\//i);
+      const normalizedPath = path.includes("/") ? path.slice(path.indexOf("/")) : "";
+      const trimmed = normalizedPath.replace(/\/$/, "");
+      return trimmed === "/api" || trimmed.startsWith("/api/");
+    }
+  }
+
+  return false;
+}
+
+function joinPaths(...segments: string[]): string {
+  return segments
+    .filter((segment) => Boolean(segment) && segment !== "/")
+    .map((segment, index) => {
+      if (index === 0) {
+        return segment.replace(/\/$/, "");
+      }
+      return segment.replace(/^\/+|\/+$/g, "");
+    })
+    .join("/");
+}
+
+export function resolveApiUrl(path: string): string {
+  const baseUrl = assertApiBaseUrl();
+  const trimmedPath = path.replace(/^\/+/, "");
+
+  try {
+    const parsed = new URL(baseUrl);
+    const pathname = parsed.pathname.replace(/\/$/, "");
+
+    if (basePathContainsApiSegment(baseUrl)) {
+      parsed.pathname = joinPaths(pathname || "/", trimmedPath);
+    } else {
+      const apiPath = joinPaths(pathname || "/", "api", trimmedPath);
+      parsed.pathname = apiPath.startsWith("/") ? apiPath : `/${apiPath}`;
+    }
+
+    return parsed.toString();
+  } catch {
+    const normalizedBase = baseUrl.replace(/\/$/, "");
+    if (basePathContainsApiSegment(baseUrl)) {
+      return `${normalizedBase}/${trimmedPath}`;
+    }
+    return `${normalizedBase}/api/${trimmedPath}`;
+  }
+}
+
 export default apiClient;

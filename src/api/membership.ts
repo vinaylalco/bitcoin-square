@@ -1,5 +1,5 @@
 import axios from "axios";
-import apiClient, { ApiConfigError, assertApiBaseUrl } from "./client";
+import apiClient, { ApiConfigError, resolveApiUrl } from "./client";
 
 export type MembershipType = "annual" | "lifetime";
 
@@ -121,11 +121,9 @@ export async function createPaymentSession(
     throw new Error("Membership pricing could not be determined.");
   }
 
-  assertApiBaseUrl();
-
   try {
     const response = await apiClient.post<CreatePaymentSessionResponse>(
-      "/payments/create-session",
+      resolveApiUrl("/payments/create-session"),
       payload,
     );
 
@@ -165,15 +163,8 @@ export async function fetchMembershipStatusByEmail(
     throw new Error("Email is required to check membership status.");
   }
 
-  const baseUrl = assertApiBaseUrl();
-  const normalizedBase = baseUrl.replace(/\/$/, "");
-  const resolvedUrl =
-    normalizedBase.endsWith("/api") || normalizedBase.includes("/api/")
-      ? `${normalizedBase}/memberships`
-      : `${normalizedBase}/api/memberships`;
-
   const response = await apiClient.get<StrapiCollectionResponse<MembershipEntity[]>>(
-    resolvedUrl,
+    resolveApiUrl("/memberships"),
     {
       params: {
         "filters[user][email][$eq]": trimmed,
