@@ -1,7 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import App from "./App";
 import "./index.css";
@@ -36,40 +36,8 @@ import Messages from "./routes/Messages";
 import { ProfileIdentityProvider } from "./context/ProfileIdentityContext";
 import { DirectMessageProvider } from "./context/DirectMessageContext";
 import { ToastProvider } from "./context/ToastContext";
-
-const router = createBrowserRouter([
-  {
-    path: "/",
-    element: <App />,
-    errorElement: <RouteError />,              // ✅ friendly error UI
-    children: [
-      { index: true, element: <Home /> },
-      { path: "education", element: <CourseDirectory /> },
-      { path: "education/:slug", element: <CourseDetail /> },
-      { path: "settings", element: <Settings /> },
-      { path: "blog", element: <Blog /> },
-      { path: "contact", element: <Contact /> },
-      { path: "lessons", element: <Lessons /> },
-      { path: "lessons/:slug", element: <LessonDetail /> },
-      { path: "languages", element: <Languages /> },
-      { path: "shop", element: <Shop /> },
-      { path: "shop/:id", element: <ProductDetail /> },
-      { path: "login", element: <Login /> },
-      { path: "dashboard", element: <Dashboard /> },
-      { path: "register", element: <Register /> },
-      { path: "forgot-password", element: <ForgotPassword /> },
-      { path: "reset-password", element: <ResetPassword /> },
-      { path: "newsletter", element: <NewsletterSubscribe /> },
-      { path: "checkout/success", element: <CheckoutSuccess /> },
-      { path: "checkout/cancel", element: <CheckoutCancel /> },
-      { path: "community", element: <Community /> },
-      { path: "community/forum/:postId", element: <Community /> },
-      { path: "profile/:pubkey/messages", element: <Messages /> },
-      { path: "profile/:pubkey", element: <Profile /> },
-      { path: "messages", element: <Messages /> },
-    ],
-  },
-]);
+import Membership from "./routes/Membership";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -82,7 +50,42 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <ProfileIdentityProvider>
               <DirectMessageProvider>
                 <ToastProvider>
-                  <RouterProvider router={router} />
+                  <BrowserRouter>
+                    <Routes>
+                      <Route path="/" element={<App />}>
+                        <Route index element={<Home />} />
+                        <Route path="settings" element={<Settings />} />
+                        <Route path="blog" element={<Blog />} />
+                        <Route path="contact" element={<Contact />} />
+                        <Route path="languages" element={<Languages />} />
+                        <Route path="shop" element={<Shop />} />
+                        <Route path="shop/:id" element={<ProductDetail />} />
+                        <Route path="login" element={<Login />} />
+                        <Route path="dashboard" element={<Dashboard />} />
+                        <Route path="register" element={<Register />} />
+                        <Route path="forgot-password" element={<ForgotPassword />} />
+                        <Route path="reset-password" element={<ResetPassword />} />
+                        <Route path="newsletter" element={<NewsletterSubscribe />} />
+                        <Route path="checkout/success" element={<CheckoutSuccess />} />
+                        <Route path="checkout/cancel" element={<CheckoutCancel />} />
+                        <Route path="profile/:pubkey/messages" element={<Messages />} />
+                        <Route path="profile/:pubkey" element={<Profile />} />
+                        <Route path="messages" element={<Messages />} />
+                        <Route path="membership" element={<Membership />} />
+
+                        <Route element={<ProtectedRoute />}>
+                          <Route path="education" element={<CourseDirectory />} />
+                          <Route path="education/:slug" element={<CourseDetail />} />
+                          <Route path="lessons" element={<Lessons />} />
+                          <Route path="lessons/:slug" element={<LessonDetail />} />
+                          <Route path="community" element={<Community />} />
+                          <Route path="community/forum/:postId" element={<Community />} />
+                        </Route>
+
+                        <Route path="*" element={<RouteError />} />
+                      </Route>
+                    </Routes>
+                  </BrowserRouter>
                 </ToastProvider>
               </DirectMessageProvider>
             </ProfileIdentityProvider>
