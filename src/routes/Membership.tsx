@@ -2,10 +2,8 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useAuth } from "../context/AuthContext";
-import {
-  MembershipType,
-  useMembershipCheckout,
-} from "../hooks/useMembershipCheckout";
+import { useMembershipCheckout } from "../hooks/useMembershipCheckout";
+import type { MembershipType } from "../utils/membership";
 import { cn } from "../utils/cn";
 import { rememberMembershipCheckoutPlan } from "../utils/membership";
 
