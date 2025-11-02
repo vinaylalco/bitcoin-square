@@ -116,7 +116,7 @@
       "annual": "$2 / año",
       "lifetime": "$3 de por vida"
     },
-    "nowpaymentsNote": "Serás redirigido a NowPayments para completar un pago cripto seguro.",
+    "nowpaymentsNote": "Redirige a un checkout seguro (NowPayments).",
     "errors": {
       "invalidEmail": "Introduce un correo válido para continuar.",
       "missingRedirect": "Faltó el enlace de checkout de la membresía en la respuesta.",
@@ -124,11 +124,12 @@
     },
     "success": {
       "badge": "Membresía",
-      "title": "Procesando…",
+      "title": "Pago recibido. Activando tu membresía…",
       "description": "Mantén esta pestaña abierta mientras confirmamos tu pago de membresía.",
-      "checking": "Actualizaremos tu estado automáticamente cada 24 horas.",
-      "active": "¡Tu membresía está activa!",
-      "cta": "Ir a la comunidad",
+      "checking": "Actualizaremos tu estado automáticamente cada 10 segundos.",
+      "active": "Tu membresía está activa. 🎉",
+      "communityCta": "Ir a la comunidad",
+      "educationCta": "Ir a Educación",
       "footer": "Puedes cerrar esta página cuando tu membresía esté confirmada.",
       "signinRequired": "Inicia sesión para revisar el estado de tu membresía.",
       "errors": {
@@ -139,8 +140,8 @@
     },
     "cancel": {
       "badge": "Membresía",
-      "title": "Pago cancelado",
-      "description": "Tu pago de membresía no se completó. Puedes reiniciar el checkout desde la página de membresía.",
+      "title": "Pago cancelado.",
+      "description": "Puedes intentarlo de nuevo en cualquier momento.",
       "retry": "Volver a Membresía"
     }
   },

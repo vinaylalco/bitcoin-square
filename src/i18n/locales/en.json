@@ -116,7 +116,7 @@
       "annual": "$2 / year",
       "lifetime": "$3 lifetime"
     },
-    "nowpaymentsNote": "You'll be redirected to NowPayments to complete a secure crypto checkout.",
+    "nowpaymentsNote": "Redirects to secure checkout (NowPayments).",
     "errors": {
       "invalidEmail": "Enter a valid email to continue.",
       "missingRedirect": "Membership checkout link was missing from the response.",
@@ -124,11 +124,12 @@
     },
     "success": {
       "badge": "Membership",
-      "title": "Processing…",
+      "title": "Payment received. Activating your membership…",
       "description": "Keep this tab open while we confirm your membership payment.",
-      "checking": "We'll refresh your status automatically every 24 hours.",
-      "active": "Your membership is active!",
-      "cta": "Go to Community",
+      "checking": "We'll refresh your status automatically every 10 seconds.",
+      "active": "Your membership is active. 🎉",
+      "communityCta": "Go to Community",
+      "educationCta": "Go to Education",
       "footer": "You can close this page once your membership is confirmed.",
       "signinRequired": "Sign in to check your membership status.",
       "errors": {
@@ -139,8 +140,8 @@
     },
     "cancel": {
       "badge": "Membership",
-      "title": "Checkout canceled",
-      "description": "Your membership payment wasn't completed. You can restart checkout any time from the membership page.",
+      "title": "Payment cancelled.",
+      "description": "You can retry anytime.",
       "retry": "Back to Membership"
     }
   },

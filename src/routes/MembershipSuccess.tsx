@@ -32,7 +32,7 @@ export default function MembershipSuccess() {
     return normalizeMembershipStatus(me["membership"]);
   }, [me]);
 
-  const showCommunityCta = membershipStatus.isActive;
+  const isMembershipActive = membershipStatus.isActive;
   const showSigninNotice = !token;
 
   let errorMessage: string | null = null;
@@ -58,7 +58,7 @@ export default function MembershipSuccess() {
         <p className="text-sm leading-relaxed text-[var(--fg-muted)]">
           {t("membership.success.description")}
         </p>
-        {!showCommunityCta && !showSigninNotice && (
+        {!isMembershipActive && !showSigninNotice && (
           <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--fg-muted)]">
             {t("membership.success.checking")}
             {loading && " •"}
@@ -74,21 +74,29 @@ export default function MembershipSuccess() {
             {errorMessage}
           </p>
         )}
-        {showCommunityCta && (
+        {isMembershipActive && (
           <p className="text-xs font-semibold uppercase tracking-[0.28em] text-brand">
             {t("membership.success.active")}
           </p>
         )}
       </div>
-      {showCommunityCta && (
-        <Link
-          to="/community"
-          className="inline-flex items-center justify-center rounded-full bg-brand px-6 py-3 text-xs font-semibold uppercase tracking-[0.32em] text-white shadow-[0_12px_30px_rgba(169,21,255,0.35)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_40px_rgba(169,21,255,0.45)]"
-        >
-          {t("membership.success.cta")}
-        </Link>
+      {isMembershipActive && (
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <Link
+            to="/community"
+            className="inline-flex items-center justify-center rounded-full bg-brand px-6 py-3 text-xs font-semibold uppercase tracking-[0.32em] text-white shadow-[0_12px_30px_rgba(169,21,255,0.35)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_40px_rgba(169,21,255,0.45)]"
+          >
+            {t("membership.success.communityCta")}
+          </Link>
+          <Link
+            to="/education"
+            className="inline-flex items-center justify-center rounded-full bg-[var(--bg-elevated)] px-6 py-3 text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-default)] shadow-[0_12px_30px_rgba(0,0,0,0.12)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_40px_rgba(0,0,0,0.18)]"
+          >
+            {t("membership.success.educationCta")}
+          </Link>
+        </div>
       )}
-      {!showCommunityCta && !showSigninNotice && (
+      {!isMembershipActive && !showSigninNotice && (
         <p className="text-xs leading-relaxed text-[var(--fg-muted)]">
           {t("membership.success.footer")}
         </p>
