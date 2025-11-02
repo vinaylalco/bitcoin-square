@@ -1,8 +1,15 @@
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
+import { clearMembershipCheckoutPlan } from "../utils/membership";
+
 export default function MembershipCancel() {
   const { t } = useTranslation();
+
+  useEffect(() => {
+    clearMembershipCheckoutPlan();
+  }, []);
 
   return (
     <div className="mx-auto flex min-h-[60vh] w-full max-w-3xl flex-col items-center justify-center gap-6 px-4 py-16 text-center">

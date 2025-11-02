@@ -1,7 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { createMembershipCheckout } from "../lib/strapi";
-
-export type MembershipType = "annual" | "lifetime";
+import type { MembershipType } from "../utils/membership";
 
 interface MembershipCheckoutPayload {
   email: string;
@@ -22,3 +21,5 @@ export function useMembershipCheckout() {
       createMembershipCheckout({ membershipType, userEmail: email }),
   });
 }
+
+export type { MembershipType };

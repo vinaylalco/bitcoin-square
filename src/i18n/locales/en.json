@@ -128,6 +128,8 @@
       "description": "Keep this tab open while we confirm your membership payment.",
       "checking": "We'll refresh your status automatically every 10 seconds.",
       "active": "Your membership is active. 🎉",
+      "timeout": "Still processing. We'll update your access shortly.",
+      "refresh": "Refresh status",
       "communityCta": "Go to Community",
       "educationCta": "Go to Education",
       "footer": "You can close this page once your membership is confirmed.",

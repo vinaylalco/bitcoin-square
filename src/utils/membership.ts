@@ -1,8 +1,102 @@
+export type MembershipType = "annual" | "lifetime";
+
 export interface MembershipStatus {
   status: string | null;
   type: string | null;
   expiresAt: Date | null;
   isActive: boolean;
+}
+
+export interface MembershipCheckoutSnapshot {
+  plan: MembershipType;
+  timestamp: number;
+}
+
+const MEMBERSHIP_CHECKOUT_STORAGE_KEY =
+  "bitcoin-square-membership-checkout";
+
+function getSessionStorage(): Storage | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    return window.sessionStorage;
+  } catch (error) {
+    console.warn("Unable to access sessionStorage", error);
+    return null;
+  }
+}
+
+export function rememberMembershipCheckoutPlan(plan: MembershipType): void {
+  const storage = getSessionStorage();
+  if (!storage) {
+    return;
+  }
+
+  try {
+    const payload: MembershipCheckoutSnapshot = {
+      plan,
+      timestamp: Date.now(),
+    };
+    storage.setItem(
+      MEMBERSHIP_CHECKOUT_STORAGE_KEY,
+      JSON.stringify(payload),
+    );
+  } catch (error) {
+    console.warn("Failed to store membership checkout plan", error);
+  }
+}
+
+export function readMembershipCheckoutPlan():
+  | MembershipCheckoutSnapshot
+  | null {
+  const storage = getSessionStorage();
+  if (!storage) {
+    return null;
+  }
+
+  try {
+    const raw = storage.getItem(MEMBERSHIP_CHECKOUT_STORAGE_KEY);
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw) as Partial<MembershipCheckoutSnapshot>;
+    if (!parsed || typeof parsed !== "object") {
+      return null;
+    }
+
+    if (parsed.plan !== "annual" && parsed.plan !== "lifetime") {
+      return null;
+    }
+
+    const timestamp =
+      typeof parsed.timestamp === "number" && Number.isFinite(parsed.timestamp)
+        ? parsed.timestamp
+        : Date.now();
+
+    return {
+      plan: parsed.plan,
+      timestamp,
+    };
+  } catch (error) {
+    console.warn("Failed to read membership checkout plan", error);
+    return null;
+  }
+}
+
+export function clearMembershipCheckoutPlan(): void {
+  const storage = getSessionStorage();
+  if (!storage) {
+    return;
+  }
+
+  try {
+    storage.removeItem(MEMBERSHIP_CHECKOUT_STORAGE_KEY);
+  } catch (error) {
+    console.warn("Failed to clear membership checkout plan", error);
+  }
 }
 
 export function unwrapStrapiEntity(value: unknown): Record<string, unknown> | null {

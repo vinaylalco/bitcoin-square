@@ -7,6 +7,7 @@ import {
   useMembershipCheckout,
 } from "../hooks/useMembershipCheckout";
 import { cn } from "../utils/cn";
+import { rememberMembershipCheckoutPlan } from "../utils/membership";
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -49,6 +50,7 @@ export default function Membership() {
         membershipType: tier,
       });
       if (session.invoiceUrl) {
+        rememberMembershipCheckoutPlan(tier);
         window.location.href = session.invoiceUrl;
       } else {
         throw new Error(t("membership.errors.missingRedirect"));

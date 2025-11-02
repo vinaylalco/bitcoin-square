@@ -128,6 +128,8 @@
       "description": "Mantén esta pestaña abierta mientras confirmamos tu pago de membresía.",
       "checking": "Actualizaremos tu estado automáticamente cada 10 segundos.",
       "active": "Tu membresía está activa. 🎉",
+      "timeout": "Seguimos procesando. Actualizaremos tu acceso en breve.",
+      "refresh": "Actualizar estado",
       "communityCta": "Ir a la comunidad",
       "educationCta": "Ir a Educación",
       "footer": "Puedes cerrar esta página cuando tu membresía esté confirmada.",
