@@ -42,6 +42,7 @@ export function useCurrentUserMembership(
       return strapiFetch<Record<string, unknown>>(
         "/api/users/me?populate[0]=membership",
         {
+          method: "GET",
           headers: { Authorization: `Bearer ${token}` },
         },
       );
