@@ -113,8 +113,8 @@
       "usingAccount": "Using your account email. Update it if you'd like to use a different address.",
       "submit": "Start checkout",
       "pending": "Redirecting…",
-      "annual": "$2 / year",
-      "lifetime": "$3 lifetime"
+      "annual": "$20 / year",
+      "lifetime": "$20 lifetime"
     },
     "nowpaymentsNote": "Redirects to secure checkout (NowPayments).",
     "errors": {

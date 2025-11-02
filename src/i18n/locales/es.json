@@ -113,8 +113,8 @@
       "usingAccount": "Usaremos el correo de tu cuenta. Actualízalo si prefieres otra dirección.",
       "submit": "Iniciar checkout",
       "pending": "Redirigiendo…",
-      "annual": "$2 / año",
-      "lifetime": "$3 de por vida"
+      "annual": "$20 / año",
+      "lifetime": "$20 de por vida"
     },
     "nowpaymentsNote": "Redirige a un checkout seguro (NowPayments).",
     "errors": {
