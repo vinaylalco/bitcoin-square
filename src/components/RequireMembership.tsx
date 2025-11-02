@@ -1,13 +1,11 @@
 import { type ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-
 import { useAuth } from "../context/AuthContext";
-import { strapiFetch } from "../api/strapi-client";
 import {
   extractGrandfatheredFlag,
   normalizeMembershipStatus,
 } from "../utils/membership";
+import { useCurrentUserMembership } from "../hooks/useCurrentUserMembership";
 
 interface RequireMembershipProps {
   children: ReactNode;
@@ -29,38 +27,16 @@ export default function RequireMembership({
     );
   }
 
-  const { data, error, isLoading, isFetching } = useQuery<
-    Record<string, unknown>,
-    Error
-  >({
-    queryKey: ["require-membership", token],
-    enabled: Boolean(token),
-    refetchOnWindowFocus: false,
-    staleTime: 60 * 1000,
-    queryFn: async () => {
-      if (!token) {
-        throw new Error("Missing authentication token");
-      }
-      return strapiFetch<Record<string, unknown>>(
-        "/api/users/me?populate[0]=membership",
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
-    },
-  });
+  const { me, loading, error } = useCurrentUserMembership();
 
-  const membershipStatus = normalizeMembershipStatus(data?.["membership"]);
+  const membershipStatus = normalizeMembershipStatus(me?.["membership"]);
   const grandfathered =
     extractGrandfatheredFlag(
-      data?.["grandfathered"] ?? data?.["isGrandfathered"],
-    ) || extractGrandfatheredFlag(data?.["membership"]);
+      me?.["grandfathered"] ?? me?.["isGrandfathered"],
+    ) || extractGrandfatheredFlag(me?.["membership"]);
 
   const allowAccess = grandfathered || membershipStatus.isActive;
-  const stillLoading =
-    isLoading ||
-    isFetching ||
-    (!data && !error);
+  const stillLoading = loading && !error;
 
   if (stillLoading) {
     return (

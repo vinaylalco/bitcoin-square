@@ -1,18 +1,10 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { useQuery } from "@tanstack/react-query";
-
 import { useAuth } from "../context/AuthContext";
-import {
-  StrapiConfigError,
-  StrapiNetworkError,
-  strapiFetch,
-} from "../api/strapi-client";
-import {
-  normalizeMembershipStatus,
-  type MembershipStatus,
-} from "../utils/membership";
+import { StrapiConfigError, StrapiNetworkError } from "../api/strapi-client";
+import { normalizeMembershipStatus } from "../utils/membership";
+import { useCurrentUserMembership } from "../hooks/useCurrentUserMembership";
 
 const TEN_SECONDS_MS = 10_000;
 
@@ -20,45 +12,25 @@ export default function MembershipSuccess() {
   const { t } = useTranslation();
   const { token } = useAuth();
 
-  const {
-    data,
-    error,
-    isLoading,
-    isFetching,
-  } = useQuery<Record<string, unknown>, Error>(
-    {
-      queryKey: ["membership-status", token],
-      queryFn: async () => {
-        if (!token) {
-          throw new Error("Missing authentication token");
-        }
-        return strapiFetch<Record<string, unknown>>(
-          "/api/users/me?populate[0]=membership",
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          },
-        );
-      },
-      enabled: Boolean(token),
-      refetchInterval: (queryData) => {
-        if (!queryData) {
-          return TEN_SECONDS_MS;
-        }
-        const membership = normalizeMembershipStatus(
-          (queryData as Record<string, unknown>)["membership"],
-        );
-        return membership.isActive ? false : TEN_SECONDS_MS;
-      },
-      refetchIntervalInBackground: true,
+  const { me, loading, error } = useCurrentUserMembership({
+    refetchInterval: (queryData) => {
+      if (!queryData) {
+        return TEN_SECONDS_MS;
+      }
+      const membership = normalizeMembershipStatus(
+        (queryData as Record<string, unknown>)["membership"],
+      );
+      return membership.isActive ? false : TEN_SECONDS_MS;
     },
-  );
+    refetchIntervalInBackground: true,
+  });
 
   const membershipStatus = useMemo(() => {
-    if (!data) {
+    if (!me) {
       return normalizeMembershipStatus(null);
     }
-    return normalizeMembershipStatus(data["membership"]);
-  }, [data]);
+    return normalizeMembershipStatus(me["membership"]);
+  }, [me]);
 
   const showCommunityCta = membershipStatus.isActive;
   const showSigninNotice = !token;
@@ -89,7 +61,7 @@ export default function MembershipSuccess() {
         {!showCommunityCta && !showSigninNotice && (
           <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--fg-muted)]">
             {t("membership.success.checking")}
-            {(isLoading || isFetching) && " •"}
+            {loading && " •"}
           </p>
         )}
         {showSigninNotice && (
