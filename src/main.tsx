@@ -33,9 +33,13 @@ import CheckoutCancel from "./routes/CheckoutCancel";
 import Community from "./routes/Community";
 import Profile from "./routes/Profile";
 import Messages from "./routes/Messages";
+import Membership from "./routes/Membership";
+import MembershipSuccess from "./routes/MembershipSuccess";
+import MembershipCancel from "./routes/MembershipCancel";
 import { ProfileIdentityProvider } from "./context/ProfileIdentityContext";
 import { DirectMessageProvider } from "./context/DirectMessageContext";
 import { ToastProvider } from "./context/ToastContext";
+import RequireMembership from "./components/RequireMembership";
 
 const router = createBrowserRouter([
   {
@@ -44,8 +48,22 @@ const router = createBrowserRouter([
     errorElement: <RouteError />,              // ✅ friendly error UI
     children: [
       { index: true, element: <Home /> },
-      { path: "education", element: <CourseDirectory /> },
-      { path: "education/:slug", element: <CourseDetail /> },
+      {
+        path: "education",
+        element: (
+          <RequireMembership>
+            <CourseDirectory />
+          </RequireMembership>
+        ),
+      },
+      {
+        path: "education/:slug",
+        element: (
+          <RequireMembership>
+            <CourseDetail />
+          </RequireMembership>
+        ),
+      },
       { path: "settings", element: <Settings /> },
       { path: "blog", element: <Blog /> },
       { path: "contact", element: <Contact /> },
@@ -60,10 +78,27 @@ const router = createBrowserRouter([
       { path: "forgot-password", element: <ForgotPassword /> },
       { path: "reset-password", element: <ResetPassword /> },
       { path: "newsletter", element: <NewsletterSubscribe /> },
+      { path: "membership", element: <Membership /> },
+      { path: "membership/success", element: <MembershipSuccess /> },
+      { path: "membership/cancel", element: <MembershipCancel /> },
       { path: "checkout/success", element: <CheckoutSuccess /> },
       { path: "checkout/cancel", element: <CheckoutCancel /> },
-      { path: "community", element: <Community /> },
-      { path: "community/forum/:postId", element: <Community /> },
+      {
+        path: "community",
+        element: (
+          <RequireMembership>
+            <Community />
+          </RequireMembership>
+        ),
+      },
+      {
+        path: "community/forum/:postId",
+        element: (
+          <RequireMembership>
+            <Community />
+          </RequireMembership>
+        ),
+      },
       { path: "profile/:pubkey/messages", element: <Messages /> },
       { path: "profile/:pubkey", element: <Profile /> },
       { path: "messages", element: <Messages /> },
