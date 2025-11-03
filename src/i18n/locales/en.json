@@ -12,6 +12,7 @@
     "home": "Home",
     "education": "Education",
     "shop": "Shop",
+    "membership": "Membership",
     "messages": "Messages",
     "newsletter": "Newsletter",
     "community": "Community",
@@ -95,6 +96,55 @@
       "subscribeError": "Subscription failed.",
       "unsubscribeSuccess": "Unsubscribed successfully.",
       "unsubscribeError": "Unsubscribe failed."
+    }
+  },
+  "membership": {
+    "badge": "Membership",
+    "title": "Support Bitcoin Square & unlock perks",
+    "description": "Become a member to fund community learning initiatives and access exclusive releases.",
+    "benefits": {
+      "one": "Fund new lessons, workshops, and translations for the community.",
+      "two": "Receive early access to private events, drops, and behind-the-scenes updates.",
+      "three": "Keep Bitcoin Square independent, community-driven, and focused on education."
+    },
+    "form": {
+      "emailLabel": "Email",
+      "emailPlaceholder": "you@example.com",
+      "usingAccount": "Using your account email. Update it if you'd like to use a different address.",
+      "submit": "Start checkout",
+      "pending": "Redirecting…",
+      "annual": "$20 / year",
+      "lifetime": "$20 lifetime"
+    },
+    "nowpaymentsNote": "Redirects to secure checkout (NowPayments).",
+    "errors": {
+      "invalidEmail": "Enter a valid email to continue.",
+      "missingRedirect": "Membership checkout link was missing from the response.",
+      "generic": "We couldn't start the membership checkout. Please try again."
+    },
+    "success": {
+      "badge": "Membership",
+      "title": "Payment received. Activating your membership…",
+      "description": "Keep this tab open while we confirm your membership payment.",
+      "checking": "We'll refresh your status automatically every 10 seconds.",
+      "active": "Your membership is active. 🎉",
+      "timeout": "Still processing. We'll update your access shortly.",
+      "refresh": "Refresh status",
+      "communityCta": "Go to Community",
+      "educationCta": "Go to Education",
+      "footer": "You can close this page once your membership is confirmed.",
+      "signinRequired": "Sign in to check your membership status.",
+      "errors": {
+        "config": "Membership status is unavailable because the Strapi API URL is not configured.",
+        "network": "We couldn't reach Strapi to check your membership. We'll keep trying automatically.",
+        "generic": "Something went wrong while checking your membership. We'll retry automatically."
+      }
+    },
+    "cancel": {
+      "badge": "Membership",
+      "title": "Payment cancelled.",
+      "description": "You can retry anytime.",
+      "retry": "Back to Membership"
     }
   },
   "home": {

@@ -12,6 +12,7 @@
     "home": "Inicio",
     "education": "Educación",
     "shop": "Tienda",
+    "membership": "Membresía",
     "messages": "Mensajes",
     "newsletter": "Boletín",
     "community": "Comunidad",
@@ -95,6 +96,55 @@
       "subscribeError": "Error al suscribirse.",
       "unsubscribeSuccess": "Suscripción cancelada con éxito.",
       "unsubscribeError": "Error al cancelar la suscripción."
+    }
+  },
+  "membership": {
+    "badge": "Membresía",
+    "title": "Apoya a Bitcoin Square y desbloquea beneficios",
+    "description": "Hazte miembro para financiar iniciativas educativas de la comunidad y acceder a lanzamientos exclusivos.",
+    "benefits": {
+      "one": "Financia nuevas lecciones, talleres y traducciones para la comunidad.",
+      "two": "Recibe acceso prioritario a eventos privados, lanzamientos y actualizaciones exclusivas.",
+      "three": "Mantén a Bitcoin Square independiente, guiado por la comunidad y enfocado en la educación."
+    },
+    "form": {
+      "emailLabel": "Correo electrónico",
+      "emailPlaceholder": "tu@correo.com",
+      "usingAccount": "Usaremos el correo de tu cuenta. Actualízalo si prefieres otra dirección.",
+      "submit": "Iniciar checkout",
+      "pending": "Redirigiendo…",
+      "annual": "$20 / año",
+      "lifetime": "$20 de por vida"
+    },
+    "nowpaymentsNote": "Redirige a un checkout seguro (NowPayments).",
+    "errors": {
+      "invalidEmail": "Introduce un correo válido para continuar.",
+      "missingRedirect": "Faltó el enlace de checkout de la membresía en la respuesta.",
+      "generic": "No pudimos iniciar el checkout de la membresía. Inténtalo de nuevo."
+    },
+    "success": {
+      "badge": "Membresía",
+      "title": "Pago recibido. Activando tu membresía…",
+      "description": "Mantén esta pestaña abierta mientras confirmamos tu pago de membresía.",
+      "checking": "Actualizaremos tu estado automáticamente cada 10 segundos.",
+      "active": "Tu membresía está activa. 🎉",
+      "timeout": "Seguimos procesando. Actualizaremos tu acceso en breve.",
+      "refresh": "Actualizar estado",
+      "communityCta": "Ir a la comunidad",
+      "educationCta": "Ir a Educación",
+      "footer": "Puedes cerrar esta página cuando tu membresía esté confirmada.",
+      "signinRequired": "Inicia sesión para revisar el estado de tu membresía.",
+      "errors": {
+        "config": "El estado de la membresía no está disponible porque la URL de Strapi no está configurada.",
+        "network": "No pudimos conectarnos con Strapi para revisar tu membresía. Lo intentaremos automáticamente.",
+        "generic": "Ocurrió un error al revisar tu membresía. Volveremos a intentarlo de forma automática."
+      }
+    },
+    "cancel": {
+      "badge": "Membresía",
+      "title": "Pago cancelado.",
+      "description": "Puedes intentarlo de nuevo en cualquier momento.",
+      "retry": "Volver a Membresía"
     }
   },
   "home": {

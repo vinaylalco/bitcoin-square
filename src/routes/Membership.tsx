@@ -1,273 +1,178 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
-import { createPaymentSession, type MembershipType } from "../api/membership";
-import PlanCard from "../components/PlanCard";
+import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+
 import { useAuth } from "../context/AuthContext";
-import { useMembership } from "../hooks/useMembership";
-import {
-  readMembershipEmail,
-  readMembershipPaymentId,
-  storeMembershipEmail,
-  storeMembershipPaymentId,
-} from "../utils/membershipStorage";
+import { useMembershipCheckout } from "../hooks/useMembershipCheckout";
+import type { MembershipType } from "../utils/membership";
+import { cn } from "../utils/cn";
+import { rememberMembershipCheckoutPlan } from "../utils/membership";
 
-type PlanDefinition = {
-  id: MembershipType;
-  title: string;
-  highlight?: boolean;
-  priceLabel: string;
-  description: string;
-  amount: number;
-  ctaLabel: string;
-};
-
-const plans: PlanDefinition[] = [
-  {
-    id: "annual",
-    title: "Annual Plan",
-    highlight: true,
-    priceLabel: "$5 / month",
-    description: "Billed annually ($60 total)",
-    amount: 60,
-    ctaLabel: "Choose Annual",
-  },
-  {
-    id: "lifetime",
-    title: "Lifetime Plan",
-    priceLabel: "$70 one-time",
-    description: "One-time payment",
-    amount: 70,
-    ctaLabel: "Choose Lifetime",
-  },
-];
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function Membership() {
+  const { t } = useTranslation();
   const { user } = useAuth();
-  const [selectedPlan, setSelectedPlan] = useState<PlanDefinition | null>(null);
-  const [email, setEmail] = useState<string>("");
-  const [formError, setFormError] = useState<string | null>(null);
-  const [pendingPaymentId, setPendingPaymentId] = useState<string>("");
+  const { mutateAsync, isPending } = useMembershipCheckout();
+
+  const [email, setEmail] = useState(user?.email ?? "");
+  const [error, setError] = useState<string | null>(null);
+  const [touched, setTouched] = useState(false);
+
+  const accountEmail = user?.email ?? "";
+  const hasAccount = Boolean(user);
 
   useEffect(() => {
-    const initialEmail = user?.email?.trim() || readMembershipEmail();
-    if (initialEmail) {
-      setEmail(initialEmail);
+    if (accountEmail) {
+      setEmail(accountEmail);
+    } else if (!hasAccount) {
+      setEmail("");
     }
-  }, [user?.email]);
+  }, [accountEmail, hasAccount]);
 
-  useEffect(() => {
-    setPendingPaymentId(readMembershipPaymentId());
-  }, []);
+  const [pendingTier, setPendingTier] = useState<MembershipType | null>(null);
 
-  useEffect(() => {
-    const normalized = email.trim();
-    if (normalized) {
-      storeMembershipEmail(normalized);
-    } else {
-      storeMembershipEmail("");
-    }
-  }, [email]);
+  const handleCheckout = async (tier: MembershipType) => {
+    setTouched(true);
 
-  const trimmedEmail = useMemo(() => email.trim(), [email]);
-
-  const membershipStatusQuery = useMembership(trimmedEmail);
-
-  const membershipStatus = membershipStatusQuery.membership;
-  const hasActiveMembership = membershipStatusQuery.isSubscribed;
-  const isPollingMembership =
-    membershipStatusQuery.isFetching || membershipStatusQuery.isRefetching;
-
-  useEffect(() => {
-    if (hasActiveMembership) {
-      storeMembershipPaymentId("");
-      setPendingPaymentId("");
-    }
-  }, [hasActiveMembership]);
-
-  const { mutateAsync, isPending } = useMutation({
-    mutationFn: createPaymentSession,
-  });
-
-  const handlePlanSelect = (plan: PlanDefinition) => {
-    setSelectedPlan(plan);
-    setFormError(null);
-  };
-
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!selectedPlan) {
-      setFormError("Please choose a membership plan to continue.");
-      return;
-    }
-
-    const trimmedEmail = email.trim();
-    if (!trimmedEmail) {
-      setFormError("Please enter an email address.");
+    const normalizedEmail = email.trim();
+    if (!emailRegex.test(normalizedEmail)) {
+      setError(t("membership.errors.invalidEmail"));
       return;
     }
 
     try {
-      setFormError(null);
-      const response = await mutateAsync({
-        amount: selectedPlan.amount,
-        membershipType: selectedPlan.id,
-        userEmail: trimmedEmail,
+      setError(null);
+      setPendingTier(tier);
+      const session = await mutateAsync({
+        email: normalizedEmail,
+        membershipType: tier,
       });
-
-      storeMembershipEmail(trimmedEmail);
-      storeMembershipPaymentId(response.paymentId);
-      setPendingPaymentId(response.paymentId);
-      window.location.href = response.paymentUrl;
-    } catch (error) {
-      if (error instanceof Error) {
-        setFormError(error.message);
+      if (session.invoiceUrl) {
+        rememberMembershipCheckoutPlan(tier);
+        window.location.href = session.invoiceUrl;
       } else {
-        setFormError("We couldn't start the checkout. Please try again.");
+        throw new Error(t("membership.errors.missingRedirect"));
       }
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : t("membership.errors.generic");
+      setError(message);
+    } finally {
+      setPendingTier(null);
     }
   };
 
-  const headerCopy = useMemo(() => {
-    if (selectedPlan?.id === "lifetime") {
-      return "Lifetime access, one simple payment.";
-    }
-    if (selectedPlan?.id === "annual") {
-      return "Annual membership billed once a year.";
-    }
-    return "Choose the membership that fits you best.";
-  }, [selectedPlan?.id]);
-
-  let statusBanner: React.ReactNode = null;
-
-  if (trimmedEmail) {
-    if (membershipStatusQuery.isError) {
-      const message =
-        membershipStatusQuery.error instanceof Error
-          ? membershipStatusQuery.error.message
-          : "We couldn't confirm your membership status.";
-      statusBanner = (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-red-700 shadow-sm">
-          <p className="text-sm font-semibold uppercase tracking-[0.24em]">Membership status</p>
-          <p className="mt-2 text-sm">{message}</p>
-          <button
-            type="button"
-            onClick={() => membershipStatusQuery.refetch()}
-            className="mt-3 inline-flex items-center justify-center rounded-full border border-red-300 px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-red-700 transition hover:bg-red-100"
-          >
-            Try again
-          </button>
-        </div>
-      );
-    } else if (hasActiveMembership) {
-      statusBanner = (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-emerald-700 shadow-sm">
-          <p className="text-sm font-semibold uppercase tracking-[0.24em]">Membership active</p>
-          <p className="mt-2 text-sm">
-            Your {membershipStatus?.membershipType ?? "Bitcoin Square"} membership is active. Enjoy premium content!
-          </p>
-        </div>
-      );
-    } else {
-      const hasPendingSignal = Boolean(
-        pendingPaymentId || membershipStatus || isPollingMembership,
-      );
-
-      if (hasPendingSignal) {
-        statusBanner = (
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-amber-800 shadow-sm">
-            <p className="text-sm font-semibold uppercase tracking-[0.24em]">Awaiting confirmation</p>
-            <p className="mt-2 text-sm">
-              We're waiting for NowPayments to confirm your transaction. We'll refresh your membership status automatically.
-            </p>
-            <div className="mt-3 flex items-center gap-3 text-xs uppercase tracking-[0.24em]">
-              <span className="font-semibold">Status:</span>
-              <span className="rounded-full bg-amber-100 px-3 py-1 font-medium">
-                {isPollingMembership ? "Checking..." : "Waiting for confirmation"}
-              </span>
-              <button
-                type="button"
-                onClick={() => membershipStatusQuery.refetch()}
-                className="ml-auto inline-flex items-center justify-center rounded-full border border-amber-300 px-3 py-1 font-semibold text-amber-800 transition hover:bg-amber-100"
-              >
-                Refresh now
-              </button>
-            </div>
-          </div>
-        );
-      }
-    }
-  }
+  const isEmailValid = emailRegex.test(email.trim());
+  const showValidationState = touched && !isEmailValid;
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-12 px-4 py-16 sm:py-20">
-      <div className="text-center">
-        <p className="text-sm font-semibold uppercase tracking-[0.24em] text-brand">Membership</p>
-        <h1 className="mt-3 text-3xl font-extrabold text-[var(--fg-default)] sm:text-4xl">
-          Unlock premium Bitcoin Square content
+    <div className="mx-auto max-w-4xl px-4 pb-20 pt-12 sm:px-6">
+      <header className="space-y-4 text-center">
+        <p className="text-xs font-semibold uppercase tracking-[0.42em] text-brand">
+          {t("membership.badge")}
+        </p>
+        <h1 className="text-3xl font-black uppercase tracking-[0.16em] text-[var(--fg-default)] sm:text-4xl">
+          {t("membership.title")}
         </h1>
-        <p className="mt-4 text-base text-[var(--fg-muted)] sm:text-lg">{headerCopy}</p>
-      </div>
+        <p className="text-sm font-medium leading-relaxed text-[var(--fg-muted)]">
+          {t("membership.description")}
+        </p>
+      </header>
 
-      {statusBanner}
+      <div className="mx-auto mt-10 max-w-2xl space-y-8 rounded-3xl border border-brand/20 bg-[var(--bg-card)] p-8 shadow-[var(--shadow-soft)]">
+        <ul className="space-y-4 text-left text-sm font-medium text-[var(--fg-muted)]">
+          <li className="flex items-start gap-3">
+            <span className="mt-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-brand/10 text-xs font-semibold uppercase tracking-[0.32em] text-brand">
+              01
+            </span>
+            <span>{t("membership.benefits.one")}</span>
+          </li>
+          <li className="flex items-start gap-3">
+            <span className="mt-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-brand/10 text-xs font-semibold uppercase tracking-[0.32em] text-brand">
+              02
+            </span>
+            <span>{t("membership.benefits.two")}</span>
+          </li>
+          <li className="flex items-start gap-3">
+            <span className="mt-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-brand/10 text-xs font-semibold uppercase tracking-[0.32em] text-brand">
+              03
+            </span>
+            <span>{t("membership.benefits.three")}</span>
+          </li>
+        </ul>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        {plans.map((plan) => (
-          <PlanCard
-            key={plan.id}
-            title={plan.title}
-            priceLabel={plan.priceLabel}
-            description={plan.description}
-            ctaLabel={plan.ctaLabel}
-            highlight={plan.highlight}
-            isSelected={selectedPlan?.id === plan.id}
-            onSelect={() => handlePlanSelect(plan)}
-          />
-        ))}
-      </div>
-
-      <form
-        onSubmit={handleSubmit}
-        className="mx-auto flex w-full flex-col gap-4 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-sm sm:w-3/4"
-      >
-        <div className="space-y-2">
-          <label htmlFor="membership-email" className="text-sm font-semibold uppercase tracking-[0.24em] text-[var(--fg-muted)]">
-            Email address
-          </label>
-          <input
-            id="membership-email"
-            type="email"
-            autoComplete="email"
-            required
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            className="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-app)] px-4 py-3 text-[var(--fg-default)] shadow-inner focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/40"
-            placeholder="you@example.com"
-          />
-          <p className="text-xs text-[var(--fg-muted)]">
-            We'll use this email to send your receipt and activate your membership in Strapi.
-          </p>
-        </div>
-
-        {formError ? <p className="text-sm font-medium text-red-500">{formError}</p> : null}
-
-        <button
-          type="submit"
-          disabled={isPending || hasActiveMembership}
-          className="inline-flex items-center justify-center rounded-full bg-brand px-8 py-3 text-sm font-semibold uppercase tracking-[0.24em] text-white transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:opacity-70"
+        <form
+          onSubmit={(event) => event.preventDefault()}
+          className="space-y-5"
         >
-          {isPending
-            ? "Redirecting..."
-            : hasActiveMembership
-            ? "Membership active"
-            : selectedPlan
-            ? `Continue with ${selectedPlan.title}`
-            : "Continue to checkout"}
-        </button>
-      </form>
+          <div className="space-y-2">
+            <label
+              htmlFor="membership-email"
+              className="text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]"
+            >
+              {t("membership.form.emailLabel")}
+            </label>
+            <input
+              id="membership-email"
+              type="email"
+              value={email}
+              onChange={(event) => {
+                setEmail(event.target.value);
+                if (error) {
+                  setError(null);
+                }
+              }}
+              onBlur={() => setTouched(true)}
+              placeholder={t("membership.form.emailPlaceholder")}
+              className={cn(
+                "w-full rounded-2xl border border-brand/20 bg-transparent px-4 py-3 text-sm text-[var(--fg-default)] shadow-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/60",
+                (showValidationState || (!!error && !isPending)) && "border-red-400 focus:border-red-500 focus:ring-red-200",
+              )}
+              autoComplete="email"
+            />
+            {user?.email && (
+              <p className="text-[0.65rem] font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">
+                {t("membership.form.usingAccount")}
+              </p>
+            )}
+            {showValidationState && (
+              <p className="text-xs font-semibold text-red-500">
+                {t("membership.errors.invalidEmail")}
+              </p>
+            )}
+            {error && !showValidationState && (
+              <p className="text-xs font-semibold text-red-500">{error}</p>
+            )}
+          </div>
 
-      <p className="text-center text-xs text-[var(--fg-muted)]">
-        Payments are processed through NowPayments using USDT. Once your payment is confirmed, your membership will be activated automatically.
-      </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => handleCheckout("annual")}
+              disabled={!isEmailValid || isPending}
+              className="rounded-full bg-gradient-to-r from-brand via-brand/90 to-[#FFF582] px-6 py-3 text-sm font-semibold uppercase tracking-[0.32em] text-white shadow-[0_20px_45px_rgba(169,21,255,0.35)] transition hover:-translate-y-1 hover:shadow-[0_30px_60px_rgba(169,21,255,0.45)] disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {isPending && pendingTier === "annual"
+                ? t("membership.form.pending")
+                : t("membership.form.annual")}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleCheckout("lifetime")}
+              disabled={!isEmailValid || isPending}
+              className="rounded-full bg-gradient-to-r from-brand via-brand/90 to-[#FFF582] px-6 py-3 text-sm font-semibold uppercase tracking-[0.32em] text-white shadow-[0_20px_45px_rgba(169,21,255,0.35)] transition hover:-translate-y-1 hover:shadow-[0_30px_60px_rgba(169,21,255,0.45)] disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {isPending && pendingTier === "lifetime"
+                ? t("membership.form.pending")
+                : t("membership.form.lifetime")}
+            </button>
+          </div>
+        </form>
+
+        <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">
+          {t("membership.nowpaymentsNote")}
+        </p>
+      </div>
     </div>
   );
 }

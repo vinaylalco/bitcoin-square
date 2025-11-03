@@ -65,6 +65,74 @@ function coerceBoolean(value: unknown): boolean | undefined {
   return undefined;
 }
 
+const CHECKOUT_URL_KEYS = [
+  "redirectUrl",
+  "redirect_url",
+  "invoiceUrl",
+  "invoice_url",
+  "checkoutUrl",
+  "checkout_url",
+  "paymentUrl",
+  "payment_url",
+  "url",
+  "link",
+];
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function isLikelyHttpUrl(value: string): boolean {
+  return /^(https?:)?\/\//i.test(value.trim());
+}
+
+function resolveCheckoutRedirectUrl(payload: unknown): string | null {
+  const queue: unknown[] = [payload];
+  const visited = new Set<unknown>();
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current || visited.has(current)) {
+      continue;
+    }
+
+    visited.add(current);
+
+    if (typeof current === "string") {
+      const trimmed = current.trim();
+      if (trimmed && isLikelyHttpUrl(trimmed)) {
+        return trimmed;
+      }
+      continue;
+    }
+
+    if (Array.isArray(current)) {
+      queue.push(...current);
+      continue;
+    }
+
+    if (typeof current !== "object") {
+      continue;
+    }
+
+    const record = current as Record<string, unknown>;
+    for (const key of CHECKOUT_URL_KEYS) {
+      const candidate = record[key];
+      if (isNonEmptyString(candidate) && isLikelyHttpUrl(candidate)) {
+        return candidate.trim();
+      }
+    }
+
+    for (const value of Object.values(record)) {
+      if (value && typeof value === "object") {
+        queue.push(value);
+      }
+    }
+  }
+
+  return null;
+}
+
 function unwrapLessonPlanEntry<T extends AnyRecord = AnyRecord>(entry: any): T {
   if (!entry || typeof entry !== "object") {
     return entry as T;
@@ -394,6 +462,44 @@ export async function createLessonPlanCheckoutSession(
   }
 
   return response;
+}
+
+export interface CreateMembershipCheckoutOptions {
+  membershipType: "annual" | "lifetime";
+  userEmail: string;
+}
+
+export async function createMembershipCheckout({
+  membershipType,
+  userEmail,
+}: CreateMembershipCheckoutOptions): Promise<{ invoiceUrl: string }> {
+  if (!isNonEmptyString(userEmail)) {
+    throw new Error("Missing email address");
+  }
+
+  if (membershipType !== "annual" && membershipType !== "lifetime") {
+    throw new Error("Invalid membership type");
+  }
+
+  const payload = {
+    membershipType,
+    userEmail: userEmail.trim(),
+  };
+
+  const response = await strapiFetch("/api/payments/create-session", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+  const invoiceUrl =
+    (typeof response?.invoiceUrl === "string" && response.invoiceUrl.trim()) ||
+    resolveCheckoutRedirectUrl(response);
+
+  if (!invoiceUrl) {
+    throw new Error("Missing membership checkout redirect URL");
+  }
+
+  return { invoiceUrl };
 }
 
 // --- Products API ---
