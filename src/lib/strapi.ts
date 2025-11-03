@@ -467,12 +467,19 @@ export async function createLessonPlanCheckoutSession(
 export interface CreateMembershipCheckoutOptions {
   membershipType: "annual" | "lifetime";
   userEmail: string;
+  discountCode?: string;
+}
+
+export interface CreateMembershipCheckoutResponse {
+  invoiceUrl?: string;
+  message?: string;
 }
 
 export async function createMembershipCheckout({
   membershipType,
   userEmail,
-}: CreateMembershipCheckoutOptions): Promise<{ invoiceUrl: string }> {
+  discountCode,
+}: CreateMembershipCheckoutOptions): Promise<CreateMembershipCheckoutResponse> {
   if (!isNonEmptyString(userEmail)) {
     throw new Error("Missing email address");
   }
@@ -481,10 +488,14 @@ export async function createMembershipCheckout({
     throw new Error("Invalid membership type");
   }
 
-  const payload = {
+  const payload: Record<string, unknown> = {
     membershipType,
     userEmail: userEmail.trim(),
   };
+
+  if (isNonEmptyString(discountCode)) {
+    payload.discountCode = discountCode.trim();
+  }
 
   const response = await strapiFetch("/api/payments/create-session", {
     method: "POST",
@@ -495,11 +506,25 @@ export async function createMembershipCheckout({
     (typeof response?.invoiceUrl === "string" && response.invoiceUrl.trim()) ||
     resolveCheckoutRedirectUrl(response);
 
-  if (!invoiceUrl) {
-    throw new Error("Missing membership checkout redirect URL");
+  const message =
+    typeof response?.message === "string" && response.message.trim()
+      ? response.message.trim()
+      : undefined;
+
+  if (!invoiceUrl && !message) {
+    throw new Error("Missing membership checkout response");
   }
 
-  return { invoiceUrl };
+  const sanitizedResponse: CreateMembershipCheckoutResponse = {};
+  if (invoiceUrl) {
+    sanitizedResponse.invoiceUrl = invoiceUrl;
+  }
+
+  if (message) {
+    sanitizedResponse.message = message;
+  }
+
+  return sanitizedResponse;
 }
 
 // --- Products API ---
