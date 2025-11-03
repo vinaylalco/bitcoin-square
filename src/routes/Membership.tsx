@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useSearchParams } from "react-router-dom";
 
 import { useAuth } from "../context/AuthContext";
 import { useMembershipCheckout } from "../hooks/useMembershipCheckout";
@@ -17,9 +18,20 @@ export default function Membership() {
   const [email, setEmail] = useState(user?.email ?? "");
   const [error, setError] = useState<string | null>(null);
   const [touched, setTouched] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const accountEmail = user?.email ?? "";
   const hasAccount = Boolean(user);
+
+  const [searchParams] = useSearchParams();
+  const discountCode = useMemo(() => {
+    const code = searchParams.get("discount");
+    if (!code) {
+      return undefined;
+    }
+    const trimmed = code.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  }, [searchParams]);
 
   useEffect(() => {
     if (accountEmail) {
@@ -43,13 +55,17 @@ export default function Membership() {
     try {
       setError(null);
       setPendingTier(tier);
+      setSuccessMessage(null);
       const session = await mutateAsync({
         email: normalizedEmail,
         membershipType: tier,
+        discountCode,
       });
       if (session.invoiceUrl) {
         rememberMembershipCheckoutPlan(tier);
         window.location.href = session.invoiceUrl;
+      } else if (session.message) {
+        setSuccessMessage(session.message);
       } else {
         throw new Error(t("membership.errors.missingRedirect"));
       }
@@ -57,6 +73,7 @@ export default function Membership() {
       const message =
         err instanceof Error ? err.message : t("membership.errors.generic");
       setError(message);
+      setSuccessMessage(null);
     } finally {
       setPendingTier(null);
     }
@@ -121,6 +138,9 @@ export default function Membership() {
                 if (error) {
                   setError(null);
                 }
+                if (successMessage) {
+                  setSuccessMessage(null);
+                }
               }}
               onBlur={() => setTouched(true)}
               placeholder={t("membership.form.emailPlaceholder")}
@@ -142,6 +162,11 @@ export default function Membership() {
             )}
             {error && !showValidationState && (
               <p className="text-xs font-semibold text-red-500">{error}</p>
+            )}
+            {successMessage && (
+              <p className="text-xs font-semibold text-green-500">
+                {successMessage}
+              </p>
             )}
           </div>
 
