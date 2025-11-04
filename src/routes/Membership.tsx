@@ -21,7 +21,7 @@ type PortalView = "login" | "signup";
 export default function Membership() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { login, register, user } = useAuth();
+  const { login, register, user, completeAuthFromResponse } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const { mutateAsync: startCheckout } = useMembershipCheckout();
@@ -155,8 +155,6 @@ export default function Membership() {
     let pendingStored = false;
     try {
       const authResponse = await register(trimmedEmail, signupPassword);
-      rememberPendingMembershipAuth(authResponse);
-      pendingStored = true;
       const checkout = await startCheckout({
         email: trimmedEmail,
         membershipType: signupPlan,
@@ -164,6 +162,8 @@ export default function Membership() {
       });
 
       if (checkout.invoiceUrl) {
+        rememberPendingMembershipAuth(authResponse);
+        pendingStored = true;
         rememberMembershipCheckoutPlan(signupPlan);
         setSignupInfo(t("membership.portal.successMessage"));
         const popup = window.open(checkout.invoiceUrl, "_blank", "noopener,noreferrer");
@@ -174,6 +174,14 @@ export default function Membership() {
       }
 
       if (checkout.message) {
+        try {
+          await completeAuthFromResponse(authResponse);
+        } catch (authError) {
+          console.warn("Failed to finalize membership authentication", authError);
+          setSignupError(t("membership.portal.errors.signupGeneric"));
+          return;
+        }
+        clearPendingMembershipAuth();
         setSignupInfo(checkout.message);
         return;
       }
