@@ -55,6 +55,19 @@ export default factories.createCoreController("api::payments.payment", ({ strapi
       }
     }
 
+    const rawDiscount =
+      typeof body.discountCode === "string" ? body.discountCode.trim() : "";
+
+    if (rawDiscount) {
+      const existingTxHash =
+        typeof body.txHash === "string" ? body.txHash.trim() : "";
+      const fallbackTxHash = existingTxHash || `${rawDiscount}:${normalizedEmail}`;
+      body.txHash = fallbackTxHash;
+      if (ctx.request.body && typeof ctx.request.body === "object") {
+        (ctx.request.body as Record<string, unknown>).txHash = fallbackTxHash;
+      }
+    }
+
     const findUserById = async () => {
       if (normalizedUserId === null) {
         return null;
