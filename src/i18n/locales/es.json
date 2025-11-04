@@ -116,6 +116,45 @@
       "annual": "$20 / año",
       "lifetime": "$20 de por vida"
     },
+    "portal": {
+      "tabs": {
+        "login": "Iniciar sesión",
+        "signup": "Crear cuenta"
+      },
+      "login": {
+        "title": "¿Ya eres miembro?",
+        "subtitle": "Inicia sesión para acceder a la comunidad y a tu progreso guardado.",
+        "submit": "Iniciar sesión",
+        "pending": "Iniciando sesión…",
+        "forgot": "¿Olvidaste tu contraseña?"
+      },
+      "signup": {
+        "title": "Únete a Bitcoin Square",
+        "subtitle": "Crea tu cuenta, elige un plan y completa el pago para desbloquear el acceso.",
+        "submit": "Continuar al checkout",
+        "pending": "Preparando checkout…",
+        "planLabel": "Elige tu membresía"
+      },
+      "inputs": {
+        "email": "Correo electrónico",
+        "password": "Contraseña"
+      },
+      "planLabels": {
+        "annual": "Membresía anual",
+        "lifetime": "Membresía de por vida"
+      },
+      "passwordHint": "Usa al menos {{count}} caracteres.",
+      "successMessage": "El checkout se abrió en una nueva pestaña. Completa tu pago para continuar.",
+      "alreadySignedIn": "Ya iniciaste sesión. Vuelve a la comunidad cuando quieras.",
+      "benefitsTitle": "Por qué se unen los miembros",
+      "errors": {
+        "loginInvalid": "Correo o contraseña incorrectos.",
+        "loginGeneric": "No pudimos iniciar tu sesión. Inténtalo de nuevo.",
+        "signupGeneric": "No pudimos crear tu cuenta. Inténtalo de nuevo.",
+        "passwordLength": "La contraseña debe tener al menos {{count}} caracteres.",
+        "network": "No pudimos conectar con el servidor. Verifica tu conexión e inténtalo nuevamente."
+      }
+    },
     "nowpaymentsNote": "Redirige a un checkout seguro (NowPayments).",
     "errors": {
       "invalidEmail": "Introduce un correo válido para continuar.",

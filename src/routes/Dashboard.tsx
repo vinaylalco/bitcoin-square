@@ -42,7 +42,7 @@ export default function Dashboard() {
     setAvatarUrl(normalizeAvatarUrl(user?.avatarUrl, profileSeed));
   }, [profileSeed, user?.avatarUrl]);
 
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) return <Navigate to="/membership?view=login" replace />;
 
   const formattedPoints = useMemo(() => (user.points ?? 0).toLocaleString(), [user.points]);
   const normalizedStreak = useMemo(

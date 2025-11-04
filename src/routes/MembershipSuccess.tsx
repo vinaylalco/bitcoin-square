@@ -11,13 +11,19 @@ import {
   type MembershipType,
 } from "../utils/membership";
 import { useCurrentUserMembership } from "../hooks/useCurrentUserMembership";
+import {
+  clearPendingMembershipAuth,
+  readPendingMembershipAuth,
+  type PendingMembershipAuthSnapshot,
+} from "../utils/pendingMembershipAuth";
+import type { AuthResponse } from "../api/auth";
 
 const TEN_SECONDS_MS = 10_000;
 const THIRTY_SECONDS_MS = 30_000;
 
 export default function MembershipSuccess() {
   const { t } = useTranslation();
-  const { token } = useAuth();
+  const { token, completeAuthFromResponse } = useAuth();
   const navigate = useNavigate();
 
   const [expectedPlan, setExpectedPlan] = useState<MembershipType | null>(() => {
@@ -25,19 +31,34 @@ export default function MembershipSuccess() {
     return snapshot?.plan ?? null;
   });
 
+  const [pendingAuth, setPendingAuth] = useState<PendingMembershipAuthSnapshot | null>(() =>
+    readPendingMembershipAuth(),
+  );
+
   const [timedOut, setTimedOut] = useState(false);
   const startTimeRef = useRef<number>(Date.now());
   const hasRedirectedRef = useRef(false);
 
+  const pendingToken = pendingAuth?.auth.jwt ?? null;
+  const effectiveToken = token ?? pendingToken ?? null;
+
   useEffect(() => {
-    if (token) {
+    if (token && pendingAuth) {
+      clearPendingMembershipAuth();
+      setPendingAuth(null);
+    }
+  }, [pendingAuth, token]);
+
+  useEffect(() => {
+    if (effectiveToken) {
       startTimeRef.current = Date.now();
       setTimedOut(false);
     }
-  }, [token]);
+  }, [effectiveToken]);
 
   const { me, loading, error, refetch } = useCurrentUserMembership({
-    enabled: Boolean(token),
+    enabled: Boolean(effectiveToken),
+    tokenOverride: effectiveToken,
     refetchInterval: (queryData) => {
       if (!queryData || timedOut) {
         return timedOut ? false : TEN_SECONDS_MS;
@@ -89,7 +110,7 @@ export default function MembershipSuccess() {
     matchesPlan &&
     lifetimeHasNoExpiry &&
     annualHasFutureExpiry;
-  const showSigninNotice = !token;
+  const showSigninNotice = !effectiveToken;
 
   useEffect(() => {
     if (showSigninNotice) {
@@ -98,13 +119,53 @@ export default function MembershipSuccess() {
   }, [showSigninNotice]);
 
   useEffect(() => {
-    if (isVerifiedActive && !hasRedirectedRef.current) {
-      hasRedirectedRef.current = true;
-      clearMembershipCheckoutPlan();
-      setExpectedPlan(null);
-      navigate("/community", { replace: true });
+    if (!isVerifiedActive || hasRedirectedRef.current) {
+      return;
     }
-  }, [isVerifiedActive, navigate]);
+
+    const finalizeAndRedirect = async () => {
+      if (!me) {
+        return;
+      }
+
+      hasRedirectedRef.current = true;
+      try {
+        if (!token) {
+          if (!pendingAuth) {
+            hasRedirectedRef.current = false;
+            return;
+          }
+
+          const authResponse: AuthResponse = {
+            jwt: pendingAuth.auth.jwt,
+            user: me as AuthResponse["user"],
+          };
+
+          await completeAuthFromResponse(authResponse);
+          clearPendingMembershipAuth();
+          setPendingAuth(null);
+        }
+
+        clearMembershipCheckoutPlan();
+        setExpectedPlan(null);
+        navigate("/community", { replace: true });
+      } catch (authError) {
+        console.warn("Failed to finalize membership authentication", authError);
+        hasRedirectedRef.current = false;
+      }
+    };
+
+    finalizeAndRedirect().catch((authError) => {
+      console.warn("Failed to complete membership redirect", authError);
+    });
+  }, [
+    completeAuthFromResponse,
+    isVerifiedActive,
+    me,
+    navigate,
+    pendingAuth,
+    token,
+  ]);
 
   useEffect(() => {
     if (isVerifiedActive || showSigninNotice || timedOut) {
@@ -148,7 +209,7 @@ export default function MembershipSuccess() {
       errorMessage = t("membership.success.errors.config");
     } else if (error instanceof StrapiNetworkError) {
       errorMessage = t("membership.success.errors.network");
-    } else if (token) {
+    } else if (effectiveToken) {
       errorMessage = t("membership.success.errors.generic");
     }
   }

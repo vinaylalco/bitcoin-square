@@ -1079,7 +1079,7 @@ const MessagesRoute: React.FC = () => {
     setAuthorized(false);
 
     if (!user) {
-      navigate("/login", { replace: true, state: { from: location } });
+      navigate("/membership?view=login", { replace: true, state: { from: location } });
       return;
     }
 

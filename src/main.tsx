@@ -1,6 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { Navigate, createBrowserRouter, RouterProvider } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import App from "./App";
@@ -21,8 +21,6 @@ import { ThemeProvider } from "./context/ThemeContext";
 import { PreferencesProvider } from "./context/PreferencesContext";
 import Shop from "./routes/Shop";
 import ProductDetail from "./routes/ProductDetail";
-import Login from "./routes/Login";
-import Register from "./routes/Register";
 import ForgotPassword from "./routes/ForgotPassword";
 import ResetPassword from "./routes/ResetPassword";
 import Dashboard from "./routes/Dashboard";
@@ -72,13 +70,12 @@ const router = createBrowserRouter([
       { path: "languages", element: <Languages /> },
       { path: "shop", element: <Shop /> },
       { path: "shop/:id", element: <ProductDetail /> },
-      { path: "login", element: <Login /> },
       { path: "dashboard", element: <Dashboard /> },
-      { path: "register", element: <Register /> },
       { path: "forgot-password", element: <ForgotPassword /> },
       { path: "reset-password", element: <ResetPassword /> },
       { path: "newsletter", element: <NewsletterSubscribe /> },
       { path: "membership", element: <Membership /> },
+      { path: "login", element: <Navigate to="/membership" replace /> },
       { path: "membership/success", element: <MembershipSuccess /> },
       { path: "membership/cancel", element: <MembershipCancel /> },
       { path: "checkout/success", element: <CheckoutSuccess /> },

@@ -11,7 +11,9 @@ interface UseCurrentUserMembershipOptions
   extends Pick<
     UseQueryOptions<Record<string, unknown>, Error>,
     "enabled" | "refetchInterval" | "refetchIntervalInBackground" | "staleTime" | "cacheTime"
-  > {}
+  > {
+  tokenOverride?: string | null;
+}
 
 interface UseCurrentUserMembershipResult {
   me: Record<string, unknown> | null;
@@ -25,7 +27,8 @@ interface UseCurrentUserMembershipResult {
 export function useCurrentUserMembership(
   options: UseCurrentUserMembershipOptions = {},
 ): UseCurrentUserMembershipResult {
-  const { token } = useAuth();
+  const { token: contextToken } = useAuth();
+  const token = options.tokenOverride ?? contextToken;
 
   const query = useQuery<Record<string, unknown>, Error>({
     queryKey: ["current-user-membership", token],
