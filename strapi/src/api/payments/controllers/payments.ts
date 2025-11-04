@@ -1,9 +1,18 @@
+import crypto from "node:crypto";
 import { factories } from "@strapi/strapi";
 
 const USER_LOOKUP_ATTEMPTS = 3;
 const USER_LOOKUP_BACKOFF_MS = 200;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const sanitizeTxSegment = (value: string) =>
+  value
+    .trim()
+    .replace(/[^a-z0-9]/gi, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+/, "")
+    .replace(/-+$/, "");
 
 const sanitizeUserId = (value: unknown): number | null => {
   if (typeof value === "number" && Number.isInteger(value) && value > 0) {
@@ -52,6 +61,36 @@ export default factories.createCoreController("api::payments.payment", ({ strapi
       delete body.userId;
       if (ctx.request.body && typeof ctx.request.body === "object") {
         delete (ctx.request.body as Record<string, unknown>).userId;
+      }
+    }
+
+    const rawDiscount =
+      typeof body.discountCode === "string" ? body.discountCode.trim() : "";
+
+    if (rawDiscount) {
+      const existingTxHash =
+        typeof body.txHash === "string" ? body.txHash.trim() : "";
+
+      const normalizedDiscount =
+        sanitizeTxSegment(rawDiscount).toUpperCase() || "DISCOUNT";
+      const normalizedEmailSegment =
+        sanitizeTxSegment(normalizedEmail) || "USER";
+      const normalizedExistingTxHash = existingTxHash.toUpperCase();
+      const shouldOverrideExisting =
+        !existingTxHash ||
+        normalizedExistingTxHash === normalizedDiscount ||
+        normalizedExistingTxHash.startsWith(`${normalizedDiscount}:`);
+
+      const uniqueSuffix =
+        typeof crypto.randomUUID === "function"
+          ? crypto.randomUUID()
+          : crypto.randomBytes(8).toString("hex");
+      const discountTxHash = `${normalizedDiscount}:${normalizedEmailSegment}:${uniqueSuffix}`;
+      const resolvedTxHash = shouldOverrideExisting ? discountTxHash : existingTxHash;
+
+      body.txHash = resolvedTxHash;
+      if (ctx.request.body && typeof ctx.request.body === "object") {
+        (ctx.request.body as Record<string, unknown>).txHash = resolvedTxHash;
       }
     }
 
