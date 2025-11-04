@@ -1,29 +1,31 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { useAuth } from "../context/AuthContext";
 import { useMembershipCheckout } from "../hooks/useMembershipCheckout";
 import type { MembershipType } from "../utils/membership";
-import { cn } from "../utils/cn";
 import { rememberMembershipCheckoutPlan } from "../utils/membership";
+import {
+  rememberPendingMembershipAuth,
+  clearPendingMembershipAuth,
+} from "../utils/pendingMembershipAuth";
+import { cn } from "../utils/cn";
+import { StrapiNetworkError } from "../api/strapi-client";
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MIN_PASSWORD_LENGTH = 8;
+
+type PortalView = "login" | "signup";
 
 export default function Membership() {
   const { t } = useTranslation();
-  const { user } = useAuth();
-  const { mutateAsync, isPending } = useMembershipCheckout();
+  const navigate = useNavigate();
+  const { login, register, user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [email, setEmail] = useState(user?.email ?? "");
-  const [error, setError] = useState<string | null>(null);
-  const [touched, setTouched] = useState(false);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const { mutateAsync: startCheckout } = useMembershipCheckout();
 
-  const accountEmail = user?.email ?? "";
-  const hasAccount = Boolean(user);
-
-  const [searchParams] = useSearchParams();
   const discountCode = useMemo(() => {
     const code = searchParams.get("discount");
     if (!code) {
@@ -33,57 +35,168 @@ export default function Membership() {
     return trimmed.length > 0 ? trimmed : undefined;
   }, [searchParams]);
 
+  const viewParam = searchParams.get("view");
+  const [activeView, setActiveView] = useState<PortalView>(
+    viewParam === "signup" ? "signup" : "login",
+  );
+
   useEffect(() => {
-    if (accountEmail) {
-      setEmail(accountEmail);
-    } else if (!hasAccount) {
-      setEmail("");
+    const nextView = viewParam === "signup" ? "signup" : "login";
+    setActiveView((prev) => (prev === nextView ? prev : nextView));
+  }, [viewParam]);
+
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [loginSubmitting, setLoginSubmitting] = useState(false);
+  const [loginAttempted, setLoginAttempted] = useState(false);
+
+  const [signupEmail, setSignupEmail] = useState("");
+  const [signupPassword, setSignupPassword] = useState("");
+  const [signupPlan, setSignupPlan] = useState<MembershipType>("annual");
+  const [signupError, setSignupError] = useState<string | null>(null);
+  const [signupInfo, setSignupInfo] = useState<string | null>(null);
+  const [signupSubmitting, setSignupSubmitting] = useState(false);
+  const [signupAttempted, setSignupAttempted] = useState(false);
+
+  useEffect(() => {
+    if (user?.email && !loginEmail) {
+      setLoginEmail(user.email);
     }
-  }, [accountEmail, hasAccount]);
+  }, [loginEmail, user?.email]);
 
-  const [pendingTier, setPendingTier] = useState<MembershipType | null>(null);
+  useEffect(() => {
+    setLoginAttempted(false);
+    setLoginError(null);
+    setSignupAttempted(false);
+    setSignupError(null);
+    setSignupInfo(null);
+  }, [activeView]);
 
-  const handleCheckout = async (tier: MembershipType) => {
-    setTouched(true);
+  const isLoginEmailValid = emailRegex.test(loginEmail.trim());
+  const isLoginPasswordValid = loginPassword.trim().length > 0;
+  const showLoginEmailError = loginAttempted && !isLoginEmailValid;
+  const showLoginPasswordError = loginAttempted && !isLoginPasswordValid;
 
-    const normalizedEmail = email.trim();
-    if (!emailRegex.test(normalizedEmail)) {
-      setError(t("membership.errors.invalidEmail"));
+  const isSignupEmailValid = emailRegex.test(signupEmail.trim());
+  const isSignupPasswordValid = signupPassword.trim().length >= MIN_PASSWORD_LENGTH;
+  const showSignupEmailError = signupAttempted && !isSignupEmailValid;
+  const showSignupPasswordError = signupAttempted && !isSignupPasswordValid;
+
+  const handleViewChange = (view: PortalView) => {
+    setActiveView(view);
+    const nextParams = new URLSearchParams(searchParams);
+    if (view === "signup") {
+      nextParams.set("view", "signup");
+    } else {
+      nextParams.delete("view");
+    }
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  const handleLoginSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setLoginAttempted(true);
+    setLoginError(null);
+
+    const trimmedEmail = loginEmail.trim();
+    const trimmedPassword = loginPassword.trim();
+
+    if (!emailRegex.test(trimmedEmail)) {
+      setLoginError(t("membership.errors.invalidEmail"));
+      return;
+    }
+    if (!trimmedPassword) {
+      setLoginError(t("membership.portal.errors.loginGeneric"));
       return;
     }
 
+    setLoginSubmitting(true);
     try {
-      setError(null);
-      setPendingTier(tier);
-      setSuccessMessage(null);
-      const session = await mutateAsync({
-        email: normalizedEmail,
-        membershipType: tier,
-        discountCode,
-      });
-      if (session.invoiceUrl) {
-        rememberMembershipCheckoutPlan(tier);
-        window.location.href = session.invoiceUrl;
-      } else if (session.message) {
-        setSuccessMessage(session.message);
+      await login(trimmedEmail, trimmedPassword);
+      navigate("/community", { replace: true });
+    } catch (error) {
+      if (error instanceof StrapiNetworkError) {
+        setLoginError(t("membership.portal.errors.network"));
       } else {
-        throw new Error(t("membership.errors.missingRedirect"));
+        const message = error instanceof Error ? error.message.toLowerCase() : "";
+        if (message.includes("bad request") || message.includes("invalid")) {
+          setLoginError(t("membership.portal.errors.loginInvalid"));
+        } else {
+          setLoginError(t("membership.portal.errors.loginGeneric"));
+        }
       }
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : t("membership.errors.generic");
-      setError(message);
-      setSuccessMessage(null);
     } finally {
-      setPendingTier(null);
+      setLoginSubmitting(false);
     }
   };
 
-  const isEmailValid = emailRegex.test(email.trim());
-  const showValidationState = touched && !isEmailValid;
+  const handleSignupSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSignupAttempted(true);
+    setSignupError(null);
+    setSignupInfo(null);
+
+    const trimmedEmail = signupEmail.trim();
+
+    if (!emailRegex.test(trimmedEmail)) {
+      setSignupError(t("membership.errors.invalidEmail"));
+      return;
+    }
+
+    if (signupPassword.trim().length < MIN_PASSWORD_LENGTH) {
+      setSignupError(
+        t("membership.portal.errors.passwordLength", { count: MIN_PASSWORD_LENGTH }),
+      );
+      return;
+    }
+
+    setSignupSubmitting(true);
+    let pendingStored = false;
+    try {
+      const authResponse = await register(trimmedEmail, signupPassword);
+      rememberPendingMembershipAuth(authResponse);
+      pendingStored = true;
+      const checkout = await startCheckout({
+        email: trimmedEmail,
+        membershipType: signupPlan,
+        discountCode,
+      });
+
+      if (checkout.invoiceUrl) {
+        rememberMembershipCheckoutPlan(signupPlan);
+        setSignupInfo(t("membership.portal.successMessage"));
+        const popup = window.open(checkout.invoiceUrl, "_blank", "noopener,noreferrer");
+        if (!popup) {
+          window.location.assign(checkout.invoiceUrl);
+        }
+        return;
+      }
+
+      if (checkout.message) {
+        setSignupInfo(checkout.message);
+        return;
+      }
+
+      throw new Error(t("membership.errors.missingRedirect"));
+    } catch (error) {
+      if (!pendingStored) {
+        clearPendingMembershipAuth();
+      }
+      if (error instanceof StrapiNetworkError) {
+        setSignupError(t("membership.portal.errors.network"));
+      } else if (error instanceof Error) {
+        setSignupError(error.message || t("membership.portal.errors.signupGeneric"));
+      } else {
+        setSignupError(t("membership.portal.errors.signupGeneric"));
+      }
+    } finally {
+      setSignupSubmitting(false);
+    }
+  };
 
   return (
-    <div className="mx-auto max-w-4xl px-4 pb-20 pt-12 sm:px-6">
+    <div className="mx-auto max-w-5xl px-4 pb-20 pt-12 sm:px-6">
       <header className="space-y-4 text-center">
         <p className="text-xs font-semibold uppercase tracking-[0.42em] text-brand">
           {t("membership.badge")}
@@ -96,107 +209,287 @@ export default function Membership() {
         </p>
       </header>
 
-      <div className="mx-auto mt-10 max-w-2xl space-y-8 rounded-3xl border border-brand/20 bg-[var(--bg-card)] p-8 shadow-[var(--shadow-soft)]">
-        <ul className="space-y-4 text-left text-sm font-medium text-[var(--fg-muted)]">
-          <li className="flex items-start gap-3">
-            <span className="mt-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-brand/10 text-xs font-semibold uppercase tracking-[0.32em] text-brand">
-              01
-            </span>
-            <span>{t("membership.benefits.one")}</span>
-          </li>
-          <li className="flex items-start gap-3">
-            <span className="mt-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-brand/10 text-xs font-semibold uppercase tracking-[0.32em] text-brand">
-              02
-            </span>
-            <span>{t("membership.benefits.two")}</span>
-          </li>
-          <li className="flex items-start gap-3">
-            <span className="mt-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-brand/10 text-xs font-semibold uppercase tracking-[0.32em] text-brand">
-              03
-            </span>
-            <span>{t("membership.benefits.three")}</span>
-          </li>
-        </ul>
-
-        <form
-          onSubmit={(event) => event.preventDefault()}
-          className="space-y-5"
-        >
-          <div className="space-y-2">
-            <label
-              htmlFor="membership-email"
-              className="text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]"
-            >
-              {t("membership.form.emailLabel")}
-            </label>
-            <input
-              id="membership-email"
-              type="email"
-              value={email}
-              onChange={(event) => {
-                setEmail(event.target.value);
-                if (error) {
-                  setError(null);
-                }
-                if (successMessage) {
-                  setSuccessMessage(null);
-                }
-              }}
-              onBlur={() => setTouched(true)}
-              placeholder={t("membership.form.emailPlaceholder")}
+      <div className="mt-10 grid gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+        <section className="space-y-6 rounded-3xl border border-brand/20 bg-[var(--bg-card)] p-6 shadow-[var(--shadow-soft)] sm:p-8">
+          <div className="flex items-center justify-center rounded-full border border-brand/20 bg-brand/10 p-1 text-xs font-semibold uppercase tracking-[0.32em] text-brand">
+            <button
+              type="button"
+              onClick={() => handleViewChange("login")}
               className={cn(
-                "w-full rounded-2xl border border-brand/20 bg-transparent px-4 py-3 text-sm text-[var(--fg-default)] shadow-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/60",
-                (showValidationState || (!!error && !isPending)) && "border-red-400 focus:border-red-500 focus:ring-red-200",
+                "flex-1 rounded-full px-4 py-2 transition",
+                activeView === "login"
+                  ? "bg-brand text-white shadow-[0_12px_30px_rgba(169,21,255,0.35)]"
+                  : "text-brand/70 hover:text-brand",
               )}
-              autoComplete="email"
-            />
-            {user?.email && (
-              <p className="text-[0.65rem] font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">
-                {t("membership.form.usingAccount")}
-              </p>
-            )}
-            {showValidationState && (
-              <p className="text-xs font-semibold text-red-500">
-                {t("membership.errors.invalidEmail")}
-              </p>
-            )}
-            {error && !showValidationState && (
-              <p className="text-xs font-semibold text-red-500">{error}</p>
-            )}
-            {successMessage && (
-              <p className="text-xs font-semibold text-green-500">
-                {successMessage}
-              </p>
-            )}
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => handleCheckout("annual")}
-              disabled={!isEmailValid || isPending}
-              className="rounded-full bg-gradient-to-r from-brand via-brand/90 to-[#FFF582] px-6 py-3 text-sm font-semibold uppercase tracking-[0.32em] text-white shadow-[0_20px_45px_rgba(169,21,255,0.35)] transition hover:-translate-y-1 hover:shadow-[0_30px_60px_rgba(169,21,255,0.45)] disabled:cursor-not-allowed disabled:opacity-70"
             >
-              {isPending && pendingTier === "annual"
-                ? t("membership.form.pending")
-                : t("membership.form.annual")}
+              {t("membership.portal.tabs.login")}
             </button>
             <button
               type="button"
-              onClick={() => handleCheckout("lifetime")}
-              disabled={!isEmailValid || isPending}
-              className="rounded-full bg-gradient-to-r from-brand via-brand/90 to-[#FFF582] px-6 py-3 text-sm font-semibold uppercase tracking-[0.32em] text-white shadow-[0_20px_45px_rgba(169,21,255,0.35)] transition hover:-translate-y-1 hover:shadow-[0_30px_60px_rgba(169,21,255,0.45)] disabled:cursor-not-allowed disabled:opacity-70"
+              onClick={() => handleViewChange("signup")}
+              className={cn(
+                "flex-1 rounded-full px-4 py-2 transition",
+                activeView === "signup"
+                  ? "bg-brand text-white shadow-[0_12px_30px_rgba(169,21,255,0.35)]"
+                  : "text-brand/70 hover:text-brand",
+              )}
             >
-              {isPending && pendingTier === "lifetime"
-                ? t("membership.form.pending")
-                : t("membership.form.lifetime")}
+              {t("membership.portal.tabs.signup")}
             </button>
           </div>
-        </form>
 
-        <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">
-          {t("membership.nowpaymentsNote")}
-        </p>
+          {activeView === "login" ? (
+            <div className="space-y-6">
+              <div className="space-y-2 text-center">
+                <h2 className="text-lg font-semibold uppercase tracking-[0.24em] text-[var(--fg-default)]">
+                  {t("membership.portal.login.title")}
+                </h2>
+                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--fg-muted)]">
+                  {t("membership.portal.login.subtitle")}
+                </p>
+              </div>
+
+              {user && (
+                <div className="rounded-2xl border border-brand/20 bg-brand/5 p-4 text-center text-xs font-semibold uppercase tracking-[0.28em] text-brand">
+                  {t("membership.portal.alreadySignedIn")}
+                </div>
+              )}
+
+              <form onSubmit={handleLoginSubmit} className="space-y-5">
+                <div className="space-y-2 text-left">
+                  <label
+                    htmlFor="membership-login-email"
+                    className="text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]"
+                  >
+                    {t("membership.portal.inputs.email")}
+                  </label>
+                  <input
+                    id="membership-login-email"
+                    type="email"
+                    value={loginEmail}
+                    onChange={(event) => {
+                      setLoginEmail(event.target.value);
+                      if (loginError) {
+                        setLoginError(null);
+                      }
+                    }}
+                    autoComplete="email"
+                    className={cn(
+                      "w-full rounded-2xl border border-brand/20 bg-transparent px-4 py-3 text-sm text-[var(--fg-default)] shadow-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/60",
+                      showLoginEmailError && "border-red-400 focus:border-red-500 focus:ring-red-200",
+                    )}
+                  />
+                  {showLoginEmailError && (
+                    <p className="text-xs font-semibold text-red-500">
+                      {t("membership.errors.invalidEmail")}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2 text-left">
+                  <label
+                    htmlFor="membership-login-password"
+                    className="text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]"
+                  >
+                    {t("membership.portal.inputs.password")}
+                  </label>
+                  <input
+                    id="membership-login-password"
+                    type="password"
+                    value={loginPassword}
+                    onChange={(event) => {
+                      setLoginPassword(event.target.value);
+                      if (loginError) {
+                        setLoginError(null);
+                      }
+                    }}
+                    autoComplete="current-password"
+                    className={cn(
+                      "w-full rounded-2xl border border-brand/20 bg-transparent px-4 py-3 text-sm text-[var(--fg-default)] shadow-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/60",
+                      showLoginPasswordError && "border-red-400 focus:border-red-500 focus:ring-red-200",
+                    )}
+                  />
+                  {showLoginPasswordError && (
+                    <p className="text-xs font-semibold text-red-500">
+                      {t("membership.portal.errors.loginGeneric")}
+                    </p>
+                  )}
+                </div>
+
+                {loginError && (
+                  <p className="text-xs font-semibold text-red-500">{loginError}</p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={loginSubmitting}
+                  className="w-full rounded-full bg-gradient-to-r from-brand via-brand/90 to-[#FFF582] px-6 py-3 text-sm font-semibold uppercase tracking-[0.32em] text-white shadow-[0_20px_45px_rgba(169,21,255,0.35)] transition hover:-translate-y-1 hover:shadow-[0_30px_60px_rgba(169,21,255,0.45)] disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {loginSubmitting
+                    ? t("membership.portal.login.pending")
+                    : t("membership.portal.login.submit")}
+                </button>
+
+                <div className="text-center text-xs font-semibold uppercase tracking-[0.28em] text-[var(--fg-muted)]">
+                  <Link to="/forgot-password" className="text-brand hover:underline">
+                    {t("membership.portal.login.forgot")}
+                  </Link>
+                </div>
+              </form>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="space-y-2 text-center">
+                <h2 className="text-lg font-semibold uppercase tracking-[0.24em] text-[var(--fg-default)]">
+                  {t("membership.portal.signup.title")}
+                </h2>
+                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--fg-muted)]">
+                  {t("membership.portal.signup.subtitle")}
+                </p>
+              </div>
+
+              <form onSubmit={handleSignupSubmit} className="space-y-5">
+                <div className="space-y-2 text-left">
+                  <label
+                    htmlFor="membership-signup-email"
+                    className="text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]"
+                  >
+                    {t("membership.portal.inputs.email")}
+                  </label>
+                  <input
+                    id="membership-signup-email"
+                    type="email"
+                    value={signupEmail}
+                    onChange={(event) => {
+                      setSignupEmail(event.target.value);
+                      if (signupError) {
+                        setSignupError(null);
+                      }
+                    }}
+                    autoComplete="email"
+                    className={cn(
+                      "w-full rounded-2xl border border-brand/20 bg-transparent px-4 py-3 text-sm text-[var(--fg-default)] shadow-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/60",
+                      showSignupEmailError && "border-red-400 focus:border-red-500 focus:ring-red-200",
+                    )}
+                  />
+                  {showSignupEmailError && (
+                    <p className="text-xs font-semibold text-red-500">
+                      {t("membership.errors.invalidEmail")}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2 text-left">
+                  <label
+                    htmlFor="membership-signup-password"
+                    className="text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]"
+                  >
+                    {t("membership.portal.inputs.password")}
+                  </label>
+                  <input
+                    id="membership-signup-password"
+                    type="password"
+                    value={signupPassword}
+                    onChange={(event) => {
+                      setSignupPassword(event.target.value);
+                      if (signupError) {
+                        setSignupError(null);
+                      }
+                    }}
+                    autoComplete="new-password"
+                    className={cn(
+                      "w-full rounded-2xl border border-brand/20 bg-transparent px-4 py-3 text-sm text-[var(--fg-default)] shadow-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/60",
+                      showSignupPasswordError && "border-red-400 focus:border-red-500 focus:ring-red-200",
+                    )}
+                  />
+                  <p className="text-[0.65rem] font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">
+                    {t("membership.portal.passwordHint", { count: MIN_PASSWORD_LENGTH })}
+                  </p>
+                  {showSignupPasswordError && (
+                    <p className="text-xs font-semibold text-red-500">
+                      {t("membership.portal.errors.passwordLength", { count: MIN_PASSWORD_LENGTH })}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">
+                    {t("membership.portal.signup.planLabel")}
+                  </p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {(["annual", "lifetime"] as MembershipType[]).map((option) => (
+                      <button
+                        key={option}
+                        type="button"
+                        onClick={() => setSignupPlan(option)}
+                        className={cn(
+                          "rounded-3xl border border-brand/20 px-5 py-4 text-left transition hover:-translate-y-0.5 hover:border-brand hover:shadow-[0_16px_40px_rgba(169,21,255,0.35)]",
+                          signupPlan === option
+                            ? "bg-gradient-to-r from-brand via-brand/90 to-[#FFF582] text-white shadow-[0_20px_45px_rgba(169,21,255,0.45)]"
+                            : "bg-transparent text-[var(--fg-default)]",
+                        )}
+                      >
+                        <span className="block text-xs font-semibold uppercase tracking-[0.32em]">
+                          {t(`membership.portal.planLabels.${option}`)}
+                        </span>
+                        <span className="mt-2 block text-sm font-medium tracking-[0.12em] text-[var(--fg-muted)]">
+                          {t(`membership.form.${option}`)}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {signupError && (
+                  <p className="text-xs font-semibold text-red-500">{signupError}</p>
+                )}
+                {signupInfo && (
+                  <p className="text-xs font-semibold text-brand">{signupInfo}</p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={signupSubmitting}
+                  className="w-full rounded-full bg-gradient-to-r from-brand via-brand/90 to-[#FFF582] px-6 py-3 text-sm font-semibold uppercase tracking-[0.32em] text-white shadow-[0_20px_45px_rgba(169,21,255,0.35)] transition hover:-translate-y-1 hover:shadow-[0_30px_60px_rgba(169,21,255,0.45)] disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {signupSubmitting
+                    ? t("membership.portal.signup.pending")
+                    : t("membership.portal.signup.submit")}
+                </button>
+
+                <p className="text-[0.65rem] font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">
+                  {t("membership.nowpaymentsNote")}
+                </p>
+              </form>
+            </div>
+          )}
+        </section>
+
+        <aside className="space-y-5 rounded-3xl border border-brand/20 bg-[var(--bg-card)] p-6 shadow-[var(--shadow-soft)] sm:p-8">
+          <h2 className="text-lg font-semibold uppercase tracking-[0.24em] text-[var(--fg-default)]">
+            {t("membership.portal.benefitsTitle")}
+          </h2>
+          <ul className="space-y-4 text-left text-sm font-medium text-[var(--fg-muted)]">
+            <li className="flex items-start gap-3">
+              <span className="mt-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-brand/10 text-xs font-semibold uppercase tracking-[0.32em] text-brand">
+                01
+              </span>
+              <span>{t("membership.benefits.one")}</span>
+            </li>
+            <li className="flex items-start gap-3">
+              <span className="mt-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-brand/10 text-xs font-semibold uppercase tracking-[0.32em] text-brand">
+                02
+              </span>
+              <span>{t("membership.benefits.two")}</span>
+            </li>
+            <li className="flex items-start gap-3">
+              <span className="mt-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-brand/10 text-xs font-semibold uppercase tracking-[0.32em] text-brand">
+                03
+              </span>
+              <span>{t("membership.benefits.three")}</span>
+            </li>
+          </ul>
+        </aside>
       </div>
     </div>
   );

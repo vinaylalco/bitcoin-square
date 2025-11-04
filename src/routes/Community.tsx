@@ -1531,7 +1531,7 @@ const CommunityView: React.FC = () => {
 
   const renderContent = useCallback(() => {
     if (!user) {
-      return <Navigate to="/login" replace />;
+      return <Navigate to="/membership?view=login" replace />;
     }
 
     if (accountLoading) {

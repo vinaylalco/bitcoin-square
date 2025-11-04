@@ -280,7 +280,7 @@ export default function App() {
                 </>
               ) : (
                 <NavLink
-                  to="/login"
+                  to="/membership?view=login"
                   className={({ isActive }) =>
                     cn(
                       "rounded-full border border-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-white transition hover:-translate-y-0.5 hover:shadow-[0_12px_30px_rgba(169,21,255,0.35)]",
@@ -494,13 +494,13 @@ export default function App() {
                 </>
               ) : (
                 <NavLink
-                  to="/login"
+                  to="/membership?view=login"
                   onClick={() => setOpen(false)}
                   className={({ isActive }) =>
-                  cn(
-                    "inline-flex items-center justify-center gap-3 rounded-2xl border border-brand px-4 py-3 text-white transition hover:-translate-y-0.5 hover:shadow-[0_12px_30px_rgba(169,21,255,0.35)]",
-                    isActive ? "bg-brand" : "bg-gradient-to-r from-brand via-brand/90 to-[#FFF582]",
-                  )
+                    cn(
+                      "inline-flex items-center justify-center gap-3 rounded-2xl border border-brand px-4 py-3 text-white transition hover:-translate-y-0.5 hover:shadow-[0_12px_30px_rgba(169,21,255,0.35)]",
+                      isActive ? "bg-brand" : "bg-gradient-to-r from-brand via-brand/90 to-[#FFF582]",
+                    )
                   }
                 >
                   {t("nav.login")}

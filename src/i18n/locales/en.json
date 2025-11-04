@@ -116,6 +116,45 @@
       "annual": "$20 / year",
       "lifetime": "$20 lifetime"
     },
+    "portal": {
+      "tabs": {
+        "login": "Log In",
+        "signup": "Sign Up"
+      },
+      "login": {
+        "title": "Already a member?",
+        "subtitle": "Sign in to reach the community and your saved progress.",
+        "submit": "Log In",
+        "pending": "Signing in…",
+        "forgot": "Forgot password?"
+      },
+      "signup": {
+        "title": "Join Bitcoin Square",
+        "subtitle": "Create your account, choose a plan, and complete checkout to unlock access.",
+        "submit": "Continue to checkout",
+        "pending": "Preparing checkout…",
+        "planLabel": "Choose your membership"
+      },
+      "inputs": {
+        "email": "Email",
+        "password": "Password"
+      },
+      "planLabels": {
+        "annual": "Annual membership",
+        "lifetime": "Lifetime membership"
+      },
+      "passwordHint": "Use at least {{count}} characters.",
+      "successMessage": "Checkout opened in a new tab. Complete your payment to continue.",
+      "alreadySignedIn": "You're already signed in. Jump back into the community any time.",
+      "benefitsTitle": "Why members join",
+      "errors": {
+        "loginInvalid": "Incorrect email or password.",
+        "loginGeneric": "We couldn't log you in. Please try again.",
+        "signupGeneric": "We couldn't create your account. Please try again.",
+        "passwordLength": "Password must be at least {{count}} characters.",
+        "network": "We couldn't reach the server. Check your connection and try again."
+      }
+    },
     "nowpaymentsNote": "Redirects to secure checkout (NowPayments).",
     "errors": {
       "invalidEmail": "Enter a valid email to continue.",

@@ -18,9 +18,18 @@ export interface AuthResponse {
 }
 
 export function register(email: string, password: string) {
+  const trimmedEmail = email.trim();
   return strapiFetch<AuthResponse>('/api/auth/local/register', {
     method: 'POST',
-    body: JSON.stringify({ email, password, username: email }),
+    headers: {
+      'X-Membership-Flow': '1',
+    },
+    body: JSON.stringify({
+      email: trimmedEmail,
+      username: trimmedEmail,
+      password,
+      flow: 'membership',
+    }),
   });
 }
 
