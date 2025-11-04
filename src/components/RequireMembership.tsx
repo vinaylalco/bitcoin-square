@@ -29,7 +29,7 @@ export default function RequireMembership({
 
   const { me, loading, error } = useCurrentUserMembership();
 
-  const membershipStatus = normalizeMembershipStatus(me?.["membership"]);
+  const membershipStatus = normalizeMembershipStatus(me);
   const grandfathered =
     extractGrandfatheredFlag(
       me?.["grandfathered"] ?? me?.["isGrandfathered"],
