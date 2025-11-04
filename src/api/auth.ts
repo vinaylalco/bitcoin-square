@@ -28,7 +28,7 @@ export function register(email: string, password: string) {
       email: trimmedEmail,
       username: trimmedEmail,
       password,
-      flow: 'membership',
+      // flow: 'membership',
     }),
   });
 }
