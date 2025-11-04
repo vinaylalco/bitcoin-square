@@ -159,6 +159,7 @@ export default function Membership() {
         email: trimmedEmail,
         membershipType: signupPlan,
         discountCode,
+        userId: authResponse.user.id,
       });
 
       if (checkout.invoiceUrl) {
