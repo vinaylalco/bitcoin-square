@@ -154,7 +154,13 @@ export default function Membership() {
     setSignupSubmitting(true);
     let pendingStored = false;
     try {
-      const authResponse = await register(trimmedEmail, signupPassword);
+      const discountTxHash = discountCode
+        ? `${discountCode}-${Math.floor(10000 + Math.random() * 90000)}`
+        : undefined;
+
+      const authResponse = await register(trimmedEmail, signupPassword, {
+        ...(discountTxHash ? { txHash: discountTxHash } : {}),
+      });
       const checkout = await startCheckout({
         email: trimmedEmail,
         membershipType: signupPlan,
@@ -167,10 +173,7 @@ export default function Membership() {
         pendingStored = true;
         rememberMembershipCheckoutPlan(signupPlan);
         setSignupInfo(t("membership.portal.successMessage"));
-        const popup = window.open(checkout.invoiceUrl, "_blank", "noopener,noreferrer");
-        if (!popup) {
-          window.location.assign(checkout.invoiceUrl);
-        }
+        window.location.href = checkout.invoiceUrl;
         return;
       }
 

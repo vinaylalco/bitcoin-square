@@ -1,5 +1,9 @@
 import { strapiFetch } from './strapi-client';
 
+export interface RegisterOptions {
+  txHash?: string;
+}
+
 export interface AuthResponse {
   jwt: string;
   user: {
@@ -17,19 +21,25 @@ export interface AuthResponse {
   };
 }
 
-export function register(email: string, password: string) {
+export function register(email: string, password: string, options: RegisterOptions = {}) {
   const trimmedEmail = email.trim();
+  const payload: Record<string, unknown> = {
+    email: trimmedEmail,
+    username: trimmedEmail,
+    password,
+    // flow: 'membership',
+  };
+
+  if (options.txHash && options.txHash.trim().length > 0) {
+    payload.txHash = options.txHash.trim();
+  }
+
   return strapiFetch<AuthResponse>('/api/auth/local/register', {
     method: 'POST',
     headers: {
       'X-Membership-Flow': '1',
     },
-    body: JSON.stringify({
-      email: trimmedEmail,
-      username: trimmedEmail,
-      password,
-      // flow: 'membership',
-    }),
+    body: JSON.stringify(payload),
   });
 }
 
