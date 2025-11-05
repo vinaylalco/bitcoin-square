@@ -12,6 +12,7 @@
     "home": "Inicio",
     "education": "Educación",
     "shop": "Tienda",
+    "membership": "Membresía",
     "messages": "Mensajes",
     "newsletter": "Boletín",
     "community": "Comunidad",
@@ -95,6 +96,114 @@
       "subscribeError": "Error al suscribirse.",
       "unsubscribeSuccess": "Suscripción cancelada con éxito.",
       "unsubscribeError": "Error al cancelar la suscripción."
+    }
+  },
+  "membership": {
+    "badge": "Membresía",
+    "title": "Apoya a Bitcoin Square y desbloquea beneficios",
+    "description": "Hazte miembro para financiar iniciativas educativas de la comunidad y acceder a lanzamientos exclusivos.",
+    "benefits": {
+      "one": "Financia nuevas lecciones, talleres y traducciones para la comunidad.",
+      "two": "Recibe acceso prioritario a eventos privados, lanzamientos y actualizaciones exclusivas.",
+      "three": "Mantén a Bitcoin Square independiente, guiado por la comunidad y enfocado en la educación."
+    },
+    "form": {
+      "emailLabel": "Correo electrónico",
+      "emailPlaceholder": "tu@correo.com",
+      "usingAccount": "Usaremos el correo de tu cuenta. Actualízalo si prefieres otra dirección.",
+      "submit": "Iniciar checkout",
+      "pending": "Redirigiendo…",
+      "annual": "$60 / año",
+      "lifetime": "$80 de por vida"
+    },
+    "portal": {
+      "tabs": {
+        "login": "Iniciar sesión",
+        "signup": "Crear cuenta"
+      },
+      "login": {
+        "title": "¿Ya eres miembro?",
+        "subtitle": "Inicia sesión para acceder a la comunidad y a tu progreso guardado.",
+        "submit": "Iniciar sesión",
+        "pending": "Iniciando sesión…",
+        "forgot": "¿Olvidaste tu contraseña?"
+      },
+      "signup": {
+        "title": "Únete a Bitcoin Square",
+        "subtitle": "Crea tu cuenta, elige un plan y completa el pago para desbloquear el acceso.",
+        "submit": "Continuar al checkout",
+        "pending": "Preparando checkout…",
+        "planLabel": "Elige tu membresía"
+      },
+      "inputs": {
+        "email": "Correo electrónico",
+        "password": "Contraseña"
+      },
+      "planLabels": {
+        "annual": "Membresía anual",
+        "lifetime": "Membresía de por vida"
+      },
+      "passwordHint": "Usa al menos {{count}} caracteres.",
+      "successMessage": "El checkout se abrió en una nueva pestaña. Completa tu pago para continuar.",
+      "alreadySignedIn": "Ya iniciaste sesión. Vuelve a la comunidad cuando quieras.",
+      "benefitsTitle": "Por qué se unen los miembros",
+      "errors": {
+        "loginInvalid": "Correo o contraseña incorrectos.",
+        "loginGeneric": "No pudimos iniciar tu sesión. Inténtalo de nuevo.",
+        "signupGeneric": "No pudimos crear tu cuenta. Inténtalo de nuevo.",
+        "passwordLength": "La contraseña debe tener al menos {{count}} caracteres.",
+        "network": "No pudimos conectar con el servidor. Verifica tu conexión e inténtalo nuevamente.",
+        "emailTaken": "El correo ya está registrado — intenta iniciar sesión.",
+        "discountExpired": "El código de descuento expiró.",
+        "invalidCode": "Código de verificación inválido."
+      }
+    },
+    "nowpaymentsNote": "Redirige a un checkout seguro (NowPayments).",
+    "errors": {
+      "invalidEmail": "Introduce un correo válido para continuar.",
+      "missingRedirect": "Faltó el enlace de checkout de la membresía en la respuesta.",
+      "generic": "No pudimos iniciar el checkout de la membresía. Inténtalo de nuevo."
+    },
+    "success": {
+      "badge": "Membresía",
+      "title": "Pago recibido. Activando tu membresía…",
+      "description": "Mantén esta pestaña abierta mientras confirmamos tu pago de membresía.",
+      "checking": "Actualizaremos tu estado automáticamente cada 10 segundos.",
+      "active": "Membresía desbloqueada. 🎉",
+      "timeout": "Seguimos procesando. Actualizaremos tu acceso en breve.",
+      "refresh": "Actualizar estado",
+      "footer": "Puedes cerrar esta página cuando tu membresía esté confirmada.",
+      "signinRequired": "Inicia sesión para revisar el estado de tu membresía.",
+      "tour": {
+        "badge": "Empieza aquí",
+        "title": "¿A dónde quieres ir primero?",
+        "description": "Elige un destino para descubrir todo lo que desbloquea tu nueva membresía.",
+        "cards": {
+          "dashboard": {
+            "title": "Panel",
+            "description": "Sigue tu racha de estudio, tus puntos y tu fila personalizada de lecciones."
+          },
+          "education": {
+            "title": "Educación Bitcoin",
+            "description": "Explora cursos seleccionados y profundiza tu conocimiento sobre Bitcoin."
+          },
+          "community": {
+            "title": "Comunidad",
+            "description": "Conoce a otros miembros, súmate a las charlas y comparte tus logros."
+          }
+        }
+      },
+      "errors": {
+        "config": "El estado de la membresía no está disponible porque la URL de Strapi no está configurada.",
+        "network": "No pudimos conectarnos con Strapi para revisar tu membresía. Lo intentaremos automáticamente.",
+        "generic": "Ocurrió un error al revisar tu membresía. Volveremos a intentarlo de forma automática."
+      }
+    },
+    "cancel": {
+      "badge": "Membresía",
+      "title": "Pago cancelado.",
+      "description": "Puedes intentarlo de nuevo en cualquier momento.",
+      "retry": "Volver a Membresía"
     }
   },
   "home": {
@@ -277,14 +386,18 @@
       "title": "Restablecer contraseña",
       "success": "Revisa tu correo para encontrar un enlace de restablecimiento.",
       "errors": {
-        "generic": "Error en la solicitud"
+        "generic": "Error en la solicitud",
+        "network": "No pudimos conectar con el servidor. Inténtalo de nuevo.",
+        "invalidCode": "Código de verificación inválido."
       }
     },
     "resetPassword": {
       "title": "Establecer nueva contraseña",
       "errors": {
         "mismatch": "Las contraseñas no coinciden",
-        "generic": "Error al restablecer"
+        "generic": "Error al restablecer",
+        "invalidCode": "Código de verificación inválido.",
+        "network": "No pudimos conectar con el servidor. Inténtalo de nuevo."
       }
     }
   }

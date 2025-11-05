@@ -251,7 +251,7 @@ export default function LessonPointsCounter({
                   </Link>
                 ) : (
                   <Link
-                    to="/login"
+                    to="/membership?view=login"
                     className="points-hud__login"
                     aria-label={t("lesson.hud.logIn")}
                   >
@@ -280,13 +280,13 @@ export default function LessonPointsCounter({
             </p>
             <div className="flex flex-wrap gap-2">
               <Link
-                to="/register"
+                to="/membership?view=signup"
                 className="points-hud__cta points-hud__cta--primary"
               >
                 {t("lesson.hud.signUp")}
               </Link>
               <Link
-                to="/login"
+                to="/membership?view=login"
                 className="points-hud__cta points-hud__cta--ghost"
               >
                 {t("lesson.hud.logIn")}
@@ -324,7 +324,7 @@ export default function LessonPointsCounter({
               </Link>
             ) : (
               <Link
-                to="/login"
+                to="/membership?view=login"
                 className="flex h-14 w-full items-center justify-center rounded-2xl border border-neutral-200 bg-white text-neutral-900 shadow-sm transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
                 aria-label={t("lesson.hud.logIn")}
               >

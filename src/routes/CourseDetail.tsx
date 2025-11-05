@@ -11,6 +11,72 @@ type VideoCandidate = { key: string; value: string };
 
 type VideoKeyLocale = "en" | "es" | "neutral";
 
+function isRecord(value: unknown): value is UnknownRecord {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function sanitizeTopic(
+  topic: unknown,
+  moduleId: string,
+  moduleIndex: number,
+  topicIndex: number,
+): (Topic & UnknownRecord) | null {
+  if (!isRecord(topic)) {
+    return null;
+  }
+
+  const rawCards = Array.isArray(topic.cards)
+    ? topic.cards.filter((card): card is UnknownRecord => isRecord(card))
+    : [];
+
+  const topicId =
+    topic.id != null ? String(topic.id) : `${moduleId}-topic-${topicIndex}`;
+  const topicName =
+    typeof topic.name === "string" && topic.name.trim().length > 0
+      ? topic.name
+      : `Topic ${moduleIndex + 1}.${topicIndex + 1}`;
+
+  return {
+    ...(topic as UnknownRecord),
+    id: topicId,
+    name: topicName,
+    cards: rawCards.map((card) => ({ ...card })) as Card[],
+  } as Topic & UnknownRecord;
+}
+
+function sanitizeModule(
+  module: unknown,
+  moduleIndex: number,
+): (Module & UnknownRecord) | null {
+  if (!isRecord(module)) {
+    return null;
+  }
+
+  const moduleId =
+    module.id != null ? String(module.id) : `module-${moduleIndex}`;
+  const moduleName =
+    typeof module.name === "string" && module.name.trim().length > 0
+      ? module.name
+      : `Module ${moduleIndex + 1}`;
+
+  const topicsSource = Array.isArray(module.topics)
+    ? module.topics
+    : [];
+
+  const topics = topicsSource
+    .map((topic, topicIndex) =>
+      sanitizeTopic(topic, moduleId, moduleIndex, topicIndex),
+    )
+    .filter((topic): topic is Topic & UnknownRecord => Boolean(topic));
+
+  return {
+    ...(module as UnknownRecord),
+    id: moduleId,
+    name: moduleName,
+    topics,
+  } as Module & UnknownRecord;
+}
+
 const LOCALE_VIDEO_KEYS: Record<"en" | "es", string[]> = {
   en: [
     "youtube_video_link_en",
@@ -496,13 +562,31 @@ export default function CourseDetail() {
   }
 
   const effectiveLocale = data?.locale ?? locale;
-  const rawModules = data?.modules ?? [];
-  const modules = rawModules.map((module, moduleIndex) => {
-    const moduleTopics = module.topics ?? [];
+  const rawModules = Array.isArray(data?.modules) ? data?.modules : [];
+  const sanitizedModules = rawModules
+    .map((module, moduleIndex) => sanitizeModule(module, moduleIndex))
+    .filter((module): module is Module & UnknownRecord => Boolean(module));
+
+  const modules = sanitizedModules.map((module, moduleIndex) => {
+    const moduleTopics = Array.isArray(module.topics) ? module.topics : [];
     const topicCount = moduleTopics.length;
 
     const normalizedTopics = moduleTopics.map((topic, topicIndex) => {
-      const { videoCard, lessonCards, videoSourceId } = ensureVideoCard(topic, effectiveLocale);
+      const sanitizedTopic = sanitizeTopic(
+        topic,
+        String(module.id),
+        moduleIndex,
+        topicIndex,
+      );
+
+      if (!sanitizedTopic) {
+        return null;
+      }
+
+      const { videoCard, lessonCards, videoSourceId } = ensureVideoCard(
+        sanitizedTopic,
+        effectiveLocale,
+      );
       const topicCardsSource = [videoCard, ...lessonCards];
       const totalTopicCards = topicCardsSource.length;
 
@@ -510,7 +594,7 @@ export default function CourseDetail() {
         buildLessonCard({
           cardData,
           cardIndex,
-          topic,
+          topic: sanitizedTopic,
           topicIndex,
           totalTopicCards,
           module,
@@ -523,10 +607,10 @@ export default function CourseDetail() {
       );
 
       return {
-        ...topic,
+        ...sanitizedTopic,
         cards: topicCards,
       };
-    });
+    }).filter((topic): topic is Topic & UnknownRecord => Boolean(topic));
 
     return {
       ...module,

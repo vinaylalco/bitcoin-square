@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   Mail,
   Menu,
+  Sparkles,
   Users,
   Settings,
   ShoppingBag,
@@ -73,6 +74,7 @@ export default function App() {
   const desktopNav = [
     { label: t("nav.education"), to: "/education", dropdown: educationChildren },
     { label: t("nav.shop"), to: "/shop" },
+    { label: t("nav.membership"), to: "/membership" },
     { label: t("nav.community"), to: "/community" },
   ];
 
@@ -278,7 +280,7 @@ export default function App() {
                 </>
               ) : (
                 <NavLink
-                  to="/login"
+                  to="/membership?view=login"
                   className={({ isActive }) =>
                     cn(
                       "rounded-full border border-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-white transition hover:-translate-y-0.5 hover:shadow-[0_12px_30px_rgba(169,21,255,0.35)]",
@@ -419,6 +421,18 @@ export default function App() {
                 <ShoppingBag className="h-5 w-5" /> {t("nav.shop")}
               </NavLink>
               <NavLink
+                to="/membership"
+                onClick={() => setOpen(false)}
+                className={({ isActive }) =>
+                  cn(
+                    "inline-flex items-center gap-3 rounded-2xl border border-transparent px-4 py-3 transition hover:border-brand/40 hover:bg-brand/5",
+                    isActive && "border-brand bg-brand/10 text-brand",
+                  )
+                }
+              >
+                <Sparkles className="h-5 w-5" /> {t("nav.membership")}
+              </NavLink>
+              <NavLink
                 to="/newsletter"
                 onClick={() => setOpen(false)}
                 className={({ isActive }) =>
@@ -480,13 +494,13 @@ export default function App() {
                 </>
               ) : (
                 <NavLink
-                  to="/login"
+                  to="/membership?view=login"
                   onClick={() => setOpen(false)}
                   className={({ isActive }) =>
-                  cn(
-                    "inline-flex items-center justify-center gap-3 rounded-2xl border border-brand px-4 py-3 text-white transition hover:-translate-y-0.5 hover:shadow-[0_12px_30px_rgba(169,21,255,0.35)]",
-                    isActive ? "bg-brand" : "bg-gradient-to-r from-brand via-brand/90 to-[#FFF582]",
-                  )
+                    cn(
+                      "inline-flex items-center justify-center gap-3 rounded-2xl border border-brand px-4 py-3 text-white transition hover:-translate-y-0.5 hover:shadow-[0_12px_30px_rgba(169,21,255,0.35)]",
+                      isActive ? "bg-brand" : "bg-gradient-to-r from-brand via-brand/90 to-[#FFF582]",
+                    )
                   }
                 >
                   {t("nav.login")}

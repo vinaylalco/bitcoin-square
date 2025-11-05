@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
+import { StrapiNetworkError } from '../api/strapi-client';
+import { resolveStrapiAuthError } from '../utils/strapiErrors';
 
 export default function ResetPassword() {
   const [params] = useSearchParams();
@@ -10,21 +12,30 @@ export default function ResetPassword() {
   const nav = useNavigate();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
-  const [errorKey, setErrorKey] = useState('');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { t } = useTranslation();
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (password !== confirm) {
-      setErrorKey('auth.resetPassword.errors.mismatch');
+      setErrorMessage(t('auth.resetPassword.errors.mismatch'));
       return;
     }
-    setErrorKey('');
+    setErrorMessage(null);
     try {
       await reset(code, password, confirm);
       nav('/');
-    } catch (err: any) {
-      setErrorKey('auth.resetPassword.errors.generic');
+    } catch (err) {
+      if (err instanceof StrapiNetworkError) {
+        setErrorMessage(t('auth.resetPassword.errors.network'));
+      } else {
+        const resolved = resolveStrapiAuthError(err);
+        if (resolved.code === 'invalid_code') {
+          setErrorMessage(t('auth.resetPassword.errors.invalidCode'));
+        } else {
+          setErrorMessage(resolved.message || t('auth.resetPassword.errors.generic'));
+        }
+      }
     }
   }
 
@@ -32,7 +43,7 @@ export default function ResetPassword() {
     <div className="max-w-sm mx-auto p-4">
       <h2 className="text-xl mb-4">{t('auth.resetPassword.title')}</h2>
       <form onSubmit={submit} className="space-y-2">
-        {errorKey && <p className="text-red-600 mb-2">{t(errorKey)}</p>}
+        {errorMessage && <p className="text-red-600 mb-2">{errorMessage}</p>}
         <input
           type="password"
           value={password}

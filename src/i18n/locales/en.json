@@ -12,6 +12,7 @@
     "home": "Home",
     "education": "Education",
     "shop": "Shop",
+    "membership": "Membership",
     "messages": "Messages",
     "newsletter": "Newsletter",
     "community": "Community",
@@ -95,6 +96,114 @@
       "subscribeError": "Subscription failed.",
       "unsubscribeSuccess": "Unsubscribed successfully.",
       "unsubscribeError": "Unsubscribe failed."
+    }
+  },
+  "membership": {
+    "badge": "Membership",
+    "title": "Support Bitcoin Square & unlock perks",
+    "description": "Become a member to fund community learning initiatives and access exclusive releases.",
+    "benefits": {
+      "one": "Fund new lessons, workshops, and translations for the community.",
+      "two": "Receive early access to private events, drops, and behind-the-scenes updates.",
+      "three": "Keep Bitcoin Square independent, community-driven, and focused on education."
+    },
+    "form": {
+      "emailLabel": "Email",
+      "emailPlaceholder": "you@example.com",
+      "usingAccount": "Using your account email. Update it if you'd like to use a different address.",
+      "submit": "Start checkout",
+      "pending": "Redirecting…",
+      "annual": "$60 / year",
+      "lifetime": "$80 lifetime"
+    },
+    "portal": {
+      "tabs": {
+        "login": "Log In",
+        "signup": "Sign Up"
+      },
+      "login": {
+        "title": "Already a member?",
+        "subtitle": "Sign in to reach the community and your saved progress.",
+        "submit": "Log In",
+        "pending": "Signing in…",
+        "forgot": "Forgot password?"
+      },
+      "signup": {
+        "title": "Join Bitcoin Square",
+        "subtitle": "Create your account, choose a plan, and complete checkout to unlock access.",
+        "submit": "Continue to checkout",
+        "pending": "Preparing checkout…",
+        "planLabel": "Choose your membership"
+      },
+      "inputs": {
+        "email": "Email",
+        "password": "Password"
+      },
+      "planLabels": {
+        "annual": "Annual membership",
+        "lifetime": "Lifetime membership"
+      },
+      "passwordHint": "Use at least {{count}} characters.",
+      "successMessage": "Checkout opened in a new tab. Complete your payment to continue.",
+      "alreadySignedIn": "You're already signed in. Jump back into the community any time.",
+      "benefitsTitle": "Why members join",
+      "errors": {
+        "loginInvalid": "Incorrect email or password.",
+        "loginGeneric": "We couldn't log you in. Please try again.",
+        "signupGeneric": "We couldn't create your account. Please try again.",
+        "passwordLength": "Password must be at least {{count}} characters.",
+        "network": "We couldn't reach the server. Check your connection and try again.",
+        "emailTaken": "Email already registered — try logging in instead.",
+        "discountExpired": "Discount code expired.",
+        "invalidCode": "Invalid verification code."
+      }
+    },
+    "nowpaymentsNote": "Redirects to secure checkout (NowPayments).",
+    "errors": {
+      "invalidEmail": "Enter a valid email to continue.",
+      "missingRedirect": "Membership checkout link was missing from the response.",
+      "generic": "We couldn't start the membership checkout. Please try again."
+    },
+    "success": {
+      "badge": "Membership",
+      "title": "Payment received. Activating your membership…",
+      "description": "Keep this tab open while we confirm your membership payment.",
+      "checking": "We'll refresh your status automatically every 10 seconds.",
+      "active": "Membership unlocked. 🎉",
+      "timeout": "Still processing. We'll update your access shortly.",
+      "refresh": "Refresh status",
+      "footer": "You can close this page once your membership is confirmed.",
+      "signinRequired": "Sign in to check your membership status.",
+      "tour": {
+        "badge": "Start here",
+        "title": "Where do you want to explore first?",
+        "description": "Pick a destination to discover everything your new membership unlocks.",
+        "cards": {
+          "dashboard": {
+            "title": "Dashboard",
+            "description": "Track your study streak, points, and personalized lesson queue."
+          },
+          "education": {
+            "title": "Bitcoin Education",
+            "description": "Jump into curated courses and deepen your Bitcoin knowledge."
+          },
+          "community": {
+            "title": "Community",
+            "description": "Meet other members, join discussions, and share your wins."
+          }
+        }
+      },
+      "errors": {
+        "config": "Membership status is unavailable because the Strapi API URL is not configured.",
+        "network": "We couldn't reach Strapi to check your membership. We'll keep trying automatically.",
+        "generic": "Something went wrong while checking your membership. We'll retry automatically."
+      }
+    },
+    "cancel": {
+      "badge": "Membership",
+      "title": "Payment cancelled.",
+      "description": "You can retry anytime.",
+      "retry": "Back to Membership"
     }
   },
   "home": {
@@ -277,14 +386,18 @@
       "title": "Reset Password",
       "success": "Check your email for a reset link.",
       "errors": {
-        "generic": "Request failed"
+        "generic": "Request failed",
+        "network": "We couldn't reach the server. Please try again.",
+        "invalidCode": "Invalid verification code."
       }
     },
     "resetPassword": {
       "title": "Set New Password",
       "errors": {
         "mismatch": "Passwords do not match",
-        "generic": "Reset failed"
+        "generic": "Reset failed",
+        "invalidCode": "Invalid verification code.",
+        "network": "We couldn't reach the server. Please try again."
       }
     }
   }

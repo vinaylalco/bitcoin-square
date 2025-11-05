@@ -5,7 +5,7 @@ import React, {
   useEffect,
   useState,
 } from 'react';
-import type { AuthResponse } from '../api/auth';
+import type { AuthResponse, RegisterOptions } from '../api/auth';
 import {
   login as apiLogin,
   register as apiRegister,
@@ -260,7 +260,15 @@ interface AuthContextType {
   nostrPrivKey: string | null;
   nostrKeyLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string) => Promise<void>;
+  register: (
+    email: string,
+    password: string,
+    options?: RegisterOptions,
+  ) => Promise<AuthResponse>;
+  completeAuthFromResponse: (
+    res: AuthResponse,
+    options?: { passphrases?: string[] },
+  ) => Promise<void>;
   logout: () => void;
   reset: (code: string, password: string, confirm: string) => Promise<void>;
   updateUser: (updater: (prev: User | null) => User | null) => void;
@@ -428,42 +436,74 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setNostrKeyLoading(true);
     try {
       const res = await apiLogin(email, password);
-      applyAuth(res);
-      const passphrases = [password, res.jwt].filter(
-        (value): value is string => typeof value === 'string' && value.trim().length > 0,
-      );
-      let applied = await applyFetchedNostrKeys(res.user, {
-        passphrases,
-        fallbackUser: res.user,
-      });
-      if (!applied) {
-        const fetched = await fetchAccountNostrKeys(res.user.id, res.jwt);
-        applied = await applyFetchedNostrKeys(fetched, { passphrases, fallbackUser: res.user });
-        if (!applied) {
-          console.warn('Unable to hydrate BitcoinSquare Nostr keys after login.');
-        }
-      }
+      await completeAuthFromResponse(res, { passphrases: [password, res.jwt] });
     } finally {
       setNostrKeyLoading(false);
     }
   }
 
-  async function register(email: string, password: string) {
-    const res = await apiRegister(email, password);
-    applyAuth(res);
-    const { pub, priv } = generateNostrKeyPair();
-    persistNostrPrivKey(priv);
-    setNostrKeyLoading(false);
-    const body: Record<string, unknown> = {
-      nostrPublicKey: pub,
-      nostrEncryptedKey: await encryptPrivateKey(priv, password),
-    };
-    await strapiFetch(`/api/users/${res.user.id}`, {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${res.jwt}` },
-      body: JSON.stringify(body),
-    });
-    updateUser((prev) => (prev ? { ...prev, ...body } : prev));
+  const completeAuthFromResponse = useCallback(
+    async (res: AuthResponse, options: { passphrases?: string[] } = {}) => {
+      setNostrKeyLoading(true);
+      try {
+        applyAuth(res);
+        const passphrases = (options.passphrases ?? [])
+          .map((value) => value?.trim())
+          .filter((value, index, array): value is string => !!value && array.indexOf(value) === index);
+        let applied = await applyFetchedNostrKeys(res.user, {
+          passphrases,
+          fallbackUser: res.user,
+        });
+        if (!applied) {
+          try {
+            const fetched = await fetchAccountNostrKeys(res.user.id, res.jwt);
+            applied = await applyFetchedNostrKeys(fetched, {
+              passphrases,
+              fallbackUser: res.user,
+            });
+            if (!applied) {
+              console.warn('Unable to hydrate BitcoinSquare Nostr keys after authentication.');
+            }
+          } catch (error) {
+            if (error instanceof StrapiNetworkError) {
+              console.info('Skipping nostr key fetch: Strapi API is unreachable.');
+            } else {
+              console.warn('Failed to fetch nostr keys after authentication', error);
+            }
+          }
+        }
+      } finally {
+        setNostrKeyLoading(false);
+      }
+    },
+    [applyFetchedNostrKeys],
+  );
+
+  async function register(email: string, password: string, options: RegisterOptions = {}) {
+    setNostrKeyLoading(true);
+    try {
+      const res = await apiRegister(email, password, options);
+      const { pub, priv } = generateNostrKeyPair();
+      persistNostrPrivKey(priv);
+      const body: Record<string, unknown> = {
+        nostrPublicKey: pub,
+        nostrEncryptedKey: await encryptPrivateKey(priv, password),
+      };
+      await strapiFetch(`/api/users/${res.user.id}`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${res.jwt}` },
+        body: JSON.stringify(body),
+      });
+      return {
+        ...res,
+        user: {
+          ...res.user,
+          ...body,
+        },
+      };
+    } finally {
+      setNostrKeyLoading(false);
+    }
   }
 
   async function reset(code: string, password: string, confirm: string) {
@@ -556,6 +596,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         nostrKeyLoading,
         login,
         register,
+        completeAuthFromResponse,
         logout,
         reset,
         updateUser,
