@@ -5,7 +5,7 @@ import React, {
   useEffect,
   useState,
 } from 'react';
-import type { AuthResponse } from '../api/auth';
+import type { AuthResponse, RegisterOptions } from '../api/auth';
 import {
   login as apiLogin,
   register as apiRegister,
@@ -260,7 +260,11 @@ interface AuthContextType {
   nostrPrivKey: string | null;
   nostrKeyLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string) => Promise<AuthResponse>;
+  register: (
+    email: string,
+    password: string,
+    options?: RegisterOptions,
+  ) => Promise<AuthResponse>;
   completeAuthFromResponse: (
     res: AuthResponse,
     options?: { passphrases?: string[] },
@@ -475,10 +479,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [applyFetchedNostrKeys],
   );
 
-  async function register(email: string, password: string) {
+  async function register(email: string, password: string, options: RegisterOptions = {}) {
     setNostrKeyLoading(true);
     try {
-      const res = await apiRegister(email, password);
+      const res = await apiRegister(email, password, options);
       const { pub, priv } = generateNostrKeyPair();
       persistNostrPrivKey(priv);
       const body: Record<string, unknown> = {
