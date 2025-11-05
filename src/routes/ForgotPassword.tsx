@@ -1,21 +1,32 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { forgotPassword } from '../api/auth';
+import { StrapiNetworkError } from '../api/strapi-client';
+import { resolveStrapiAuthError } from '../utils/strapiErrors';
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
-  const [errorKey, setErrorKey] = useState('');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { t } = useTranslation();
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    setErrorKey('');
+    setErrorMessage(null);
     try {
       await forgotPassword(email);
       setSent(true);
-    } catch (err: any) {
-      setErrorKey('auth.forgotPassword.errors.generic');
+    } catch (err) {
+      if (err instanceof StrapiNetworkError) {
+        setErrorMessage(t('auth.forgotPassword.errors.network'));
+      } else {
+        const resolved = resolveStrapiAuthError(err);
+        if (resolved.code === 'invalid_code') {
+          setErrorMessage(t('auth.forgotPassword.errors.invalidCode'));
+        } else {
+          setErrorMessage(resolved.message || t('auth.forgotPassword.errors.generic'));
+        }
+      }
     }
   }
 
@@ -26,7 +37,7 @@ export default function ForgotPassword() {
         <p>{t('auth.forgotPassword.success')}</p>
       ) : (
         <form onSubmit={submit} className="space-y-2">
-          {errorKey && <p className="text-red-600 mb-2">{t(errorKey)}</p>}
+          {errorMessage && <p className="text-red-600 mb-2">{errorMessage}</p>}
           <input
             type="email"
             value={email}

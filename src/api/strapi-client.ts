@@ -17,6 +17,18 @@ export class StrapiNetworkError extends Error {
   }
 }
 
+export class StrapiRequestError extends Error {
+  status: number;
+  payload?: unknown;
+
+  constructor(message: string, status: number, payload?: unknown) {
+    super(message);
+    this.name = 'StrapiRequestError';
+    this.status = status;
+    this.payload = payload;
+  }
+}
+
 // Support both Node and browser environments. In the browser, Vite exposes env
 // variables on `import.meta.env` while in Node tests we rely on `process.env`.
 const env = (typeof process !== 'undefined' ? process.env : (import.meta as any).env) as {
@@ -59,7 +71,31 @@ export async function strapiFetch<T>(
   }
 
   if (!response.ok) {
-    throw new Error(`Strapi request failed with status ${response.status}`);
+    let payload: unknown;
+    let message = `Strapi request failed with status ${response.status}`;
+
+    try {
+      payload = await response.json();
+      const extractedMessage =
+        typeof payload === 'string'
+          ? payload
+          : (payload as { error?: { message?: string }; message?: string })?.error?.message ??
+            (payload as { error?: { message?: string }; message?: string })?.message;
+      if (extractedMessage && typeof extractedMessage === 'string' && extractedMessage.trim()) {
+        message = extractedMessage.trim();
+      }
+    } catch {
+      try {
+        const text = await response.text();
+        if (text && text.trim().length > 0) {
+          message = text.trim();
+        }
+      } catch {
+        // ignore secondary parsing errors
+      }
+    }
+
+    throw new StrapiRequestError(message, response.status, payload);
   }
 
   return response.json() as Promise<T>;
