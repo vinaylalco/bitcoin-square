@@ -152,7 +152,10 @@
         "loginGeneric": "We couldn't log you in. Please try again.",
         "signupGeneric": "We couldn't create your account. Please try again.",
         "passwordLength": "Password must be at least {{count}} characters.",
-        "network": "We couldn't reach the server. Check your connection and try again."
+        "network": "We couldn't reach the server. Check your connection and try again.",
+        "emailTaken": "Email already registered — try logging in instead.",
+        "discountExpired": "Discount code expired.",
+        "invalidCode": "Invalid verification code."
       }
     },
     "nowpaymentsNote": "Redirects to secure checkout (NowPayments).",
@@ -166,13 +169,30 @@
       "title": "Payment received. Activating your membership…",
       "description": "Keep this tab open while we confirm your membership payment.",
       "checking": "We'll refresh your status automatically every 10 seconds.",
-      "active": "Your membership is active. 🎉",
+      "active": "Membership unlocked. 🎉",
       "timeout": "Still processing. We'll update your access shortly.",
       "refresh": "Refresh status",
-      "communityCta": "Go to Community",
-      "educationCta": "Go to Education",
       "footer": "You can close this page once your membership is confirmed.",
       "signinRequired": "Sign in to check your membership status.",
+      "tour": {
+        "badge": "Start here",
+        "title": "Where do you want to explore first?",
+        "description": "Pick a destination to discover everything your new membership unlocks.",
+        "cards": {
+          "dashboard": {
+            "title": "Dashboard",
+            "description": "Track your study streak, points, and personalized lesson queue."
+          },
+          "education": {
+            "title": "Bitcoin Education",
+            "description": "Jump into curated courses and deepen your Bitcoin knowledge."
+          },
+          "community": {
+            "title": "Community",
+            "description": "Meet other members, join discussions, and share your wins."
+          }
+        }
+      },
       "errors": {
         "config": "Membership status is unavailable because the Strapi API URL is not configured.",
         "network": "We couldn't reach Strapi to check your membership. We'll keep trying automatically.",
@@ -366,14 +386,18 @@
       "title": "Reset Password",
       "success": "Check your email for a reset link.",
       "errors": {
-        "generic": "Request failed"
+        "generic": "Request failed",
+        "network": "We couldn't reach the server. Please try again.",
+        "invalidCode": "Invalid verification code."
       }
     },
     "resetPassword": {
       "title": "Set New Password",
       "errors": {
         "mismatch": "Passwords do not match",
-        "generic": "Reset failed"
+        "generic": "Reset failed",
+        "invalidCode": "Invalid verification code.",
+        "network": "We couldn't reach the server. Please try again."
       }
     }
   }
