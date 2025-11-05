@@ -113,8 +113,8 @@
       "usingAccount": "Using your account email. Update it if you'd like to use a different address.",
       "submit": "Start checkout",
       "pending": "Redirecting…",
-      "annual": "$20 / year",
-      "lifetime": "$20 lifetime"
+      "annual": "$60 / year",
+      "lifetime": "$80 lifetime"
     },
     "portal": {
       "tabs": {
