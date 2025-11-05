@@ -12,6 +12,7 @@ import {
 } from "../utils/pendingMembershipAuth";
 import { cn } from "../utils/cn";
 import { StrapiNetworkError } from "../api/strapi-client";
+import { resolveStrapiAuthError } from "../utils/strapiErrors";
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 8;
@@ -21,7 +22,7 @@ type PortalView = "login" | "signup";
 export default function Membership() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { login, register, user } = useAuth();
+  const { login, register, user, completeAuthFromResponse } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const { mutateAsync: startCheckout } = useMembershipCheckout();
@@ -114,16 +115,27 @@ export default function Membership() {
     setLoginSubmitting(true);
     try {
       await login(trimmedEmail, trimmedPassword);
-      navigate("/community", { replace: true });
+      navigate("/dashboard", { replace: true });
     } catch (error) {
       if (error instanceof StrapiNetworkError) {
         setLoginError(t("membership.portal.errors.network"));
       } else {
-        const message = error instanceof Error ? error.message.toLowerCase() : "";
-        if (message.includes("bad request") || message.includes("invalid")) {
-          setLoginError(t("membership.portal.errors.loginInvalid"));
-        } else {
-          setLoginError(t("membership.portal.errors.loginGeneric"));
+        const resolved = resolveStrapiAuthError(error);
+        switch (resolved.code) {
+          case "invalid_credentials":
+            setLoginError(t("membership.portal.errors.loginInvalid"));
+            break;
+          case "email_taken":
+            setLoginError(t("membership.portal.errors.emailTaken"));
+            break;
+          case "discount_expired":
+            setLoginError(t("membership.portal.errors.discountExpired"));
+            break;
+          case "invalid_code":
+            setLoginError(t("membership.portal.errors.invalidCode"));
+            break;
+          default:
+            setLoginError(resolved.message || t("membership.portal.errors.loginGeneric"));
         }
       }
     } finally {
@@ -154,26 +166,38 @@ export default function Membership() {
     setSignupSubmitting(true);
     let pendingStored = false;
     try {
-      const authResponse = await register(trimmedEmail, signupPassword);
-      rememberPendingMembershipAuth(authResponse);
-      pendingStored = true;
+      const discountTxHash = discountCode
+        ? `${discountCode}-${Math.floor(10000 + Math.random() * 90000)}`
+        : undefined;
+
+      const authResponse = await register(trimmedEmail, signupPassword, {
+        ...(discountTxHash ? { txHash: discountTxHash } : {}),
+      });
       const checkout = await startCheckout({
         email: trimmedEmail,
         membershipType: signupPlan,
         discountCode,
+        userId: authResponse.user.id,
       });
 
       if (checkout.invoiceUrl) {
+        rememberPendingMembershipAuth(authResponse);
+        pendingStored = true;
         rememberMembershipCheckoutPlan(signupPlan);
         setSignupInfo(t("membership.portal.successMessage"));
-        const popup = window.open(checkout.invoiceUrl, "_blank", "noopener,noreferrer");
-        if (!popup) {
-          window.location.assign(checkout.invoiceUrl);
-        }
+        window.location.href = checkout.invoiceUrl;
         return;
       }
 
       if (checkout.message) {
+        try {
+          await completeAuthFromResponse(authResponse);
+        } catch (authError) {
+          console.warn("Failed to finalize membership authentication", authError);
+          setSignupError(t("membership.portal.errors.signupGeneric"));
+          return;
+        }
+        clearPendingMembershipAuth();
         setSignupInfo(checkout.message);
         return;
       }
@@ -185,10 +209,24 @@ export default function Membership() {
       }
       if (error instanceof StrapiNetworkError) {
         setSignupError(t("membership.portal.errors.network"));
-      } else if (error instanceof Error) {
-        setSignupError(error.message || t("membership.portal.errors.signupGeneric"));
       } else {
-        setSignupError(t("membership.portal.errors.signupGeneric"));
+        const resolved = resolveStrapiAuthError(error);
+        switch (resolved.code) {
+          case "email_taken":
+            setSignupError(t("membership.portal.errors.emailTaken"));
+            break;
+          case "discount_expired":
+            setSignupError(t("membership.portal.errors.discountExpired"));
+            break;
+          case "invalid_credentials":
+            setSignupError(t("membership.portal.errors.loginInvalid"));
+            break;
+          case "invalid_code":
+            setSignupError(t("membership.portal.errors.invalidCode"));
+            break;
+          default:
+            setSignupError(resolved.message || t("membership.portal.errors.signupGeneric"));
+        }
       }
     } finally {
       setSignupSubmitting(false);

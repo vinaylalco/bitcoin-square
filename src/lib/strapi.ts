@@ -468,6 +468,7 @@ export interface CreateMembershipCheckoutOptions {
   membershipType: "annual" | "lifetime";
   userEmail: string;
   discountCode?: string;
+  userId?: number;
 }
 
 export interface CreateMembershipCheckoutResponse {
@@ -479,6 +480,7 @@ export async function createMembershipCheckout({
   membershipType,
   userEmail,
   discountCode,
+  userId,
 }: CreateMembershipCheckoutOptions): Promise<CreateMembershipCheckoutResponse> {
   if (!isNonEmptyString(userEmail)) {
     throw new Error("Missing email address");
@@ -492,6 +494,15 @@ export async function createMembershipCheckout({
     membershipType,
     userEmail: userEmail.trim(),
   };
+
+  const normalizedUserId = parseNumber(userId);
+  if (
+    typeof normalizedUserId === "number" &&
+    Number.isInteger(normalizedUserId) &&
+    normalizedUserId > 0
+  ) {
+    payload.userId = normalizedUserId;
+  }
 
   if (isNonEmptyString(discountCode)) {
     payload.discountCode = discountCode.trim();

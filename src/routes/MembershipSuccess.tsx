@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import { useAuth } from "../context/AuthContext";
@@ -24,7 +24,6 @@ const THIRTY_SECONDS_MS = 30_000;
 export default function MembershipSuccess() {
   const { t } = useTranslation();
   const { token, completeAuthFromResponse } = useAuth();
-  const navigate = useNavigate();
 
   const [expectedPlan, setExpectedPlan] = useState<MembershipType | null>(() => {
     const snapshot = readMembershipCheckoutPlan();
@@ -37,7 +36,7 @@ export default function MembershipSuccess() {
 
   const [timedOut, setTimedOut] = useState(false);
   const startTimeRef = useRef<number>(Date.now());
-  const hasRedirectedRef = useRef(false);
+  const hasFinalizedRef = useRef(false);
 
   const pendingToken = pendingAuth?.auth.jwt ?? null;
   const effectiveToken = token ?? pendingToken ?? null;
@@ -119,7 +118,7 @@ export default function MembershipSuccess() {
   }, [showSigninNotice]);
 
   useEffect(() => {
-    if (!isVerifiedActive || hasRedirectedRef.current) {
+    if (!isVerifiedActive || hasFinalizedRef.current) {
       return;
     }
 
@@ -128,11 +127,11 @@ export default function MembershipSuccess() {
         return;
       }
 
-      hasRedirectedRef.current = true;
+      hasFinalizedRef.current = true;
       try {
         if (!token) {
           if (!pendingAuth) {
-            hasRedirectedRef.current = false;
+            hasFinalizedRef.current = false;
             return;
           }
 
@@ -148,10 +147,9 @@ export default function MembershipSuccess() {
 
         clearMembershipCheckoutPlan();
         setExpectedPlan(null);
-        navigate("/community", { replace: true });
       } catch (authError) {
         console.warn("Failed to finalize membership authentication", authError);
-        hasRedirectedRef.current = false;
+        hasFinalizedRef.current = false;
       }
     };
 
@@ -162,7 +160,6 @@ export default function MembershipSuccess() {
     completeAuthFromResponse,
     isVerifiedActive,
     me,
-    navigate,
     pendingAuth,
     token,
   ]);
@@ -214,8 +211,32 @@ export default function MembershipSuccess() {
     }
   }
 
+  const tourCards = useMemo(
+    () => [
+      {
+        key: "dashboard" as const,
+        to: "/dashboard",
+        title: t("membership.success.tour.cards.dashboard.title"),
+        description: t("membership.success.tour.cards.dashboard.description"),
+      },
+      {
+        key: "education" as const,
+        to: "/education",
+        title: t("membership.success.tour.cards.education.title"),
+        description: t("membership.success.tour.cards.education.description"),
+      },
+      {
+        key: "community" as const,
+        to: "/community",
+        title: t("membership.success.tour.cards.community.title"),
+        description: t("membership.success.tour.cards.community.description"),
+      },
+    ],
+    [t],
+  );
+
   return (
-    <div className="mx-auto flex min-h-[60vh] w-full max-w-3xl flex-col items-center justify-center gap-6 px-4 py-16 text-center">
+    <div className="mx-auto flex min-h-[60vh] w-full max-w-4xl flex-col items-center justify-center gap-8 px-4 py-16 text-center">
       <div className="space-y-4">
         <p className="text-xs font-semibold uppercase tracking-[0.42em] text-brand">
           {t("membership.success.badge")}
@@ -264,19 +285,39 @@ export default function MembershipSuccess() {
         )}
       </div>
       {isVerifiedActive && (
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <Link
-            to="/community"
-            className="inline-flex items-center justify-center rounded-full bg-brand px-6 py-3 text-xs font-semibold uppercase tracking-[0.32em] text-white shadow-[0_12px_30px_rgba(169,21,255,0.35)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_40px_rgba(169,21,255,0.45)]"
-          >
-            {t("membership.success.communityCta")}
-          </Link>
-          <Link
-            to="/education"
-            className="inline-flex items-center justify-center rounded-full bg-[var(--bg-elevated)] px-6 py-3 text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-default)] shadow-[0_12px_30px_rgba(0,0,0,0.12)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_40px_rgba(0,0,0,0.18)]"
-          >
-            {t("membership.success.educationCta")}
-          </Link>
+        <div className="flex w-full flex-col items-center gap-6">
+          <div className="max-w-2xl space-y-2">
+            <h2 className="text-2xl font-semibold tracking-wide text-[var(--fg-default)] sm:text-3xl">
+              {t("membership.success.tour.title")}
+            </h2>
+            <p className="text-sm leading-relaxed text-[var(--fg-muted)]">
+              {t("membership.success.tour.description")}
+            </p>
+          </div>
+          <div className="grid w-full gap-4 text-left sm:grid-cols-2 lg:grid-cols-3">
+            {tourCards.map((card) => (
+              <Link
+                key={card.key}
+                to={card.to}
+                className="group relative flex h-full flex-col rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-6 text-[var(--fg-default)] shadow-[0_12px_30px_rgba(0,0,0,0.12)] transition hover:-translate-y-1 hover:border-brand/40 hover:shadow-[0_16px_44px_rgba(169,21,255,0.28)]"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-semibold uppercase tracking-[0.24em] text-brand/80">
+                    {t("membership.success.tour.badge")}
+                  </span>
+                  <span className="text-2xl transition-transform group-hover:translate-x-1" aria-hidden="true">
+                    →
+                  </span>
+                </div>
+                <h3 className="mt-4 text-xl font-semibold text-[var(--fg-default)]">
+                  {card.title}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-[var(--fg-muted)]">
+                  {card.description}
+                </p>
+              </Link>
+            ))}
+          </div>
         </div>
       )}
       {!isVerifiedActive && !showSigninNotice && (

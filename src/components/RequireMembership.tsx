@@ -16,6 +16,9 @@ export default function RequireMembership({
 }: RequireMembershipProps) {
   const { token } = useAuth();
   const location = useLocation();
+  const membershipQuery = useCurrentUserMembership({
+    enabled: Boolean(token),
+  });
 
   if (!token) {
     return (
@@ -27,7 +30,7 @@ export default function RequireMembership({
     );
   }
 
-  const { me, loading, error } = useCurrentUserMembership();
+  const { me, loading, error } = membershipQuery;
 
   const membershipStatus = normalizeMembershipStatus(me);
   const grandfathered =
