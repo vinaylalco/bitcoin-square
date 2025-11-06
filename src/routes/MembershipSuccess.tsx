@@ -25,22 +25,27 @@ export default function MembershipSuccess() {
   const { t } = useTranslation();
   const { token, completeAuthFromResponse } = useAuth();
 
+  // what we *expected* the user to buy (annual/lifetime)
   const [expectedPlan, setExpectedPlan] = useState<MembershipType | null>(() => {
     const snapshot = readMembershipCheckoutPlan();
     return snapshot?.plan ?? null;
   });
 
+  // snapshot of auth returned from checkout (before we merged it)
   const [pendingAuth, setPendingAuth] = useState<PendingMembershipAuthSnapshot | null>(() =>
     readPendingMembershipAuth(),
   );
 
+  // purely for UI: "this is taking longer than 30s"
   const [timedOut, setTimedOut] = useState(false);
   const startTimeRef = useRef<number>(Date.now());
   const hasFinalizedRef = useRef(false);
 
+  // we can authenticate either with the normal token or with the pending token
   const pendingToken = pendingAuth?.auth.jwt ?? null;
   const effectiveToken = token ?? pendingToken ?? null;
 
+  // if the real token appears, drop the pending snapshot
   useEffect(() => {
     if (token && pendingAuth) {
       clearPendingMembershipAuth();
@@ -48,6 +53,7 @@ export default function MembershipSuccess() {
     }
   }, [pendingAuth, token]);
 
+  // whenever we get a token (or switch tokens), reset the timeout window
   useEffect(() => {
     if (effectiveToken) {
       startTimeRef.current = Date.now();
@@ -55,20 +61,21 @@ export default function MembershipSuccess() {
     }
   }, [effectiveToken]);
 
+  // 🔴 Option A change: keep polling until we really see active membership.
   const { me, loading, error, refetch } = useCurrentUserMembership({
     enabled: Boolean(effectiveToken),
     tokenOverride: effectiveToken,
     refetchInterval: (queryData) => {
-      if (!queryData || timedOut) {
-        return timedOut ? false : TEN_SECONDS_MS;
+      // if we don't have data yet, keep polling
+      if (!queryData) {
+        return TEN_SECONDS_MS;
       }
 
       const membership = normalizeMembershipStatus(
         (queryData as Record<string, unknown>)["membership"],
       );
 
-      const matchesPlan =
-        !expectedPlan || membership.type === expectedPlan;
+      const matchesPlan = !expectedPlan || membership.type === expectedPlan;
       const lifetimeHasNoExpiry =
         membership.type !== "lifetime" || membership.expiresAt === null;
       const annualHasFutureExpiry =
@@ -82,6 +89,7 @@ export default function MembershipSuccess() {
         lifetimeHasNoExpiry &&
         annualHasFutureExpiry;
 
+      // ✅ only stop when we are truly active
       return isVerifiedActive ? false : TEN_SECONDS_MS;
     },
     refetchIntervalInBackground: true,
@@ -109,14 +117,17 @@ export default function MembershipSuccess() {
     matchesPlan &&
     lifetimeHasNoExpiry &&
     annualHasFutureExpiry;
+
   const showSigninNotice = !effectiveToken;
 
+  // if user isn't signed in, don't show timeout
   useEffect(() => {
     if (showSigninNotice) {
       setTimedOut(false);
     }
   }, [showSigninNotice]);
 
+  // when we finally see active membership, finalize auth + clear local markers
   useEffect(() => {
     if (!isVerifiedActive || hasFinalizedRef.current) {
       return;
@@ -129,6 +140,7 @@ export default function MembershipSuccess() {
 
       hasFinalizedRef.current = true;
       try {
+        // if we got here using a pending token (post-checkout)
         if (!token) {
           if (!pendingAuth) {
             hasFinalizedRef.current = false;
@@ -164,6 +176,7 @@ export default function MembershipSuccess() {
     token,
   ]);
 
+  // this effect is now *only* for showing "taking long", not for stopping network polls
   useEffect(() => {
     if (isVerifiedActive || showSigninNotice || timedOut) {
       return;
@@ -247,7 +260,7 @@ export default function MembershipSuccess() {
         <p className="text-sm leading-relaxed text-[var(--fg-muted)]">
           {t("membership.success.description")}
         </p>
-        {!isVerifiedActive && !showSigninNotice && !timedOut && (
+        {!isVerifiedActive && !showSigninNotice && (
           <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--fg-muted)]">
             {t("membership.success.checking")}
             {loading && " •"}
@@ -305,7 +318,10 @@ export default function MembershipSuccess() {
                   <span className="text-sm font-semibold uppercase tracking-[0.24em] text-brand/80">
                     {t("membership.success.tour.badge")}
                   </span>
-                  <span className="text-2xl transition-transform group-hover:translate-x-1" aria-hidden="true">
+                  <span
+                    className="text-2xl transition-transform group-hover:translate-x-1"
+                    aria-hidden="true"
+                  >
                     →
                   </span>
                 </div>
