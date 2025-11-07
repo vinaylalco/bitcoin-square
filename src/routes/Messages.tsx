@@ -1274,6 +1274,8 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
                   )}
 
                 </div>
+              </>
+            )}
 
           </section>
         </div>
