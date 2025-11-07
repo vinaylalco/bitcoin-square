@@ -4,6 +4,12 @@ import Slider from "../components/lesson/Slider";
 import CourseDetailSkeleton from "../components/course/CourseDetailSkeleton";
 import { useLessonPlan } from "../hooks/useLessonPlan";
 import type { Card, LessonCard, Module, Topic } from "../types/lesson-plan";
+import { useAuth } from "../context/AuthContext";
+import { useCurrentUserMembership } from "../hooks/useCurrentUserMembership";
+import {
+  extractGrandfatheredFlag,
+  normalizeMembershipStatus,
+} from "../utils/membership";
 
 type UnknownRecord = Record<string, unknown>;
 type RichCard = Card & UnknownRecord;
@@ -548,6 +554,25 @@ export default function CourseDetail() {
   const { t, i18n } = useTranslation();
   const { slug = "" } = useParams();
   const locale = i18n.language?.toLowerCase().startsWith("es") ? "es" : "en";
+  const { token } = useAuth();
+  const {
+    me: membershipInfo,
+    loading: membershipLoading,
+    error: membershipError,
+  } = useCurrentUserMembership({ enabled: Boolean(token) });
+  const membershipStatus = normalizeMembershipStatus(membershipInfo);
+  const grandfathered =
+    extractGrandfatheredFlag(
+      membershipInfo?.["grandfathered"] ??
+        membershipInfo?.["isGrandfathered"],
+    ) || extractGrandfatheredFlag(membershipInfo?.["membership"]);
+  const hasLessonAccess = Boolean(token)
+    ? membershipStatus.isActive || grandfathered
+    : false;
+  const membershipResolved = !token || !membershipLoading;
+  const restrictLessons =
+    !token ||
+    (membershipResolved && (!hasLessonAccess || Boolean(membershipError)));
   const { data, isLoading, error } = useLessonPlan(locale, slug);
 
   if (isLoading && !data) {
@@ -639,13 +664,14 @@ export default function CourseDetail() {
       <div className="w-full shadow-[var(--shadow-soft)]">
         <div className="space-y-6 px-4 pt-10 pb-6 sm:px-10 sm:pb-8 lg:pb-6">
           {cards.length > 0 ? (
-            <Slider
-              cards={cards}
-              modules={modules}
-              courseTitle={data?.title || "Education"}
-              lessonSlug={data?.slug || slug}
-              enableCustomize={enableCustomize}
-            />
+          <Slider
+            cards={cards}
+            modules={modules}
+            courseTitle={data?.title || "Education"}
+            lessonSlug={data?.slug || slug}
+            enableCustomize={enableCustomize}
+            isLessonAccessRestricted={restrictLessons}
+          />
           ) : (
             <p className="px-6 py-12 text-center text-sm font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">
               Lessons coming soon.

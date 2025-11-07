@@ -48,19 +48,11 @@ const router = createBrowserRouter([
       { index: true, element: <Home /> },
       {
         path: "education",
-        element: (
-          <RequireMembership>
-            <CourseDirectory />
-          </RequireMembership>
-        ),
+        element: <CourseDirectory />,
       },
       {
         path: "education/:slug",
-        element: (
-          <RequireMembership>
-            <CourseDetail />
-          </RequireMembership>
-        ),
+        element: <CourseDetail />,
       },
       { path: "settings", element: <Settings /> },
       { path: "blog", element: <Blog /> },
