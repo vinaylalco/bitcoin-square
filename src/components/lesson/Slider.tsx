@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import type { CSSProperties } from "react";
-import { Check, ChevronLeft, ChevronRight } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Lock } from "lucide-react";
 import type {
   LessonCard,
   Module,
@@ -1101,7 +1101,18 @@ export default function Slider({
                       <Check className="h-4 w-4 text-brand" aria-hidden="true" />
                     ) : null}
                   </span>
-                  <span>{c.title}</span>
+                  <span className="flex items-center gap-2">
+                    <span>{c.title}</span>
+                    {isLessonAccessRestricted ? (
+                      <Lock
+                        className="h-4 w-4 text-neutral-400"
+                        aria-hidden="true"
+                      />
+                    ) : null}
+                    {isLessonAccessRestricted ? (
+                      <span className="sr-only">(locked)</span>
+                    ) : null}
+                  </span>
                   {isCompleted ? <span className="sr-only">(completed)</span> : null}
                 </span>
               </button>
@@ -1342,7 +1353,23 @@ export default function Slider({
             })}
           </h2>
           <p className="mt-3 text-sm text-neutral-600 dark:text-neutral-300">
-            You need a membership to see this content.
+            <span role="img" aria-label="locked">
+              🔐
+            </span>{" "}
+            Ready to unlock this lesson? Join the fun with a
+            {" "}
+            <a
+              href="/membership"
+              className="font-semibold text-brand underline hover:text-brand/80"
+            >
+              membership
+            </a>
+            {" "}
+            and keep learning!
+            {" "}
+            <span role="img" aria-label="rocket">
+              🚀
+            </span>
           </p>
           <button
             type="button"
