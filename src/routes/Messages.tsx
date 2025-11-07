@@ -729,15 +729,7 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
       />
       <div className="flex flex-col gap-1">
         <p className="text-sm font-semibold text-[var(--fg-default)]">{member.displayName}</p>
-        <div className="flex flex-wrap items-center gap-2 text-[0.65rem] uppercase tracking-[0.24em] text-[var(--fg-muted)]">
-          {member.screenName && <span>@{member.screenName}</span>}
-          <span>{shortenPubkey(member.pubkey)}</span>
-        </div>
       </div>
-      <span className="ml-auto inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.24em] text-[var(--fg-muted)]">
-        <MessageCircle className="h-3.5 w-3.5" />
-        Message
-      </span>
     </button>
   );
 
