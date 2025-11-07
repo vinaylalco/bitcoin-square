@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, MessageCircle, Search } from "lucide-react";
+import { AlertCircle, ArrowDown, MessageCircle, Search, X } from "lucide-react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 import {
@@ -20,34 +20,6 @@ import {
   CommunityTranslationProvider,
   useCommunityTranslation,
 } from "../context/CommunityTranslationContext";
-
-const formatPreview = (value: string, limit = 140) => {
-  const normalized = value.trim();
-  if (normalized.length <= limit) {
-    return normalized;
-  }
-  return `${normalized.slice(0, limit - 1)}…`;
-};
-
-const formatTimestamp = (timestamp?: number | null) => {
-  if (!timestamp) {
-    return "";
-  }
-  const date = new Date(timestamp * 1000);
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-  try {
-    return new Intl.DateTimeFormat(undefined, {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    }).format(date);
-  } catch {
-    return date.toLocaleString();
-  }
-};
 
 const normalizeSearch = (value: string) => value.trim().toLowerCase();
 
@@ -437,6 +409,16 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
   const [composerError, setComposerError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const listRef = useRef<HTMLDivElement | null>(null);
+  const messageElementsRef = useRef<
+    Map<string, { element: HTMLDivElement; plaintext: string }>
+  >(new Map());
+  const messageNodesByIdRef = useRef<Map<string, HTMLDivElement>>(new Map());
+  const messageObserverRef = useRef<IntersectionObserver | null>(null);
+  const scrollStickToBottomRef = useRef(true);
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+  const [replyTargetKey, setReplyTargetKey] = useState<string | null>(null);
+  const composerContainerRef = useRef<HTMLDivElement | null>(null);
+  const [composerHeight, setComposerHeight] = useState(0);
   useEffect(() => {
     if (!activeConversation) {
       closeMention();
@@ -477,10 +459,144 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
     closeMention();
   };
 
+  const messageCount = conversation?.messages.length ?? 0;
+  const messageLookup = useMemo(() => {
+    const map = new Map<string, DirectMessageEntry>();
+    conversation?.messages.forEach((message) => {
+      map.set(message.id, message);
+      if (message.clientId) {
+        map.set(message.clientId, message);
+      }
+    });
+    return map;
+  }, [conversation?.messages]);
+
+  const replyTarget = useMemo(() => {
+    if (!replyTargetKey) {
+      return null;
+    }
+    return messageLookup.get(replyTargetKey) ?? null;
+  }, [messageLookup, replyTargetKey]);
+
+  const updateScrollState = useCallback(() => {
+    const container = listRef.current;
+    if (!container) {
+      return;
+    }
+    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    const nearBottom = distanceFromBottom < 48;
+    scrollStickToBottomRef.current = nearBottom;
+    setShowScrollToBottom(!nearBottom && messageCount > 0);
+  }, [messageCount]);
+
+  const handleScrollToBottom = useCallback(() => {
+    const container = listRef.current;
+    if (!container) {
+      return;
+    }
+    container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+    scrollStickToBottomRef.current = true;
+    setShowScrollToBottom(false);
+  }, []);
+
+  useEffect(() => {
+    const node = composerContainerRef.current;
+    if (!node) {
+      setComposerHeight(0);
+      return;
+    }
+    const updateHeight = () => {
+      setComposerHeight(node.offsetHeight);
+    };
+    updateHeight();
+    if (typeof window === "undefined" || typeof ResizeObserver === "undefined") {
+      return;
+    }
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(node);
+    return () => {
+      observer.disconnect();
+    };
+  }, [mentionActive, replyTarget]);
+
   useEffect(() => {
     if (!listRef.current) return;
-    listRef.current.scrollTop = listRef.current.scrollHeight;
-  }, [conversation?.messages.length, activeConversation]);
+    if (scrollStickToBottomRef.current) {
+      listRef.current.scrollTop = listRef.current.scrollHeight;
+    }
+  }, [messageCount, activeConversation]);
+
+  useEffect(() => {
+    const container = listRef.current;
+    if (!container) {
+      return;
+    }
+    const handleScroll = () => updateScrollState();
+    container.addEventListener("scroll", handleScroll, { passive: true });
+    updateScrollState();
+    return () => {
+      container.removeEventListener("scroll", handleScroll);
+    };
+  }, [activeConversation, updateScrollState]);
+
+  useEffect(() => {
+    updateScrollState();
+  }, [messageCount, updateScrollState]);
+
+  useEffect(() => {
+    if (!translationEnabled) {
+      messageObserverRef.current?.disconnect();
+      messageObserverRef.current = null;
+      return;
+    }
+
+    const container = listRef.current;
+    if (!container) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) {
+            return;
+          }
+          const key = (entry.target as HTMLElement).dataset.translationKey;
+          if (!key) {
+            return;
+          }
+          const info = messageElementsRef.current.get(key);
+          if (!info) {
+            return;
+          }
+          const translationEntry = getTranslation(key);
+          if (!translationEntry || translationEntry.status === "idle" || translationEntry.status === "error") {
+            ensureTranslation(key, info.plaintext);
+          }
+        });
+      },
+      { root: container, threshold: 0.1 },
+    );
+
+    messageObserverRef.current = observer;
+
+    messageElementsRef.current.forEach(({ element }) => {
+      observer.observe(element);
+    });
+
+    return () => {
+      observer.disconnect();
+      if (messageObserverRef.current === observer) {
+        messageObserverRef.current = null;
+      }
+    };
+  }, [
+    ensureTranslation,
+    getTranslation,
+    translationEnabled,
+    activeConversation,
+    messageCount,
+  ]);
 
   const latestMessageIndex = conversation ? conversation.messages.length - 1 : -1;
   const latestMessage =
@@ -512,6 +628,12 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
     }
   }, [activeConversation]);
 
+  useEffect(() => {
+    scrollStickToBottomRef.current = true;
+    setShowScrollToBottom(false);
+    setReplyTargetKey(null);
+  }, [activeConversation]);
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!activeConversation || !draft.trim()) {
@@ -520,7 +642,13 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
     setComposerError(null);
     setSending(true);
     try {
-      await sendMessage(activeConversation, draft);
+      const replyEventId =
+        replyTarget && replyTarget.id && !replyTarget.id.startsWith("pending-")
+          ? replyTarget.id
+          : null;
+      await sendMessage(activeConversation, draft, { replyToId: replyEventId });
+      setReplyTargetKey(null);
+      scrollStickToBottomRef.current = true;
     } catch (sendErr) {
       const message = sendErr instanceof Error ? sendErr.message : String(sendErr);
       setComposerError(message);
@@ -548,14 +676,6 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
   };
 
   const renderConversationRow = (entry: (typeof conversationEntries)[number]) => {
-    const lastMessageText = entry.lastMessage?.plaintext || "";
-    const directionLabel =
-      entry.lastMessage?.direction === "outgoing"
-        ? "You"
-        : entry.lastMessage?.direction === "incoming"
-          ? entry.summary.displayName
-          : "";
-
     return (
       <button
         key={entry.pubkey}
@@ -576,27 +696,9 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
                 {entry.username}
               </span>
             )}
-            <span className="text-[0.65rem] uppercase tracking-[0.24em] text-[var(--fg-muted)]">
-              {shortenPubkey(entry.pubkey)}
-            </span>
           </div>
-          <p className="text-xs text-[var(--fg-muted)]">
-            {entry.lastMessage ? (
-              <>
-                <span className="font-semibold uppercase tracking-[0.24em] text-[var(--fg-muted)]">
-                  {directionLabel}
-                </span>{" "}
-                {formatPreview(lastMessageText)}
-              </>
-            ) : (
-              "No messages yet"
-            )}
-          </p>
         </div>
         <div className="flex flex-col items-end gap-2">
-          <span className="text-[0.65rem] uppercase tracking-[0.24em] text-[var(--fg-muted)]">
-            {formatTimestamp(entry.lastMessage?.createdAt ?? null)}
-          </span>
           {entry.unreadCount > 0 && (
             <span className="min-w-[1.5rem] rounded-full bg-brand px-2 py-0.5 text-center text-[0.65rem] font-semibold uppercase tracking-[0.24em] text-white">
               {entry.unreadCount}
@@ -656,14 +758,6 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
             : "mx-auto flex w-full max-w-5xl flex-col gap-8"
         }
       >
-        <header className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-sm">
-          <h1 className="text-2xl font-semibold">Messages</h1>
-          <p className="mt-2 text-sm text-[var(--fg-muted)]">
-            Browse every private conversation you&apos;ve started on Bitcoin Square. Select a thread to
-            jump back into the encrypted chat overlay.
-          </p>
-        </header>
-
         <div
           className={`grid gap-6 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] ${
             isEmbedded ? "flex-1 overflow-y-auto" : ""
@@ -818,7 +912,8 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
                 <div className="relative flex h-full flex-1 flex-col bg-[var(--bg-surface)]/60">
                   <div
                     ref={listRef}
-                    className="flex-1 space-y-3 overflow-y-auto px-5 py-4"
+                    className="flex-1 space-y-3 overflow-y-auto px-5 pt-4"
+                    style={{ paddingBottom: `${composerHeight + 48}px` }}
                   >
                     {conversation.messages.length === 0 ? (
                       <p className="mt-8 text-center text-xs uppercase tracking-[0.2em] text-[var(--fg-muted)]">
@@ -861,20 +956,100 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
                             : "text-[var(--fg-muted)]";
                         const displayedText =
                           showOriginal || !rawTranslatedText ? message.plaintext : rawTranslatedText;
+                        const isOutgoing = message.direction === "outgoing";
+                        const replySource =
+                          message.replyToId && messageLookup.has(message.replyToId)
+                            ? messageLookup.get(message.replyToId) ?? null
+                            : null;
+                        const replyLabel =
+                          replySource?.direction === "outgoing"
+                            ? "You"
+                            : summary.displayName || "Community member";
+                        const replyPreviewClass = isOutgoing
+                          ? "border-white/20 bg-white/10 text-white/80"
+                          : "border-[var(--border-subtle)] bg-[var(--bg-surface)]/90 text-[var(--fg-muted)]";
+                        const replyUnavailableClass = isOutgoing
+                          ? "border-white/20 bg-white/5 text-white/70"
+                          : "border-dashed border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 text-[var(--fg-muted)]";
+                        const replyButtonTint = isOutgoing
+                          ? "border-white/30 bg-white/10 text-white/80 hover:bg-white/20 focus-visible:ring-white/60"
+                          : "border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--fg-muted)] hover:bg-[var(--bg-surface)] focus-visible:ring-brand/40";
+                        const messageKeyForReply = !message.id.startsWith("pending-")
+                          ? message.id
+                          : message.clientId ?? message.id;
 
                         return (
                           <div
                             key={message.id || message.clientId || messageTranslationKey}
-                            className={`flex ${message.direction === "outgoing" ? "justify-end" : "justify-start"}`}
-                          >
-                            <div
-                            className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow-md ${
-                              message.direction === "outgoing"
-                                ? "bg-brand/90 text-white"
-                                : "border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--fg-default)]"
+                            className={`group relative flex ${
+                              isOutgoing ? "justify-end" : "justify-start"
                             }`}
                           >
-                            <p className="whitespace-pre-wrap break-words leading-relaxed">{displayedText}</p>
+                            <div
+                              ref={(node) => {
+                                const currentEntry = messageElementsRef.current.get(messageTranslationKey);
+                                if (node) {
+                                  node.dataset.translationKey = messageTranslationKey;
+                                  messageElementsRef.current.set(messageTranslationKey, {
+                                    element: node,
+                                    plaintext: message.plaintext,
+                                  });
+                                  messageNodesByIdRef.current.set(message.id, node);
+                                  if (message.clientId) {
+                                    messageNodesByIdRef.current.set(message.clientId, node);
+                                  }
+                                  if (messageObserverRef.current && (!currentEntry || currentEntry.element !== node)) {
+                                    messageObserverRef.current.observe(node);
+                                  }
+                                } else {
+                                  if (currentEntry) {
+                                    messageObserverRef.current?.unobserve(currentEntry.element);
+                                    messageElementsRef.current.delete(messageTranslationKey);
+                                  }
+                                  messageNodesByIdRef.current.delete(message.id);
+                                  if (message.clientId) {
+                                    messageNodesByIdRef.current.delete(message.clientId);
+                                  }
+                                }
+                              }}
+                              className={`relative max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow-md ${
+                                isOutgoing
+                                  ? "bg-brand/90 text-white"
+                                  : "border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--fg-default)]"
+                              }`}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setReplyTargetKey(messageKeyForReply);
+                                  scrollStickToBottomRef.current = true;
+                                }}
+                                className={`absolute -top-3 ${
+                                  isOutgoing ? "right-3" : "left-3"
+                                } flex h-8 w-8 items-center justify-center rounded-full border p-1 text-xs transition focus-visible:outline-none focus-visible:ring-2 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 ${replyButtonTint}`}
+                                aria-label="Reply to message"
+                              >
+                                <MessageCircle className="h-4 w-4" />
+                              </button>
+                              {replySource ? (
+                                <div
+                                  className={`mb-2 rounded-xl border px-3 py-2 text-xs leading-relaxed ${replyPreviewClass}`}
+                                >
+                                  <p className="text-[10px] font-semibold uppercase tracking-[0.24em]">
+                                    Replying to {replyLabel}
+                                  </p>
+                                  <p className="mt-1 max-h-24 overflow-hidden whitespace-pre-wrap break-words text-[0.75rem] leading-relaxed">
+                                    {replySource.plaintext}
+                                  </p>
+                                </div>
+                              ) : message.replyToId ? (
+                                <div
+                                  className={`mb-2 rounded-xl border px-3 py-2 text-[11px] leading-relaxed ${replyUnavailableClass}`}
+                                >
+                                  Original message unavailable.
+                                </div>
+                              ) : null}
+                              <p className="whitespace-pre-wrap break-words leading-relaxed">{displayedText}</p>
                             {showTranslationControls && (
                               <div className="mt-2 space-y-1">
                                 {translationStatus === "loading" ? (
@@ -956,24 +1131,56 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
                     )}
                   </div>
 
-                  {activeConversation && conversation && (
-                    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[var(--bg-surface)]/90 via-[var(--bg-surface)]/60 to-transparent" />
+                  {showScrollToBottom && (
+                    <button
+                      type="button"
+                      onClick={handleScrollToBottom}
+                      className="absolute right-8 z-10 flex items-center gap-2 rounded-full bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-white shadow-lg transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+                      style={{ bottom: composerHeight + 32 }}
+                    >
+                      <ArrowDown className="h-4 w-4" />
+                      <span>Go to latest</span>
+                    </button>
                   )}
 
                   {activeConversation && conversation && (
-                    <div className="border-t border-[var(--border-subtle)] bg-[var(--bg-card)]/95 backdrop-blur">
-                      <div className="mx-auto flex w-full max-w-5xl justify-center px-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pt-4 sm:px-6 lg:justify-end">
-                        <form
-                          onSubmit={handleSubmit}
-                          className="w-full rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)]/95 px-5 py-4 shadow-lg"
-                        >
-                          {!ready && (
-                            <p className="mb-2 text-xs text-[var(--fg-muted)]">
-                              {error ?? "Direct messages are initializing. Please wait."}
-                            </p>
+                    <div
+                      ref={composerContainerRef}
+                      className="pointer-events-none absolute inset-x-0 bottom-0 px-5 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]"
+                    >
+                      <div
+                        aria-hidden
+                        className="pointer-events-none absolute inset-x-5 bottom-[calc(100%-1rem)] h-24 rounded-t-3xl bg-gradient-to-t from-[var(--bg-surface)]/95 via-[var(--bg-surface)]/70 to-transparent"
+                      />
+                      <div className="relative mx-auto flex w-full max-w-5xl justify-center sm:px-0 lg:justify-end">
+                        <div className="pointer-events-auto w-full overflow-hidden rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)]/95 shadow-xl backdrop-blur">
+                          {replyTarget && (
+                            <div className="flex items-start justify-between gap-3 border-b border-[var(--border-subtle)] px-5 py-4">
+                              <div className="min-w-0">
+                                <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[var(--fg-muted)]">
+                                  Replying to {replyTarget.direction === "outgoing" ? "you" : summary.displayName || "a member"}
+                                </p>
+                                <p className="mt-2 max-h-24 overflow-hidden whitespace-pre-wrap break-words text-sm leading-relaxed text-[var(--fg-default)] opacity-90">
+                                  {replyTarget.plaintext}
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setReplyTargetKey(null)}
+                                className="rounded-full border border-[var(--border-subtle)] p-1 text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+                              >
+                                <span className="sr-only">Cancel reply</span>
+                                <X className="h-4 w-4" />
+                              </button>
+                            </div>
                           )}
-                          {composerError && <p className="mb-2 text-xs text-red-500">{composerError}</p>}
-                          <div className="flex w-full flex-col gap-3 sm:gap-4">
+                          <form onSubmit={handleSubmit} className="flex flex-col gap-3 px-5 py-4">
+                            {!ready && (
+                              <p className="text-xs text-[var(--fg-muted)]">
+                                {error ?? "Direct messages are initializing. Please wait."}
+                              </p>
+                            )}
+                            {composerError && <p className="text-xs text-red-500">{composerError}</p>}
                             <div className="relative w-full">
                               <textarea
                                 ref={textareaRef}
@@ -1016,10 +1223,10 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
                                               onMouseDown={(event) => event.preventDefault()}
                                               onClick={() => handleMentionSelection(candidate)}
                                               onMouseEnter={() => setMentionHighlightIndex(index)}
-                                              className={`flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition ${
+                                              className={`flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition${
                                                 isActive
-                                                  ? "bg-brand/10 text-brand"
-                                                  : "text-[var(--fg-default)] hover:bg-[var(--bg-surface)]/80"
+                                                  ? " bg-brand/10 text-brand"
+                                                  : " text-[var(--fg-default)] hover:bg-[var(--bg-surface)]/80"
                                               }`}
                                             >
                                               <img
@@ -1044,23 +1251,28 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
                                 </div>
                               )}
                             </div>
-                            <div className="flex justify-end">
-                              <button
-                                type="submit"
-                                disabled={!draft.trim() || sending}
-                                className="rounded-full bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-white transition disabled:cursor-not-allowed disabled:bg-brand/40"
-                              >
-                                {sending ? "Sending…" : "Send"}
-                              </button>
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                              <div className="text-xs text-[var(--fg-muted)]">
+                                {ready
+                                  ? "Messages are encrypted end-to-end via Nostr."
+                                  : "Waiting for your encrypted keys to finish loading."}
+                              </div>
+                              <div className="flex justify-end">
+                                <button
+                                  type="submit"
+                                  disabled={!draft.trim() || sending}
+                                  className="rounded-full bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-white transition disabled:cursor-not-allowed disabled:bg-brand/40"
+                                >
+                                  {sending ? "Sending…" : "Send"}
+                                </button>
+                              </div>
                             </div>
-                          </div>
-                        </form>
+                          </form>
+                        </div>
                       </div>
                     </div>
                   )}
-                </div>
-              </>
-            )}
+
           </section>
         </div>
       </div>
