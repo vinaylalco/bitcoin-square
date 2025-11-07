@@ -31,6 +31,7 @@ export interface DirectMessageEntry {
   direction: "incoming" | "outgoing";
   status: DirectMessageStatus;
   error?: string | null;
+  replyToId?: string | null;
 }
 
 export interface DirectMessageConversation {
@@ -47,7 +48,11 @@ interface DirectMessageContextValue {
   error: string | null;
   openConversation: (pubkey: string) => void;
   closeConversation: () => void;
-  sendMessage: (pubkey: string, body: string) => Promise<void>;
+  sendMessage: (
+    pubkey: string,
+    body: string,
+    options?: { replyToId?: string | null },
+  ) => Promise<void>;
   markAsRead: (pubkey: string) => void;
   getDraft: (pubkey: string) => string;
   setDraft: (pubkey: string, value: string) => void;
@@ -214,6 +219,9 @@ export const DirectMessageProvider: React.FC<React.PropsWithChildren> = ({ child
             console.warn("Failed to decrypt direct message", error);
           }
         }
+        const replyTags = event.tags.filter((tag) => tag[0] === "e" && typeof tag[1] === "string");
+        const replyTag = replyTags.find((tag) => tag[3] === "reply") ?? replyTags[0];
+        const replyToId = replyTag ? (replyTag[1] as string) : null;
         setConversations((prev) => {
           const existing = ensureConversation(prev, peerPubkey);
           if (existing.messages.some((message) => message.id === event.id)) {
@@ -224,6 +232,7 @@ export const DirectMessageProvider: React.FC<React.PropsWithChildren> = ({ child
                     plaintext: plaintext || message.plaintext,
                     status: event.pubkey === accountPubkey ? "sent" : "received",
                     error: errorMessage,
+                    replyToId: message.replyToId ?? replyToId,
                   }
                 : message,
             );
@@ -247,6 +256,7 @@ export const DirectMessageProvider: React.FC<React.PropsWithChildren> = ({ child
             direction,
             status: direction === "outgoing" ? "sent" : "received",
             error: errorMessage,
+            replyToId,
           };
           const unread =
             direction === "incoming" && activeConversationRef.current !== peerPubkey
@@ -315,7 +325,7 @@ export const DirectMessageProvider: React.FC<React.PropsWithChildren> = ({ child
   }, []);
 
   const sendMessage = useCallback(
-    async (pubkey: string, body: string) => {
+    async (pubkey: string, body: string, options?: { replyToId?: string | null }) => {
       if (!ready || !accountPubkey || !signEvent) {
         throw new Error("Your Nostr account isn't ready yet. Try again once keys are available.");
       }
@@ -325,6 +335,10 @@ export const DirectMessageProvider: React.FC<React.PropsWithChildren> = ({ child
       }
       const clientId = `pending-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
       const createdAt = Math.floor(Date.now() / 1000);
+      const normalizedReplyToId =
+        options?.replyToId && options.replyToId.trim().length > 0
+          ? options.replyToId.trim()
+          : null;
       setConversations((prev) => {
         const existing = ensureConversation(prev, pubkey);
         const message: DirectMessageEntry = {
@@ -334,6 +348,7 @@ export const DirectMessageProvider: React.FC<React.PropsWithChildren> = ({ child
           plaintext: trimmed,
           direction: "outgoing",
           status: "pending",
+          replyToId: normalizedReplyToId,
         };
         return {
           ...prev,
@@ -348,11 +363,16 @@ export const DirectMessageProvider: React.FC<React.PropsWithChildren> = ({ child
       setDraft(pubkey, "");
       try {
         const content = await encryptWithPeer(pubkey, trimmed);
+        const tags: string[][] = [["p", pubkey]];
+        if (normalizedReplyToId) {
+          tags.push(["e", normalizedReplyToId, "", "reply"]);
+        }
+
         const template: EventTemplate = {
           kind: 4,
           created_at: createdAt,
           content,
-          tags: [["p", pubkey]],
+          tags,
         };
         const signed = await signEvent(template);
         setConversations((prev) => {
