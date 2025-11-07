@@ -12,6 +12,7 @@ import { useAuth } from "../../context/AuthContext";
 import LessonPointsCounter from "./LessonPointsCounter";
 import LessonTour, { type LessonTourStep } from "./LessonTour";
 import CustomizeDialog from "./CustomizeDialog";
+import Modal from "../ui/Modal";
 import type { QuizCompletionMeta } from "./Quiz";
 import {
   calculateNextStudyStreak,
@@ -98,12 +99,14 @@ export default function Slider({
   courseTitle,
   lessonSlug,
   enableCustomize = true,
+  isLessonAccessRestricted = false,
 }: {
   cards: LessonCard[];
   modules: Module[];
   courseTitle?: string;
   lessonSlug?: string;
   enableCustomize?: boolean;
+  isLessonAccessRestricted?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const [index, setIndex] = useState(0);
@@ -136,6 +139,7 @@ export default function Slider({
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [customizeOpen, setCustomizeOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
+  const [showAccessModal, setShowAccessModal] = useState(false);
   const [surveyAnswers, setSurveyAnswers] = useState<SurveyAnswers | null>(null);
   const [personalizedPlan, setPersonalizedPlan] = useState<FlatPlan | null>(null);
   const [completedCardIds, setCompletedCardIds] = useState<Set<string>>(() => {
@@ -622,6 +626,10 @@ export default function Slider({
       if (!el) return Promise.resolve();
       const totalCards = displayCardsRef.current.length;
       const clamped = Math.max(0, Math.min(totalCards - 1, targetIndex));
+      if (isLessonAccessRestricted && clamped > 0) {
+        setShowAccessModal(true);
+        return Promise.resolve();
+      }
       const start = el.scrollLeft;
       const width = el.clientWidth;
       const target = clamped * width;
@@ -647,7 +655,7 @@ export default function Slider({
         requestAnimationFrame(step);
       });
     },
-    [reduceMotion, ease]
+    [reduceMotion, ease, isLessonAccessRestricted]
   );
 
   const prev = () => {
@@ -874,6 +882,11 @@ export default function Slider({
 
   const handleSelect = (id: string) => {
     const key = toCardKey(id);
+    const targetIndex = idToIndex.get(key);
+    if (isLessonAccessRestricted && targetIndex !== undefined && targetIndex > 0) {
+      setShowAccessModal(true);
+      return;
+    }
     goToCardById(key);
     setTocOpen(false);
     const delay = reduceMotion ? 0 : 400;
@@ -1023,6 +1036,17 @@ export default function Slider({
     };
   }, [tourOpen]);
 
+  useEffect(() => {
+    if (!isLessonAccessRestricted) {
+      return;
+    }
+    setIndex(0);
+    const container = containerRef.current;
+    if (container) {
+      container.scrollLeft = 0;
+    }
+  }, [isLessonAccessRestricted]);
+
   const handleTourDismiss = useCallback(() => {
     if (typeof window !== "undefined") {
       window.localStorage.setItem(LESSON_TOUR_STORAGE_KEY, "true");
@@ -1161,7 +1185,9 @@ export default function Slider({
           <div className="relative flex-1 min-h-0">
             <div
               ref={containerRef}
-              className="flex h-full overflow-x-auto touch-momentum snap-x snap-mandatory"
+              className={`flex h-full touch-momentum snap-x snap-mandatory ${
+                isLessonAccessRestricted ? "overflow-hidden" : "overflow-x-auto"
+              }`}
               data-tour-id="lesson-flow"
             >
               {displayCards.map((c) => {
@@ -1301,6 +1327,32 @@ export default function Slider({
           enableCustomize ? () => setCustomizeOpen(true) : undefined
         }
       />
+      <Modal
+        open={showAccessModal}
+        onClose={() => setShowAccessModal(false)}
+        labelledBy="lesson-access-required-title"
+      >
+        <div className="rounded-2xl bg-white p-6 text-center shadow-xl dark:bg-neutral-900">
+          <h2
+            id="lesson-access-required-title"
+            className="text-lg font-semibold text-neutral-900 dark:text-neutral-100"
+          >
+            {t("lesson.accessRequired.title", {
+              defaultValue: "Membership required",
+            })}
+          </h2>
+          <p className="mt-3 text-sm text-neutral-600 dark:text-neutral-300">
+            You need a membership to see this content.
+          </p>
+          <button
+            type="button"
+            onClick={() => setShowAccessModal(false)}
+            className="mt-6 inline-flex items-center justify-center rounded-full bg-brand px-6 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-white transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+          >
+            {t("lesson.accessRequired.close", { defaultValue: "Close" })}
+          </button>
+        </div>
+      </Modal>
     </>
   );
 }
