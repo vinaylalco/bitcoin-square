@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useSearchParams } from "react-router-dom";
 import {
   useNewsletter,
   useSubscribe,
@@ -15,9 +16,15 @@ export default function NewsletterSubscribe() {
   const [status, setStatus] = useState<{ type: "success" | "error"; messageKey: string } | null>(
     null,
   );
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [bannerMessage, setBannerMessage] = useState(() => searchParams.get("msg") ?? "");
   useNewsletter();
   const subscribe = useSubscribe();
   const unsubscribe = useUnsubscribe();
+
+  useEffect(() => {
+    setBannerMessage(searchParams.get("msg") ?? "");
+  }, [searchParams]);
 
   const handleSubscribe = (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,8 +57,31 @@ export default function NewsletterSubscribe() {
     });
   };
 
+  const dismissBanner = () => {
+    setBannerMessage("");
+    if (searchParams.get("msg")) {
+      const next = new URLSearchParams(searchParams);
+      next.delete("msg");
+      setSearchParams(next, { replace: true });
+    }
+  };
+
   return (
     <div className="mx-auto max-w-3xl px-4 pb-20 pt-12 text-center sm:px-6">
+      {bannerMessage && (
+        <div className="mb-6 rounded-3xl border border-brand/30 bg-brand/5 px-6 py-4 text-left text-sm text-[var(--fg-default)] shadow-[0_12px_30px_rgba(169,21,255,0.18)]">
+          <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="font-semibold text-brand">{bannerMessage}</p>
+            <button
+              type="button"
+              onClick={dismissBanner}
+              className="inline-flex items-center rounded-full border border-brand/40 px-4 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-brand transition hover:bg-brand hover:text-white"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
       <header className="space-y-4">
         <p className="text-xs font-semibold uppercase tracking-[0.42em] text-brand">{t("newsletter.label")}</p>
         <h1 className="text-3xl font-black uppercase tracking-[0.16em] text-[var(--fg-default)] sm:text-4xl">

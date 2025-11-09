@@ -82,18 +82,21 @@ const events = [
     month: "November",
     title: "Masterclass: Bitcoin Security",
     description: "Learn best practices to secure your Bitcoin. Live session with expert speakers.",
+    subscribeMessage: "Sign up and we’ll let you know when this becomes available.",
   },
   {
     day: "22",
     month: "November",
     title: "Virtual Meetup: BTC Community",
     description: "Connect with bitcoiners from your region. Networking, Q&A in real time.",
+    subscribeMessage: "Sign up and we’ll let you know when this becomes available.",
   },
   {
     day: "30",
     month: "November",
     title: "Workshop: Investment Strategies",
     description: "Build your Bitcoin investment strategy. Interactive session with live analysis.",
+    subscribeMessage: "Sign up and we’ll let you know when this becomes available.",
   },
 ];
 
@@ -137,17 +140,20 @@ const ctaCards = [
   {
     title: "🎯 Referrals",
     description: "Earn $20 per annual membership or $25 per lifetime you share with your network",
-    cta: "Get Link",
+    cta: "Get Updates",
+    subscribeMessage: "We’re working on referrals. Sign up to be notified when it’s ready.",
   },
   {
-    title: "📅 Events",
-    description: "Live masterclasses, virtual meetups and in-person events with expert speakers",
-    cta: "View Calendar",
+    title: "🔗 Links",
+    description: "Curated resources for professionals mastering the Bitcoin economy.",
+    cta: "Keep Me Posted",
+    subscribeMessage: "We’re building out curated links. Join the newsletter for updates.",
   },
   {
-    title: "👤 Dashboard",
-    description: "Manage your membership, track your progress and access all your tools",
-    cta: "Go to Dashboard",
+    title: "📊 Dashboards",
+    description: "Manage your membership, track performance and unlock data-driven insights.",
+    cta: "Notify Me",
+    subscribeMessage: "Dashboards are in progress. Subscribe to get notified at launch.",
   },
 ];
 
@@ -158,6 +164,9 @@ export default function HomePage() {
   const [memberCount, setMemberCount] = useState<number | null>(null);
   const [isMembersLoading, setIsMembersLoading] = useState(true);
   const [membersError, setMembersError] = useState(false);
+  const [lessonPlanCount, setLessonPlanCount] = useState<number | null>(null);
+  const [isLessonPlansLoading, setIsLessonPlansLoading] = useState(true);
+  const [lessonPlansError, setLessonPlansError] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -208,6 +217,53 @@ export default function HomePage() {
     };
   }, []);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchLessonPlanCount = async () => {
+      try {
+        const response = await strapiFetch<{
+          data: unknown;
+          meta?: {
+            pagination?: {
+              total?: number;
+            };
+          };
+        }>("/api/lessonplans?pagination[pageSize]=1");
+
+        if (!isMounted) {
+          return;
+        }
+
+        const total = response.meta?.pagination?.total;
+        if (typeof total === "number") {
+          setLessonPlanCount(total);
+          setLessonPlansError(false);
+        } else {
+          setLessonPlanCount(null);
+          setLessonPlansError(true);
+        }
+      } catch {
+        if (!isMounted) {
+          return;
+        }
+
+        setLessonPlansError(true);
+        setLessonPlanCount(null);
+      } finally {
+        if (isMounted) {
+          setIsLessonPlansLoading(false);
+        }
+      }
+    };
+
+    fetchLessonPlanCount();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const heroStats = [
     {
       label: "Active Members",
@@ -217,7 +273,14 @@ export default function HomePage() {
         ? "-"
         : (memberCount ?? 0).toLocaleString(),
     },
-    { label: "Professional Courses", value: "50+" },
+    {
+      label: "Courses",
+      value: isLessonPlansLoading
+        ? "Loading…"
+        : lessonPlansError
+        ? "-"
+        : (lessonPlanCount ?? 0).toLocaleString(),
+    },
   ];
 
   return (
@@ -371,7 +434,10 @@ export default function HomePage() {
                 <p className="flex-1 text-sm leading-relaxed text-neutral-600 transition-colors duration-300 dark:text-neutral-300">
                   {event.description}
                 </p>
-                <a href="/community" className="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.32em] text-brand transition hover:text-brand/80">
+                <a
+                  href={`/subscribe?msg=${encodeURIComponent(event.subscribeMessage)}`}
+                  className="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.32em] text-brand transition hover:text-brand/80"
+                >
                   Register
                   <span aria-hidden="true" className="text-base">
                     →
@@ -456,7 +522,10 @@ export default function HomePage() {
               <p className="flex-1 text-sm leading-relaxed text-neutral-600 transition-colors duration-300 dark:text-neutral-300">
                 {card.description}
               </p>
-              <a href="/dashboard" className="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.32em] text-brand transition hover:text-brand/80">
+              <a
+                href={`/subscribe?msg=${encodeURIComponent(card.subscribeMessage)}`}
+                className="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.32em] text-brand transition hover:text-brand/80"
+              >
                 {card.cta}
                 <span aria-hidden="true" className="text-base">
                   →
