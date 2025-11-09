@@ -136,7 +136,15 @@ const pricing = [
   },
 ];
 
-const ctaCards = [
+type CtaCard = {
+  title: string;
+  description: string;
+  cta: string;
+  subscribeMessage?: string;
+  href?: string;
+};
+
+const ctaCards: CtaCard[] = [
   {
     title: "🎯 Referrals",
     description: "Earn $20 per annual membership or $25 per lifetime you share with your network",
@@ -151,9 +159,10 @@ const ctaCards = [
   },
   {
     title: "📊 Dashboards",
-    description: "Manage your membership, track performance and unlock data-driven insights.",
-    cta: "Notify Me",
-    subscribeMessage: "Dashboards are in progress. Subscribe to get notified at launch.",
+    description:
+      "Manage your membership, track performance and unlock data-driven insights once your membership is active.",
+    cta: "Explore Memberships",
+    href: "/memberships",
   },
 ];
 
@@ -511,7 +520,14 @@ export default function HomePage() {
           </p>
         </div>
         <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-          {ctaCards.map((card) => (
+          {ctaCards.map((card) => {
+            const href =
+              card.href ??
+              (card.subscribeMessage
+                ? `/subscribe?msg=${encodeURIComponent(card.subscribeMessage)}`
+                : undefined);
+
+            return (
             <article
               key={card.title}
               className="flex h-full flex-col gap-4 rounded-3xl border border-neutral-200/70 bg-white/80 p-8 shadow-[0_20px_80px_rgba(15,23,42,0.12)] transition duration-500 hover:-translate-y-1 hover:shadow-[0_30px_110px_rgba(169,21,255,0.28)] dark:border-neutral-800/70 dark:bg-neutral-900/70"
@@ -522,17 +538,20 @@ export default function HomePage() {
               <p className="flex-1 text-sm leading-relaxed text-neutral-600 transition-colors duration-300 dark:text-neutral-300">
                 {card.description}
               </p>
-              <a
-                href={`/subscribe?msg=${encodeURIComponent(card.subscribeMessage)}`}
-                className="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.32em] text-brand transition hover:text-brand/80"
-              >
-                {card.cta}
-                <span aria-hidden="true" className="text-base">
-                  →
-                </span>
-              </a>
+              {href && (
+                <a
+                  href={href}
+                  className="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.32em] text-brand transition hover:text-brand/80"
+                >
+                  {card.cta}
+                  <span aria-hidden="true" className="text-base">
+                    →
+                  </span>
+                </a>
+              )}
             </article>
-          ))}
+          );
+          })}
         </div>
       </section>
 

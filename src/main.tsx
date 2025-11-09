@@ -68,6 +68,7 @@ const router = createBrowserRouter([
       { path: "newsletter", element: <NewsletterSubscribe /> },
       { path: "subscribe", element: <NewsletterSubscribe /> },
       { path: "membership", element: <Membership /> },
+      { path: "memberships", element: <Membership /> },
       { path: "login", element: <Navigate to="/membership" replace /> },
       { path: "membership/success", element: <MembershipSuccess /> },
       { path: "membership/cancel", element: <MembershipCancel /> },
