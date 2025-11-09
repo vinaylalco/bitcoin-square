@@ -1,9 +1,5 @@
-import { Fragment } from "react";
-
-const heroStats = [
-  { label: "Active Bitcoiners", value: "500+" },
-  { label: "Professional Courses", value: "50+" },
-];
+import { Fragment, useEffect, useState } from "react";
+import { strapiFetch } from "../api/strapi-client";
 
 const howItWorks = [
   {
@@ -159,6 +155,71 @@ const buttonBase =
   "inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-brand via-brand/85 to-[#FFF582] px-6 py-3 text-sm font-semibold uppercase tracking-[0.32em] text-white shadow-[0_20px_50px_rgba(169,21,255,0.35)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_30px_70px_rgba(169,21,255,0.45)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand";
 
 export default function HomePage() {
+  const [memberCount, setMemberCount] = useState<number | null>(null);
+  const [isMembersLoading, setIsMembersLoading] = useState(true);
+  const [membersError, setMembersError] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchMemberCount = async () => {
+      try {
+        const response = await strapiFetch<{
+          data: unknown;
+          meta?: {
+            pagination?: {
+              total?: number;
+            };
+          };
+        }>(
+          "/api/members?filters[status][$in]=active,grandfathered&pagination[pageSize]=1",
+        );
+
+        if (!isMounted) {
+          return;
+        }
+
+        const total = response.meta?.pagination?.total;
+        if (typeof total === "number") {
+          setMemberCount(total);
+          setMembersError(false);
+        } else {
+          setMembersError(true);
+          setMemberCount(null);
+        }
+      } catch {
+        if (!isMounted) {
+          return;
+        }
+
+        setMembersError(true);
+        setMemberCount(null);
+      } finally {
+        if (isMounted) {
+          setIsMembersLoading(false);
+        }
+      }
+    };
+
+    fetchMemberCount();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const heroStats = [
+    {
+      label: "Active Members",
+      value: isMembersLoading
+        ? "Loading…"
+        : membersError
+        ? "-"
+        : (memberCount ?? 0).toLocaleString(),
+    },
+    { label: "Professional Courses", value: "50+" },
+  ];
+
   return (
     <div className="relative min-h-screen space-y-20 overflow-hidden bg-gradient-to-b from-white via-neutral-50 to-neutral-100 px-4 pb-20 pt-10 text-neutral-900 transition-colors duration-500 dark:from-neutral-950 dark:via-neutral-950 dark:to-black dark:text-neutral-100 sm:px-6 lg:px-8">
       <section className="mx-auto max-w-6xl rounded-3xl border border-neutral-200/70 bg-white/80 px-6 py-12 text-center shadow-[0_30px_120px_rgba(15,23,42,0.12)] backdrop-blur-sm transition-colors duration-500 dark:border-neutral-800/60 dark:bg-neutral-900/70 dark:shadow-[0_35px_120px_rgba(0,0,0,0.55)] md:px-12">
@@ -177,7 +238,7 @@ export default function HomePage() {
             </span>
           </a>
           <a
-            href="/membership"
+            href="#how-it-works"
             className="inline-flex items-center justify-center gap-2 rounded-full border border-neutral-200/70 bg-white/70 px-6 py-3 text-sm font-semibold uppercase tracking-[0.32em] text-neutral-900 shadow-[0_14px_45px_rgba(15,23,42,0.1)] transition duration-300 hover:-translate-y-0.5 hover:border-brand/70 hover:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand dark:border-neutral-700 dark:bg-neutral-900/80 dark:text-neutral-100 dark:hover:text-brand"
           >
             See How It Works
@@ -198,7 +259,7 @@ export default function HomePage() {
         </dl>
       </section>
 
-      <section className="mx-auto max-w-6xl space-y-10">
+      <section id="how-it-works" className="mx-auto max-w-6xl space-y-10 scroll-mt-28">
         <div className="text-center">
           <p className="text-xs font-semibold uppercase tracking-[0.35em] text-brand/80">How it works</p>
           <h2 className="mt-3 text-3xl font-bold text-neutral-900 transition-colors duration-300 dark:text-white sm:text-4xl">
