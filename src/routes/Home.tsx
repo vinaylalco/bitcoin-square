@@ -536,9 +536,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      <footer className="mx-auto max-w-6xl rounded-3xl border border-neutral-200/70 bg-white/80 px-6 py-8 text-center text-sm text-neutral-500 shadow-[0_20px_80px_rgba(15,23,42,0.12)] transition-colors duration-300 dark:border-neutral-800/70 dark:bg-neutral-900/70 dark:text-neutral-400">
-        © {new Date().getFullYear()} BitcoinSquare. Bitcoin ecosystem built on Nostr. BTC only.
-      </footer>
     </div>
   );
 }
