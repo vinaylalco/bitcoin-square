@@ -1,5 +1,9 @@
 import { Fragment, useEffect, useState } from "react";
-import { strapiFetch } from "../api/strapi-client";
+import {
+  fetchActiveMemberCount,
+  fetchLessonPlanCount,
+  isHeadlessApiConfigured,
+} from "../api/headless-client";
 
 const howItWorks = [
   {
@@ -181,24 +185,23 @@ export default function HomePage() {
     let isMounted = true;
 
     const fetchMemberCount = async () => {
+      if (!isHeadlessApiConfigured()) {
+        if (isMounted) {
+          setMembersError(true);
+          setMemberCount(null);
+          setIsMembersLoading(false);
+        }
+        return;
+      }
+
       try {
-        const response = await strapiFetch<{
-          data: unknown;
-          meta?: {
-            pagination?: {
-              total?: number;
-            };
-          };
-        }>(
-          "/api/members?filters[status][$in]=active,grandfathered&pagination[pageSize]=1",
-        );
+        const total = await fetchActiveMemberCount();
 
         if (!isMounted) {
           return;
         }
 
-        const total = response.meta?.pagination?.total;
-        if (typeof total === "number") {
+        if (typeof total === "number" && Number.isFinite(total)) {
           setMemberCount(total);
           setMembersError(false);
         } else {
@@ -229,23 +232,24 @@ export default function HomePage() {
   useEffect(() => {
     let isMounted = true;
 
-    const fetchLessonPlanCount = async () => {
+    const fetchCoursesCount = async () => {
+      if (!isHeadlessApiConfigured()) {
+        if (isMounted) {
+          setLessonPlansError(true);
+          setLessonPlanCount(null);
+          setIsLessonPlansLoading(false);
+        }
+        return;
+      }
+
       try {
-        const response = await strapiFetch<{
-          data: unknown;
-          meta?: {
-            pagination?: {
-              total?: number;
-            };
-          };
-        }>("/api/lessonplans?pagination[pageSize]=1");
+        const total = await fetchLessonPlanCount();
 
         if (!isMounted) {
           return;
         }
 
-        const total = response.meta?.pagination?.total;
-        if (typeof total === "number") {
+        if (typeof total === "number" && Number.isFinite(total)) {
           setLessonPlanCount(total);
           setLessonPlansError(false);
         } else {
@@ -266,7 +270,7 @@ export default function HomePage() {
       }
     };
 
-    fetchLessonPlanCount();
+    fetchCoursesCount();
 
     return () => {
       isMounted = false;
