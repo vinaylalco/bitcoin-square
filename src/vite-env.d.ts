@@ -6,6 +6,8 @@ interface ImportMetaEnv {
   readonly VITE_SITE_URL?: string;
   readonly VITE_FRONTEND_URL?: string;
   readonly VITE_CASUAL_ROOM_KEY?: string;
+  readonly VITE_HEADLESS_API_URL?: string;
+  readonly VITE_HEADLESS_API_TOKEN?: string;
   readonly [key: `VITE_ROOM_KEY_${string}`]: string | undefined;
   readonly VITE_MEDIA_UPLOAD_HOSTS?: string;
   readonly VITE_MEDIA_UPLOAD_ENDPOINT_NOSTR_BUILD?: string;
