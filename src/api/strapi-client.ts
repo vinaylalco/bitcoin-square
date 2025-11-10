@@ -43,6 +43,20 @@ export function getStrapiBaseUrl(): string | null {
   return trimmed.endsWith('/') ? trimmed.slice(0, -1) : trimmed;
 }
 
+export function getStrapiApiToken(): string | null {
+  const token =
+    env.STRAPI_TOKEN ||
+    env.VITE_STRAPI_TOKEN ||
+    env.NEXT_PUBLIC_STRAPI_TOKEN ||
+    env.STRAPI_API_TOKEN ||
+    env.VITE_STRAPI_API_TOKEN ||
+    env.NEXT_PUBLIC_STRAPI_API_TOKEN ||
+    '';
+
+  const trimmed = token?.trim();
+  return trimmed ? trimmed : null;
+}
+
 export async function strapiFetch<T>(
   path: string,
   init: RequestInit = {},
@@ -55,7 +69,14 @@ export async function strapiFetch<T>(
   const headers = {
     'Content-Type': 'application/json',
     ...(init.headers as Record<string, string>),
-  };
+  } as Record<string, string>;
+
+  if (headers.Authorization === undefined && headers.authorization === undefined) {
+    const token = getStrapiApiToken();
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+  }
 
   const url = path.startsWith('http')
     ? path

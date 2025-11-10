@@ -1,6 +1,17 @@
 import { Fragment, useEffect, useState } from "react";
 import { strapiFetch } from "../api/strapi-client";
 
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === "number" && Number.isFinite(value);
+
+const extractCount = (value: { count?: unknown } | null | undefined): number | null => {
+  if (value && isFiniteNumber(value.count)) {
+    return value.count;
+  }
+
+  return null;
+};
+
 const howItWorks = [
   {
     step: "1️⃣",
@@ -182,24 +193,21 @@ export default function HomePage() {
 
     const fetchMemberCount = async () => {
       try {
-        const response = await strapiFetch<{
-          data: unknown;
-          meta?: {
-            pagination?: {
-              total?: number;
-            };
-          };
-        }>(
-          "/api/members?filters[status][$in]=active,grandfathered&pagination[pageSize]=1",
+        const params = new URLSearchParams();
+        params.set("filters[$or][0][membership_status][$eq]", "active");
+        params.set("filters[$or][1][grandfathered][$eq]", "true");
+
+        const response = await strapiFetch<{ count?: unknown }>(
+          `/api/users/count?${params.toString()}`,
         );
 
         if (!isMounted) {
           return;
         }
 
-        const total = response.meta?.pagination?.total;
-        if (typeof total === "number") {
-          setMemberCount(total);
+        const count = extractCount(response);
+        if (count !== null) {
+          setMemberCount(count);
           setMembersError(false);
         } else {
           setMembersError(true);
@@ -231,22 +239,17 @@ export default function HomePage() {
 
     const fetchLessonPlanCount = async () => {
       try {
-        const response = await strapiFetch<{
-          data: unknown;
-          meta?: {
-            pagination?: {
-              total?: number;
-            };
-          };
-        }>("/api/lessonplans?pagination[pageSize]=1");
+        const response = await strapiFetch<{ count?: unknown }>(
+          "/api/lessonplans/count",
+        );
 
         if (!isMounted) {
           return;
         }
 
-        const total = response.meta?.pagination?.total;
-        if (typeof total === "number") {
-          setLessonPlanCount(total);
+        const count = extractCount(response);
+        if (count !== null) {
+          setLessonPlanCount(count);
           setLessonPlansError(false);
         } else {
           setLessonPlanCount(null);
