@@ -52,6 +52,8 @@ interface BitcoinSquareFeedProps {
   initialThreadId?: string | null;
   onThreadChange?: (postId: string | null) => void;
   emptyStateMessage?: React.ReactNode;
+  externalComposerRequest?: number | null;
+  onComposerOpenChange?: (open: boolean) => void;
 }
 
 type ActiveFilter =
@@ -225,6 +227,8 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   initialThreadId = null,
   onThreadChange,
   emptyStateMessage,
+  externalComposerRequest = null,
+  onComposerOpenChange,
 }) => {
   const [content, setContent] = useState("");
   const [composerFocused, setComposerFocused] = useState(false);
@@ -249,6 +253,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   const postRefs = useRef(new Map<string, HTMLDivElement>());
   const highlightTimerRef = useRef<number | null>(null);
   const composerContainerRef = useRef<HTMLDivElement | null>(null);
+  const lastExternalComposerRequestRef = useRef<number | null>(null);
   const unresolvedThreadRef = useRef<string | null>(null);
   const lastThreadLoadAttemptRef = useRef<{ id: string; timestamp: number } | null>(null);
   const [highlightedPostId, setHighlightedPostId] = useState<string | null>(null);
@@ -565,6 +570,24 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       });
     }
   }, [composerOpen]);
+
+  useEffect(() => {
+    if (typeof externalComposerRequest !== "number") {
+      return;
+    }
+    if (externalComposerRequest === lastExternalComposerRequestRef.current) {
+      return;
+    }
+    lastExternalComposerRequestRef.current = externalComposerRequest;
+    openComposerDialog("new");
+  }, [externalComposerRequest, openComposerDialog]);
+
+  useEffect(() => {
+    if (!onComposerOpenChange) {
+      return;
+    }
+    onComposerOpenChange(composerOpen && composerMode !== "reply");
+  }, [composerMode, composerOpen, onComposerOpenChange]);
 
   useEffect(
     () => () => {
@@ -1951,7 +1974,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       type="button"
       onClick={handlePost}
       disabled={!ready}
-      className="fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom,0px))] right-6 z-50 inline-flex items-center gap-3 rounded-full bg-brand px-5 py-3 text-xs font-semibold uppercase tracking-[0.24em] text-white shadow-lg transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-brand disabled:cursor-not-allowed disabled:bg-brand/40 sm:bottom-10 sm:px-6"
+      className="fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom,0px))] right-6 z-50 hidden items-center gap-3 rounded-full bg-brand px-5 py-3 text-xs font-semibold uppercase tracking-[0.24em] text-white shadow-lg transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-brand disabled:cursor-not-allowed disabled:bg-brand/40 sm:inline-flex sm:bottom-10 sm:px-6"
       aria-label="Create New Post"
     >
       <Plus className="h-5 w-5" />

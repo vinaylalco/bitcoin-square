@@ -131,6 +131,8 @@ type NotificationTarget = {
   postId?: string | null;
 };
 
+type FeedComposerTarget = "feed" | "personal";
+
 const INITIAL_NOTIFICATION_GROUPS: CommunityNotificationGroup[] = [
   {
     id: CASUAL_MENTION_GROUP_ID,
@@ -1201,6 +1203,9 @@ const CommunityView: React.FC = () => {
   const isMembersView = activeView === "members";
   const [isComposerOpen, setIsComposerOpen] = useState(false);
   const [isMobileNavigationVisible, setIsMobileNavigationVisible] = useState(false);
+  const [feedComposerRequestId, setFeedComposerRequestId] = useState(0);
+  const [feedComposerRequestTarget, setFeedComposerRequestTarget] = useState<FeedComposerTarget | null>(null);
+  const [isFeedComposerOpen, setIsFeedComposerOpen] = useState(false);
 
   useEffect(() => {
     if (!isNotificationsView) {
@@ -1218,6 +1223,12 @@ const CommunityView: React.FC = () => {
       setIsComposerOpen(false);
     }
   }, [isCasualView]);
+  useEffect(() => {
+    if (!isAnyFeedView) {
+      setIsFeedComposerOpen(false);
+      setFeedComposerRequestTarget(null);
+    }
+  }, [isAnyFeedView]);
   useEffect(() => {
     setIsMobileNavigationVisible(false);
   }, [activeView]);
@@ -2670,6 +2681,34 @@ const CommunityView: React.FC = () => {
         ? createPortal(overlayContent, document.body)
         : overlayContent;
 
+  const handleFeedComposerOpenChange = useCallback((open: boolean) => {
+    setIsFeedComposerOpen(open);
+  }, []);
+
+  const isMobileComposeButtonVisible =
+    (isCasualView && !isComposerOpen) || (isAnyFeedView && !isFeedComposerOpen);
+  const isMobileComposeButtonEnabled = isCasualView
+    ? ready
+    : isAnyFeedView
+      ? feedReady
+      : false;
+  const mobileComposeButtonTone = isMobileComposeButtonEnabled ? "" : "opacity-60";
+
+  const handleMobileComposeClick = useCallback(() => {
+    if (!isMobileComposeButtonEnabled) {
+      return;
+    }
+    if (isCasualView) {
+      setIsComposerOpen(true);
+      return;
+    }
+    if (isAnyFeedView) {
+      const target: FeedComposerTarget = isPublicFeedView ? "feed" : "personal";
+      setFeedComposerRequestTarget(target);
+      setFeedComposerRequestId((value) => value + 1);
+    }
+  }, [isAnyFeedView, isCasualView, isMobileComposeButtonEnabled, isPublicFeedView]);
+
   const mobileControlsContent = (
     <div className="pointer-events-none lg:hidden">
       <div
@@ -2706,17 +2745,17 @@ const CommunityView: React.FC = () => {
             {MOBILE_VIEW_TABS.map((tab) => renderTabButton(tab, "mobile"))}
           </nav>
         )}
-        {isCasualView && !isComposerOpen && (
+        {isMobileComposeButtonVisible && (
           <button
             type="button"
-            onClick={() => setIsComposerOpen(true)}
-            aria-disabled={!ready}
-            className={`flex h-12 w-12 items-center justify-center rounded-full bg-brand text-white shadow-xl transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 ${
-              ready ? "" : "opacity-60"
-            }`}
+            onClick={handleMobileComposeClick}
+            aria-disabled={!isMobileComposeButtonEnabled}
+            className={`flex h-12 w-12 items-center justify-center rounded-full bg-brand text-white shadow-xl transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 ${mobileComposeButtonTone}`}
           >
             <Plus className="h-5 w-5" aria-hidden />
-            <span className="sr-only">Compose new message</span>
+            <span className="sr-only">
+              {isCasualView ? "Compose new message" : "Compose new forum post"}
+            </span>
           </button>
         )}
       </div>
@@ -3178,6 +3217,10 @@ const CommunityView: React.FC = () => {
                       initialLoading={feedInitialLoading}
                       initialThreadId={routePostId}
                       onThreadChange={handleThreadRouteChange}
+                      externalComposerRequest={
+                        feedComposerRequestTarget === "feed" ? feedComposerRequestId : null
+                      }
+                      onComposerOpenChange={handleFeedComposerOpenChange}
                     />
                   </div>
                 </ErrorBoundary>
@@ -3208,6 +3251,10 @@ const CommunityView: React.FC = () => {
                         initialThreadId={routePostId}
                         onThreadChange={handleThreadRouteChange}
                         emptyStateMessage={personalFeedEmptyState}
+                        externalComposerRequest={
+                          feedComposerRequestTarget === "personal" ? feedComposerRequestId : null
+                        }
+                        onComposerOpenChange={handleFeedComposerOpenChange}
                       />
                     ) : (
                       <div className="flex flex-1 items-center justify-center px-6 py-12">
