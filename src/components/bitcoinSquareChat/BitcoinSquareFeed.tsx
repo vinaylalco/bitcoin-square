@@ -52,6 +52,8 @@ interface BitcoinSquareFeedProps {
   initialThreadId?: string | null;
   onThreadChange?: (postId: string | null) => void;
   emptyStateMessage?: React.ReactNode;
+  externalComposerRequest?: number | null;
+  onComposerOpenChange?: (open: boolean) => void;
 }
 
 type ActiveFilter =
@@ -225,6 +227,8 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   initialThreadId = null,
   onThreadChange,
   emptyStateMessage,
+  externalComposerRequest = null,
+  onComposerOpenChange,
 }) => {
   const [content, setContent] = useState("");
   const [composerFocused, setComposerFocused] = useState(false);
@@ -248,6 +252,8 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   const persistedComposerTargetIdRef = useRef<string | null>(null);
   const postRefs = useRef(new Map<string, HTMLDivElement>());
   const highlightTimerRef = useRef<number | null>(null);
+  const composerContainerRef = useRef<HTMLDivElement | null>(null);
+  const lastExternalComposerRequestRef = useRef<number | null>(null);
   const unresolvedThreadRef = useRef<string | null>(null);
   const lastThreadLoadAttemptRef = useRef<{ id: string; timestamp: number } | null>(null);
   const [highlightedPostId, setHighlightedPostId] = useState<string | null>(null);
@@ -564,6 +570,24 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       });
     }
   }, [composerOpen]);
+
+  useEffect(() => {
+    if (typeof externalComposerRequest !== "number") {
+      return;
+    }
+    if (externalComposerRequest === lastExternalComposerRequestRef.current) {
+      return;
+    }
+    lastExternalComposerRequestRef.current = externalComposerRequest;
+    openComposerDialog("new");
+  }, [externalComposerRequest, openComposerDialog]);
+
+  useEffect(() => {
+    if (!onComposerOpenChange) {
+      return;
+    }
+    onComposerOpenChange(composerOpen && composerMode !== "reply");
+  }, [composerMode, composerOpen, onComposerOpenChange]);
 
   useEffect(
     () => () => {
@@ -1208,6 +1232,26 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   }, [composerOpen]);
 
   useEffect(() => {
+    if (!composerOpen || composerMode === "reply") {
+      return;
+    }
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setComposerOpen(false);
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [composerMode, composerOpen]);
+
+  useEffect(() => {
     const urls = extractMarkdownImageUrls(content);
     setUploadedImages((prev) => {
       const map = new Map(prev.map((image) => [image.url, image]));
@@ -1311,7 +1355,12 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   const composerContent = (
     <>
       <header className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold uppercase tracking-[0.18em] text-[var(--fg-default)]">{composerTitle}</h2>
+        <h2
+          id="feed-composer-heading"
+          className="text-lg font-semibold uppercase tracking-[0.18em] text-[var(--fg-default)]"
+        >
+          {composerTitle}
+        </h2>
         <button
           type="button"
           onClick={resetComposer}
@@ -1505,6 +1554,31 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       </form>
     </>
   );
+
+  const composerDialog =
+    composerOpen && composerMode !== "reply"
+      ? (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="feed-composer-heading"
+            className="fixed inset-0 z-[85] flex items-end justify-center bg-white/80 px-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pt-16 dark:bg-white/10 sm:items-center sm:pt-24"
+            onClick={() => setComposerOpen(false)}
+          >
+            <div
+              ref={composerContainerRef}
+              className="pointer-events-auto w-full max-w-3xl rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-5 shadow-2xl backdrop-blur"
+              onClick={(event) => event.stopPropagation()}
+            >
+              {composerContent}
+            </div>
+          </div>
+        )
+      : null;
+
+  const composerOverlay =
+    composerDialog &&
+    (typeof document !== "undefined" ? createPortal(composerDialog, document.body) : composerDialog);
 
   const renderPostCard = (
     post: FeedPost,
@@ -1900,7 +1974,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       type="button"
       onClick={handlePost}
       disabled={!ready}
-      className="fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom,0px))] right-6 z-50 inline-flex items-center gap-3 rounded-full bg-brand px-5 py-3 text-xs font-semibold uppercase tracking-[0.24em] text-white shadow-lg transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-brand disabled:cursor-not-allowed disabled:bg-brand/40 sm:bottom-10 sm:px-6"
+      className="fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom,0px))] right-6 z-50 hidden items-center gap-3 rounded-full bg-brand px-5 py-3 text-xs font-semibold uppercase tracking-[0.24em] text-white shadow-lg transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-brand disabled:cursor-not-allowed disabled:bg-brand/40 sm:inline-flex sm:bottom-10 sm:px-6"
       aria-label="Create New Post"
     >
       <Plus className="h-5 w-5" />
@@ -1972,7 +2046,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
             </div>
           )}
 
-          {composerOpen && composerMode !== "reply" && (
+          {composerOpen && composerMode === "reply" && !isThreadComposer && (
             <div className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)]/90 p-5 shadow-sm">
               {composerContent}
             </div>
@@ -2123,6 +2197,8 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
           </div>
         </div>
       )}
+
+      {composerOverlay}
 
       {lightboxOverlay &&
         (typeof document !== "undefined"

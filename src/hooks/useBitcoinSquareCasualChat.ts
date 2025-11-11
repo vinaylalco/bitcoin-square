@@ -293,11 +293,6 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
     if (typeof window === "undefined") return;
     if (!("Notification" in window)) return;
     notificationsEnabledRef.current = Notification.permission === "granted";
-    if (Notification.permission === "default") {
-      Notification.requestPermission().then((permission) => {
-        notificationsEnabledRef.current = permission === "granted";
-      });
-    }
   }, []);
 
   useEffect(() => {
