@@ -2696,7 +2696,7 @@ const CommunityView: React.FC = () => {
         <div className="relative flex flex-1 min-h-0 flex-col lg:pl-80">
           <div className="pointer-events-none lg:hidden">
             <div
-              className="pointer-events-auto absolute bottom-6 right-4 z-30 flex flex-col items-center gap-3"
+              className="pointer-events-auto fixed bottom-6 right-4 z-30 flex flex-col items-center gap-3"
               style={mobileNavigationStyle}
             >
               <button
