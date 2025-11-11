@@ -1198,6 +1198,7 @@ const CommunityView: React.FC = () => {
   const isNotificationsView = activeView === "notifications";
   const isAnyFeedView = isPublicFeedView || isPersonalFeedView;
   const isMembersView = activeView === "members";
+  const [isComposerOpen, setIsComposerOpen] = useState(false);
 
   useEffect(() => {
     if (!isNotificationsView) {
@@ -1245,7 +1246,6 @@ const CommunityView: React.FC = () => {
   const isAtBottomRef = useRef(true);
   const [newMessageAnchor, setNewMessageAnchor] = useState<string | null>(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
-  const [isComposerOpen, setIsComposerOpen] = useState(false);
   const [composerHeight, setComposerHeight] = useState(0);
   const messageRefs = useRef(new Map<string, HTMLDivElement>());
   const highlightTimerRef = useRef<number | null>(null);
