@@ -25,6 +25,7 @@ import { useLessonPlans } from "./hooks/useLessonPlans";
 
 export default function App() {
   const [open, setOpen] = useState(false);
+  const [isClient, setIsClient] = useState(false);
   const [mobileEducationOpen, setMobileEducationOpen] = useState(false);
   const [desktopEducationOpen, setDesktopEducationOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -83,6 +84,10 @@ export default function App() {
   const isEducationActive = Boolean(educationRootMatch || educationDetailMatch);
 
   useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  useEffect(() => {
     setOpen(false);
     setMobileEducationOpen(false);
     setDesktopEducationOpen(false);
@@ -122,18 +127,22 @@ export default function App() {
     },
   });
 
+  const communityMenuTrigger = (
+    <button
+      ref={triggerRef}
+      onClick={() => setOpen((v) => !v)}
+      aria-label={open ? t("app.mobileMenu.closeAria") : t("app.mobileMenu.openAria")}
+      className="absolute left-4 bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] z-50 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-brand text-white shadow-lg transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-brand sm:bottom-auto sm:top-4 sm:fixed"
+    >
+      {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+    </button>
+  );
+
   return (
-    <div className="gpu-accelerated scroll-smooth min-h-screen min-h-mobile-fill bg-[var(--bg-app)] text-[var(--fg-default)] transition-colors duration-300">
-      {isCommunityRoute ? (
-        <button
-          ref={triggerRef}
-          onClick={() => setOpen((v) => !v)}
-          aria-label={open ? t("app.mobileMenu.closeAria") : t("app.mobileMenu.openAria")}
-          className="fixed left-4 bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] z-50 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-brand text-white shadow-lg transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-brand sm:bottom-auto sm:top-4"
-        >
-          {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-        </button>
-      ) : (
+    <>
+      {isCommunityRoute && isClient && createPortal(communityMenuTrigger, document.body)}
+      <div className="gpu-accelerated scroll-smooth min-h-screen min-h-mobile-fill bg-[var(--bg-app)] text-[var(--fg-default)] transition-colors duration-300">
+        {isCommunityRoute ? null : (
         <header
           data-app-header
           className="sticky top-0 z-50 border-b border-[var(--border-subtle)] bg-[var(--bg-card)]/90 backdrop-blur"
@@ -294,32 +303,32 @@ export default function App() {
             </div>
           </div>
         </header>
-      )}
-
-      {open && (
-        <div
-          className={cn(
-            "fixed inset-0 z-40 bg-black/40 backdrop-blur-sm",
-            !isCommunityRoute && "lg:hidden",
-          )}
-          onClick={() => setOpen(false)}
-          aria-hidden
-        />
-      )}
-
-      <aside
-        ref={drawerRef}
-        className={cn(
-          "fixed top-0 left-0 z-50 h-full w-80 transform border-r border-[var(--border-subtle)] bg-white text-neutral-900 shadow-[var(--shadow-soft)] transition-transform duration-300 dark:bg-black dark:text-white",
-          !isCommunityRoute && "lg:hidden",
-          open ? "translate-x-0" : "-translate-x-full",
         )}
-        role="dialog"
-        aria-modal="true"
-        aria-label={t("app.mobileMenu.ariaLabel")}
-      >
-        <FocusTrap active={open} onDeactivate={() => setOpen(false)} returnFocusRef={triggerRef}>
-          <div className="flex h-full flex-col overflow-y-auto touch-momentum">
+
+        {open && (
+          <div
+            className={cn(
+              "fixed inset-0 z-40 bg-black/40 backdrop-blur-sm",
+              !isCommunityRoute && "lg:hidden",
+            )}
+            onClick={() => setOpen(false)}
+            aria-hidden
+          />
+        )}
+
+        <aside
+          ref={drawerRef}
+          className={cn(
+            "fixed top-0 left-0 z-50 h-full w-80 transform border-r border-[var(--border-subtle)] bg-white text-neutral-900 shadow-[var(--shadow-soft)] transition-transform duration-300 dark:bg-black dark:text-white",
+            !isCommunityRoute && "lg:hidden",
+            open ? "translate-x-0" : "-translate-x-full",
+          )}
+          role="dialog"
+          aria-modal="true"
+          aria-label={t("app.mobileMenu.ariaLabel")}
+        >
+          <FocusTrap active={open} onDeactivate={() => setOpen(false)} returnFocusRef={triggerRef}>
+            <div className="flex h-full flex-col overflow-y-auto touch-momentum">
             <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-5 py-4">
               <span className="text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)] dark:text-white">
                 {t("app.mobileMenu.title")}
@@ -540,5 +549,6 @@ export default function App() {
       </main>
       <ProfileModalPortal />
     </div>
-  );
+  </>
+);
 }
