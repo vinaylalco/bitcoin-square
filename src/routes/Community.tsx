@@ -42,6 +42,7 @@ import {
   Heart,
   ImagePlus,
   Loader2,
+  Menu,
   MessageCircle,
   MessageSquareQuote,
   Newspaper,
@@ -1199,6 +1200,7 @@ const CommunityView: React.FC = () => {
   const isAnyFeedView = isPublicFeedView || isPersonalFeedView;
   const isMembersView = activeView === "members";
   const [isComposerOpen, setIsComposerOpen] = useState(false);
+  const [isMobileNavigationVisible, setIsMobileNavigationVisible] = useState(false);
 
   useEffect(() => {
     if (!isNotificationsView) {
@@ -1216,6 +1218,9 @@ const CommunityView: React.FC = () => {
       setIsComposerOpen(false);
     }
   }, [isCasualView]);
+  useEffect(() => {
+    setIsMobileNavigationVisible(false);
+  }, [activeView]);
   useEffect(() => {
     if (!isComposerOpen) {
       return;
@@ -2644,7 +2649,7 @@ const CommunityView: React.FC = () => {
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-40 flex items-end justify-center bg-black/50 px-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pt-16 sm:items-center sm:pt-24"
+      className="fixed inset-0 z-40 flex items-end justify-center bg-white/80 px-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pt-16 dark:bg-white/10 sm:items-center sm:pt-24"
       onClick={() => setIsComposerOpen(false)}
     >
       <div
@@ -2694,13 +2699,36 @@ const CommunityView: React.FC = () => {
               className="pointer-events-auto absolute bottom-6 right-4 z-30 flex flex-col items-center gap-3"
               style={mobileNavigationStyle}
             >
-              <nav
-                aria-label="Community navigation"
-                role="tablist"
-                className="flex flex-col items-center gap-3 rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)]/85 p-3 shadow-lg backdrop-blur"
+              <button
+                type="button"
+                onClick={() => setIsMobileNavigationVisible((prev) => !prev)}
+                aria-expanded={isMobileNavigationVisible}
+                aria-controls={isMobileNavigationVisible ? "community-mobile-navigation" : undefined}
+                className={`flex h-12 w-12 items-center justify-center rounded-full border text-[var(--fg-muted)] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
+                  isMobileNavigationVisible
+                    ? "border-brand bg-brand/10 text-brand shadow-sm"
+                    : "border-[var(--border-subtle)]/70 hover:border-brand hover:text-brand"
+                }`}
               >
-                {MOBILE_VIEW_TABS.map((tab) => renderTabButton(tab, "mobile"))}
-              </nav>
+                {isMobileNavigationVisible ? (
+                  <X className="h-5 w-5" aria-hidden />
+                ) : (
+                  <Menu className="h-5 w-5" aria-hidden />
+                )}
+                <span className="sr-only">
+                  {isMobileNavigationVisible ? "Hide community navigation" : "Show community navigation"}
+                </span>
+              </button>
+              {isMobileNavigationVisible && (
+                <nav
+                  id="community-mobile-navigation"
+                  aria-label="Community navigation"
+                  role="tablist"
+                  className="flex flex-col items-center gap-3 rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)]/85 p-3 shadow-lg backdrop-blur"
+                >
+                  {MOBILE_VIEW_TABS.map((tab) => renderTabButton(tab, "mobile"))}
+                </nav>
+              )}
               {isCasualView && !isComposerOpen && (
                 <button
                   type="button"

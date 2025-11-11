@@ -1539,7 +1539,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
             role="dialog"
             aria-modal="true"
             aria-labelledby="feed-composer-heading"
-            className="fixed inset-0 z-[85] flex items-end justify-center bg-black/55 px-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pt-16 sm:items-center sm:pt-24"
+            className="fixed inset-0 z-[85] flex items-end justify-center bg-white/80 px-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pt-16 dark:bg-white/10 sm:items-center sm:pt-24"
             onClick={() => setComposerOpen(false)}
           >
             <div
