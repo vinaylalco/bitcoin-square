@@ -1157,7 +1157,7 @@ const CommunityView: React.FC = () => {
     useState<NotificationTarget | null>(null);
   const hasUnreadNotifications = unreadNotificationIds.size > 0;
   const mobileNavigationStyle = useMemo(
-    () => ({ top: "calc(2.5rem + env(safe-area-inset-top, 0px))" }),
+    () => ({ bottom: "calc(1.5rem + env(safe-area-inset-bottom, 0px))" }),
     [],
   );
 
@@ -2606,9 +2606,6 @@ const CommunityView: React.FC = () => {
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--fg-muted)]">New message</p>
-          <p className="mt-1 text-sm text-[var(--fg-muted)]/80">
-            Share something with the chat group.
-          </p>
         </div>
         <button
           type="button"
@@ -2652,7 +2649,7 @@ const CommunityView: React.FC = () => {
     >
       <div
         ref={composerContainerRef}
-        className="pointer-events-auto w-full max-w-3xl rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)]/95 p-5 shadow-2xl backdrop-blur"
+        className="pointer-events-auto w-full max-w-3xl rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-5 shadow-2xl backdrop-blur"
         onClick={(event) => event.stopPropagation()}
       >
         {composerPanel}
@@ -2694,7 +2691,7 @@ const CommunityView: React.FC = () => {
         <div className="relative flex flex-1 min-h-0 flex-col lg:pl-80">
           <div className="pointer-events-none lg:hidden">
             <div
-              className="pointer-events-auto absolute right-4 z-30 flex flex-col items-center gap-3"
+              className="pointer-events-auto absolute bottom-6 right-4 z-30 flex flex-col items-center gap-3"
               style={mobileNavigationStyle}
             >
               <nav
@@ -2859,21 +2856,9 @@ const CommunityView: React.FC = () => {
                                 </div>
                               )}
                               <div className={`flex w-full ${isSelf ? "justify-end" : "justify-start"} py-2`}>
-                                <div className={`flex w-full items-end gap-3 ${isSelf ? "flex-row-reverse" : ""}`}>
-                                  <button
-                                    type="button"
-                                    onClick={() => openProfile(message.pubkey)}
-                                    className="group flex-shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
-                                  >
-                                    <img
-                                      src={summary.avatarUrl}
-                                      alt={summary.displayName}
-                                      className="h-10 w-10 rounded-full border border-white/80 object-cover shadow-sm transition group-hover:ring-2 group-hover:ring-brand dark:border-neutral-700"
-                                    />
-                                    <span className="sr-only">Open profile</span>
-                                  </button>
+                                <div className="w-full max-w-full min-w-0">
                                   <div
-                                    className={`space-y-3 rounded-3xl border px-4 py-3 backdrop-blur ${
+                                    className={`min-w-0 max-w-full rounded-3xl border px-4 py-3 backdrop-blur ${
                                       isSelf
                                         ? "bg-brand text-white shadow-xl border-brand/60"
                                         : "bg-white/85 text-[var(--fg-default)] shadow-sm dark:bg-neutral-900/70"
@@ -2884,12 +2869,26 @@ const CommunityView: React.FC = () => {
                                         : undefined
                                     }
                                   >
-                                    {message.quoteId && (
+                                    <div className={`flex items-start gap-3 ${isSelf ? "flex-row-reverse" : ""}`}>
                                       <button
                                         type="button"
-                                        onClick={() => handleScrollToMessage(message.quoteId!)}
-                                        className="group flex w-full items-start gap-3 rounded-2xl border border-dashed border-[var(--border-subtle)] bg-white/80 px-3 py-2 text-left text-xs transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 dark:bg-neutral-900/60"
+                                        onClick={() => openProfile(message.pubkey)}
+                                        className="group flex-shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
                                       >
+                                        <img
+                                          src={summary.avatarUrl}
+                                          alt={summary.displayName}
+                                          className="h-10 w-10 rounded-full border border-white/80 object-cover shadow-sm transition group-hover:ring-2 group-hover:ring-brand dark:border-neutral-700"
+                                        />
+                                        <span className="sr-only">Open profile</span>
+                                      </button>
+                                      <div className="flex min-w-0 flex-1 flex-col space-y-3">
+                                        {message.quoteId && (
+                                          <button
+                                            type="button"
+                                            onClick={() => handleScrollToMessage(message.quoteId!)}
+                                            className="group flex w-full items-start gap-3 rounded-2xl border border-dashed border-[var(--border-subtle)] bg-white/80 px-3 py-2 text-left text-xs transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 dark:bg-neutral-900/60"
+                                          >
                                         <span
                                           aria-hidden
                                           className="mt-1 inline-flex h-2 w-2 flex-shrink-0 rounded-full"
@@ -2913,23 +2912,23 @@ const CommunityView: React.FC = () => {
                                           </p>
                                         </div>
                                       </button>
-                                    )}
+                                        )}
 
-                                    {hasRenderableHtml && (
-                                      <div
-                                        className={`prose prose-sm max-w-none whitespace-pre-wrap break-words ${
-                                          isSelf ? "prose-invert" : "text-[var(--fg-default)]"
-                                        } prose-a:text-brand`}
-                                        dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
-                                      />
-                                    )}
+                                        {hasRenderableHtml && (
+                                          <div
+                                            className={`prose prose-sm max-w-none whitespace-pre-wrap break-words ${
+                                              isSelf ? "prose-invert" : "text-[var(--fg-default)]"
+                                            } prose-a:text-brand`}
+                                            dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
+                                          />
+                                        )}
 
-                                    {translationEnabled && (
-                                      <div
-                                        className={`flex flex-wrap items-center gap-2 text-[9px] uppercase tracking-[0.3em] ${translationNoticeColor}`}
-                                      >
-                                        {translationStatus === "loading" ? (
-                                          <span>Translating…</span>
+                                        {translationEnabled && (
+                                          <div
+                                            className={`flex flex-wrap items-center gap-2 text-[9px] uppercase tracking-[0.3em] ${translationNoticeColor}`}
+                                          >
+                                            {translationStatus === "loading" ? (
+                                              <span>Translating…</span>
                                         ) : translationStatus === "error" ? (
                                           <>
                                             <span>Translation unavailable</span>
@@ -2968,37 +2967,37 @@ const CommunityView: React.FC = () => {
                                           </>
                                         ) : null}
                                       </div>
-                                    )}
+                                        )}
 
-                                    {message.attachments.length > 0 && (
-                                      <div className="space-y-3">
-                                        {message.attachments.map((attachment) => (
-                                          <div
-                                            key={`${message.id}-${attachment.digest ?? attachment.url}`}
-                                            className="overflow-hidden rounded-2xl border border-white/40 bg-black/10"
-                                          >
-                                            <AttachmentPreview attachment={attachment} />
+                                        {message.attachments.length > 0 && (
+                                          <div className="space-y-3">
+                                            {message.attachments.map((attachment) => (
+                                              <div
+                                                key={`${message.id}-${attachment.digest ?? attachment.url}`}
+                                                className="overflow-hidden rounded-2xl border border-white/40 bg-black/10"
+                                              >
+                                                <AttachmentPreview attachment={attachment} />
+                                              </div>
+                                            ))}
                                           </div>
-                                        ))}
-                                      </div>
-                                    )}
+                                        )}
 
-                                    <div className={`flex items-center gap-2 ${isSelf ? "justify-end" : ""}`}>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleQuoteMessage(message)}
-                                        disabled={!ready}
-                                        className={`inline-flex h-8 w-8 items-center justify-center rounded-full border ${
-                                          isSelf
-                                            ? "border-white/60 text-white"
-                                            : "border-white/70 text-[var(--fg-muted)] hover:border-brand hover:text-brand"
-                                        } disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60`}
-                                        title="Quote"
-                                      >
-                                        <MessageSquareQuote className="h-4 w-4" />
-                                        <span className="sr-only">Quote</span>
-                                      </button>
-                                      <div className="relative" data-message-menu-root={message.id}>
+                                        <div className={`flex items-center gap-2 ${isSelf ? "justify-end" : ""}`}>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleQuoteMessage(message)}
+                                            disabled={!ready}
+                                            className={`inline-flex h-8 w-8 items-center justify-center rounded-full border ${
+                                              isSelf
+                                                ? "border-white/60 text-white"
+                                                : "border-white/70 text-[var(--fg-muted)] hover:border-brand hover:text-brand"
+                                            } disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60`}
+                                            title="Quote"
+                                          >
+                                            <MessageSquareQuote className="h-4 w-4" />
+                                            <span className="sr-only">Quote</span>
+                                          </button>
+                                          <div className="relative" data-message-menu-root={message.id}>
                                         <button
                                           type="button"
                                           onClick={(event) => {
@@ -3059,39 +3058,41 @@ const CommunityView: React.FC = () => {
                                           </div>
                                         )}
                                       </div>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleLikeMessage(message)}
-                                        disabled={likeDisabled}
-                                        aria-pressed={likedByCurrentUser}
-                                        className={`inline-flex h-8 w-8 items-center justify-center rounded-full border ${likeButtonPalette} disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60`}
-                                        title={likedByCurrentUser ? "You liked this message" : "Send a like"}
-                                      >
-                                        <Heart className="h-4 w-4" fill={likedByCurrentUser ? "currentColor" : "none"} />
-                                        <span className="sr-only">Like</span>
-                                      </button>
-                                    </div>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleLikeMessage(message)}
+                                            disabled={likeDisabled}
+                                            aria-pressed={likedByCurrentUser}
+                                            className={`inline-flex h-8 w-8 items-center justify-center rounded-full border ${likeButtonPalette} disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60`}
+                                            title={likedByCurrentUser ? "You liked this message" : "Send a like"}
+                                          >
+                                            <Heart className="h-4 w-4" fill={likedByCurrentUser ? "currentColor" : "none"} />
+                                            <span className="sr-only">Like</span>
+                                          </button>
+                                        </div>
 
-                                    {likeCount > 0 && (
-                                      <div className={`mt-2 flex ${isSelf ? "justify-end" : ""}`}>
-                                        <span
-                                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.3em] ${likeBadgePalette}`}
-                                        >
-                                          <Heart className="h-3 w-3" fill="currentColor" />
-                                          <span>{likeCount === 1 ? "1 Like" : `${likeCount} Likes`}</span>
-                                        </span>
+                                        {likeCount > 0 && (
+                                          <div className={`mt-2 flex ${isSelf ? "justify-end" : ""}`}>
+                                            <span
+                                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.3em] ${likeBadgePalette}`}
+                                            >
+                                              <Heart className="h-3 w-3" fill="currentColor" />
+                                              <span>{likeCount === 1 ? "1 Like" : `${likeCount} Likes`}</span>
+                                            </span>
+                                          </div>
+                                        )}
+
+                                        {message.status === "pending" && (
+                                          <p className={`text-[10px] uppercase tracking-[0.24em] ${timestampColor}`}>Sending…</p>
+                                        )}
+
+                                        {message.status === "failed" && (
+                                          <p className="text-[10px] uppercase tracking-[0.24em] text-red-200 dark:text-red-400">
+                                            {message.error ?? "We couldn't deliver this message."}
+                                          </p>
+                                        )}
                                       </div>
-                                    )}
-
-                                    {message.status === "pending" && (
-                                      <p className={`text-[10px] uppercase tracking-[0.24em] ${timestampColor}`}>Sending…</p>
-                                    )}
-
-                                    {message.status === "failed" && (
-                                      <p className="text-[10px] uppercase tracking-[0.24em] text-red-200 dark:text-red-400">
-                                        {message.error ?? "We couldn't deliver this message."}
-                                      </p>
-                                    )}
+                                    </div>
                                   </div>
                                 </div>
                               </div>

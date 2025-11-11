@@ -1544,7 +1544,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
           >
             <div
               ref={composerContainerRef}
-              className="pointer-events-auto w-full max-w-3xl rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)]/95 p-5 shadow-2xl backdrop-blur"
+              className="pointer-events-auto w-full max-w-3xl rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-5 shadow-2xl backdrop-blur"
               onClick={(event) => event.stopPropagation()}
             >
               {composerContent}
