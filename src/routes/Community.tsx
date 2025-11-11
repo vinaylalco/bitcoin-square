@@ -2356,6 +2356,7 @@ const CommunityView: React.FC = () => {
 
         setComposerDraft(undefined);
         setQuoteContext(null);
+        setIsComposerOpen(false);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         setComposerError(message);
@@ -2669,14 +2670,72 @@ const CommunityView: React.FC = () => {
         ? createPortal(overlayContent, document.body)
         : overlayContent;
 
-  return (
-    <div className="relative flex min-h-screen w-full overflow-hidden bg-[var(--bg-app)] transition-colors">
+  const mobileControlsContent = (
+    <div className="pointer-events-none lg:hidden">
       <div
-        className="pointer-events-none absolute inset-0 transition-[background-image] duration-300"
-        style={{ backgroundImage: backgroundTexture }}
-        aria-hidden="true"
-      />
-      <div className="relative z-0 flex min-h-screen w-full flex-col">
+        className="pointer-events-auto fixed bottom-6 right-4 z-30 flex flex-col items-center gap-3"
+        style={mobileNavigationStyle}
+      >
+        <button
+          type="button"
+          onClick={() => setIsMobileNavigationVisible((prev) => !prev)}
+          aria-expanded={isMobileNavigationVisible}
+          aria-controls={isMobileNavigationVisible ? "community-mobile-navigation" : undefined}
+          className={`flex h-12 w-12 items-center justify-center rounded-full border text-[var(--fg-muted)] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
+            isMobileNavigationVisible
+              ? "border-brand bg-brand/10 text-brand shadow-sm"
+              : "border-[var(--border-subtle)]/70 hover:border-brand hover:text-brand"
+          }`}
+        >
+          {isMobileNavigationVisible ? (
+            <X className="h-5 w-5" aria-hidden />
+          ) : (
+            <Menu className="h-5 w-5" aria-hidden />
+          )}
+          <span className="sr-only">
+            {isMobileNavigationVisible ? "Hide community navigation" : "Show community navigation"}
+          </span>
+        </button>
+        {isMobileNavigationVisible && (
+          <nav
+            id="community-mobile-navigation"
+            aria-label="Community navigation"
+            role="tablist"
+            className="flex flex-col items-center gap-3 rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)]/85 p-3 shadow-lg backdrop-blur"
+          >
+            {MOBILE_VIEW_TABS.map((tab) => renderTabButton(tab, "mobile"))}
+          </nav>
+        )}
+        {isCasualView && !isComposerOpen && (
+          <button
+            type="button"
+            onClick={() => setIsComposerOpen(true)}
+            aria-disabled={!ready}
+            className={`flex h-12 w-12 items-center justify-center rounded-full bg-brand text-white shadow-xl transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 ${
+              ready ? "" : "opacity-60"
+            }`}
+          >
+            <Plus className="h-5 w-5" aria-hidden />
+            <span className="sr-only">Compose new message</span>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
+  const mobileControls =
+    typeof document !== "undefined" ? createPortal(mobileControlsContent, document.body) : mobileControlsContent;
+
+  return (
+    <>
+      {mobileControls}
+      <div className="relative flex min-h-screen w-full overflow-hidden bg-[var(--bg-app)] transition-colors">
+        <div
+          className="pointer-events-none absolute inset-0 transition-[background-image] duration-300"
+          style={{ backgroundImage: backgroundTexture }}
+          aria-hidden="true"
+        />
+        <div className="relative z-0 flex min-h-screen w-full flex-col">
         <aside className="hidden border-r border-[var(--border-subtle)] bg-[var(--bg-card)]/70 px-5 pb-8 pt-24 backdrop-blur lg:fixed lg:inset-y-0 lg:left-0 lg:flex lg:w-80 lg:flex-col">
           <nav
             aria-label="Community navigation"
@@ -2694,56 +2753,6 @@ const CommunityView: React.FC = () => {
           </div>
         </aside>
         <div className="relative flex flex-1 min-h-0 flex-col lg:pl-80">
-          <div className="pointer-events-none lg:hidden">
-            <div
-              className="pointer-events-auto fixed bottom-6 right-4 z-30 flex flex-col items-center gap-3"
-              style={mobileNavigationStyle}
-            >
-              <button
-                type="button"
-                onClick={() => setIsMobileNavigationVisible((prev) => !prev)}
-                aria-expanded={isMobileNavigationVisible}
-                aria-controls={isMobileNavigationVisible ? "community-mobile-navigation" : undefined}
-                className={`flex h-12 w-12 items-center justify-center rounded-full border text-[var(--fg-muted)] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
-                  isMobileNavigationVisible
-                    ? "border-brand bg-brand/10 text-brand shadow-sm"
-                    : "border-[var(--border-subtle)]/70 hover:border-brand hover:text-brand"
-                }`}
-              >
-                {isMobileNavigationVisible ? (
-                  <X className="h-5 w-5" aria-hidden />
-                ) : (
-                  <Menu className="h-5 w-5" aria-hidden />
-                )}
-                <span className="sr-only">
-                  {isMobileNavigationVisible ? "Hide community navigation" : "Show community navigation"}
-                </span>
-              </button>
-              {isMobileNavigationVisible && (
-                <nav
-                  id="community-mobile-navigation"
-                  aria-label="Community navigation"
-                  role="tablist"
-                  className="flex flex-col items-center gap-3 rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)]/85 p-3 shadow-lg backdrop-blur"
-                >
-                  {MOBILE_VIEW_TABS.map((tab) => renderTabButton(tab, "mobile"))}
-                </nav>
-              )}
-              {isCasualView && !isComposerOpen && (
-                <button
-                  type="button"
-                  onClick={() => setIsComposerOpen(true)}
-                  aria-disabled={!ready}
-                  className={`flex h-12 w-12 items-center justify-center rounded-full bg-brand text-white shadow-xl transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 ${
-                    ready ? "" : "opacity-60"
-                  }`}
-                >
-                  <Plus className="h-5 w-5" aria-hidden />
-                  <span className="sr-only">Compose new message</span>
-                </button>
-              )}
-            </div>
-          </div>
           <main className="relative flex flex-1 min-h-0 flex-col pr-20 sm:pr-24 lg:pr-0">
             {isCasualView ? (
               <section
@@ -3357,6 +3366,7 @@ const CommunityView: React.FC = () => {
       {composerOverlay}
 
     </div>
+    </>
   );
 };
 
