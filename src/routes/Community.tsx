@@ -2591,6 +2591,34 @@ const CommunityView: React.FC = () => {
     [setVirtualVersion, startHighlight],
   );
 
+  const isMobileComposeButtonVisible =
+    (isCasualView && !isComposerOpen) || (isAnyFeedView && !isFeedComposerOpen);
+  const isMobileComposeButtonEnabled = isCasualView
+    ? ready
+    : isAnyFeedView
+      ? feedReady
+      : false;
+  const mobileComposeButtonTone = isMobileComposeButtonEnabled ? "" : "opacity-60";
+
+  const handleFeedComposerOpenChange = useCallback((open: boolean) => {
+    setIsFeedComposerOpen(open);
+  }, []);
+
+  const handleMobileComposeClick = useCallback(() => {
+    if (!isMobileComposeButtonEnabled) {
+      return;
+    }
+    if (isCasualView) {
+      setIsComposerOpen(true);
+      return;
+    }
+    if (isAnyFeedView) {
+      const target: FeedComposerTarget = isPublicFeedView ? "feed" : "personal";
+      setFeedComposerRequestTarget(target);
+      setFeedComposerRequestId((value) => value + 1);
+    }
+  }, [isAnyFeedView, isCasualView, isMobileComposeButtonEnabled, isPublicFeedView]);
+
   const gatingResult = renderContent();
   if (gatingResult) {
     return gatingResult;
@@ -2680,34 +2708,6 @@ const CommunityView: React.FC = () => {
       : typeof document !== "undefined"
         ? createPortal(overlayContent, document.body)
         : overlayContent;
-
-  const handleFeedComposerOpenChange = useCallback((open: boolean) => {
-    setIsFeedComposerOpen(open);
-  }, []);
-
-  const isMobileComposeButtonVisible =
-    (isCasualView && !isComposerOpen) || (isAnyFeedView && !isFeedComposerOpen);
-  const isMobileComposeButtonEnabled = isCasualView
-    ? ready
-    : isAnyFeedView
-      ? feedReady
-      : false;
-  const mobileComposeButtonTone = isMobileComposeButtonEnabled ? "" : "opacity-60";
-
-  const handleMobileComposeClick = useCallback(() => {
-    if (!isMobileComposeButtonEnabled) {
-      return;
-    }
-    if (isCasualView) {
-      setIsComposerOpen(true);
-      return;
-    }
-    if (isAnyFeedView) {
-      const target: FeedComposerTarget = isPublicFeedView ? "feed" : "personal";
-      setFeedComposerRequestTarget(target);
-      setFeedComposerRequestId((value) => value + 1);
-    }
-  }, [isAnyFeedView, isCasualView, isMobileComposeButtonEnabled, isPublicFeedView]);
 
   const mobileControlsContent = (
     <div className="pointer-events-none lg:hidden">
