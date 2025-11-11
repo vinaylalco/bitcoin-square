@@ -739,19 +739,19 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
     <div
       className={
         isEmbedded
-          ? "flex h-full min-h-0 flex-col overflow-hidden text-[var(--fg-default)]"
-          : "min-h-screen bg-[var(--bg-app)] px-4 py-10 text-[var(--fg-default)] sm:px-6"
+          ? "flex h-full min-h-0 w-full flex-col overflow-hidden text-[var(--fg-default)]"
+          : "min-h-screen w-full overflow-x-hidden bg-[var(--bg-app)] px-4 py-10 text-[var(--fg-default)] sm:px-6"
       }
     >
       <div
         className={
           isEmbedded
-            ? "flex flex-1 min-h-0 flex-col gap-6"
-            : "mx-auto flex w-full max-w-5xl flex-col gap-8"
+            ? "flex flex-1 min-h-0 w-full flex-col gap-6 overflow-x-hidden"
+            : "mx-auto flex w-full max-w-5xl flex-col gap-8 overflow-x-hidden"
         }
       >
         <div
-          className={`grid gap-6 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] ${
+          className={`grid w-full gap-6 overflow-x-hidden lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] ${
             isEmbedded ? "flex-1 overflow-y-auto" : ""
           }`}
         >
