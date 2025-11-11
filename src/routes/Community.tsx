@@ -37,7 +37,7 @@ import {
 } from "../utils/routes";
 import type { LucideIcon } from "lucide-react";
 import {
-  ArrowUp,
+  ArrowDown,
   Bell,
   Heart,
   ImagePlus,
@@ -45,6 +45,7 @@ import {
   MessageCircle,
   MessageSquareQuote,
   Newspaper,
+  Plus,
   Send,
   Sparkles,
   Trash2,
@@ -1071,7 +1072,7 @@ const CommunityView: React.FC = () => {
     sendTyping,
   } = useBitcoinSquareCasualChat();
 
-  const messages = useMemo(() => [...rawMessages].reverse(), [rawMessages]);
+  const messages = useMemo(() => rawMessages, [rawMessages]);
 
   const {
     posts: feedPosts,
@@ -1155,6 +1156,10 @@ const CommunityView: React.FC = () => {
   const [pendingNotificationTarget, setPendingNotificationTarget] =
     useState<NotificationTarget | null>(null);
   const hasUnreadNotifications = unreadNotificationIds.size > 0;
+  const mobileNavigationStyle = useMemo(
+    () => ({ top: "calc(2.5rem + env(safe-area-inset-top, 0px))" }),
+    [],
+  );
 
   useEffect(() => {
     if (routePostId) {
@@ -1205,6 +1210,28 @@ const CommunityView: React.FC = () => {
       return new Set<string>();
     });
   }, [isNotificationsView]);
+  useEffect(() => {
+    if (!isCasualView) {
+      setIsComposerOpen(false);
+    }
+  }, [isCasualView]);
+  useEffect(() => {
+    if (!isComposerOpen) {
+      return;
+    }
+    if (typeof document === "undefined") {
+      return;
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsComposerOpen(false);
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isComposerOpen]);
   const listRef = useRef<HTMLDivElement | null>(null);
   const composerContainerRef = useRef<HTMLDivElement | null>(null);
   const scrollUpdateFrameRef = useRef<number | null>(null);
@@ -1214,9 +1241,11 @@ const CommunityView: React.FC = () => {
   const [pendingDeletes, setPendingDeletes] = useState<Set<string>>(new Set());
   const [openMessageMenuId, setOpenMessageMenuId] = useState<string | null>(null);
   const [rawDataMessage, setRawDataMessage] = useState<CasualChatMessage | null>(null);
-  const [isAtTop, setIsAtTop] = useState(true);
+  const [isAtBottom, setIsAtBottom] = useState(true);
+  const isAtBottomRef = useRef(true);
   const [newMessageAnchor, setNewMessageAnchor] = useState<string | null>(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const [isComposerOpen, setIsComposerOpen] = useState(false);
   const [composerHeight, setComposerHeight] = useState(0);
   const messageRefs = useRef(new Map<string, HTMLDivElement>());
   const highlightTimerRef = useRef<number | null>(null);
@@ -1423,7 +1452,7 @@ const CommunityView: React.FC = () => {
   );
 
   useEffect(() => {
-    if (!isCasualView) {
+    if (!isCasualView || !isComposerOpen) {
       setComposerHeight(0);
       return;
     }
@@ -1450,7 +1479,7 @@ const CommunityView: React.FC = () => {
     return () => {
       window.removeEventListener("resize", measure);
     };
-  }, [isCasualView]);
+  }, [isCasualView, isComposerOpen]);
 
   useEffect(() => {
     if (!openMessageMenuId) return;
@@ -1498,8 +1527,9 @@ const CommunityView: React.FC = () => {
 
   const chatSpacing = useMemo(() => {
     const safeInset = "env(safe-area-inset-bottom, 0px)";
-    const fallbackHeight = "7rem";
-    const measuredHeight = isCasualView && composerHeight > 0 ? `${composerHeight}px` : fallbackHeight;
+    const fallbackHeight = isComposerOpen ? "7rem" : "4rem";
+    const measuredHeight =
+      isCasualView && isComposerOpen && composerHeight > 0 ? `${composerHeight}px` : fallbackHeight;
     const contentPadding = `calc(${measuredHeight} + ${safeInset} + 1.5rem)`;
     const scrollPadding = `calc(${measuredHeight} + ${safeInset} + 1rem)`;
     return {
@@ -1507,7 +1537,7 @@ const CommunityView: React.FC = () => {
       scrollPadding,
       buttonOffset: scrollPadding,
     };
-  }, [composerHeight, isCasualView]);
+  }, [composerHeight, isCasualView, isComposerOpen]);
 
   const jumpButtonStyle = useMemo<React.CSSProperties>(() => {
     if (!chatSpacing.buttonOffset) {
@@ -1611,19 +1641,22 @@ const CommunityView: React.FC = () => {
     const node = listRef.current;
     if (!node) return;
     const threshold = 80;
-    const atTop = node.scrollTop < threshold;
-    setIsAtTop(atTop);
-    if (atTop) {
-      setNewMessageAnchor((current) => (current ? null : current));
+    const distanceFromBottom = node.scrollHeight - node.scrollTop - node.clientHeight;
+    const atBottom = distanceFromBottom <= threshold;
+    setIsAtBottom(atBottom);
+    isAtBottomRef.current = atBottom;
+    if (atBottom) {
+      setNewMessageAnchor(null);
     }
     setVirtualVersion((value) => value + 1);
   }, []);
 
-  const scrollToTop = useCallback(
+  const scrollToBottom = useCallback(
     (behavior: ScrollBehavior = "auto") => {
       const node = listRef.current;
       if (!node) return;
-      node.scrollTo({ top: 0, behavior });
+      const target = Math.max(node.scrollHeight - node.clientHeight, 0);
+      node.scrollTo({ top: target, behavior });
     },
     [],
   );
@@ -1664,7 +1697,7 @@ const CommunityView: React.FC = () => {
   useEffect(() => {
     if (activeView !== "casual") {
       previousMessageIdsRef.current = messages.map((message) => message.id);
-      const latestMessage = messages[0];
+      const latestMessage = messages[messages.length - 1];
       previousLatestMessageRef.current =
         latestMessage != null
           ? { id: latestMessage.id, createdAt: latestMessage.created_at }
@@ -1673,11 +1706,11 @@ const CommunityView: React.FC = () => {
       return;
     }
 
-    const latestMessage = messages[0];
+    const latestMessage = messages[messages.length - 1];
 
     if (!initialScrollDoneRef.current && latestMessage) {
       initialScrollDoneRef.current = true;
-      scrollToTop("auto");
+      scrollToBottom("auto");
       computeScrollState();
     } else if (latestMessage) {
       const previousLatest = previousLatestMessageRef.current;
@@ -1687,16 +1720,22 @@ const CommunityView: React.FC = () => {
         (latestMessage.created_at === previousLatest.createdAt && latestMessage.id !== previousLatest.id);
 
       if (hasNewerMessage) {
-        scrollToTop("smooth");
-        setNewMessageAnchor(null);
-        scheduleScrollState();
+        const previousIds = new Set(previousMessageIdsRef.current);
+        const anchorId = messages.find((message) => !previousIds.has(message.id))?.id ?? latestMessage.id;
+        if (isAtBottomRef.current) {
+          scrollToBottom("smooth");
+          setNewMessageAnchor(null);
+          scheduleScrollState();
+        } else {
+          setNewMessageAnchor((current) => current ?? anchorId);
+        }
       }
     }
 
     previousMessageIdsRef.current = messages.map((message) => message.id);
     previousLatestMessageRef.current =
       latestMessage != null ? { id: latestMessage.id, createdAt: latestMessage.created_at } : null;
-  }, [activeView, computeScrollState, messages, scheduleScrollState, scrollToTop]);
+  }, [activeView, computeScrollState, messages, scheduleScrollState, scrollToBottom]);
 
   useEffect(() => {
     setVirtualVersion((value) => value + 1);
@@ -1714,16 +1753,16 @@ const CommunityView: React.FC = () => {
   useEffect(() => {
     if (activeView === "casual") {
       if (typeof window === "undefined") {
-        scrollToTop("auto");
+        scrollToBottom("auto");
         computeScrollState();
         return;
       }
       window.requestAnimationFrame(() => {
-        scrollToTop("auto");
+        scrollToBottom("auto");
         computeScrollState();
       });
     }
-  }, [activeView, computeScrollState, scrollToTop]);
+  }, [activeView, computeScrollState, scrollToBottom]);
 
   const casualMemberActivity = useMemo(() => collectMemberActivity(messages), [messages]);
   const feedMemberActivity = useMemo(() => collectMemberActivity(feedPosts), [feedPosts]);
@@ -2110,16 +2149,56 @@ const CommunityView: React.FC = () => {
     const Icon = tab.icon;
     const tabId = `community-tab-${tab.key}`;
     const panelId = `community-panel-${tab.key}`;
-    const layoutClass = variant === "mobile" ? "min-w-[10rem] shrink-0 snap-start" : "w-full";
-    const baseClasses =
-      "flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 sm:text-sm";
-
     const isActive = activeView === tab.key;
+    const showNotificationDot = tab.key === "notifications" && hasUnreadNotifications;
+    const showMessageDot = tab.key === "messages" && hasUnreadMessages && !isMessagesView;
+    const attentionAnnouncement =
+      showNotificationDot && showMessageDot
+        ? "Unread notifications and messages available"
+        : showNotificationDot
+          ? "Unread notifications available"
+          : showMessageDot
+            ? "Unread messages available"
+            : null;
+
+    if (variant === "mobile") {
+      const baseClasses =
+        "relative flex h-12 w-12 items-center justify-center rounded-full border text-[var(--fg-muted)] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60";
+      const paletteClasses = isActive
+        ? "border-brand bg-brand/10 text-brand shadow-sm"
+        : "border-[var(--border-subtle)]/70 hover:border-brand hover:text-brand";
+      const showAttentionDot = showNotificationDot || showMessageDot;
+
+      return (
+        <button
+          key={tab.key}
+          type="button"
+          id={tabId}
+          role="tab"
+          aria-selected={isActive}
+          aria-controls={panelId}
+          tabIndex={isActive ? 0 : -1}
+          onClick={() => handleSelectView(tab.key)}
+          className={`${baseClasses} ${paletteClasses}`}
+        >
+          <Icon className="h-5 w-5" aria-hidden="true" />
+          <span className="sr-only">{t(tab.labelKey)}</span>
+          {showAttentionDot && (
+            <span
+              aria-hidden="true"
+              className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-brand"
+            />
+          )}
+          {attentionAnnouncement && <span className="sr-only">{attentionAnnouncement}</span>}
+        </button>
+      );
+    }
+
+    const baseClasses =
+      "flex w-full items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 sm:text-sm";
     const paletteClasses = isActive
       ? "border-brand bg-brand/10 text-brand shadow-sm"
       : "border-transparent text-[var(--fg-muted)] hover:border-brand hover:text-brand";
-    const showNotificationDot = tab.key === "notifications" && hasUnreadNotifications;
-    const showMessageDot = tab.key === "messages" && hasUnreadMessages && !isMessagesView;
 
     return (
       <button
@@ -2131,7 +2210,7 @@ const CommunityView: React.FC = () => {
         aria-controls={panelId}
         tabIndex={isActive ? 0 : -1}
         onClick={() => handleSelectView(tab.key)}
-        className={`${baseClasses} ${layoutClass} ${paletteClasses}`}
+        className={`${baseClasses} ${paletteClasses}`}
       >
         <Icon className="h-4 w-4" aria-hidden="true" />
         <span className="flex items-center gap-2">
@@ -2147,10 +2226,7 @@ const CommunityView: React.FC = () => {
             </span>
           )}
         </span>
-        {showNotificationDot && (
-          <span className="sr-only">Unread notifications available</span>
-        )}
-        {showMessageDot && <span className="sr-only">Unread messages available</span>}
+        {attentionAnnouncement && <span className="sr-only">{attentionAnnouncement}</span>}
       </button>
     );
   };
@@ -2207,7 +2283,7 @@ const CommunityView: React.FC = () => {
     }
     return items;
   }, [estimatedRowHeight, isCasualView, messages, virtualVersion]);
-  const showJumpToLatest = isCasualView && !isAtTop && messages.length > 0;
+  const showJumpToLatest = isCasualView && !isAtBottom && messages.length > 0;
 
   const handleSend = useCallback(
     async (
@@ -2302,7 +2378,8 @@ const CommunityView: React.FC = () => {
       displayName: summary.displayName,
       snippet: buildQuoteSnippet(message.markdown),
     });
-  }, [resolveProfileSummary]);
+    setIsComposerOpen(true);
+  }, [resolveProfileSummary, setIsComposerOpen]);
 
   const startHighlight = useCallback((messageId: string) => {
     if (highlightTimerRef.current) {
@@ -2525,7 +2602,23 @@ const CommunityView: React.FC = () => {
   );
 
   const composerPanel = (
-    <div className="mx-auto w-full max-w-3xl space-y-3">
+    <div className="space-y-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--fg-muted)]">New message</p>
+          <p className="mt-1 text-sm text-[var(--fg-muted)]/80">
+            Share something with the chat group.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setIsComposerOpen(false)}
+          className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50"
+        >
+          <span className="sr-only">Close message form</span>
+          <X className="h-4 w-4" aria-hidden />
+        </button>
+      </div>
       {typingSummaries.length > 0 && (
         <div className="flex justify-center">
           <div className="inline-flex items-center gap-2 rounded-full bg-[var(--bg-card)] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-[var(--fg-muted)]">
@@ -2550,26 +2643,29 @@ const CommunityView: React.FC = () => {
     </div>
   );
 
-  const composerOverlay = !isCasualView
-    ? null
-    : typeof document !== "undefined"
-      ? createPortal(
-          <div
-            ref={composerContainerRef}
-            className="fixed bottom-0 left-0 right-0 z-40 border-t border-[var(--border-subtle)] bg-[var(--bg-card)]/95 px-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pt-4 backdrop-blur sm:px-8 lg:left-80"
-          >
-            {composerPanel}
-          </div>,
-          document.body,
-        )
-      : (
-          <div
-            ref={composerContainerRef}
-            className="fixed bottom-0 left-0 right-0 z-40 border-t border-[var(--border-subtle)] bg-[var(--bg-card)]/95 px-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pt-4 backdrop-blur sm:px-8 lg:left-80"
-          >
-            {composerPanel}
-          </div>
-        );
+  const overlayContent = (
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-40 flex items-end justify-center bg-black/50 px-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pt-16 sm:items-center sm:pt-24"
+      onClick={() => setIsComposerOpen(false)}
+    >
+      <div
+        ref={composerContainerRef}
+        className="pointer-events-auto w-full max-w-3xl rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)]/95 p-5 shadow-2xl backdrop-blur"
+        onClick={(event) => event.stopPropagation()}
+      >
+        {composerPanel}
+      </div>
+    </div>
+  );
+
+  const composerOverlay =
+    !isCasualView || !isComposerOpen
+      ? null
+      : typeof document !== "undefined"
+        ? createPortal(overlayContent, document.body)
+        : overlayContent;
 
   return (
     <div className="relative flex min-h-screen w-full overflow-hidden bg-[var(--bg-app)] transition-colors">
@@ -2595,18 +2691,35 @@ const CommunityView: React.FC = () => {
             </div>
           </div>
         </aside>
-        <div className="flex flex-1 min-h-0 flex-col lg:pl-80">
-          <div className="border-b border-[var(--border-subtle)] bg-[var(--bg-card)]/80 px-5 py-4 backdrop-blur lg:hidden">
-            <nav
-              aria-label="Community navigation"
-              role="tablist"
-              className="-mx-5 ml-[60px] flex snap-x snap-mandatory gap-2 overflow-x-auto px-5 pl-20 pb-2 text-sm scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:ml-0 sm:pl-5"
-              style={{ WebkitOverflowScrolling: "touch" }}
+        <div className="relative flex flex-1 min-h-0 flex-col lg:pl-80">
+          <div className="pointer-events-none lg:hidden">
+            <div
+              className="pointer-events-auto absolute right-4 z-30 flex flex-col items-center gap-3"
+              style={mobileNavigationStyle}
             >
-              {MOBILE_VIEW_TABS.map((tab) => renderTabButton(tab, "mobile"))}
-            </nav>
+              <nav
+                aria-label="Community navigation"
+                role="tablist"
+                className="flex flex-col items-center gap-3 rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)]/85 p-3 shadow-lg backdrop-blur"
+              >
+                {MOBILE_VIEW_TABS.map((tab) => renderTabButton(tab, "mobile"))}
+              </nav>
+              {isCasualView && !isComposerOpen && (
+                <button
+                  type="button"
+                  onClick={() => setIsComposerOpen(true)}
+                  aria-disabled={!ready}
+                  className={`flex h-12 w-12 items-center justify-center rounded-full bg-brand text-white shadow-xl transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 ${
+                    ready ? "" : "opacity-60"
+                  }`}
+                >
+                  <Plus className="h-5 w-5" aria-hidden />
+                  <span className="sr-only">Compose new message</span>
+                </button>
+              )}
+            </div>
           </div>
-          <main className="relative flex flex-1 min-h-0 flex-col">
+          <main className="relative flex flex-1 min-h-0 flex-col pr-20 sm:pr-24 lg:pr-0">
             {isCasualView ? (
               <section
                 id="community-panel-casual"
@@ -2619,12 +2732,12 @@ const CommunityView: React.FC = () => {
                     type="button"
                     onClick={() => {
                       setNewMessageAnchor(null);
-                      scrollToTop("smooth");
+                      scrollToBottom("smooth");
                     }}
                     className="pointer-events-auto absolute bottom-28 right-6 z-30 inline-flex items-center gap-2 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-brand sm:bottom-36 sm:right-10"
                     style={jumpButtonStyle}
                   >
-                    <ArrowUp className="h-4 w-4" aria-hidden />
+                    <ArrowDown className="h-4 w-4" aria-hidden />
                     Jump to latest
                   </button>
                 )}
@@ -2989,6 +3102,19 @@ const CommunityView: React.FC = () => {
                     </div>
                   </div>
                 </ErrorBoundary>
+                {!isComposerOpen && (
+                  <button
+                    type="button"
+                    onClick={() => setIsComposerOpen(true)}
+                    aria-disabled={!ready}
+                    className={`pointer-events-auto absolute bottom-6 right-6 z-30 hidden h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-xl transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 lg:flex ${
+                      ready ? "" : "opacity-60"
+                    }`}
+                  >
+                    <Plus className="h-6 w-6" aria-hidden />
+                    <span className="sr-only">Compose new message</span>
+                  </button>
+                )}
               </section>
             ) : isPublicFeedView ? (
               <section
