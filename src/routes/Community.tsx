@@ -2936,7 +2936,7 @@ const CommunityView: React.FC = () => {
                                   <div
                                     className={`min-w-0 max-w-full rounded-3xl border px-4 py-3 backdrop-blur ${
                                       isSelf
-                                        ? "bg-brand text-white shadow-xl border-brand/60"
+                                        ? "bg-amber-500 text-white shadow-xl border-amber-400"
                                         : "bg-white/85 text-[var(--fg-default)] shadow-sm dark:bg-neutral-900/70"
                                     } ${isHighlighted ? "ring-2 ring-brand/70" : "ring-1 ring-transparent"}`}
                                     style={
