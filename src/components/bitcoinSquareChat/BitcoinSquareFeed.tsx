@@ -12,7 +12,7 @@ import { useAuth } from "../../context/AuthContext";
 import ProfileCard from "../profile/ProfileCard";
 import ErrorBoundary from "../ErrorBoundary";
 import type { RoomDefinition } from "../RoomList";
-import { Heart, ImagePlus, Loader2, MessageCircle, Plus, Share2, Trash2, X } from "lucide-react";
+import { Heart, ImagePlus, Loader2, Plus, Share2, Trash2, X } from "lucide-react";
 import {
   createFeedActionHandlers,
   createOpenComposerDialog,
@@ -812,6 +812,18 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       .sort((a, b) => a.created_at - b.created_at);
   }, [activeThreadId, posts]);
 
+  const activeThreadSummary = useMemo(() => {
+    if (!activeThreadPost) {
+      return null;
+    }
+    return resolveProfileSummary(activeThreadPost.pubkey);
+  }, [activeThreadPost, resolveProfileSummary]);
+
+  const activeThreadHeadingLabel =
+    activeThreadSummary?.displayName ??
+    activeThreadSummary?.screenName ??
+    (activeThreadPost ? shortenPubkey(activeThreadPost.pubkey) : "Thread");
+
   useEffect(() => {
     if (!activeThreadId) return;
     if (!postsById.has(activeThreadId)) {
@@ -1085,7 +1097,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     });
   }, []);
 
-  const { handlePost, handleReply, handleLike } = useMemo(
+  const { handlePost, handleLike } = useMemo(
     () =>
       createFeedActionHandlers({
         openComposerDialog,
@@ -1098,7 +1110,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
 
   const composerTitle =
     composerMode === "reply"
-      ? "Reply to note"
+      ? "Reply"
       : composerMode === "quote"
         ? "Quote note"
         : "Create community post";
@@ -1130,11 +1142,6 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     }
     focusPost(composerTarget.id);
   }, [composerTarget, focusPost]);
-
-  const handleThreadReply = useCallback(() => {
-    if (!activeThreadPost) return;
-    handleReply(activeThreadPost);
-  }, [activeThreadPost, handleReply]);
 
   const handleSharePost = useCallback(
     async (post: FeedPost) => {
@@ -1219,11 +1226,23 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   );
 
   const isThreadComposer =
-    composerOpen &&
     composerMode === "reply" &&
     composerTarget &&
     activeThreadPost &&
-    composerTarget.id === activeThreadPost.id;
+    (composerTarget.id === activeThreadPost.id || threadReplies.some((reply) => reply.id === composerTarget.id));
+
+  useEffect(() => {
+    if (!activeThreadPost) {
+      return;
+    }
+    if (composerMode === "reply" && composerTarget) {
+      if (composerTarget.id === activeThreadPost.id && !composerOpen) {
+        setComposerOpen(true);
+      }
+      return;
+    }
+    openComposerDialog("reply", activeThreadPost);
+  }, [activeThreadPost, composerMode, composerOpen, composerTarget, openComposerDialog, setComposerOpen]);
 
   useEffect(() => {
     if (!composerOpen) {
@@ -1372,33 +1391,31 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       </header>
 
       {composerTarget && (
-        <div className="mt-4 rounded-2xl border border-brand/40 bg-brand/10 px-4 py-3 text-xs text-brand shadow-sm">
-          <div className="flex items-start gap-3">
-            <button
-              type="button"
-              onClick={handleComposerReferenceClick}
-              className="flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
-            >
-              <p className="font-semibold uppercase tracking-[0.24em] text-brand/80">
-                {composerReferenceLabel}{" "}
-                {composerTargetSummary?.displayName ?? shortenPubkey(composerTarget.pubkey)}
-              </p>
-              <p className="mt-1 line-clamp-3 text-[11px] font-medium text-brand/90">
-                {composerPreviewSnippet || "Referenced post"}
-              </p>
-              {composerTimestampLabel && (
-                <p className="mt-2 text-[10px] uppercase tracking-[0.3em] text-brand/60">{composerTimestampLabel}</p>
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={clearComposerTarget}
-              className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-brand/40 text-brand transition hover:bg-brand hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
-              aria-label="Remove referenced post"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </div>
+        <div className="mt-4 text-xs text-[var(--fg-muted)]">
+          <button
+            type="button"
+            onClick={handleComposerReferenceClick}
+            className="flex w-full flex-col items-start gap-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+          >
+            <span className="font-semibold uppercase tracking-[0.24em] text-[var(--fg-muted)]/80">
+              {composerReferenceLabel}{" "}
+              {composerTargetSummary?.displayName ?? shortenPubkey(composerTarget.pubkey)}
+            </span>
+            <span className="line-clamp-3 text-[11px] font-medium text-[var(--fg-muted)]/90">
+              {composerPreviewSnippet || "Referenced post"}
+            </span>
+            {composerTimestampLabel && (
+              <span className="text-[10px] uppercase tracking-[0.3em] text-[var(--fg-muted)]/60">{composerTimestampLabel}</span>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={clearComposerTarget}
+            className="mt-2 inline-flex h-7 w-7 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+            aria-label="Remove referenced post"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
         </div>
       )}
 
@@ -1676,23 +1693,21 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         className={cardClassName}
         title={interactive ? "View conversation" : undefined}
       >
-        <header className="flex flex-wrap items-start justify-between gap-4">
+        <header className="space-y-3">
           <ProfileCard
             pubkey={post.pubkey}
-            contentClassName="items-start lg:w-1/4"
-            className="flex-1 lg:flex-none lg:w-1/4"
+            contentClassName="items-center"
+            className="w-full"
             subtitle={shortenPubkey(post.pubkey)}
-            meta={
-              <span className="text-xs uppercase tracking-[0.18em] text-[var(--fg-muted)]">
-                {formatRelativeTime(post.created_at)}
-              </span>
-            }
             onClick={(event) => {
               event.preventDefault();
               event.stopPropagation();
               openProfile(post.pubkey);
             }}
           />
+          <p className="text-xs uppercase tracking-[0.18em] text-[var(--fg-muted)]">
+            {formatRelativeTime(post.created_at)}
+          </p>
         </header>
 
         {showReferencePreview && (
@@ -2046,12 +2061,6 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
             </div>
           )}
 
-          {composerOpen && composerMode === "reply" && !isThreadComposer && (
-            <div className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)]/90 p-5 shadow-sm">
-              {composerContent}
-            </div>
-          )}
-
           {error && !composerOpen && (
             <p className="rounded-2xl border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-500">{error}</p>
           )}
@@ -2136,46 +2145,33 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
             aria-labelledby="feed-thread-heading"
             className="relative z-[80] w-full max-w-3xl space-y-6 rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-2xl"
           >
-            <header className="flex flex-wrap items-start justify-between gap-4">
-              <div>
+            <header className="relative space-y-3">
+              <button
+                type="button"
+                onClick={closeThread}
+                className="absolute right-0 top-0 inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+                aria-label="Close thread"
+              >
+                <X className="h-4 w-4" />
+              </button>
+              <div className="space-y-1 pr-12">
                 <h2
                   id="feed-thread-heading"
                   className="text-lg font-semibold uppercase tracking-[0.18em] text-[var(--fg-default)]"
                 >
-                  Post details
+                  {activeThreadHeadingLabel}
                 </h2>
-                <p className="mt-1 text-xs uppercase tracking-[0.3em] text-[var(--fg-muted)]">
+                <p className="text-xs uppercase tracking-[0.3em] text-[var(--fg-muted)]">
                   {formatAbsoluteTimestamp(activeThreadPost.created_at) ?? ""}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={closeThread}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
-                aria-label="Close post details"
-              >
-                <X className="h-4 w-4" />
-              </button>
             </header>
 
             {renderPostCard(activeThreadPost, { variant: "thread" })}
 
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h3 className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)]">Replies</h3>
-              <button
-                type="button"
-                onClick={handleThreadReply}
-                className="inline-flex items-center gap-2 rounded-full bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-brand"
-                disabled={!ready}
-              >
-                <MessageCircle className="h-4 w-4" />
-                Reply to post
-              </button>
-            </div>
-
             {threadReplies.length === 0 ? (
               <p className="rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-4 text-sm text-[var(--fg-muted)]">
-                No replies yet. Share your thoughts to start the conversation.
+                No responses yet. Share your thoughts to start the conversation.
               </p>
             ) : (
               <div className="space-y-4">
@@ -2189,11 +2185,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
               </div>
             )}
 
-            {isThreadComposer && (
-              <div className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)]/90 p-5 shadow-sm">
-                {composerContent}
-              </div>
-            )}
+            {isThreadComposer && composerContent}
           </div>
         </div>
       )}
