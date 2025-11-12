@@ -1676,23 +1676,21 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         className={cardClassName}
         title={interactive ? "View conversation" : undefined}
       >
-        <header className="flex flex-wrap items-start justify-between gap-4">
+        <header className="space-y-3">
           <ProfileCard
             pubkey={post.pubkey}
-            contentClassName="items-start lg:w-1/4"
-            className="flex-1 lg:flex-none lg:w-1/4"
+            contentClassName="items-center"
+            className="w-full"
             subtitle={shortenPubkey(post.pubkey)}
-            meta={
-              <span className="text-xs uppercase tracking-[0.18em] text-[var(--fg-muted)]">
-                {formatRelativeTime(post.created_at)}
-              </span>
-            }
             onClick={(event) => {
               event.preventDefault();
               event.stopPropagation();
               openProfile(post.pubkey);
             }}
           />
+          <p className="text-xs uppercase tracking-[0.18em] text-[var(--fg-muted)]">
+            {formatRelativeTime(post.created_at)}
+          </p>
         </header>
 
         {showReferencePreview && (
@@ -2136,36 +2134,36 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
             aria-labelledby="feed-thread-heading"
             className="relative z-[80] w-full max-w-3xl space-y-6 rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-2xl"
           >
-            <header className="flex flex-wrap items-start justify-between gap-4">
-              <div>
+            <header className="relative space-y-3">
+              <button
+                type="button"
+                onClick={closeThread}
+                className="absolute right-0 top-0 inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+                aria-label="Close post details"
+              >
+                <X className="h-4 w-4" />
+              </button>
+              <div className="space-y-1 pr-12">
                 <h2
                   id="feed-thread-heading"
                   className="text-lg font-semibold uppercase tracking-[0.18em] text-[var(--fg-default)]"
                 >
                   Post details
                 </h2>
-                <p className="mt-1 text-xs uppercase tracking-[0.3em] text-[var(--fg-muted)]">
+                <p className="text-xs uppercase tracking-[0.3em] text-[var(--fg-muted)]">
                   {formatAbsoluteTimestamp(activeThreadPost.created_at) ?? ""}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={closeThread}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
-                aria-label="Close post details"
-              >
-                <X className="h-4 w-4" />
-              </button>
             </header>
 
             {renderPostCard(activeThreadPost, { variant: "thread" })}
 
-            <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-col gap-3">
               <h3 className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)]">Replies</h3>
               <button
                 type="button"
                 onClick={handleThreadReply}
-                className="inline-flex items-center gap-2 rounded-full bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-brand"
+                className="inline-flex items-center gap-2 self-start rounded-full bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-brand"
                 disabled={!ready}
               >
                 <MessageCircle className="h-4 w-4" />
