@@ -133,7 +133,7 @@ export default function App() {
       ref={triggerRef}
       onClick={() => setOpen((v) => !v)}
       aria-label={open ? t("app.mobileMenu.closeAria") : t("app.mobileMenu.openAria")}
-      className="absolute left-4 bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] z-50 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-brand text-white shadow-lg transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-brand sm:bottom-auto sm:top-4 sm:fixed"
+      className="absolute right-[calc(1rem+3rem+0.75rem)] bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] z-50 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-brand text-white shadow-lg transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-brand sm:bottom-auto sm:top-4 sm:right-4 sm:fixed"
     >
       {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
     </button>
