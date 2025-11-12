@@ -2711,10 +2711,7 @@ const CommunityView: React.FC = () => {
 
   const mobileControlsContent = (
     <div className="pointer-events-none lg:hidden">
-      <div
-        className="pointer-events-auto fixed bottom-6 right-4 z-30 flex flex-col items-center gap-3"
-        style={mobileNavigationStyle}
-      >
+      <div className="pointer-events-auto absolute left-4 top-6 z-30">
         <button
           type="button"
           onClick={() => setIsMobileNavigationVisible((prev) => !prev)}
@@ -2735,6 +2732,11 @@ const CommunityView: React.FC = () => {
             {isMobileNavigationVisible ? "Hide community navigation" : "Show community navigation"}
           </span>
         </button>
+      </div>
+      <div
+        className="pointer-events-auto fixed bottom-6 right-4 z-30 flex flex-col items-center gap-3"
+        style={mobileNavigationStyle}
+      >
         {isMobileNavigationVisible && (
           <nav
             id="community-mobile-navigation"
@@ -2936,7 +2938,7 @@ const CommunityView: React.FC = () => {
                                   <div
                                     className={`min-w-0 max-w-full rounded-3xl border px-4 py-3 backdrop-blur ${
                                       isSelf
-                                        ? "bg-brand text-white shadow-xl border-brand/60"
+                                        ? "bg-amber-500 text-white shadow-xl border-amber-400"
                                         : "bg-white/85 text-[var(--fg-default)] shadow-sm dark:bg-neutral-900/70"
                                     } ${isHighlighted ? "ring-2 ring-brand/70" : "ring-1 ring-transparent"}`}
                                     style={
