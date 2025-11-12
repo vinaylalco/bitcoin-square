@@ -2061,12 +2061,6 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
             </div>
           )}
 
-          {composerOpen && composerMode === "reply" && !isThreadComposer && (
-            <div className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)]/90 p-5 shadow-sm">
-              {composerContent}
-            </div>
-          )}
-
           {error && !composerOpen && (
             <p className="rounded-2xl border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-500">{error}</p>
           )}
@@ -2191,11 +2185,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
               </div>
             )}
 
-            {isThreadComposer && (
-              <div className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)]/90 p-5 shadow-sm">
-                {composerContent}
-              </div>
-            )}
+            {isThreadComposer && composerContent}
           </div>
         </div>
       )}
