@@ -2711,7 +2711,10 @@ const CommunityView: React.FC = () => {
 
   const mobileControlsContent = (
     <div className="pointer-events-none lg:hidden">
-      <div className="pointer-events-auto absolute left-4 top-6 z-30">
+      <div
+        className="pointer-events-auto fixed bottom-6 right-4 z-30 flex flex-col items-center gap-3"
+        style={mobileNavigationStyle}
+      >
         <button
           type="button"
           onClick={() => setIsMobileNavigationVisible((prev) => !prev)}
@@ -2732,11 +2735,6 @@ const CommunityView: React.FC = () => {
             {isMobileNavigationVisible ? "Hide community navigation" : "Show community navigation"}
           </span>
         </button>
-      </div>
-      <div
-        className="pointer-events-auto fixed bottom-6 right-4 z-30 flex flex-col items-center gap-3"
-        style={mobileNavigationStyle}
-      >
         {isMobileNavigationVisible && (
           <nav
             id="community-mobile-navigation"
