@@ -16,6 +16,15 @@ import { useRoomKey } from "./useRoomKey";
 import { useAuth } from "../context/AuthContext";
 import { getBrowserLanguageTag } from "../utils/browserLanguage";
 import { stripImagePlaceholders } from "../utils/markdown";
+import {
+  PIN_EVENT_KIND,
+  decodePinnedEventContent,
+  encodePinnedEventContent,
+  normalizePinnedEntries,
+  removePinnedEntry,
+  togglePinnedEntry,
+  type PinnedEntry,
+} from "../utils/pinnedEntries";
 
 const RELAYS = [
   "wss://relay.damus.io",
@@ -27,6 +36,7 @@ const RELAYS = [
 const FAST_RELAY = RELAYS[0];
 const FEED_ROOM_ID = "bitcoinsquare-feed";
 const FEED_TAG = "bitcoinsquare-feed";
+const PIN_EVENT_IDENTIFIER = "feed-pins";
 const MAX_POSTS = 500;
 const INITIAL_FETCH_LIMIT = 50;
 const LOAD_MORE_BATCH = 40;
@@ -339,6 +349,9 @@ export interface UseBitcoinSquareFeedReturn {
   error: string | null;
   pubkey: string | null;
   initialLoading: boolean;
+  pinPost: (post: FeedPost) => Promise<void>;
+  unpinPost: (post: FeedPost) => Promise<void>;
+  pinnedEntries: PinnedEntry[];
 }
 
 export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
@@ -349,6 +362,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [pinnedEntries, setPinnedEntries] = useState<PinnedEntry[]>([]);
 
   const poolRef = useRef<SimplePool | null>(null);
   const subRef = useRef<ReturnType<SimplePool["subscribeMany"]> | null>(null);
@@ -358,6 +372,11 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
   const oldestTimestampRef = useRef<number | null>(null);
   const initialLoadRef = useRef(false);
   const retryTimersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const pinnedStateRef = useRef<{ entries: PinnedEntry[]; createdAt: number; eventId: string | null }>({
+    entries: [],
+    createdAt: 0,
+    eventId: null,
+  });
   const deletedPostIdsRef = useRef<Set<string>>(new Set());
   const deletedPostStorageHydratedRef = useRef(false);
 
@@ -760,6 +779,49 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
     };
   }, [feedKeyAvailable, setError, startSubscription]);
 
+  useEffect(() => {
+    if (!poolReady) return undefined;
+    const pool = poolRef.current;
+    if (!pool) return undefined;
+
+    const subscription = pool.subscribeMany(
+      RELAYS,
+      [
+        {
+          kinds: [PIN_EVENT_KIND],
+          "#t": [FEED_TAG],
+          "#d": [PIN_EVENT_IDENTIFIER],
+          limit: 20,
+        },
+      ],
+      {
+        onevent: (event) => {
+          const entries = decodePinnedEventContent(event.content);
+          const createdAt = typeof event.created_at === "number" ? event.created_at : 0;
+          setPinnedEntries((prev) => {
+            const current = pinnedStateRef.current;
+            if (
+              createdAt < current.createdAt ||
+              (createdAt === current.createdAt && current.eventId && current.eventId.localeCompare(event.id) >= 0)
+            ) {
+              return prev;
+            }
+            const normalized = normalizePinnedEntries(entries);
+            pinnedStateRef.current = { entries: normalized, createdAt, eventId: event.id };
+            return normalized;
+          });
+        },
+        onerror: (err) => {
+          console.warn("Pinned feed entries subscription error", err);
+        },
+      },
+    );
+
+    return () => {
+      subscription.close();
+    };
+  }, [poolReady]);
+
   const loadMore = useCallback(async () => {
     ensureDeletedPostsHydrated();
     if (loadingMore || !hasMore) {
@@ -1155,6 +1217,83 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
     [signEvent],
   );
 
+  const publishPinnedEntries = useCallback(
+    async (entries: PinnedEntry[]) => {
+      if (!canModerate) {
+        throw new Error("Only admins can pin posts.");
+      }
+      if (!signEvent) {
+        throw new Error("Your Nostr keys are not ready yet");
+      }
+      const pool = poolRef.current;
+      if (!pool) {
+        throw new Error("No relays available");
+      }
+
+      const normalized = normalizePinnedEntries(entries);
+      const template: EventTemplate = {
+        kind: PIN_EVENT_KIND,
+        created_at: Math.floor(Date.now() / 1000),
+        content: encodePinnedEventContent(normalized),
+        tags: [
+          ["t", FEED_TAG],
+          ["d", PIN_EVENT_IDENTIFIER],
+          ["app", "BitcoinSquare"],
+          ["feed", FEED_TAG],
+        ],
+      };
+
+      const event = await signEvent(template);
+      const previous = pinnedStateRef.current;
+      const nextState = {
+        entries: normalized,
+        createdAt: event.created_at ?? Math.floor(Date.now() / 1000),
+        eventId: event.id,
+      };
+      pinnedStateRef.current = nextState;
+      setPinnedEntries(normalized);
+
+      try {
+        await publishWithPool(pool, [FAST_RELAY], event);
+        if (RELAYS.length > 1) {
+          void replicateWithPool(pool, RELAYS.slice(1), event);
+        }
+      } catch (error) {
+        pinnedStateRef.current = previous;
+        setPinnedEntries(previous.entries);
+        throw error instanceof Error ? error : new Error(String(error));
+      }
+    },
+    [canModerate, signEvent],
+  );
+
+  const pinPost = useCallback(
+    async (post: FeedPost) => {
+      const current = pinnedStateRef.current.entries;
+      if (current.some((entry) => entry.id === post.id)) {
+        return;
+      }
+      const next = togglePinnedEntry(current, post.id, Date.now());
+      await publishPinnedEntries(next);
+    },
+    [publishPinnedEntries],
+  );
+
+  const unpinPost = useCallback(
+    async (post: FeedPost) => {
+      const current = pinnedStateRef.current.entries;
+      if (!current.some((entry) => entry.id === post.id)) {
+        return;
+      }
+      const next = removePinnedEntry(current, post.id);
+      if (next === current) {
+        return;
+      }
+      await publishPinnedEntries(next);
+    },
+    [publishPinnedEntries],
+  );
+
   return {
     posts,
     ready,
@@ -1168,5 +1307,8 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
     error,
     pubkey,
     initialLoading,
+    pinPost,
+    unpinPost,
+    pinnedEntries,
   };
 };

@@ -2,9 +2,16 @@ import type React from "react";
 
 import type { FeedPost } from "../../hooks/useBitcoinSquareFeed";
 
-type ComposerMode = "new" | "reply" | "quote";
+type ComposerMode = "new" | "reply" | "quote" | "edit";
 
 export type PendingMap = Set<string>;
+
+interface ComposerStateSnapshot {
+  mode: ComposerMode;
+  targetId: string | null;
+  content: string;
+  attachmentCount?: number;
+}
 
 export interface ComposerDialogDependencies {
   setComposerMode: (mode: ComposerMode) => void;
@@ -12,6 +19,9 @@ export interface ComposerDialogDependencies {
   setContent: (value: string) => void;
   setComposerError: (value: string | null) => void;
   setComposerOpen: (value: boolean) => void;
+  getCurrentState?: () => ComposerStateSnapshot;
+  shortenPubkey?: (value: string) => string;
+  onOpenMode?: (mode: ComposerMode, target: FeedPost | null, context: { hasExistingDraft: boolean }) => void;
 }
 
 export const createOpenComposerDialog = ({
@@ -20,12 +30,51 @@ export const createOpenComposerDialog = ({
   setContent,
   setComposerError,
   setComposerOpen,
+  getCurrentState,
+  shortenPubkey,
+  onOpenMode,
 }: ComposerDialogDependencies) =>
   (mode: ComposerMode, post?: FeedPost | null) => {
     setComposerMode(mode);
     const target = post ?? null;
     setComposerTarget(target);
-    setContent("");
+    const snapshot = getCurrentState?.();
+    const currentMode = snapshot?.mode;
+    const currentTargetId = snapshot?.targetId ?? null;
+    const currentContent = snapshot?.content ?? "";
+    const currentAttachments = snapshot?.attachmentCount ?? 0;
+    const sameMode = currentMode === mode;
+    const sameTarget =
+      mode === "new"
+        ? !target && !currentTargetId
+        : target?.id && currentTargetId
+          ? target.id === currentTargetId
+          : false;
+    const hasExistingDraft = sameMode && sameTarget && (currentContent.trim().length > 0 || currentAttachments > 0);
+
+    if (mode === "reply" && target) {
+      if (!hasExistingDraft) {
+        const mention = shortenPubkey ? shortenPubkey(target.pubkey) : `${target.pubkey.slice(0, 8)}…`;
+        const normalizedMention = mention.startsWith("@") ? mention : `@${mention}`;
+        setContent(`${normalizedMention} `);
+      }
+    } else if (mode === "quote" && target) {
+      if (!hasExistingDraft) {
+        const lines = target.content.split("\n");
+        const quoted = lines.map((line) => `> ${line}`.trimEnd()).join("\n");
+        setContent(`${quoted}\n\n`);
+      }
+    } else if (mode === "edit" && target) {
+      if (!hasExistingDraft) {
+        setContent(target.content ?? "");
+      }
+    } else if (mode === "new") {
+      if (!hasExistingDraft) {
+        setContent("");
+      }
+    }
+
+    onOpenMode?.(mode, target, { hasExistingDraft });
     setComposerError(null);
     setComposerOpen(true);
   };
@@ -59,6 +108,9 @@ export const createFeedActionHandlers = ({
     },
     handleQuote: (post: FeedPost) => {
       openComposerDialog("quote", post);
+    },
+    handleEdit: (post: FeedPost) => {
+      openComposerDialog("edit", post);
     },
     handleLike: async (post: FeedPost) => {
       updatePending(setPendingLikes, post.id, true);

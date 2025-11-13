@@ -6,6 +6,7 @@ import {
   createFeedActionHandlers,
   createOpenComposerDialog,
 } from "../src/components/bitcoinSquareChat/feedActions";
+import type { ComposerMode } from "../src/components/bitcoinSquareChat/feedActions";
 import type { FeedPost } from "../src/hooks/useBitcoinSquareFeed";
 
 describe("createOpenComposerDialog", () => {
@@ -28,6 +29,14 @@ describe("createOpenComposerDialog", () => {
     const setComposerError = vi.fn();
     const setComposerOpen = vi.fn();
     const shortenPubkey = vi.fn((value: string) => `${value.slice(0, 8)}…`);
+    const state: { mode: ComposerMode; targetId: string | null; content: string; attachmentCount: number } = {
+      mode: "new",
+      targetId: null,
+      content: "",
+      attachmentCount: 0,
+    };
+    const getCurrentState = vi.fn(() => state);
+    const onOpenMode = vi.fn();
 
     const openComposerDialog = createOpenComposerDialog({
       setComposerMode,
@@ -36,6 +45,8 @@ describe("createOpenComposerDialog", () => {
       setComposerError,
       setComposerOpen,
       shortenPubkey,
+      getCurrentState,
+      onOpenMode,
     });
 
     return {
@@ -46,6 +57,9 @@ describe("createOpenComposerDialog", () => {
       setComposerError,
       setComposerOpen,
       shortenPubkey,
+      getCurrentState,
+      onOpenMode,
+      state,
     };
   };
 
@@ -58,6 +72,7 @@ describe("createOpenComposerDialog", () => {
     expect(controls.setContent).toHaveBeenCalledWith("");
     expect(controls.setComposerError).toHaveBeenCalledWith(null);
     expect(controls.setComposerOpen).toHaveBeenCalledWith(true);
+    expect(controls.onOpenMode).toHaveBeenCalledWith("new", null, { hasExistingDraft: false });
   });
 
   it("prefills a reply with a shortened mention", () => {
@@ -70,6 +85,7 @@ describe("createOpenComposerDialog", () => {
     expect(controls.setContent).toHaveBeenCalledWith(`@${basePost.pubkey.slice(0, 8)}… `);
     expect(controls.setComposerError).toHaveBeenCalledWith(null);
     expect(controls.setComposerOpen).toHaveBeenCalledWith(true);
+    expect(controls.onOpenMode).toHaveBeenCalledWith("reply", basePost, { hasExistingDraft: false });
   });
 
   it("quotes each line when quoting a post", () => {
@@ -79,6 +95,45 @@ describe("createOpenComposerDialog", () => {
     expect(controls.setComposerMode).toHaveBeenCalledWith("quote");
     expect(controls.setComposerTarget).toHaveBeenCalledWith(basePost);
     expect(controls.setContent).toHaveBeenCalledWith("> First line\n> Second line\n\n");
+    expect(controls.onOpenMode).toHaveBeenCalledWith("quote", basePost, { hasExistingDraft: false });
+  });
+
+  it("preserves existing drafts for the same context", () => {
+    const controls = setup();
+    controls.state.mode = "new";
+    controls.state.targetId = null;
+    controls.state.content = "Existing draft";
+    controls.state.attachmentCount = 0;
+    controls.setContent.mockClear();
+
+    controls.openComposerDialog("new");
+
+    expect(controls.setContent).not.toHaveBeenCalled();
+    expect(controls.onOpenMode).toHaveBeenCalledWith("new", null, { hasExistingDraft: true });
+  });
+
+  it("prefills edit mode when no draft exists", () => {
+    const controls = setup();
+    controls.openComposerDialog("edit", basePost);
+
+    expect(controls.setComposerMode).toHaveBeenCalledWith("edit");
+    expect(controls.setComposerTarget).toHaveBeenCalledWith(basePost);
+    expect(controls.setContent).toHaveBeenCalledWith(basePost.content);
+    expect(controls.onOpenMode).toHaveBeenCalledWith("edit", basePost, { hasExistingDraft: false });
+  });
+
+  it("retains edit drafts when reopening", () => {
+    const controls = setup();
+    controls.state.mode = "edit";
+    controls.state.targetId = basePost.id;
+    controls.state.content = "Updated content";
+    controls.state.attachmentCount = 1;
+    controls.setContent.mockClear();
+
+    controls.openComposerDialog("edit", basePost);
+
+    expect(controls.setContent).not.toHaveBeenCalled();
+    expect(controls.onOpenMode).toHaveBeenCalledWith("edit", basePost, { hasExistingDraft: true });
   });
 });
 
@@ -113,7 +168,7 @@ describe("createFeedActionHandlers", () => {
     return { handlers, openComposerDialog, likePost, updatePending, setPendingLikes, logger };
   };
 
-  it("opens the composer for new, reply, and quote actions", () => {
+  it("opens the composer for new, reply, quote, and edit actions", () => {
     const controls = setup(async () => {});
 
     controls.handlers.handlePost();
@@ -124,6 +179,9 @@ describe("createFeedActionHandlers", () => {
 
     controls.handlers.handleQuote(post);
     expect(controls.openComposerDialog).toHaveBeenCalledWith("quote", post);
+
+    controls.handlers.handleEdit(post);
+    expect(controls.openComposerDialog).toHaveBeenCalledWith("edit", post);
   });
 
   it("optimistically tracks pending likes and clears on success", async () => {

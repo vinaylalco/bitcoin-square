@@ -587,6 +587,62 @@ const AttachmentPreview: React.FC<{ attachment: CasualAttachmentMeta }> = ({ att
   );
 };
 
+type ComposerAttachmentHints = Record<string, CasualAttachmentMeta>;
+
+interface ComposerImageDetails extends UploadedImageDetails {
+  eventId?: string | null;
+  iv?: string | null;
+}
+
+const createComposerImage = (
+  rawUrl: string,
+  hints?: ComposerAttachmentHints,
+): ComposerImageDetails => {
+  const placeholder = createPlaceholderImageDetails(rawUrl);
+  const normalizedUrl = placeholder.url;
+  const hint =
+    hints?.[normalizedUrl] ??
+    hints?.[rawUrl] ??
+    (normalizedUrl.endsWith("/") ? hints?.[normalizedUrl.slice(0, -1)] : undefined);
+
+  const details: ComposerImageDetails = {
+    ...placeholder,
+    eventId: hint?.eventId ?? null,
+    iv: hint?.iv ?? null,
+    size: hint?.size ?? placeholder.size,
+    mimeType: hint?.mimeType ?? placeholder.mimeType,
+    width: hint?.width ?? placeholder.width,
+    height: hint?.height ?? placeholder.height,
+    digest: hint?.digest ?? placeholder.digest,
+  };
+
+  if (hint?.url) {
+    details.originalUrl = hint.url;
+    details.url = rewriteImgBbUrlToProxy(hint.url, { absolute: true });
+  }
+
+  return details;
+};
+
+const buildComposerImages = (
+  draftValue: string,
+  hints?: ComposerAttachmentHints,
+): ComposerImageDetails[] => {
+  const urls = getMarkdownImageUrls(draftValue);
+  const images: ComposerImageDetails[] = [];
+  const seen = new Set<string>();
+
+  urls.forEach((rawUrl) => {
+    const details = createComposerImage(rawUrl, hints);
+    if (!seen.has(details.url)) {
+      images.push(details);
+      seen.add(details.url);
+    }
+  });
+
+  return images;
+};
+
 const Composer: React.FC<{
   disabled: boolean;
   onSend: (text: string, attachments: CasualAttachmentMeta[]) => Promise<void>;
@@ -597,6 +653,7 @@ const Composer: React.FC<{
   onJumpToQuote?: (messageId: string) => void;
   fetchMentionCandidates: (query: string, limit: number) => Promise<MentionCandidate[]>;
   mentionCandidates: MentionCandidate[];
+  attachmentHints?: ComposerAttachmentHints;
 }> = ({
   disabled,
   onSend,
@@ -607,6 +664,7 @@ const Composer: React.FC<{
   onJumpToQuote,
   fetchMentionCandidates,
   mentionCandidates,
+  attachmentHints,
 }) => {
   const initialDraft = rewriteImgBbUrlsInText(draft ?? "", { absolute: true });
   const [value, setValue] = useState(initialDraft);
@@ -615,8 +673,8 @@ const Composer: React.FC<{
   const [error, setError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [uploadedImages, setUploadedImages] = useState<UploadedImageDetails[]>(() =>
-    getMarkdownImageUrls(initialDraft).map((url) => createPlaceholderImageDetails(url)),
+  const [uploadedImages, setUploadedImages] = useState<ComposerImageDetails[]>(() =>
+    buildComposerImages(initialDraft, attachmentHints),
   );
   const typingEmitRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -639,32 +697,73 @@ const Composer: React.FC<{
     if (typeof draft === "string") {
       const normalizedDraft = rewriteImgBbUrlsInText(draft, { absolute: true });
       setValue((prev) => (prev === normalizedDraft ? prev : normalizedDraft));
-      const urls = getMarkdownImageUrls(normalizedDraft);
-      setUploadedImages((prev) => {
-        const map = new Map(prev.map((image) => [image.url, image]));
-        const next = urls.map((url) => map.get(url) ?? createPlaceholderImageDetails(url));
-        if (next.length === prev.length && next.every((entry, index) => entry === prev[index])) {
-          return prev;
-        }
-        return next;
-      });
+      setUploadedImages(buildComposerImages(normalizedDraft, attachmentHints));
     } else {
       setValue("");
-      setUploadedImages((prev) => (prev.length === 0 ? prev : []));
+      if (!attachmentHints || Object.keys(attachmentHints).length === 0) {
+        setUploadedImages([]);
+      } else {
+        setUploadedImages(buildComposerImages("", attachmentHints));
+      }
     }
-  }, [draft]);
+  }, [attachmentHints, draft]);
 
   useEffect(() => {
     const urls = getMarkdownImageUrls(value);
     setUploadedImages((prev) => {
-      const map = new Map(prev.map((image) => [image.url, image]));
-      const next = urls.map((url) => map.get(url) ?? createPlaceholderImageDetails(url));
-      if (next.length === prev.length && next.every((entry, index) => entry === prev[index])) {
-        return prev;
+      const existing = new Map(prev.map((image) => [image.url, image]));
+      const next: ComposerImageDetails[] = [];
+      let changed = false;
+
+      urls.forEach((url) => {
+        const current = existing.get(url);
+        if (current) {
+          next.push(current);
+        } else {
+          next.push(createComposerImage(url, attachmentHints));
+          changed = true;
+        }
+      });
+
+      if (next.length !== prev.length) {
+        changed = true;
+      } else if (!changed) {
+        for (let index = 0; index < next.length; index += 1) {
+          if (next[index] !== prev[index]) {
+            changed = true;
+            break;
+          }
+        }
       }
-      return next;
+
+      return changed ? next : prev;
     });
-  }, [value]);
+  }, [attachmentHints, value]);
+
+  useEffect(() => {
+    if (disabled) {
+      return;
+    }
+    const focusTextarea = () => {
+      const node = textareaRef.current;
+      if (!node) {
+        return;
+      }
+      const length = node.value.length;
+      node.focus();
+      try {
+        node.setSelectionRange(length, length);
+      } catch {
+        // Ignore selection errors in unsupported browsers
+      }
+    };
+    if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+      window.requestAnimationFrame(focusTextarea);
+    } else {
+      focusTextarea();
+    }
+    setIsTextareaFocused(true);
+  }, [disabled]);
 
   const emitTyping = useCallback(() => {
     if (!onTyping) return;
@@ -707,16 +806,25 @@ const Composer: React.FC<{
     }
     const trimmed = normalizedValue.trim();
     const attachments: CasualAttachmentMeta[] = uploadedImages
-      .filter((image) => image.size > 0 && image.url)
-      .map((image) => ({
-        eventId: "",
-        url: image.url,
-        mimeType: image.mimeType,
-        size: image.size,
-        digest: image.digest,
-        width: image.width,
-        height: image.height,
-      }));
+      .filter((image) => Boolean(image.url))
+      .map((image) => {
+        const hint =
+          attachmentHints?.[image.url] ??
+          (image.originalUrl ? attachmentHints?.[rewriteImgBbUrlToProxy(image.originalUrl, { absolute: true })] : undefined) ??
+          (image.originalUrl ? attachmentHints?.[image.originalUrl] : undefined);
+        const sourceUrl = hint?.url ?? image.originalUrl ?? image.url;
+        const normalizedUrl = rewriteImgBbUrlToProxy(sourceUrl, { absolute: true });
+        return {
+          eventId: hint?.eventId ?? image.eventId ?? "",
+          url: normalizedUrl,
+          mimeType: hint?.mimeType ?? image.mimeType,
+          size: hint?.size ?? image.size,
+          digest: hint?.digest ?? image.digest,
+          width: hint?.width ?? image.width,
+          height: hint?.height ?? image.height,
+          iv: hint?.iv,
+        };
+      });
 
     if (trimmed.length === 0 && attachments.length === 0) {
       return;
@@ -1065,6 +1173,7 @@ const CommunityView: React.FC = () => {
     roomId,
     messages: rawMessages,
     sendMessage,
+    editMessage: editCasualMessage,
     likeMessage,
     deleteMessage,
     pubkey,
@@ -1073,9 +1182,33 @@ const CommunityView: React.FC = () => {
     error: sendError,
     typingPubkeys,
     sendTyping,
+    pinMessage: pinCasualMessage,
+    unpinMessage: unpinCasualMessage,
+    pinnedEntries: pinnedMessageEntries,
   } = useBitcoinSquareCasualChat();
 
-  const messages = useMemo(() => rawMessages, [rawMessages]);
+  const pinnedMessageIdSet = useMemo(
+    () => new Set(pinnedMessageEntries.map((entry) => entry.id)),
+    [pinnedMessageEntries],
+  );
+
+  const pinnedMessages = useMemo(
+    () =>
+      pinnedMessageEntries
+        .map((entry) => rawMessages.find((message) => message.id === entry.id))
+        .filter((message): message is CasualChatMessage => Boolean(message)),
+    [pinnedMessageEntries, rawMessages],
+  );
+
+  const unpinnedMessages = useMemo(
+    () => rawMessages.filter((message) => !pinnedMessageIdSet.has(message.id)),
+    [rawMessages, pinnedMessageIdSet],
+  );
+
+  const messages = useMemo(
+    () => [...pinnedMessages, ...unpinnedMessages],
+    [pinnedMessages, unpinnedMessages],
+  );
 
   const {
     posts: feedPosts,
@@ -1090,6 +1223,9 @@ const CommunityView: React.FC = () => {
     error: feedError,
     pubkey: feedPubkey,
     initialLoading: feedInitialLoading,
+    pinPost: pinFeedPost,
+    unpinPost: unpinFeedPost,
+    pinnedEntries: feedPinnedEntries,
   } = useBitcoinSquareFeed();
   const { user, refreshNostrKeys } = useAuth();
   const canModerate = user?.isAdmin === true;
@@ -1252,8 +1388,24 @@ const CommunityView: React.FC = () => {
   const listRef = useRef<HTMLDivElement | null>(null);
   const composerContainerRef = useRef<HTMLDivElement | null>(null);
   const scrollUpdateFrameRef = useRef<number | null>(null);
+  const pageHiddenRef = useRef(false);
+  useEffect(() => {
+    if (typeof document === "undefined") {
+      return;
+    }
+    const handleVisibility = () => {
+      pageHiddenRef.current = document.hidden;
+    };
+    pageHiddenRef.current = document.hidden;
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, []);
   const [composerError, setComposerError] = useState<string | null>(null);
   const [composerDraft, setComposerDraft] = useState<string | undefined>(undefined);
+  const [editingMessage, setEditingMessage] = useState<CasualChatMessage | null>(null);
+  const [composerAttachmentHints, setComposerAttachmentHints] = useState<ComposerAttachmentHints>({});
   const [quoteContext, setQuoteContext] = useState<QuoteContextState | null>(null);
   const [pendingDeletes, setPendingDeletes] = useState<Set<string>>(new Set());
   const [openMessageMenuId, setOpenMessageMenuId] = useState<string | null>(null);
@@ -1738,7 +1890,7 @@ const CommunityView: React.FC = () => {
       if (hasNewerMessage) {
         const previousIds = new Set(previousMessageIdsRef.current);
         const anchorId = messages.find((message) => !previousIds.has(message.id))?.id ?? latestMessage.id;
-        if (isAtBottomRef.current) {
+        if (isAtBottomRef.current && !pageHiddenRef.current) {
           scrollToBottom("smooth");
           setNewMessageAnchor(null);
           scheduleScrollState();
@@ -2317,6 +2469,17 @@ const CommunityView: React.FC = () => {
   const handleComposerSend = useCallback(
     async (text: string, attachments: CasualAttachmentMeta[]) => {
       try {
+        if (editingMessage) {
+          await editCasualMessage(editingMessage, text, attachments);
+          setComposerError(null);
+          setComposerDraft(undefined);
+          setEditingMessage(null);
+          setComposerAttachmentHints({});
+          setQuoteContext(null);
+          setIsComposerOpen(false);
+          return editingMessage.id;
+        }
+
         const quoteId = quoteContext?.id ?? null;
         const quotePubkey = quoteContext?.pubkey ?? null;
         const sentMessageId = await handleSend(text, attachments, { quoteId, quotePubkey });
@@ -2375,17 +2538,23 @@ const CommunityView: React.FC = () => {
       }
     },
     [
+      editCasualMessage,
+      editingMessage,
       fetchMentionTargets,
       handleSend,
       pubkey,
       quoteContext,
       resolveProfileSummary,
+      setComposerAttachmentHints,
+      setEditingMessage,
       shortenPubkey,
       user?.username,
     ],
   );
 
   const handleQuoteMessage = useCallback((message: CasualChatMessage) => {
+    setEditingMessage(null);
+    setComposerAttachmentHints({});
     setComposerDraft("");
     const summary = resolveProfileSummary(message.pubkey);
     setQuoteContext({
@@ -2453,6 +2622,62 @@ const CommunityView: React.FC = () => {
     },
     [estimatedRowHeight, messageIndexMap, messages, startHighlight],
   );
+  const handleViewNewMessages = useCallback(() => {
+    scrollToBottom("smooth");
+    setNewMessageAnchor(null);
+    scheduleScrollState();
+  }, [scheduleScrollState, scrollToBottom]);
+
+  const handleBeginEditMessage = useCallback(
+    (message: CasualChatMessage) => {
+      const baseDraft = rewriteImgBbUrlsInText(message.markdown, { absolute: true });
+      const imageAttachments = message.attachments.filter(
+        (attachment) => typeof attachment.mimeType === "string" && attachment.mimeType.startsWith("image/"),
+      );
+      const hints: ComposerAttachmentHints = {};
+      const placeholderLines: string[] = [];
+
+      imageAttachments.forEach((attachment) => {
+        const url = attachment.url;
+        if (!url) {
+          return;
+        }
+        const sanitizedUrl = rewriteImgBbUrlToProxy(url, { absolute: true });
+        placeholderLines.push(`![Uploaded image](${sanitizedUrl})`);
+        hints[sanitizedUrl] = attachment;
+        hints[url] = attachment;
+      });
+
+      let draftValue = baseDraft;
+      if (placeholderLines.length > 0) {
+        const trimmed = draftValue.trimEnd();
+        if (trimmed.length > 0) {
+          const needsLineBreak = !trimmed.endsWith("\n");
+          draftValue = `${trimmed}${needsLineBreak ? "\n" : ""}\n${placeholderLines.join("\n")}`;
+        } else {
+          draftValue = placeholderLines.join("\n");
+        }
+        if (!draftValue.endsWith("\n")) {
+          draftValue += "\n";
+        }
+      }
+
+      setComposerAttachmentHints(hints);
+      setComposerDraft(draftValue);
+      setEditingMessage(message);
+      setComposerError(null);
+      setQuoteContext(null);
+      setIsComposerOpen(true);
+    },
+    [setComposerAttachmentHints, setComposerDraft, setComposerError, setEditingMessage, setIsComposerOpen, setQuoteContext],
+  );
+
+  const handleCancelEdit = useCallback(() => {
+    setEditingMessage(null);
+    setComposerAttachmentHints({});
+    setComposerDraft("");
+    setComposerError(null);
+  }, [setComposerAttachmentHints, setComposerDraft, setComposerError, setEditingMessage]);
   const handleNotificationSelect = useCallback(
     (notification: CommunityNotification) => {
       if (!notification.targetView) {
@@ -2520,6 +2745,30 @@ const CommunityView: React.FC = () => {
       }
     },
     [likeMessage, pubkey],
+  );
+
+  const handlePinMessage = useCallback(
+    async (message: CasualChatMessage) => {
+      try {
+        await pinCasualMessage(message.id);
+      } catch (pinError) {
+        const messageText = pinError instanceof Error ? pinError.message : String(pinError);
+        setComposerError(messageText);
+      }
+    },
+    [pinCasualMessage, setComposerError],
+  );
+
+  const handleUnpinMessage = useCallback(
+    async (message: CasualChatMessage) => {
+      try {
+        await unpinCasualMessage(message.id);
+      } catch (pinError) {
+        const messageText = pinError instanceof Error ? pinError.message : String(pinError);
+        setComposerError(messageText);
+      }
+    },
+    [setComposerError, unpinCasualMessage],
   );
 
   const handleDeleteMessage = useCallback(
@@ -2609,6 +2858,8 @@ const CommunityView: React.FC = () => {
       return;
     }
     if (isCasualView) {
+      setEditingMessage(null);
+      setComposerAttachmentHints({});
       setIsComposerOpen(true);
       return;
     }
@@ -2617,7 +2868,14 @@ const CommunityView: React.FC = () => {
       setFeedComposerRequestTarget(target);
       setFeedComposerRequestId((value) => value + 1);
     }
-  }, [isAnyFeedView, isCasualView, isMobileComposeButtonEnabled, isPublicFeedView]);
+  }, [
+    isAnyFeedView,
+    isCasualView,
+    isMobileComposeButtonEnabled,
+    isPublicFeedView,
+    setComposerAttachmentHints,
+    setEditingMessage,
+  ]);
 
   const gatingResult = renderContent();
   if (gatingResult) {
@@ -2650,7 +2908,9 @@ const CommunityView: React.FC = () => {
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--fg-muted)]">New message</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--fg-muted)]">
+            {editingMessage ? "Edit message" : "New message"}
+          </p>
         </div>
         <button
           type="button"
@@ -2661,6 +2921,26 @@ const CommunityView: React.FC = () => {
           <X className="h-4 w-4" aria-hidden />
         </button>
       </div>
+      {editingMessage && (
+        <div className="flex items-start justify-between gap-3 rounded-2xl border border-brand/40 bg-brand/10 px-3 py-2 text-xs text-brand shadow-sm">
+          <div className="flex-1 space-y-1">
+            <p className="font-semibold uppercase tracking-[0.24em] text-brand/80">Editing your message</p>
+            <p className="text-[11px] font-medium text-brand/90">
+              {buildQuoteSnippet(editingMessage.markdown) || "Original message"}
+            </p>
+            <p className="text-[9px] uppercase tracking-[0.3em] text-brand/60">
+              {formatTimestamp(editingMessage.created_at)}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleCancelEdit}
+            className="inline-flex h-7 items-center justify-center rounded-full border border-brand/40 px-3 text-[10px] font-semibold uppercase tracking-[0.24em] text-brand transition hover:bg-brand hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+          >
+            Cancel edit
+          </button>
+        </div>
+      )}
       {typingSummaries.length > 0 && (
         <div className="flex justify-center">
           <div className="inline-flex items-center gap-2 rounded-full bg-[var(--bg-card)] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-[var(--fg-muted)]">
@@ -2681,6 +2961,7 @@ const CommunityView: React.FC = () => {
         onJumpToQuote={handleScrollToMessage}
         fetchMentionCandidates={fetchMentionCandidates}
         mentionCandidates={localMentionCandidates}
+        attachmentHints={composerAttachmentHints}
       />
     </div>
   );
@@ -2744,6 +3025,16 @@ const CommunityView: React.FC = () => {
           >
             {MOBILE_VIEW_TABS.map((tab) => renderTabButton(tab, "mobile"))}
           </nav>
+        )}
+        {isCasualView && newMessageAnchor && (
+          <button
+            type="button"
+            onClick={handleViewNewMessages}
+            className="flex items-center gap-2 rounded-full border border-[color:var(--chat-floating-control-border)] bg-[color:var(--chat-floating-control-bg)] px-4 py-1.5 text-[10px] font-semibold uppercase tracking-[0.3em] text-[color:var(--chat-floating-control-fg)] shadow-[var(--chat-floating-control-shadow)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+          >
+            <ArrowDown className="h-4 w-4" aria-hidden />
+            <span>New</span>
+          </button>
         )}
         {isMobileComposeButtonVisible && (
           <button
@@ -2833,6 +3124,7 @@ const CommunityView: React.FC = () => {
                           const isSelf = message.pubkey === pubkey;
                           const accent = authorAccents.get(message.pubkey);
                           const summary = resolveProfileSummary(message.pubkey);
+                          const isPinnedMessage = pinnedMessageIdSet.has(message.id);
                           const timestampColor = isSelf
                             ? "text-[color:var(--chat-bubble-self-muted)]"
                             : "text-[var(--fg-muted)]";
@@ -2912,6 +3204,8 @@ const CommunityView: React.FC = () => {
                             : isSelf
                               ? "text-red-200 hover:bg-red-500/20"
                               : "text-red-400 hover:bg-red-500/15";
+                          const editedTimestamp = message.edited_at ? formatTimestamp(message.edited_at) : null;
+                          const canEditMessage = isSelf;
                           return (
                             <div
                               key={message.id}
@@ -2947,6 +3241,13 @@ const CommunityView: React.FC = () => {
                                         : undefined
                                     }
                                   >
+                                    {isPinnedMessage && (
+                                      <div className={`mb-2 flex ${isSelf ? "justify-end" : "justify-start"}`}>
+                                        <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/60 bg-amber-400/20 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.3em] text-amber-800 dark:border-amber-200/60 dark:bg-amber-200/15 dark:text-amber-200">
+                                          Pinned
+                                        </span>
+                                      </div>
+                                    )}
                                     <div className={`flex items-start gap-3 ${isSelf ? "flex-row-reverse" : ""}`}>
                                       <button
                                         type="button"
@@ -3097,7 +3398,7 @@ const CommunityView: React.FC = () => {
                                         {isMessageMenuOpen && (
                                           <div
                                             role="menu"
-                                            className="absolute right-0 z-30 mt-2 w-48 rounded-2xl border border-[color:var(--chat-floating-control-border)] bg-[var(--chat-floating-control-bg)] p-1 text-xs text-[color:var(--chat-floating-control-fg)] shadow-[var(--chat-floating-control-shadow)] backdrop-blur"
+                                            className="absolute right-0 z-[120] mt-2 w-48 rounded-2xl border border-[color:var(--chat-floating-control-border)] bg-[var(--chat-floating-control-bg)] p-1 text-xs text-[color:var(--chat-floating-control-fg)] shadow-[var(--chat-floating-control-shadow)] backdrop-blur"
                                           >
                                             <button
                                               type="button"
@@ -3112,6 +3413,38 @@ const CommunityView: React.FC = () => {
                                               <span className="inline-block h-2 w-2 rounded-full bg-brand" aria-hidden />
                                               <span>View raw data</span>
                                             </button>
+                                            {canEditMessage && (
+                                              <button
+                                                type="button"
+                                                role="menuitem"
+                                                onClick={(event) => {
+                                                  event.stopPropagation();
+                                                  setOpenMessageMenuId(null);
+                                                  handleBeginEditMessage(message);
+                                                }}
+                                                className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-medium transition hover:bg-[var(--bg-muted)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+                                              >
+                                                Edit message
+                                              </button>
+                                            )}
+                                            {canModerate && (
+                                              <button
+                                                type="button"
+                                                role="menuitem"
+                                                onClick={(event) => {
+                                                  event.stopPropagation();
+                                                  setOpenMessageMenuId(null);
+                                                  if (isPinnedMessage) {
+                                                    handleUnpinMessage(message);
+                                                  } else {
+                                                    handlePinMessage(message);
+                                                  }
+                                                }}
+                                                className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-medium transition hover:bg-[var(--bg-muted)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+                                              >
+                                                {isPinnedMessage ? "Unpin message" : "Pin message"}
+                                              </button>
+                                            )}
                                             {canModerate && (
                                               <button
                                                 type="button"
@@ -3162,6 +3495,12 @@ const CommunityView: React.FC = () => {
                                           </div>
                                         )}
 
+                                        {message.edited && (
+                                          <p className={`text-[10px] uppercase tracking-[0.24em] ${timestampColor}`}>
+                                            {editedTimestamp ? `Edited ${editedTimestamp}` : "Edited"}
+                                          </p>
+                                        )}
+
                                         {message.status === "pending" && (
                                           <p className={`text-[10px] uppercase tracking-[0.24em] ${timestampColor}`}>Sending…</p>
                                         )}
@@ -3184,9 +3523,24 @@ const CommunityView: React.FC = () => {
                   </div>
                 </ErrorBoundary>
                 {!isComposerOpen && (
+                  <>
+                    {isCasualView && newMessageAnchor && (
+                      <button
+                        type="button"
+                        onClick={handleViewNewMessages}
+                        className="pointer-events-auto absolute bottom-24 right-6 z-30 hidden items-center gap-2 rounded-full border border-[color:var(--chat-floating-control-border)] bg-[color:var(--chat-floating-control-bg)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--chat-floating-control-fg)] shadow-[var(--chat-floating-control-shadow)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 lg:flex"
+                      >
+                        <ArrowDown className="h-4 w-4" aria-hidden />
+                        <span>New</span>
+                      </button>
+                    )}
                   <button
                     type="button"
-                    onClick={() => setIsComposerOpen(true)}
+                    onClick={() => {
+                      setEditingMessage(null);
+                      setComposerAttachmentHints({});
+                      setIsComposerOpen(true);
+                    }}
                     aria-disabled={!ready}
                     className={`pointer-events-auto absolute bottom-6 right-6 z-30 hidden h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-xl transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 lg:flex ${
                       ready ? "" : "opacity-60"
@@ -3195,6 +3549,7 @@ const CommunityView: React.FC = () => {
                     <Plus className="h-6 w-6" aria-hidden />
                     <span className="sr-only">Compose new message</span>
                   </button>
+                  </>
                 )}
               </section>
             ) : isPublicFeedView ? (
@@ -3213,6 +3568,9 @@ const CommunityView: React.FC = () => {
                       publishStatus={publishFeedStatus}
                       likePost={likeFeedPost}
                       deletePost={deleteFeedPost}
+                      pinnedEntries={feedPinnedEntries}
+                      onPinPost={pinFeedPost}
+                      onUnpinPost={unpinFeedPost}
                       loadMore={loadMoreFeed}
                       loadingMore={feedLoadingMore}
                       hasMore={feedHasMore}
@@ -3246,6 +3604,9 @@ const CommunityView: React.FC = () => {
                         publishStatus={publishFeedStatus}
                         likePost={likeFeedPost}
                         deletePost={deleteFeedPost}
+                        pinnedEntries={feedPinnedEntries}
+                        onPinPost={pinFeedPost}
+                        onUnpinPost={unpinFeedPost}
                         loadMore={loadMoreFeed}
                         loadingMore={feedLoadingMore}
                         hasMore={feedHasMore}

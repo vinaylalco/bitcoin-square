@@ -198,7 +198,7 @@ export default function Membership() {
           return;
         }
         clearPendingMembershipAuth();
-        setSignupInfo(checkout.message);
+        navigate("/dashboard", { replace: true });
         return;
       }
 

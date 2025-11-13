@@ -10,6 +10,15 @@ import { useRoomKey } from "./useRoomKey";
 import { useNostrAccount } from "./useNostrAccount";
 import { useAuth } from "../context/AuthContext";
 import { getBrowserLanguageTag } from "../utils/browserLanguage";
+import {
+  PIN_EVENT_KIND,
+  decodePinnedEventContent,
+  encodePinnedEventContent,
+  normalizePinnedEntries,
+  removePinnedEntry,
+  togglePinnedEntry,
+  type PinnedEntry,
+} from "../utils/pinnedEntries";
 
 const ROOM_ID = "bitcoinsquare-casual";
 const ROOM_TAG = `room:${ROOM_ID}`;
@@ -23,6 +32,7 @@ const ADDITIONAL_RELAYS = ["wss://relay.primal.net", "wss://nos.lol", "wss://rel
 const MAX_MESSAGES = 400;
 const TYPING_TIMEOUT_MS = 6000;
 const TYPING_THROTTLE_MS = 2000;
+const PIN_EVENT_IDENTIFIER = "casual-pins";
 
 interface CasualAttachmentMeta {
   eventId?: string | null;
@@ -56,6 +66,8 @@ export interface CasualChatMessage {
   quoteId?: string;
   quotePubkey?: string;
   likePubkeys: string[];
+  edited?: boolean;
+  edited_at?: number | null;
 }
 
 export interface UseBitcoinSquareCasualChatResult {
@@ -67,6 +79,11 @@ export interface UseBitcoinSquareCasualChatResult {
     attachments?: CasualAttachmentMeta[],
     options?: { quoteId?: string | null; quotePubkey?: string | null },
   ) => Promise<string>;
+  editMessage: (
+    message: CasualChatMessage,
+    body: string,
+    attachments?: CasualAttachmentMeta[],
+  ) => Promise<string>;
   likeMessage: (message: CasualChatMessage) => Promise<void>;
   deleteMessage: (message: CasualChatMessage) => Promise<void>;
   pubkey: string | null;
@@ -77,6 +94,9 @@ export interface UseBitcoinSquareCasualChatResult {
   error: string | null;
   typingPubkeys: string[];
   sendTyping: () => Promise<void>;
+  pinMessage: (id: string) => Promise<void>;
+  unpinMessage: (id: string) => Promise<void>;
+  pinnedEntries: PinnedEntry[];
 }
 
 const parsePayload = (plaintext: string): CasualPayload => {
@@ -153,6 +173,15 @@ const cachedToMessage = (cached: CachedMessage): CasualChatMessage | null => {
   const quoteId = quoteTag && typeof quoteTag[1] === "string" ? quoteTag[1] : undefined;
   const quotePubkeyTag = cached.tags?.find((tag) => tag[0] === "p");
   const quotePubkey = quotePubkeyTag && typeof quotePubkeyTag[1] === "string" ? quotePubkeyTag[1] : undefined;
+  const replaceTag = cached.tags?.find((tag) => tag[0] === "e" && tag[3] === "replace");
+  const replaceTargetId = replaceTag && typeof replaceTag[1] === "string" ? replaceTag[1] : null;
+  const edited_at =
+    typeof cached.edited_at === "number"
+      ? cached.edited_at
+      : replaceTargetId
+        ? cached.created_at
+        : undefined;
+  const edited = typeof edited_at === "number";
 
   return {
     id: cached.id,
@@ -168,6 +197,8 @@ const cachedToMessage = (cached: CachedMessage): CasualChatMessage | null => {
     quoteId,
     quotePubkey,
     likePubkeys: [],
+    edited,
+    edited_at,
   };
 };
 
@@ -215,6 +246,7 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [typingUsers, setTypingUsers] = useState<Record<string, number>>({});
+  const [pinnedEntries, setPinnedEntries] = useState<PinnedEntry[]>([]);
   const managerRef = useRef<NostrRelayManager | null>(null);
   const visibilityRef = useRef(
     typeof document === "undefined" ? true : document.visibilityState === "visible",
@@ -226,6 +258,11 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
   const pendingLikesRef = useRef(new Map<string, Set<string>>());
   const deletedMessageIdsRef = useRef(new Set<string>());
   const deletedMessageStorageHydratedRef = useRef(false);
+  const pinnedStateRef = useRef<{ entries: PinnedEntry[]; createdAt: number; eventId: string | null }>({
+    entries: [],
+    createdAt: 0,
+    eventId: null,
+  });
 
   const configuredRoomKey = getConfiguredRoomKey(ROOM_ID);
 
@@ -412,6 +449,58 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
             const quotePubkey =
               quotePubkeyTag && typeof quotePubkeyTag[1] === "string" ? quotePubkeyTag[1] : undefined;
 
+            const replaceTag = event.tags?.find((tag) => tag[0] === "e" && tag[3] === "replace");
+            const replaceTargetId = replaceTag && typeof replaceTag[1] === "string" ? replaceTag[1] : null;
+
+            if (replaceTargetId) {
+              if (deletedMessageIdsRef.current.has(replaceTargetId)) {
+                return;
+              }
+              let previousMessage: CasualChatMessage | null = null;
+              setMessages((prev) => {
+                const index = prev.findIndex((entry) => entry.id === replaceTargetId);
+                if (index < 0) {
+                  return prev;
+                }
+                const next = [...prev];
+                const existing = next[index];
+                previousMessage = existing;
+                next[index] = {
+                  ...existing,
+                  markdown: body,
+                  body,
+                  html,
+                  attachments,
+                  tags: event.tags ?? existing.tags,
+                  status: existing.status === "failed" ? existing.status : "ok",
+                  optimistic: false,
+                  error: undefined,
+                  edited: true,
+                  edited_at: event.created_at,
+                };
+                return next;
+              });
+
+              if (previousMessage) {
+                const cached: CachedMessage = {
+                  id: replaceTargetId,
+                  roomId: ROOM_ID,
+                  pubkey: previousMessage.pubkey,
+                  content: event.content,
+                  decrypted: JSON.stringify({ ...payload, body }),
+                  created_at: previousMessage.created_at,
+                  kind: event.kind,
+                  tags: event.tags ?? [],
+                  edited_at: event.created_at,
+                };
+                cacheMessage(cached).catch((cacheError) => {
+                  console.warn("Failed to cache edited message", cacheError);
+                });
+              }
+
+              return;
+            }
+
             const message: CasualChatMessage = {
               id: event.id,
               pubkey: event.pubkey,
@@ -472,6 +561,30 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
             console.warn("Failed to decrypt incoming event", decryptError);
           }
         })();
+      },
+    );
+
+    const pinnedSubscription = manager.subscribe(
+      {
+        kinds: [PIN_EVENT_KIND],
+        "#t": [ROOM_TAG],
+        "#d": [PIN_EVENT_IDENTIFIER],
+      },
+      (event) => {
+        const entries = decodePinnedEventContent(event.content);
+        const createdAt = typeof event.created_at === "number" ? event.created_at : 0;
+        setPinnedEntries((prev) => {
+          const current = pinnedStateRef.current;
+          if (
+            createdAt < current.createdAt ||
+            (createdAt === current.createdAt && current.eventId && current.eventId.localeCompare(event.id) >= 0)
+          ) {
+            return prev;
+          }
+          const normalized = normalizePinnedEntries(entries);
+          pinnedStateRef.current = { entries: normalized, createdAt, eventId: event.id };
+          return normalized;
+        });
       },
     );
 
@@ -575,6 +688,7 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
 
     return () => {
       subscription.close();
+      pinnedSubscription.close();
       typingSubscription.close();
       reactionSubscription.close();
       deletionSubscription.close();
@@ -752,6 +866,165 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
     [hasKey, signEvent],
   );
 
+  const editMessage = useCallback(
+    async (
+      message: CasualChatMessage,
+      body: string,
+      attachments: CasualAttachmentMeta[] = [],
+    ) => {
+      const trimmed = body.trim();
+      const cleanedBody = stripImagePlaceholders(trimmed);
+      if (!cleanedBody && attachments.length === 0) {
+        throw new Error("Message cannot be empty");
+      }
+      if (cleanedBody.length > 500) {
+        throw new Error("Messages are limited to 500 characters");
+      }
+      if (!signEvent) {
+        throw new Error("Your Nostr keys are not ready yet");
+      }
+      if (!hasKey) {
+        throw new Error("Room key is not available. Please contact support.");
+      }
+      const manager = managerRef.current;
+      if (!manager) {
+        throw new Error("Relay manager not ready yet");
+      }
+
+      const payload: CasualPayload = {
+        version: 1,
+        body: cleanedBody,
+        attachments,
+      };
+      const plaintext = JSON.stringify(payload);
+      const content = await encryptChannelText(ROOM_ID, plaintext);
+
+      const tags: string[][] = [
+        ["t", ROOM_TAG],
+        ["lang", BROWSER_LANGUAGE_TAG],
+        ["e", message.id, "", "replace"],
+      ];
+
+      if (message.quoteId) {
+        tags.push(["e", message.quoteId, "", "reply"]);
+      }
+      if (message.quotePubkey) {
+        tags.push(["p", message.quotePubkey]);
+      }
+
+      attachments.forEach((attachment) => {
+        const eventId =
+          typeof attachment.eventId === "string" && attachment.eventId.trim().length > 0
+            ? attachment.eventId.trim()
+            : null;
+        const digest =
+          typeof attachment.digest === "string" && attachment.digest.trim().length > 0
+            ? attachment.digest.trim()
+            : null;
+        const url = typeof attachment.url === "string" && attachment.url.trim().length > 0 ? attachment.url.trim() : null;
+
+        if (eventId) {
+          tags.push(["e", eventId, "", "media"]);
+        }
+        if (digest) {
+          tags.push(["x", digest]);
+        }
+        if (url) {
+          tags.push(["r", url]);
+        }
+      });
+
+      const template: EventTemplate = {
+        kind: 1,
+        created_at: Math.floor(Date.now() / 1000),
+        content,
+        tags,
+      };
+
+      const signed = await signEvent(template);
+      const edited_at = template.created_at;
+      const html = markdownToHtml(cleanedBody);
+
+      setMessages((prev) =>
+        prev.map((entry) =>
+          entry.id === message.id
+            ? {
+                ...entry,
+                markdown: cleanedBody,
+                body: cleanedBody,
+                html,
+                attachments,
+                tags: signed.tags ?? tags,
+                status: "pending",
+                optimistic: true,
+                error: undefined,
+                edited: true,
+                edited_at,
+              }
+            : entry,
+        ),
+      );
+
+      setError(null);
+
+      const { ack } = manager.publish(signed);
+
+      ack
+        .then(() => {
+          setMessages((prev) =>
+            prev.map((entry) =>
+              entry.id === message.id
+                ? {
+                    ...entry,
+                    status: "ok",
+                    optimistic: false,
+                    tags: signed.tags ?? tags,
+                    edited: true,
+                    edited_at,
+                  }
+                : entry,
+            ),
+          );
+          const cached: CachedMessage = {
+            id: message.id,
+            roomId: ROOM_ID,
+            pubkey: message.pubkey,
+            content: signed.content,
+            decrypted: JSON.stringify({ ...payload, body: cleanedBody }),
+            created_at: message.created_at,
+            kind: signed.kind,
+            tags: signed.tags ?? tags,
+            edited_at,
+          };
+          cacheMessage(cached).catch((cacheError) => {
+            console.warn("Failed to cache edited message", cacheError);
+          });
+        })
+        .catch((publishError) => {
+          console.error("Failed to publish edited message", publishError);
+          const messageText = publishError instanceof Error ? publishError.message : String(publishError);
+          setMessages((prev) =>
+            prev.map((entry) =>
+              entry.id === message.id
+                ? {
+                    ...entry,
+                    status: "failed",
+                    optimistic: false,
+                    error: messageText,
+                    edited: true,
+                    edited_at,
+                  }
+                : entry,
+            ),
+          );
+          setError(messageText);
+        });
+
+      return message.id;
+    },
+    [encryptChannelText, hasKey, setMessages, signEvent, setError],
+  );
+
   const likeMessage = useCallback(
     async (message: CasualChatMessage) => {
       if (!signEvent) {
@@ -885,6 +1158,81 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
     [canModerate, ensureDeletedMessagesHydrated, persistDeletedMessages, signEvent],
   );
 
+  const publishPinnedEntries = useCallback(
+    async (entries: PinnedEntry[]) => {
+      if (!canModerate) {
+        throw new Error("Only admins can pin messages.");
+      }
+      if (!signEvent) {
+        throw new Error("Your Nostr keys are not ready yet");
+      }
+      const manager = managerRef.current;
+      if (!manager) {
+        throw new Error("Relay manager not ready yet");
+      }
+
+      const normalized = normalizePinnedEntries(entries);
+      const template: EventTemplate = {
+        kind: PIN_EVENT_KIND,
+        created_at: Math.floor(Date.now() / 1000),
+        content: encodePinnedEventContent(normalized),
+        tags: [
+          ["t", ROOM_TAG],
+          ["d", PIN_EVENT_IDENTIFIER],
+          ["app", "BitcoinSquare"],
+          ["chat", ROOM_TAG],
+        ],
+      };
+
+      const signed = await signEvent(template);
+      const previous = pinnedStateRef.current;
+      const nextState = {
+        entries: normalized,
+        createdAt: signed.created_at ?? Math.floor(Date.now() / 1000),
+        eventId: signed.id,
+      };
+      pinnedStateRef.current = nextState;
+      setPinnedEntries(normalized);
+
+      const { ack } = manager.publish(signed);
+      try {
+        await ack;
+      } catch (error) {
+        pinnedStateRef.current = previous;
+        setPinnedEntries(previous.entries);
+        throw error instanceof Error ? error : new Error(String(error));
+      }
+    },
+    [canModerate, signEvent],
+  );
+
+  const pinMessage = useCallback(
+    async (id: string) => {
+      const current = pinnedStateRef.current.entries;
+      if (current.some((entry) => entry.id === id)) {
+        return;
+      }
+      const next = togglePinnedEntry(current, id, Date.now());
+      await publishPinnedEntries(next);
+    },
+    [publishPinnedEntries],
+  );
+
+  const unpinMessage = useCallback(
+    async (id: string) => {
+      const current = pinnedStateRef.current.entries;
+      if (!current.some((entry) => entry.id === id)) {
+        return;
+      }
+      const next = removePinnedEntry(current, id);
+      if (next === current) {
+        return;
+      }
+      await publishPinnedEntries(next);
+    },
+    [publishPinnedEntries],
+  );
+
   const ready = useMemo(
     () => hasKey && Boolean(pubkey) && Boolean(managerRef.current) && accountReady,
     [accountReady, hasKey, pubkey],
@@ -929,6 +1277,7 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
     roomName: ROOM_NAME,
     messages,
     sendMessage,
+    editMessage,
     likeMessage,
     deleteMessage,
     pubkey,
@@ -939,6 +1288,9 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
     error,
     typingPubkeys,
     sendTyping,
+    pinMessage,
+    unpinMessage,
+    pinnedEntries,
   };
 };
 
