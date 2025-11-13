@@ -68,6 +68,13 @@ import { rewriteImgBbUrlToProxy, rewriteImgBbUrlsInText } from "../utils/imagePr
 import { resolveMentionTargets, type MentionCandidate } from "../utils/mentions";
 import useMentionAutocomplete from "../hooks/useMentionAutocomplete";
 import { normalizeToHexPubkey } from "../utils/nostr";
+import {
+  loadPinnedEntries,
+  persistPinnedEntries,
+  removePinnedEntry,
+  togglePinnedEntry,
+  type PinnedEntry,
+} from "../utils/pinnedEntries";
 
 type ActiveView =
   | "casual"
@@ -150,6 +157,8 @@ const CASUAL_ROOM: RoomDefinition = {
 };
 
 type AttachmentStatus = "idle" | "loading" | "ready" | "error";
+
+const PINNED_MESSAGES_STORAGE_KEY = "bitcoinsquare-chat-pinned";
 
 interface QuoteContextState {
   id: string;
@@ -666,6 +675,31 @@ const Composer: React.FC<{
     });
   }, [value]);
 
+  useEffect(() => {
+    if (disabled) {
+      return;
+    }
+    const focusTextarea = () => {
+      const node = textareaRef.current;
+      if (!node) {
+        return;
+      }
+      const length = node.value.length;
+      node.focus();
+      try {
+        node.setSelectionRange(length, length);
+      } catch {
+        // Ignore selection errors in unsupported browsers
+      }
+    };
+    if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+      window.requestAnimationFrame(focusTextarea);
+    } else {
+      focusTextarea();
+    }
+    setIsTextareaFocused(true);
+  }, [disabled]);
+
   const emitTyping = useCallback(() => {
     if (!onTyping) return;
     const now = Date.now();
@@ -1058,6 +1092,8 @@ const Composer: React.FC<{
   );
 };
 
+type PinnedMessageEntry = PinnedEntry;
+
 const CommunityView: React.FC = () => {
   const { theme } = useTheme();
   const { t } = useTranslation();
@@ -1074,8 +1110,50 @@ const CommunityView: React.FC = () => {
     typingPubkeys,
     sendTyping,
   } = useBitcoinSquareCasualChat();
+  const [pinnedMessageEntries, setPinnedMessageEntries] = useState<PinnedMessageEntry[]>(() =>
+    loadPinnedEntries(PINNED_MESSAGES_STORAGE_KEY),
+  );
 
-  const messages = useMemo(() => rawMessages, [rawMessages]);
+  useEffect(() => {
+    persistPinnedEntries(PINNED_MESSAGES_STORAGE_KEY, pinnedMessageEntries);
+  }, [pinnedMessageEntries]);
+
+  useEffect(() => {
+    if (pinnedMessageEntries.length === 0) {
+      return;
+    }
+    const availableIds = new Set(rawMessages.map((message) => message.id));
+    setPinnedMessageEntries((prev) => {
+      const next = prev.filter((entry) => availableIds.has(entry.id));
+      if (next.length === prev.length) {
+        return prev;
+      }
+      return next;
+    });
+  }, [pinnedMessageEntries, rawMessages]);
+
+  const pinnedMessageIdSet = useMemo(
+    () => new Set(pinnedMessageEntries.map((entry) => entry.id)),
+    [pinnedMessageEntries],
+  );
+
+  const pinnedMessages = useMemo(
+    () =>
+      pinnedMessageEntries
+        .map((entry) => rawMessages.find((message) => message.id === entry.id))
+        .filter((message): message is CasualChatMessage => Boolean(message)),
+    [pinnedMessageEntries, rawMessages],
+  );
+
+  const unpinnedMessages = useMemo(
+    () => rawMessages.filter((message) => !pinnedMessageIdSet.has(message.id)),
+    [rawMessages, pinnedMessageIdSet],
+  );
+
+  const messages = useMemo(
+    () => [...pinnedMessages, ...unpinnedMessages],
+    [pinnedMessages, unpinnedMessages],
+  );
 
   const {
     posts: feedPosts,
@@ -1252,6 +1330,20 @@ const CommunityView: React.FC = () => {
   const listRef = useRef<HTMLDivElement | null>(null);
   const composerContainerRef = useRef<HTMLDivElement | null>(null);
   const scrollUpdateFrameRef = useRef<number | null>(null);
+  const pageHiddenRef = useRef(false);
+  useEffect(() => {
+    if (typeof document === "undefined") {
+      return;
+    }
+    const handleVisibility = () => {
+      pageHiddenRef.current = document.hidden;
+    };
+    pageHiddenRef.current = document.hidden;
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, []);
   const [composerError, setComposerError] = useState<string | null>(null);
   const [composerDraft, setComposerDraft] = useState<string | undefined>(undefined);
   const [quoteContext, setQuoteContext] = useState<QuoteContextState | null>(null);
@@ -1738,7 +1830,7 @@ const CommunityView: React.FC = () => {
       if (hasNewerMessage) {
         const previousIds = new Set(previousMessageIdsRef.current);
         const anchorId = messages.find((message) => !previousIds.has(message.id))?.id ?? latestMessage.id;
-        if (isAtBottomRef.current) {
+        if (isAtBottomRef.current && !pageHiddenRef.current) {
           scrollToBottom("smooth");
           setNewMessageAnchor(null);
           scheduleScrollState();
@@ -2453,6 +2545,11 @@ const CommunityView: React.FC = () => {
     },
     [estimatedRowHeight, messageIndexMap, messages, startHighlight],
   );
+  const handleViewNewMessages = useCallback(() => {
+    scrollToBottom("smooth");
+    setNewMessageAnchor(null);
+    scheduleScrollState();
+  }, [scheduleScrollState, scrollToBottom]);
   const handleNotificationSelect = useCallback(
     (notification: CommunityNotification) => {
       if (!notification.targetView) {
@@ -2520,6 +2617,20 @@ const CommunityView: React.FC = () => {
       }
     },
     [likeMessage, pubkey],
+  );
+
+  const handlePinMessage = useCallback(
+    (message: CasualChatMessage) => {
+      setPinnedMessageEntries((prev) => togglePinnedEntry(prev, message.id));
+    },
+    [],
+  );
+
+  const handleUnpinMessage = useCallback(
+    (message: CasualChatMessage) => {
+      setPinnedMessageEntries((prev) => removePinnedEntry(prev, message.id));
+    },
+    [],
   );
 
   const handleDeleteMessage = useCallback(
@@ -2745,6 +2856,16 @@ const CommunityView: React.FC = () => {
             {MOBILE_VIEW_TABS.map((tab) => renderTabButton(tab, "mobile"))}
           </nav>
         )}
+        {isCasualView && newMessageAnchor && (
+          <button
+            type="button"
+            onClick={handleViewNewMessages}
+            className="flex items-center gap-2 rounded-full border border-[color:var(--chat-floating-control-border)] bg-[color:var(--chat-floating-control-bg)] px-4 py-1.5 text-[10px] font-semibold uppercase tracking-[0.3em] text-[color:var(--chat-floating-control-fg)] shadow-[var(--chat-floating-control-shadow)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+          >
+            <ArrowDown className="h-4 w-4" aria-hidden />
+            <span>New</span>
+          </button>
+        )}
         {isMobileComposeButtonVisible && (
           <button
             type="button"
@@ -2833,6 +2954,7 @@ const CommunityView: React.FC = () => {
                           const isSelf = message.pubkey === pubkey;
                           const accent = authorAccents.get(message.pubkey);
                           const summary = resolveProfileSummary(message.pubkey);
+                          const isPinnedMessage = pinnedMessageIdSet.has(message.id);
                           const timestampColor = isSelf
                             ? "text-[color:var(--chat-bubble-self-muted)]"
                             : "text-[var(--fg-muted)]";
@@ -2947,6 +3069,13 @@ const CommunityView: React.FC = () => {
                                         : undefined
                                     }
                                   >
+                                    {isPinnedMessage && (
+                                      <div className={`mb-2 flex ${isSelf ? "justify-end" : "justify-start"}`}>
+                                        <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/60 bg-amber-400/20 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.3em] text-amber-800 dark:border-amber-200/60 dark:bg-amber-200/15 dark:text-amber-200">
+                                          Pinned
+                                        </span>
+                                      </div>
+                                    )}
                                     <div className={`flex items-start gap-3 ${isSelf ? "flex-row-reverse" : ""}`}>
                                       <button
                                         type="button"
@@ -3116,6 +3245,24 @@ const CommunityView: React.FC = () => {
                                               <button
                                                 type="button"
                                                 role="menuitem"
+                                                onClick={(event) => {
+                                                  event.stopPropagation();
+                                                  setOpenMessageMenuId(null);
+                                                  if (isPinnedMessage) {
+                                                    handleUnpinMessage(message);
+                                                  } else {
+                                                    handlePinMessage(message);
+                                                  }
+                                                }}
+                                                className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-medium transition hover:bg-[var(--bg-muted)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+                                              >
+                                                {isPinnedMessage ? "Unpin message" : "Pin message"}
+                                              </button>
+                                            )}
+                                            {canModerate && (
+                                              <button
+                                                type="button"
+                                                role="menuitem"
                                                 disabled={deleteDisabled}
                                                 onClick={(event) => {
                                                   event.stopPropagation();
@@ -3184,6 +3331,17 @@ const CommunityView: React.FC = () => {
                   </div>
                 </ErrorBoundary>
                 {!isComposerOpen && (
+                  <>
+                    {isCasualView && newMessageAnchor && (
+                      <button
+                        type="button"
+                        onClick={handleViewNewMessages}
+                        className="pointer-events-auto absolute bottom-24 right-6 z-30 hidden items-center gap-2 rounded-full border border-[color:var(--chat-floating-control-border)] bg-[color:var(--chat-floating-control-bg)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--chat-floating-control-fg)] shadow-[var(--chat-floating-control-shadow)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 lg:flex"
+                      >
+                        <ArrowDown className="h-4 w-4" aria-hidden />
+                        <span>New</span>
+                      </button>
+                    )}
                   <button
                     type="button"
                     onClick={() => setIsComposerOpen(true)}
@@ -3195,6 +3353,7 @@ const CommunityView: React.FC = () => {
                     <Plus className="h-6 w-6" aria-hidden />
                     <span className="sr-only">Compose new message</span>
                   </button>
+                  </>
                 )}
               </section>
             ) : isPublicFeedView ? (
