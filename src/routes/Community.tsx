@@ -774,6 +774,31 @@ const Composer: React.FC<{
     setIsTextareaFocused(true);
   }, [disabled]);
 
+  useEffect(() => {
+    if (disabled) {
+      return;
+    }
+    const focusTextarea = () => {
+      const node = textareaRef.current;
+      if (!node) {
+        return;
+      }
+      const length = node.value.length;
+      node.focus();
+      try {
+        node.setSelectionRange(length, length);
+      } catch {
+        // Ignore selection errors in unsupported browsers
+      }
+    };
+    if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+      window.requestAnimationFrame(focusTextarea);
+    } else {
+      focusTextarea();
+    }
+    setIsTextareaFocused(true);
+  }, [disabled]);
+
   const emitTyping = useCallback(() => {
     if (!onTyping) return;
     const now = Date.now();
@@ -3441,6 +3466,24 @@ const CommunityView: React.FC = () => {
                                                 className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-medium transition hover:bg-[var(--bg-muted)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
                                               >
                                                 Edit message
+                                              </button>
+                                            )}
+                                            {canModerate && (
+                                              <button
+                                                type="button"
+                                                role="menuitem"
+                                                onClick={(event) => {
+                                                  event.stopPropagation();
+                                                  setOpenMessageMenuId(null);
+                                                  if (isPinnedMessage) {
+                                                    handleUnpinMessage(message);
+                                                  } else {
+                                                    handlePinMessage(message);
+                                                  }
+                                                }}
+                                                className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-medium transition hover:bg-[var(--bg-muted)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+                                              >
+                                                {isPinnedMessage ? "Unpin message" : "Pin message"}
                                               </button>
                                             )}
                                             {canModerate && (
