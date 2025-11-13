@@ -56,6 +56,8 @@ export interface CasualChatMessage {
   quoteId?: string;
   quotePubkey?: string;
   likePubkeys: string[];
+  edited?: boolean;
+  edited_at?: number | null;
 }
 
 export interface UseBitcoinSquareCasualChatResult {
@@ -66,6 +68,11 @@ export interface UseBitcoinSquareCasualChatResult {
     body: string,
     attachments?: CasualAttachmentMeta[],
     options?: { quoteId?: string | null; quotePubkey?: string | null },
+  ) => Promise<string>;
+  editMessage: (
+    message: CasualChatMessage,
+    body: string,
+    attachments?: CasualAttachmentMeta[],
   ) => Promise<string>;
   likeMessage: (message: CasualChatMessage) => Promise<void>;
   deleteMessage: (message: CasualChatMessage) => Promise<void>;
@@ -153,6 +160,15 @@ const cachedToMessage = (cached: CachedMessage): CasualChatMessage | null => {
   const quoteId = quoteTag && typeof quoteTag[1] === "string" ? quoteTag[1] : undefined;
   const quotePubkeyTag = cached.tags?.find((tag) => tag[0] === "p");
   const quotePubkey = quotePubkeyTag && typeof quotePubkeyTag[1] === "string" ? quotePubkeyTag[1] : undefined;
+  const replaceTag = cached.tags?.find((tag) => tag[0] === "e" && tag[3] === "replace");
+  const replaceTargetId = replaceTag && typeof replaceTag[1] === "string" ? replaceTag[1] : null;
+  const edited_at =
+    typeof cached.edited_at === "number"
+      ? cached.edited_at
+      : replaceTargetId
+        ? cached.created_at
+        : undefined;
+  const edited = typeof edited_at === "number";
 
   return {
     id: cached.id,
@@ -168,6 +184,8 @@ const cachedToMessage = (cached: CachedMessage): CasualChatMessage | null => {
     quoteId,
     quotePubkey,
     likePubkeys: [],
+    edited,
+    edited_at,
   };
 };
 
@@ -411,6 +429,58 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
             const quotePubkeyTag = event.tags?.find((tag) => tag[0] === "p");
             const quotePubkey =
               quotePubkeyTag && typeof quotePubkeyTag[1] === "string" ? quotePubkeyTag[1] : undefined;
+
+            const replaceTag = event.tags?.find((tag) => tag[0] === "e" && tag[3] === "replace");
+            const replaceTargetId = replaceTag && typeof replaceTag[1] === "string" ? replaceTag[1] : null;
+
+            if (replaceTargetId) {
+              if (deletedMessageIdsRef.current.has(replaceTargetId)) {
+                return;
+              }
+              let previousMessage: CasualChatMessage | null = null;
+              setMessages((prev) => {
+                const index = prev.findIndex((entry) => entry.id === replaceTargetId);
+                if (index < 0) {
+                  return prev;
+                }
+                const next = [...prev];
+                const existing = next[index];
+                previousMessage = existing;
+                next[index] = {
+                  ...existing,
+                  markdown: body,
+                  body,
+                  html,
+                  attachments,
+                  tags: event.tags ?? existing.tags,
+                  status: existing.status === "failed" ? existing.status : "ok",
+                  optimistic: false,
+                  error: undefined,
+                  edited: true,
+                  edited_at: event.created_at,
+                };
+                return next;
+              });
+
+              if (previousMessage) {
+                const cached: CachedMessage = {
+                  id: replaceTargetId,
+                  roomId: ROOM_ID,
+                  pubkey: previousMessage.pubkey,
+                  content: event.content,
+                  decrypted: JSON.stringify({ ...payload, body }),
+                  created_at: previousMessage.created_at,
+                  kind: event.kind,
+                  tags: event.tags ?? [],
+                  edited_at: event.created_at,
+                };
+                cacheMessage(cached).catch((cacheError) => {
+                  console.warn("Failed to cache edited message", cacheError);
+                });
+              }
+
+              return;
+            }
 
             const message: CasualChatMessage = {
               id: event.id,
@@ -752,6 +822,165 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
     [hasKey, signEvent],
   );
 
+  const editMessage = useCallback(
+    async (
+      message: CasualChatMessage,
+      body: string,
+      attachments: CasualAttachmentMeta[] = [],
+    ) => {
+      const trimmed = body.trim();
+      const cleanedBody = stripImagePlaceholders(trimmed);
+      if (!cleanedBody && attachments.length === 0) {
+        throw new Error("Message cannot be empty");
+      }
+      if (cleanedBody.length > 500) {
+        throw new Error("Messages are limited to 500 characters");
+      }
+      if (!signEvent) {
+        throw new Error("Your Nostr keys are not ready yet");
+      }
+      if (!hasKey) {
+        throw new Error("Room key is not available. Please contact support.");
+      }
+      const manager = managerRef.current;
+      if (!manager) {
+        throw new Error("Relay manager not ready yet");
+      }
+
+      const payload: CasualPayload = {
+        version: 1,
+        body: cleanedBody,
+        attachments,
+      };
+      const plaintext = JSON.stringify(payload);
+      const content = await encryptChannelText(ROOM_ID, plaintext);
+
+      const tags: string[][] = [
+        ["t", ROOM_TAG],
+        ["lang", BROWSER_LANGUAGE_TAG],
+        ["e", message.id, "", "replace"],
+      ];
+
+      if (message.quoteId) {
+        tags.push(["e", message.quoteId, "", "reply"]);
+      }
+      if (message.quotePubkey) {
+        tags.push(["p", message.quotePubkey]);
+      }
+
+      attachments.forEach((attachment) => {
+        const eventId =
+          typeof attachment.eventId === "string" && attachment.eventId.trim().length > 0
+            ? attachment.eventId.trim()
+            : null;
+        const digest =
+          typeof attachment.digest === "string" && attachment.digest.trim().length > 0
+            ? attachment.digest.trim()
+            : null;
+        const url = typeof attachment.url === "string" && attachment.url.trim().length > 0 ? attachment.url.trim() : null;
+
+        if (eventId) {
+          tags.push(["e", eventId, "", "media"]);
+        }
+        if (digest) {
+          tags.push(["x", digest]);
+        }
+        if (url) {
+          tags.push(["r", url]);
+        }
+      });
+
+      const template: EventTemplate = {
+        kind: 1,
+        created_at: Math.floor(Date.now() / 1000),
+        content,
+        tags,
+      };
+
+      const signed = await signEvent(template);
+      const edited_at = template.created_at;
+      const html = markdownToHtml(cleanedBody);
+
+      setMessages((prev) =>
+        prev.map((entry) =>
+          entry.id === message.id
+            ? {
+                ...entry,
+                markdown: cleanedBody,
+                body: cleanedBody,
+                html,
+                attachments,
+                tags: signed.tags ?? tags,
+                status: "pending",
+                optimistic: true,
+                error: undefined,
+                edited: true,
+                edited_at,
+              }
+            : entry,
+        ),
+      );
+
+      setError(null);
+
+      const { ack } = manager.publish(signed);
+
+      ack
+        .then(() => {
+          setMessages((prev) =>
+            prev.map((entry) =>
+              entry.id === message.id
+                ? {
+                    ...entry,
+                    status: "ok",
+                    optimistic: false,
+                    tags: signed.tags ?? tags,
+                    edited: true,
+                    edited_at,
+                  }
+                : entry,
+            ),
+          );
+          const cached: CachedMessage = {
+            id: message.id,
+            roomId: ROOM_ID,
+            pubkey: message.pubkey,
+            content: signed.content,
+            decrypted: JSON.stringify({ ...payload, body: cleanedBody }),
+            created_at: message.created_at,
+            kind: signed.kind,
+            tags: signed.tags ?? tags,
+            edited_at,
+          };
+          cacheMessage(cached).catch((cacheError) => {
+            console.warn("Failed to cache edited message", cacheError);
+          });
+        })
+        .catch((publishError) => {
+          console.error("Failed to publish edited message", publishError);
+          const messageText = publishError instanceof Error ? publishError.message : String(publishError);
+          setMessages((prev) =>
+            prev.map((entry) =>
+              entry.id === message.id
+                ? {
+                    ...entry,
+                    status: "failed",
+                    optimistic: false,
+                    error: messageText,
+                    edited: true,
+                    edited_at,
+                  }
+                : entry,
+            ),
+          );
+          setError(messageText);
+        });
+
+      return message.id;
+    },
+    [encryptChannelText, hasKey, setMessages, signEvent, setError],
+  );
+
   const likeMessage = useCallback(
     async (message: CasualChatMessage) => {
       if (!signEvent) {
@@ -929,6 +1158,7 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
     roomName: ROOM_NAME,
     messages,
     sendMessage,
+    editMessage,
     likeMessage,
     deleteMessage,
     pubkey,
