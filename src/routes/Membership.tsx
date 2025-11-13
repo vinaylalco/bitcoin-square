@@ -17,6 +17,27 @@ import { resolveStrapiAuthError } from "../utils/strapiErrors";
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 8;
 
+const sanitizeTxSegment = (value: string) =>
+  value
+    .trim()
+    .replace(/[^a-z0-9]/gi, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+/, "")
+    .replace(/-+$/, "");
+
+const generateDiscountTxHash = (discountCode: string, email: string) => {
+  const normalizedDiscount =
+    sanitizeTxSegment(discountCode).toUpperCase() || "DISCOUNT";
+  const normalizedEmailSegment =
+    sanitizeTxSegment(email).toUpperCase() || "USER";
+  const uniqueSuffix =
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+
+  return `${normalizedDiscount}:${normalizedEmailSegment}:${uniqueSuffix}`;
+};
+
 type PortalView = "login" | "signup";
 
 export default function Membership() {
@@ -167,7 +188,7 @@ export default function Membership() {
     let pendingStored = false;
     try {
       const discountTxHash = discountCode
-        ? `${discountCode}-${Math.floor(10000 + Math.random() * 90000)}`
+        ? generateDiscountTxHash(discountCode, trimmedEmail)
         : undefined;
 
       const authResponse = await register(trimmedEmail, signupPassword, {
