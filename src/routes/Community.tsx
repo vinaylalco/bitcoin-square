@@ -774,31 +774,6 @@ const Composer: React.FC<{
     setIsTextareaFocused(true);
   }, [disabled]);
 
-  useEffect(() => {
-    if (disabled) {
-      return;
-    }
-    const focusTextarea = () => {
-      const node = textareaRef.current;
-      if (!node) {
-        return;
-      }
-      const length = node.value.length;
-      node.focus();
-      try {
-        node.setSelectionRange(length, length);
-      } catch {
-        // Ignore selection errors in unsupported browsers
-      }
-    };
-    if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
-      window.requestAnimationFrame(focusTextarea);
-    } else {
-      focusTextarea();
-    }
-    setIsTextareaFocused(true);
-  }, [disabled]);
-
   const emitTyping = useCallback(() => {
     if (!onTyping) return;
     const now = Date.now();
@@ -1218,28 +1193,13 @@ const CommunityView: React.FC = () => {
     error: sendError,
     typingPubkeys,
     sendTyping,
+    pinMessage: pinCasualMessage,
+    unpinMessage: unpinCasualMessage,
+    pinnedEntries: pinnedMessageEntries,
   } = useBitcoinSquareCasualChat();
   const [pinnedMessageEntries, setPinnedMessageEntries] = useState<PinnedMessageEntry[]>(() =>
     loadPinnedEntries(PINNED_MESSAGES_STORAGE_KEY),
   );
-
-  useEffect(() => {
-    persistPinnedEntries(PINNED_MESSAGES_STORAGE_KEY, pinnedMessageEntries);
-  }, [pinnedMessageEntries]);
-
-  useEffect(() => {
-    if (pinnedMessageEntries.length === 0) {
-      return;
-    }
-    const availableIds = new Set(rawMessages.map((message) => message.id));
-    setPinnedMessageEntries((prev) => {
-      const next = prev.filter((entry) => availableIds.has(entry.id));
-      if (next.length === prev.length) {
-        return prev;
-      }
-      return next;
-    });
-  }, [pinnedMessageEntries, rawMessages]);
 
   const pinnedMessageIdSet = useMemo(
     () => new Set(pinnedMessageEntries.map((entry) => entry.id)),
@@ -1277,6 +1237,9 @@ const CommunityView: React.FC = () => {
     error: feedError,
     pubkey: feedPubkey,
     initialLoading: feedInitialLoading,
+    pinPost: pinFeedPost,
+    unpinPost: unpinFeedPost,
+    pinnedEntries: feedPinnedEntries,
   } = useBitcoinSquareFeed();
   const { user, refreshNostrKeys } = useAuth();
   const canModerate = user?.isAdmin === true;
@@ -2799,17 +2762,27 @@ const CommunityView: React.FC = () => {
   );
 
   const handlePinMessage = useCallback(
-    (message: CasualChatMessage) => {
-      setPinnedMessageEntries((prev) => togglePinnedEntry(prev, message.id));
+    async (message: CasualChatMessage) => {
+      try {
+        await pinCasualMessage(message.id);
+      } catch (pinError) {
+        const messageText = pinError instanceof Error ? pinError.message : String(pinError);
+        setComposerError(messageText);
+      }
     },
-    [],
+    [pinCasualMessage, setComposerError],
   );
 
   const handleUnpinMessage = useCallback(
-    (message: CasualChatMessage) => {
-      setPinnedMessageEntries((prev) => removePinnedEntry(prev, message.id));
+    async (message: CasualChatMessage) => {
+      try {
+        await unpinCasualMessage(message.id);
+      } catch (pinError) {
+        const messageText = pinError instanceof Error ? pinError.message : String(pinError);
+        setComposerError(messageText);
+      }
     },
-    [],
+    [setComposerError, unpinCasualMessage],
   );
 
   const handleDeleteMessage = useCallback(
@@ -3439,7 +3412,7 @@ const CommunityView: React.FC = () => {
                                         {isMessageMenuOpen && (
                                           <div
                                             role="menu"
-                                            className="absolute right-0 z-50 mt-2 w-48 rounded-2xl border border-[color:var(--chat-floating-control-border)] bg-[var(--chat-floating-control-bg)] p-1 text-xs text-[color:var(--chat-floating-control-fg)] shadow-[var(--chat-floating-control-shadow)] backdrop-blur"
+                                            className="absolute right-0 z-[120] mt-2 w-48 rounded-2xl border border-[color:var(--chat-floating-control-border)] bg-[var(--chat-floating-control-bg)] p-1 text-xs text-[color:var(--chat-floating-control-fg)] shadow-[var(--chat-floating-control-shadow)] backdrop-blur"
                                           >
                                             <button
                                               type="button"
@@ -3466,24 +3439,6 @@ const CommunityView: React.FC = () => {
                                                 className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-medium transition hover:bg-[var(--bg-muted)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
                                               >
                                                 Edit message
-                                              </button>
-                                            )}
-                                            {canModerate && (
-                                              <button
-                                                type="button"
-                                                role="menuitem"
-                                                onClick={(event) => {
-                                                  event.stopPropagation();
-                                                  setOpenMessageMenuId(null);
-                                                  if (isPinnedMessage) {
-                                                    handleUnpinMessage(message);
-                                                  } else {
-                                                    handlePinMessage(message);
-                                                  }
-                                                }}
-                                                className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-medium transition hover:bg-[var(--bg-muted)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
-                                              >
-                                                {isPinnedMessage ? "Unpin message" : "Pin message"}
                                               </button>
                                             )}
                                             {canModerate && (
@@ -3627,6 +3582,9 @@ const CommunityView: React.FC = () => {
                       publishStatus={publishFeedStatus}
                       likePost={likeFeedPost}
                       deletePost={deleteFeedPost}
+                      pinnedEntries={feedPinnedEntries}
+                      onPinPost={pinFeedPost}
+                      onUnpinPost={unpinFeedPost}
                       loadMore={loadMoreFeed}
                       loadingMore={feedLoadingMore}
                       hasMore={feedHasMore}
@@ -3660,6 +3618,9 @@ const CommunityView: React.FC = () => {
                         publishStatus={publishFeedStatus}
                         likePost={likeFeedPost}
                         deletePost={deleteFeedPost}
+                        pinnedEntries={feedPinnedEntries}
+                        onPinPost={pinFeedPost}
+                        onUnpinPost={unpinFeedPost}
                         loadMore={loadMoreFeed}
                         loadingMore={feedLoadingMore}
                         hasMore={feedHasMore}

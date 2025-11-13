@@ -29,13 +29,7 @@ import {
 } from "../../utils/imageUpload";
 import type { MentionCandidate } from "../../utils/mentions";
 import useMentionAutocomplete from "../../hooks/useMentionAutocomplete";
-import {
-  loadPinnedEntries,
-  persistPinnedEntries,
-  removePinnedEntry,
-  togglePinnedEntry,
-  type PinnedEntry,
-} from "../../utils/pinnedEntries";
+import type { PinnedEntry } from "../../utils/pinnedEntries";
 
 interface BitcoinSquareFeedProps {
   posts: FeedPost[];
@@ -51,6 +45,9 @@ interface BitcoinSquareFeedProps {
   editPost: (post: FeedPost, content: string, attachments?: FeedPost["attachments"]) => Promise<void>;
   likePost: (post: FeedPost) => Promise<void>;
   deletePost: (post: FeedPost) => Promise<void>;
+  pinnedEntries: PinnedEntry[];
+  onPinPost: (post: FeedPost) => Promise<void>;
+  onUnpinPost: (post: FeedPost) => Promise<void>;
   loadMore: () => Promise<void>;
   loadingMore: boolean;
   hasMore: boolean;
@@ -230,6 +227,9 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   editPost,
   likePost,
   deletePost,
+  pinnedEntries,
+  onPinPost,
+  onUnpinPost,
   loadMore,
   loadingMore,
   hasMore,
@@ -253,6 +253,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   );
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>(null);
   const [pendingLikes, setPendingLikes] = useState<PendingMap>(() => new Set());
+  const [pendingPins, setPendingPins] = useState<PendingMap>(() => new Set());
   const [pendingDeletes, setPendingDeletes] = useState<PendingMap>(() => new Set());
   const [expandedPosts, setExpandedPosts] = useState<Set<string>>(() => new Set());
   const [expandedEventDetails, setExpandedEventDetails] = useState<Set<string>>(() => new Set());
@@ -891,28 +892,18 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     return map;
   }, [posts]);
 
+  const pinnedPostEntries = useMemo(() => {
+    if (pinnedEntries.length === 0) {
+      return [] as PinnedPostEntry[];
+    }
+    const availableIds = new Set(posts.map((post) => post.id));
+    return pinnedEntries.filter((entry) => availableIds.has(entry.id));
+  }, [pinnedEntries, posts]);
+
   const pinnedPostIdSet = useMemo(
     () => new Set(pinnedPostEntries.map((entry) => entry.id)),
     [pinnedPostEntries],
   );
-
-  useEffect(() => {
-    if (pinnedPostEntries.length === 0) {
-      return;
-    }
-    const availableIds = new Set(posts.map((post) => post.id));
-    setPinnedPostEntries((prev) => {
-      const next = prev.filter((entry) => availableIds.has(entry.id));
-      if (next.length === prev.length) {
-        return prev;
-      }
-      return next;
-    });
-  }, [pinnedPostEntries, posts]);
-
-  useEffect(() => {
-    persistPinnedEntries(PINNED_POSTS_STORAGE_KEY, pinnedPostEntries);
-  }, [pinnedPostEntries]);
 
   const displayedPosts = useMemo(() => {
     if (pinnedPostEntries.length === 0 || filteredPosts.length === 0) {
@@ -1126,18 +1117,34 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     [setHighlightedPostId],
   );
 
-  const pinPost = useCallback(
-    (post: FeedPost) => {
-      setPinnedPostEntries((prev) => togglePinnedEntry(prev, post.id));
+  const handlePinPost = useCallback(
+    async (post: FeedPost) => {
+      updatePending(setPendingPins, post.id, true);
+      try {
+        await onPinPost(post);
+      } catch (pinError) {
+        const message = pinError instanceof Error ? pinError.message : String(pinError);
+        setComposerError(message);
+      } finally {
+        updatePending(setPendingPins, post.id, false);
+      }
     },
-    [],
+    [onPinPost, setComposerError, updatePending],
   );
 
-  const unpinPost = useCallback(
-    (post: FeedPost) => {
-      setPinnedPostEntries((prev) => removePinnedEntry(prev, post.id));
+  const handleUnpinPost = useCallback(
+    async (post: FeedPost) => {
+      updatePending(setPendingPins, post.id, true);
+      try {
+        await onUnpinPost(post);
+      } catch (pinError) {
+        const message = pinError instanceof Error ? pinError.message : String(pinError);
+        setComposerError(message);
+      } finally {
+        updatePending(setPendingPins, post.id, false);
+      }
     },
-    [],
+    [onUnpinPost, setComposerError, updatePending],
   );
 
   const handleJumpToNewPosts = useCallback(() => {
@@ -1764,6 +1771,8 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     const canDelete = canModerate;
     const deleteDisabled = !ready || isPendingDelete;
     const isPinned = pinnedPostIdSet.has(post.id);
+    const isPinPending = pendingPins.has(post.id);
+    const pinActionDisabled = !ready || isPinPending;
     const statusLabel =
       post.status === "pending"
         ? post.optimistic && post.edited
@@ -2091,7 +2100,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
             {isMenuOpen && (
               <div
                 role="menu"
-                className="absolute left-full top-full z-20 ml-2 mt-2 w-48 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-1 text-sm shadow-xl"
+                className="absolute left-full top-full z-[120] ml-2 mt-2 w-48 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-1 text-sm shadow-xl"
               >
                 <button
                   type="button"
@@ -2123,16 +2132,20 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
                   <button
                     type="button"
                     role="menuitem"
+                    disabled={pinActionDisabled}
                     onClick={(event) => {
                       event.stopPropagation();
+                      if (pinActionDisabled) {
+                        return;
+                      }
                       setOpenPostMenuId(null);
                       if (isPinned) {
-                        unpinPost(post);
+                        void handleUnpinPost(post);
                       } else {
-                        pinPost(post);
+                        void handlePinPost(post);
                       }
                     }}
-                    className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-medium text-[var(--fg-muted)] transition hover:bg-[var(--bg-muted)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+                    className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-medium text-[var(--fg-muted)] transition hover:bg-[var(--bg-muted)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isPinned ? "Unpin post" : "Pin post"}
                   </button>

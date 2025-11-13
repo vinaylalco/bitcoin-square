@@ -8,6 +8,8 @@ import {
   persistPinnedEntries,
   removePinnedEntry,
   togglePinnedEntry,
+  encodePinnedEventContent,
+  decodePinnedEventContent,
   type PinnedEntry,
 } from "../src/utils/pinnedEntries";
 
@@ -147,5 +149,38 @@ describe("removePinnedEntry", () => {
     const result = removePinnedEntry(initial, "missing");
 
     expect(result).toBe(initial);
+  });
+});
+
+describe("pinned event content helpers", () => {
+  it("encodes entries into JSON payloads", () => {
+    const entries: PinnedEntry[] = [
+      { id: "one", pinnedAt: 1 },
+      { id: "two", pinnedAt: 2 },
+    ];
+
+    const encoded = encodePinnedEventContent(entries);
+    expect(JSON.parse(encoded)).toEqual({ entries });
+  });
+
+  it("decodes structured payloads", () => {
+    const content = JSON.stringify({
+      entries: [
+        { id: "first", pinnedAt: 5 },
+        { id: "second", pinnedAt: "15" },
+      ],
+    });
+
+    expect(decodePinnedEventContent(content)).toEqual<PinnedEntry[]>([
+      { id: "first", pinnedAt: 5 },
+      { id: "second", pinnedAt: 15 },
+    ]);
+  });
+
+  it("falls back gracefully for invalid payloads", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    expect(decodePinnedEventContent("not-json")).toEqual<PinnedEntry[]>([]);
+    expect(decodePinnedEventContent(JSON.stringify({ foo: "bar" }))).toEqual<PinnedEntry[]>([]);
+    warn.mockRestore();
   });
 });

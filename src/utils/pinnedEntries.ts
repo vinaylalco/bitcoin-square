@@ -5,6 +5,8 @@ export interface PinnedEntry {
 
 type StorageLike = Pick<Storage, "getItem" | "setItem">;
 
+export const PIN_EVENT_KIND = 30001;
+
 const getStorage = (storage?: StorageLike | null): StorageLike | null => {
   if (storage) {
     return storage;
@@ -105,4 +107,26 @@ export const togglePinnedEntry = (
 export const removePinnedEntry = (entries: PinnedEntry[], id: string): PinnedEntry[] => {
   const next = entries.filter((entry) => entry.id !== id);
   return next.length === entries.length ? entries : next;
+};
+
+export const encodePinnedEventContent = (entries: PinnedEntry[]): string =>
+  JSON.stringify({ entries });
+
+export const decodePinnedEventContent = (content: string): PinnedEntry[] => {
+  if (typeof content !== "string" || content.trim().length === 0) {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(content) as unknown;
+    if (Array.isArray(parsed)) {
+      return normalizePinnedEntries(parsed);
+    }
+    if (parsed && typeof parsed === "object") {
+      const { entries } = parsed as { entries?: unknown };
+      return normalizePinnedEntries(entries);
+    }
+  } catch (error) {
+    console.warn("Failed to decode pinned entries", error);
+  }
+  return [];
 };

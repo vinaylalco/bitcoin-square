@@ -10,6 +10,15 @@ import { useRoomKey } from "./useRoomKey";
 import { useNostrAccount } from "./useNostrAccount";
 import { useAuth } from "../context/AuthContext";
 import { getBrowserLanguageTag } from "../utils/browserLanguage";
+import {
+  PIN_EVENT_KIND,
+  decodePinnedEventContent,
+  encodePinnedEventContent,
+  normalizePinnedEntries,
+  removePinnedEntry,
+  togglePinnedEntry,
+  type PinnedEntry,
+} from "../utils/pinnedEntries";
 
 const ROOM_ID = "bitcoinsquare-casual";
 const ROOM_TAG = `room:${ROOM_ID}`;
@@ -23,6 +32,7 @@ const ADDITIONAL_RELAYS = ["wss://relay.primal.net", "wss://nos.lol", "wss://rel
 const MAX_MESSAGES = 400;
 const TYPING_TIMEOUT_MS = 6000;
 const TYPING_THROTTLE_MS = 2000;
+const PIN_EVENT_IDENTIFIER = "casual-pins";
 
 interface CasualAttachmentMeta {
   eventId?: string | null;
@@ -84,6 +94,9 @@ export interface UseBitcoinSquareCasualChatResult {
   error: string | null;
   typingPubkeys: string[];
   sendTyping: () => Promise<void>;
+  pinMessage: (id: string) => Promise<void>;
+  unpinMessage: (id: string) => Promise<void>;
+  pinnedEntries: PinnedEntry[];
 }
 
 const parsePayload = (plaintext: string): CasualPayload => {
@@ -233,6 +246,7 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [typingUsers, setTypingUsers] = useState<Record<string, number>>({});
+  const [pinnedEntries, setPinnedEntries] = useState<PinnedEntry[]>([]);
   const managerRef = useRef<NostrRelayManager | null>(null);
   const visibilityRef = useRef(
     typeof document === "undefined" ? true : document.visibilityState === "visible",
@@ -244,6 +258,11 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
   const pendingLikesRef = useRef(new Map<string, Set<string>>());
   const deletedMessageIdsRef = useRef(new Set<string>());
   const deletedMessageStorageHydratedRef = useRef(false);
+  const pinnedStateRef = useRef<{ entries: PinnedEntry[]; createdAt: number; eventId: string | null }>({
+    entries: [],
+    createdAt: 0,
+    eventId: null,
+  });
 
   const configuredRoomKey = getConfiguredRoomKey(ROOM_ID);
 
@@ -545,6 +564,30 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
       },
     );
 
+    const pinnedSubscription = manager.subscribe(
+      {
+        kinds: [PIN_EVENT_KIND],
+        "#t": [ROOM_TAG],
+        "#d": [PIN_EVENT_IDENTIFIER],
+      },
+      (event) => {
+        const entries = decodePinnedEventContent(event.content);
+        const createdAt = typeof event.created_at === "number" ? event.created_at : 0;
+        setPinnedEntries((prev) => {
+          const current = pinnedStateRef.current;
+          if (
+            createdAt < current.createdAt ||
+            (createdAt === current.createdAt && current.eventId && current.eventId.localeCompare(event.id) >= 0)
+          ) {
+            return prev;
+          }
+          const normalized = normalizePinnedEntries(entries);
+          pinnedStateRef.current = { entries: normalized, createdAt, eventId: event.id };
+          return normalized;
+        });
+      },
+    );
+
     const typingSubscription = manager.subscribe(
       {
         kinds: [20001],
@@ -645,6 +688,7 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
 
     return () => {
       subscription.close();
+      pinnedSubscription.close();
       typingSubscription.close();
       reactionSubscription.close();
       deletionSubscription.close();
@@ -1114,6 +1158,81 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
     [canModerate, ensureDeletedMessagesHydrated, persistDeletedMessages, signEvent],
   );
 
+  const publishPinnedEntries = useCallback(
+    async (entries: PinnedEntry[]) => {
+      if (!canModerate) {
+        throw new Error("Only admins can pin messages.");
+      }
+      if (!signEvent) {
+        throw new Error("Your Nostr keys are not ready yet");
+      }
+      const manager = managerRef.current;
+      if (!manager) {
+        throw new Error("Relay manager not ready yet");
+      }
+
+      const normalized = normalizePinnedEntries(entries);
+      const template: EventTemplate = {
+        kind: PIN_EVENT_KIND,
+        created_at: Math.floor(Date.now() / 1000),
+        content: encodePinnedEventContent(normalized),
+        tags: [
+          ["t", ROOM_TAG],
+          ["d", PIN_EVENT_IDENTIFIER],
+          ["app", "BitcoinSquare"],
+          ["chat", ROOM_TAG],
+        ],
+      };
+
+      const signed = await signEvent(template);
+      const previous = pinnedStateRef.current;
+      const nextState = {
+        entries: normalized,
+        createdAt: signed.created_at ?? Math.floor(Date.now() / 1000),
+        eventId: signed.id,
+      };
+      pinnedStateRef.current = nextState;
+      setPinnedEntries(normalized);
+
+      const { ack } = manager.publish(signed);
+      try {
+        await ack;
+      } catch (error) {
+        pinnedStateRef.current = previous;
+        setPinnedEntries(previous.entries);
+        throw error instanceof Error ? error : new Error(String(error));
+      }
+    },
+    [canModerate, signEvent],
+  );
+
+  const pinMessage = useCallback(
+    async (id: string) => {
+      const current = pinnedStateRef.current.entries;
+      if (current.some((entry) => entry.id === id)) {
+        return;
+      }
+      const next = togglePinnedEntry(current, id, Date.now());
+      await publishPinnedEntries(next);
+    },
+    [publishPinnedEntries],
+  );
+
+  const unpinMessage = useCallback(
+    async (id: string) => {
+      const current = pinnedStateRef.current.entries;
+      if (!current.some((entry) => entry.id === id)) {
+        return;
+      }
+      const next = removePinnedEntry(current, id);
+      if (next === current) {
+        return;
+      }
+      await publishPinnedEntries(next);
+    },
+    [publishPinnedEntries],
+  );
+
   const ready = useMemo(
     () => hasKey && Boolean(pubkey) && Boolean(managerRef.current) && accountReady,
     [accountReady, hasKey, pubkey],
@@ -1169,6 +1288,9 @@ export const useBitcoinSquareCasualChat = (): UseBitcoinSquareCasualChatResult =
     error,
     typingPubkeys,
     sendTyping,
+    pinMessage,
+    unpinMessage,
+    pinnedEntries,
   };
 };
 
