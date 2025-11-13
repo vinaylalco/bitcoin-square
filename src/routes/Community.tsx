@@ -2720,10 +2720,10 @@ const CommunityView: React.FC = () => {
           onClick={() => setIsMobileNavigationVisible((prev) => !prev)}
           aria-expanded={isMobileNavigationVisible}
           aria-controls={isMobileNavigationVisible ? "community-mobile-navigation" : undefined}
-          className={`flex h-12 w-12 items-center justify-center rounded-full border text-[var(--fg-muted)] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
+          className={`flex h-12 w-12 items-center justify-center rounded-full border border-[color:var(--chat-floating-control-border)] bg-[var(--chat-floating-control-bg)] text-[color:var(--chat-floating-control-fg)] shadow-[var(--chat-floating-control-shadow)] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
             isMobileNavigationVisible
-              ? "border-brand bg-brand/10 text-brand shadow-sm"
-              : "border-[var(--border-subtle)]/70 hover:border-brand hover:text-brand"
+              ? "ring-2 ring-brand/40"
+              : "hover:border-brand hover:text-brand"
           }`}
         >
           {isMobileNavigationVisible ? (
@@ -2740,7 +2740,7 @@ const CommunityView: React.FC = () => {
             id="community-mobile-navigation"
             aria-label="Community navigation"
             role="tablist"
-            className="flex flex-col items-center gap-3 rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)]/85 p-3 shadow-lg backdrop-blur"
+            className="flex flex-col items-center gap-3 rounded-3xl border border-[color:var(--chat-floating-control-border)] bg-[var(--chat-floating-control-bg)] p-3 text-[color:var(--chat-floating-control-fg)] shadow-[var(--chat-floating-control-shadow)] backdrop-blur"
           >
             {MOBILE_VIEW_TABS.map((tab) => renderTabButton(tab, "mobile"))}
           </nav>
@@ -2750,7 +2750,7 @@ const CommunityView: React.FC = () => {
             type="button"
             onClick={handleMobileComposeClick}
             aria-disabled={!isMobileComposeButtonEnabled}
-            className={`flex h-12 w-12 items-center justify-center rounded-full bg-brand text-white shadow-xl transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 ${mobileComposeButtonTone}`}
+            className={`flex h-12 w-12 items-center justify-center rounded-full bg-brand text-white shadow-[var(--chat-floating-control-shadow)] transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 ${mobileComposeButtonTone}`}
           >
             <Plus className="h-5 w-5" aria-hidden />
             <span className="sr-only">
@@ -2791,7 +2791,7 @@ const CommunityView: React.FC = () => {
             </div>
           </div>
         </aside>
-        <div className="relative flex flex-1 min-h-0 flex-col lg:pl-80">
+        <div className="relative flex flex-1 min-h-0 flex-col lg:ml-80 lg:pl-8">
           <main className="relative flex flex-1 min-h-0 flex-col sm:pr-24 lg:pr-0">
             {isCasualView ? (
               <section
@@ -2833,7 +2833,9 @@ const CommunityView: React.FC = () => {
                           const isSelf = message.pubkey === pubkey;
                           const accent = authorAccents.get(message.pubkey);
                           const summary = resolveProfileSummary(message.pubkey);
-                          const timestampColor = isSelf ? "text-white/80" : "text-[var(--fg-muted)]";
+                          const timestampColor = isSelf
+                            ? "text-[color:var(--chat-bubble-self-muted)]"
+                            : "text-[var(--fg-muted)]";
                           const referencedMessage = message.quoteId ? messagesById.get(message.quoteId) : undefined;
                           const quoteAccentSource = message.quotePubkey ?? referencedMessage?.pubkey ?? undefined;
                           const quoteAccent =
@@ -2878,7 +2880,7 @@ const CommunityView: React.FC = () => {
                               ? formatLanguageName(translationEntry.detectedLanguage)
                               : null;
                           const translationNoticeColor = isSelf
-                            ? "text-white/70"
+                            ? "text-[color:var(--chat-bubble-self-muted)]"
                             : "text-[var(--fg-muted)]";
                           const likeCount = message.likePubkeys.length;
                           const likedByCurrentUser = pubkey ? message.likePubkeys.includes(pubkey) : false;
@@ -2901,8 +2903,8 @@ const CommunityView: React.FC = () => {
                           const deleteDisabled = !ready || isPendingDelete;
                           const isMessageMenuOpen = openMessageMenuId === message.id;
                           const messageMenuButtonPalette = isSelf
-                            ? "border-white/60 text-white hover:border-white"
-                            : "border-white/70 text-[var(--fg-muted)] hover:border-brand hover:text-brand";
+                            ? "border-[color:var(--chat-bubble-self-border)] text-[color:var(--chat-bubble-self-fg)] hover:bg-white/10 dark:hover:bg-black/10"
+                            : "border-[color:var(--chat-bubble-peer-border)] text-[var(--fg-muted)] hover:border-brand hover:text-brand";
                           const deleteOptionClasses = deleteDisabled
                             ? isSelf
                               ? "cursor-not-allowed text-white/50"
@@ -2936,8 +2938,8 @@ const CommunityView: React.FC = () => {
                                   <div
                                     className={`min-w-0 max-w-full rounded-3xl border px-4 py-3 backdrop-blur ${
                                       isSelf
-                                        ? "bg-amber-500 text-white shadow-xl border-amber-400"
-                                        : "bg-white/85 text-[var(--fg-default)] shadow-sm dark:bg-neutral-900/70"
+                                        ? "bg-[var(--chat-bubble-self-bg)] text-[color:var(--chat-bubble-self-fg)] shadow-xl border-[color:var(--chat-bubble-self-border)]"
+                                        : "bg-[var(--chat-bubble-peer-bg)] text-[var(--fg-default)] shadow-sm border-[color:var(--chat-bubble-peer-border)]"
                                     } ${isHighlighted ? "ring-2 ring-brand/70" : "ring-1 ring-transparent"}`}
                                     style={
                                       !isSelf && accent
@@ -2963,7 +2965,7 @@ const CommunityView: React.FC = () => {
                                           <button
                                             type="button"
                                             onClick={() => handleScrollToMessage(message.quoteId!)}
-                                            className="group flex w-full items-start gap-3 rounded-2xl border border-dashed border-[var(--border-subtle)] bg-white/80 px-3 py-2 text-left text-xs transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 dark:bg-neutral-900/60"
+                                            className="group flex w-full items-start gap-3 rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[var(--chat-quote-bg)] px-3 py-2 text-left text-xs transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
                                           >
                                         <span
                                           aria-hidden
@@ -2981,7 +2983,9 @@ const CommunityView: React.FC = () => {
                                           </p>
                                           <p
                                             className={`mt-2 text-[9px] uppercase tracking-[0.3em] ${
-                                              isSelf ? "text-white/70" : "text-[var(--fg-muted)]"
+                                              isSelf
+                                                ? "text-[color:var(--chat-bubble-self-muted)]"
+                                                : "text-[var(--fg-muted)]"
                                             }`}
                                           >
                                             {referencedMessage ? formatTimestamp(referencedMessage.created_at) : ""}
@@ -3093,7 +3097,7 @@ const CommunityView: React.FC = () => {
                                         {isMessageMenuOpen && (
                                           <div
                                             role="menu"
-                                            className="absolute right-0 z-30 mt-2 w-48 rounded-2xl border border-white/40 bg-[var(--bg-card)]/95 p-1 text-xs shadow-xl backdrop-blur"
+                                            className="absolute right-0 z-30 mt-2 w-48 rounded-2xl border border-[color:var(--chat-floating-control-border)] bg-[var(--chat-floating-control-bg)] p-1 text-xs text-[color:var(--chat-floating-control-fg)] shadow-[var(--chat-floating-control-shadow)] backdrop-blur"
                                           >
                                             <button
                                               type="button"

@@ -2129,7 +2129,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         <button
           type="button"
           onClick={handleJumpToNewPosts}
-          className="fixed left-1/2 z-40 -translate-x-1/2 rounded-full bg-[var(--bg-card)] px-5 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-brand shadow-lg ring-1 ring-brand/40 transition hover:bg-brand/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 bottom-[calc(7rem+env(safe-area-inset-bottom,0px))] sm:bottom-36"
+          className="fixed left-1/2 z-40 -translate-x-1/2 rounded-full border border-[color:var(--chat-floating-control-border)] bg-[var(--chat-floating-control-bg)] px-5 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--chat-floating-control-fg)] shadow-[var(--chat-floating-control-shadow)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 bottom-[calc(7rem+env(safe-area-inset-bottom,0px))] sm:bottom-36"
         >
           New posts available — Jump
         </button>
