@@ -11,7 +11,7 @@ import {
   clearPendingMembershipAuth,
 } from "../utils/pendingMembershipAuth";
 import { cn } from "../utils/cn";
-import { StrapiNetworkError } from "../api/strapi-client";
+import { StrapiNetworkError, StrapiRequestError } from "../api/strapi-client";
 import { resolveStrapiAuthError } from "../utils/strapiErrors";
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -54,6 +54,17 @@ const formatDiscountTxHash = (discountCode: string | undefined, email: string) =
   const emailHash = hashEmailForDiscount(email);
 
   return `${prefix}-${emailHash ?? randomSuffix()}`;
+};
+
+const isTxHashInvalidError = (error: unknown): boolean => {
+  if (error instanceof StrapiRequestError || error instanceof Error) {
+    const message = error.message?.toLowerCase();
+    if (message) {
+      return message.includes("txhash");
+    }
+  }
+
+  return false;
 };
 
 type PortalView = "login" | "signup";
@@ -209,9 +220,19 @@ export default function Membership() {
         ? formatDiscountTxHash(discountCode, trimmedEmail)
         : undefined;
 
-      const authResponse = await register(trimmedEmail, signupPassword, {
-        ...(discountTxHash ? { txHash: discountTxHash } : {}),
-      });
+      let authResponse;
+
+      try {
+        authResponse = await register(trimmedEmail, signupPassword, {
+          ...(discountTxHash ? { txHash: discountTxHash } : {}),
+        });
+      } catch (registerError) {
+        if (discountTxHash && isTxHashInvalidError(registerError)) {
+          authResponse = await register(trimmedEmail, signupPassword);
+        } else {
+          throw registerError;
+        }
+      }
       const checkout = await startCheckout({
         email: trimmedEmail,
         membershipType: signupPlan,
