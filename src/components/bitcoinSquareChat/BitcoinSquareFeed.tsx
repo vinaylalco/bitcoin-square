@@ -74,6 +74,7 @@ type QuickFilterType = "media" | "mentions" | "mine";
 const LONG_POST_CHAR_THRESHOLD = 320;
 const LONG_POST_LINE_THRESHOLD = 6;
 const COMPOSER_STORAGE_KEY = "bitcoinsquare-feed-composer-state";
+const PINNED_POSTS_STORAGE_KEY = "bitcoinsquare-pinned-posts";
 
 const createRelativeFormatter = () => {
   try {
@@ -247,6 +248,9 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   const [composerOpen, setComposerOpen] = useState(false);
   const [composerMode, setComposerMode] = useState<ComposerMode>("new");
   const [composerTarget, setComposerTarget] = useState<FeedPost | null>(null);
+  const [pinnedPostEntries, setPinnedPostEntries] = useState<PinnedPostEntry[]>(() =>
+    loadPinnedEntries(PINNED_POSTS_STORAGE_KEY),
+  );
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>(null);
   const [pendingLikes, setPendingLikes] = useState<PendingMap>(() => new Set());
   const [pendingPins, setPendingPins] = useState<PendingMap>(() => new Set());

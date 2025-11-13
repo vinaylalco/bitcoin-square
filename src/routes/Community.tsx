@@ -68,6 +68,13 @@ import { rewriteImgBbUrlToProxy, rewriteImgBbUrlsInText } from "../utils/imagePr
 import { resolveMentionTargets, type MentionCandidate } from "../utils/mentions";
 import useMentionAutocomplete from "../hooks/useMentionAutocomplete";
 import { normalizeToHexPubkey } from "../utils/nostr";
+import {
+  loadPinnedEntries,
+  persistPinnedEntries,
+  removePinnedEntry,
+  togglePinnedEntry,
+  type PinnedEntry,
+} from "../utils/pinnedEntries";
 
 type ActiveView =
   | "casual"
@@ -150,6 +157,8 @@ const CASUAL_ROOM: RoomDefinition = {
 };
 
 type AttachmentStatus = "idle" | "loading" | "ready" | "error";
+
+const PINNED_MESSAGES_STORAGE_KEY = "bitcoinsquare-chat-pinned";
 
 interface QuoteContextState {
   id: string;
@@ -1166,6 +1175,8 @@ const Composer: React.FC<{
   );
 };
 
+type PinnedMessageEntry = PinnedEntry;
+
 const CommunityView: React.FC = () => {
   const { theme } = useTheme();
   const { t } = useTranslation();
@@ -1186,6 +1197,9 @@ const CommunityView: React.FC = () => {
     unpinMessage: unpinCasualMessage,
     pinnedEntries: pinnedMessageEntries,
   } = useBitcoinSquareCasualChat();
+  const [pinnedMessageEntries, setPinnedMessageEntries] = useState<PinnedMessageEntry[]>(() =>
+    loadPinnedEntries(PINNED_MESSAGES_STORAGE_KEY),
+  );
 
   const pinnedMessageIdSet = useMemo(
     () => new Set(pinnedMessageEntries.map((entry) => entry.id)),

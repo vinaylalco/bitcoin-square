@@ -10,6 +10,7 @@ interface MembershipCheckoutPayload {
   membershipType: MembershipType;
   discountCode?: string;
   userId?: number;
+  txHash?: string;
 }
 
 export function useMembershipCheckout() {
@@ -18,12 +19,13 @@ export function useMembershipCheckout() {
     Error,
     MembershipCheckoutPayload
   >({
-    mutationFn: ({ email, membershipType, discountCode, userId }) =>
+    mutationFn: ({ email, membershipType, discountCode, userId, txHash }) =>
       createMembershipCheckout({
         membershipType,
         userEmail: email,
         discountCode,
         userId,
+        txHash,
       }),
   });
 }

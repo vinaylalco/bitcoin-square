@@ -17,6 +17,23 @@ import { resolveStrapiAuthError } from "../utils/strapiErrors";
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 8;
 
+const formatDiscountTxHash = (discountCode: string | undefined, email: string) => {
+  const sanitizeSegment = (value: string): string =>
+    value
+      .trim()
+      .replace(/[^a-z0-9]/gi, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-+/, "")
+      .replace(/-+$/, "")
+      .toUpperCase();
+
+  const codeSegment = sanitizeSegment(discountCode ?? "") || "FREE";
+  const emailHandle = email.split("@")[0] ?? email;
+  const emailSegment = sanitizeSegment(emailHandle) || "USER";
+
+  return `DISCOUNT-${codeSegment}-${emailSegment}`;
+};
+
 type PortalView = "login" | "signup";
 
 export default function Membership() {
@@ -167,17 +184,16 @@ export default function Membership() {
     let pendingStored = false;
     try {
       const discountTxHash = discountCode
-        ? `${discountCode}-${Math.floor(10000 + Math.random() * 90000)}`
+        ? formatDiscountTxHash(discountCode, trimmedEmail)
         : undefined;
 
-      const authResponse = await register(trimmedEmail, signupPassword, {
-        ...(discountTxHash ? { txHash: discountTxHash } : {}),
-      });
+      const authResponse = await register(trimmedEmail, signupPassword);
       const checkout = await startCheckout({
         email: trimmedEmail,
         membershipType: signupPlan,
         discountCode,
         userId: authResponse.user.id,
+        txHash: discountTxHash,
       });
 
       if (checkout.invoiceUrl) {

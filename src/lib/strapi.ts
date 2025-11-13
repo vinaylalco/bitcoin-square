@@ -469,6 +469,7 @@ export interface CreateMembershipCheckoutOptions {
   userEmail: string;
   discountCode?: string;
   userId?: number;
+  txHash?: string;
 }
 
 export interface CreateMembershipCheckoutResponse {
@@ -481,6 +482,7 @@ export async function createMembershipCheckout({
   userEmail,
   discountCode,
   userId,
+  txHash,
 }: CreateMembershipCheckoutOptions): Promise<CreateMembershipCheckoutResponse> {
   if (!isNonEmptyString(userEmail)) {
     throw new Error("Missing email address");
@@ -506,6 +508,10 @@ export async function createMembershipCheckout({
 
   if (isNonEmptyString(discountCode)) {
     payload.discountCode = discountCode.trim();
+  }
+
+  if (isNonEmptyString(txHash)) {
+    payload.txHash = txHash.trim();
   }
 
   const response = await strapiFetch("/api/payments/create-session", {

@@ -1,4 +1,3 @@
-import crypto from "node:crypto";
 import { factories } from "@strapi/strapi";
 
 const USER_LOOKUP_ATTEMPTS = 3;
@@ -13,6 +12,81 @@ const sanitizeTxSegment = (value: string) =>
     .replace(/-+/g, "-")
     .replace(/^-+/, "")
     .replace(/-+$/, "");
+
+const DISCOUNT_PREFIX = "DISCOUNT-";
+
+const extractDiscountSegmentFromTxHash = (txHash: string): string | null => {
+  if (!txHash || typeof txHash !== "string") {
+    return null;
+  }
+
+  const trimmed = txHash.trim();
+  if (!trimmed || !trimmed.toUpperCase().startsWith(DISCOUNT_PREFIX)) {
+    return null;
+  }
+
+  const remainder = trimmed.slice(DISCOUNT_PREFIX.length);
+  if (!remainder) {
+    return null;
+  }
+
+  const [rawSegment] = remainder.split("-");
+  const sanitized = sanitizeTxSegment(rawSegment ?? "");
+
+  return sanitized ? sanitized.toUpperCase() : null;
+};
+
+const getBodyValue = (body: unknown, key: string): unknown => {
+  if (!body || typeof body !== "object") {
+    return undefined;
+  }
+
+  const record = body as Record<string, unknown>;
+
+  if (Object.prototype.hasOwnProperty.call(record, key)) {
+    return record[key];
+  }
+
+  const data = record.data;
+  if (data && typeof data === "object") {
+    const dataRecord = data as Record<string, unknown>;
+    if (Object.prototype.hasOwnProperty.call(dataRecord, key)) {
+      return dataRecord[key];
+    }
+  }
+
+  return undefined;
+};
+
+const assignBodyValue = (
+  target: unknown,
+  key: string,
+  value: unknown,
+  options: { remove?: boolean } = {},
+) => {
+  if (!target || typeof target !== "object") {
+    return;
+  }
+
+  const shouldRemove = options.remove ?? value === undefined;
+  const record = target as Record<string, unknown>;
+
+  if (shouldRemove) {
+    delete record[key];
+  } else {
+    record[key] = value;
+  }
+
+  const data = record.data;
+  if (data && typeof data === "object") {
+    const dataRecord = data as Record<string, unknown>;
+    if (shouldRemove) {
+      delete dataRecord[key];
+    } else {
+      dataRecord[key] = value;
+    }
+  }
+};
 
 const sanitizeUserId = (value: unknown): number | null => {
   if (typeof value === "number" && Number.isInteger(value) && value > 0) {
@@ -37,7 +111,8 @@ const sanitizeUserId = (value: unknown): number | null => {
 export default factories.createCoreController("api::payments.payment", ({ strapi }) => ({
   async createSession(ctx) {
     const body = (ctx.request.body ?? {}) as Record<string, unknown>;
-    const rawEmail = typeof body.userEmail === "string" ? body.userEmail : "";
+    const rawEmailValue = getBodyValue(body, "userEmail");
+    const rawEmail = typeof rawEmailValue === "string" ? rawEmailValue : "";
     const trimmedEmail = rawEmail.trim();
 
     if (!trimmedEmail) {
@@ -45,53 +120,54 @@ export default factories.createCoreController("api::payments.payment", ({ strapi
     }
 
     const normalizedEmail = trimmedEmail.toLowerCase();
-    const normalizedUserId = sanitizeUserId(body.userId);
+    const normalizedUserId = sanitizeUserId(getBodyValue(body, "userId"));
 
-    body.userEmail = trimmedEmail;
-    if (ctx.request.body && typeof ctx.request.body === "object") {
-      (ctx.request.body as Record<string, unknown>).userEmail = trimmedEmail;
-    }
+    assignBodyValue(body, "userEmail", trimmedEmail);
+    assignBodyValue(ctx.request.body, "userEmail", trimmedEmail);
 
     if (normalizedUserId !== null) {
-      body.userId = normalizedUserId;
-      if (ctx.request.body && typeof ctx.request.body === "object") {
-        (ctx.request.body as Record<string, unknown>).userId = normalizedUserId;
-      }
+      assignBodyValue(body, "userId", normalizedUserId);
+      assignBodyValue(ctx.request.body, "userId", normalizedUserId);
     } else {
-      delete body.userId;
-      if (ctx.request.body && typeof ctx.request.body === "object") {
-        delete (ctx.request.body as Record<string, unknown>).userId;
-      }
+      assignBodyValue(body, "userId", undefined, { remove: true });
+      assignBodyValue(ctx.request.body, "userId", undefined, { remove: true });
     }
 
+    const discountValue = getBodyValue(body, "discountCode");
+    const hasDiscountField = discountValue !== undefined;
     const rawDiscount =
-      typeof body.discountCode === "string" ? body.discountCode.trim() : "";
+      typeof discountValue === "string"
+        ? discountValue.trim()
+        : String(discountValue ?? "").trim();
+    const existingTxHashValue = getBodyValue(body, "txHash");
+    const existingTxHash =
+      typeof existingTxHashValue === "string"
+        ? existingTxHashValue.trim()
+        : String(existingTxHashValue ?? "").trim();
+    const normalizedExistingTxHash = existingTxHash.toUpperCase();
+    const existingDiscountSegment = extractDiscountSegmentFromTxHash(existingTxHash);
+    const shouldFormatDiscountTx =
+      hasDiscountField || existingDiscountSegment !== null;
 
-    if (rawDiscount) {
-      const existingTxHash =
-        typeof body.txHash === "string" ? body.txHash.trim() : "";
-
-      const normalizedDiscount =
-        sanitizeTxSegment(rawDiscount).toUpperCase() || "DISCOUNT";
+    if (shouldFormatDiscountTx) {
+      const resolvedDiscountSegment =
+        sanitizeTxSegment(rawDiscount).toUpperCase() ||
+        existingDiscountSegment ||
+        "FREE";
+      const emailHandle = normalizedEmail.split("@")[0] ?? normalizedEmail;
       const normalizedEmailSegment =
-        sanitizeTxSegment(normalizedEmail) || "USER";
-      const normalizedExistingTxHash = existingTxHash.toUpperCase();
+        sanitizeTxSegment(emailHandle).toUpperCase() || "USER";
+      const expectedPrefix = `${DISCOUNT_PREFIX}${resolvedDiscountSegment}`;
       const shouldOverrideExisting =
         !existingTxHash ||
-        normalizedExistingTxHash === normalizedDiscount ||
-        normalizedExistingTxHash.startsWith(`${normalizedDiscount}:`);
+        normalizedExistingTxHash === expectedPrefix ||
+        normalizedExistingTxHash.startsWith(`${expectedPrefix}-`);
 
-      const uniqueSuffix =
-        typeof crypto.randomUUID === "function"
-          ? crypto.randomUUID()
-          : crypto.randomBytes(8).toString("hex");
-      const discountTxHash = `${normalizedDiscount}:${normalizedEmailSegment}:${uniqueSuffix}`;
+      const discountTxHash = `${DISCOUNT_PREFIX}${resolvedDiscountSegment}-${normalizedEmailSegment}`;
       const resolvedTxHash = shouldOverrideExisting ? discountTxHash : existingTxHash;
 
-      body.txHash = resolvedTxHash;
-      if (ctx.request.body && typeof ctx.request.body === "object") {
-        (ctx.request.body as Record<string, unknown>).txHash = resolvedTxHash;
-      }
+      assignBodyValue(body, "txHash", resolvedTxHash);
+      assignBodyValue(ctx.request.body, "txHash", resolvedTxHash);
     }
 
     const findUserById = async () => {
