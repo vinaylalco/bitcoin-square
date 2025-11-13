@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import { useAuth } from "../context/AuthContext";
@@ -24,6 +24,7 @@ const THIRTY_SECONDS_MS = 30_000;
 export default function MembershipSuccess() {
   const { t } = useTranslation();
   const { token, completeAuthFromResponse } = useAuth();
+  const navigate = useNavigate();
 
   // what we *expected* the user to buy (annual/lifetime)
   const [expectedPlan, setExpectedPlan] = useState<MembershipType | null>(() => {
@@ -159,6 +160,7 @@ export default function MembershipSuccess() {
 
         clearMembershipCheckoutPlan();
         setExpectedPlan(null);
+        navigate("/dashboard", { replace: true });
       } catch (authError) {
         console.warn("Failed to finalize membership authentication", authError);
         hasFinalizedRef.current = false;
@@ -173,6 +175,7 @@ export default function MembershipSuccess() {
     isVerifiedActive,
     me,
     pendingAuth,
+    navigate,
     token,
   ]);
 

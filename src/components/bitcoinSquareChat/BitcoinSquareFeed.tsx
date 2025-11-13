@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import type { FeedPost, PublishContext } from "../../hooks/useBitcoinSquareFeed";
+import type { FeedAttachment, FeedPost, PublishContext } from "../../hooks/useBitcoinSquareFeed";
 import { searchUsersByScreenName, type ScreenNameUser } from "../../api/users";
 import { fallbackProfileAvatar, useProfileIdentity, shortenPubkey } from "../../context/ProfileIdentityContext";
 import type { ProfileSummary } from "../../context/ProfileIdentityContext";
@@ -29,6 +29,13 @@ import {
 } from "../../utils/imageUpload";
 import type { MentionCandidate } from "../../utils/mentions";
 import useMentionAutocomplete from "../../hooks/useMentionAutocomplete";
+import {
+  loadPinnedEntries,
+  persistPinnedEntries,
+  removePinnedEntry,
+  togglePinnedEntry,
+  type PinnedEntry,
+} from "../../utils/pinnedEntries";
 
 interface BitcoinSquareFeedProps {
   posts: FeedPost[];
@@ -41,6 +48,7 @@ interface BitcoinSquareFeedProps {
       attachments?: FeedPost["attachments"];
     },
   ) => Promise<{ eventId: string }>;
+  editPost: (post: FeedPost, content: string, attachments?: FeedPost["attachments"]) => Promise<void>;
   likePost: (post: FeedPost) => Promise<void>;
   deletePost: (post: FeedPost) => Promise<void>;
   loadMore: () => Promise<void>;
@@ -69,6 +77,7 @@ type QuickFilterType = "media" | "mentions" | "mine";
 const LONG_POST_CHAR_THRESHOLD = 320;
 const LONG_POST_LINE_THRESHOLD = 6;
 const COMPOSER_STORAGE_KEY = "bitcoinsquare-feed-composer-state";
+const PINNED_POSTS_STORAGE_KEY = "bitcoinsquare-pinned-posts";
 
 const createRelativeFormatter = () => {
   try {
@@ -78,6 +87,8 @@ const createRelativeFormatter = () => {
     return null;
   }
 };
+
+type PinnedPostEntry = PinnedEntry;
 
 const useRelativeNow = () => {
   const [now, setNow] = useState(() => Date.now());
@@ -216,6 +227,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   ready,
   publishing,
   publishStatus,
+  editPost,
   likePost,
   deletePost,
   loadMore,
@@ -236,6 +248,9 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   const [composerOpen, setComposerOpen] = useState(false);
   const [composerMode, setComposerMode] = useState<ComposerMode>("new");
   const [composerTarget, setComposerTarget] = useState<FeedPost | null>(null);
+  const [pinnedPostEntries, setPinnedPostEntries] = useState<PinnedPostEntry[]>(() =>
+    loadPinnedEntries(PINNED_POSTS_STORAGE_KEY),
+  );
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>(null);
   const [pendingLikes, setPendingLikes] = useState<PendingMap>(() => new Set());
   const [pendingDeletes, setPendingDeletes] = useState<PendingMap>(() => new Set());
@@ -260,6 +275,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   const [uploadedImages, setUploadedImages] = useState<UploadedImageDetails[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [editingInProgress, setEditingInProgress] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string } | null>(null);
   const relativeFormatter = useMemo(() => createRelativeFormatter(), []);
   const now = useRelativeNow();
@@ -285,6 +301,33 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       type: "private",
       hasLocalKey: true,
     }),
+    [],
+  );
+
+  const composerStateSnapshot = useCallback(
+    () => ({
+      mode: composerMode,
+      targetId: composerTarget?.id ?? null,
+      content,
+      attachmentCount: uploadedImages.length,
+    }),
+    [composerMode, composerTarget, content, uploadedImages.length],
+  );
+
+  const mapAttachmentToUploadedImage = useCallback(
+    (attachment: FeedAttachment): UploadedImageDetails => {
+      const placeholder = createPlaceholderImageDetails(attachment.url);
+      return {
+        ...placeholder,
+        url: rewriteImgBbUrlToProxy(attachment.url, { absolute: true }),
+        originalUrl: attachment.url,
+        width: attachment.width ?? placeholder.width,
+        height: attachment.height ?? placeholder.height,
+        size: attachment.size ?? placeholder.size,
+        mimeType: attachment.mimeType,
+        digest: attachment.digest ?? placeholder.digest,
+      };
+    },
     [],
   );
 
@@ -395,7 +438,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       if (parsed.open) {
         setComposerOpen(true);
       }
-      if (parsed.mode === "reply" || parsed.mode === "quote") {
+      if (parsed.mode === "reply" || parsed.mode === "quote" || parsed.mode === "edit") {
         setComposerMode(parsed.mode);
       }
       if (parsed.targetId) {
@@ -512,29 +555,59 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     };
   }, [openPostMenuId]);
 
-  const resetComposer = useCallback(() => {
+  const handleComposerClose = useCallback(() => {
     setComposerOpen(false);
+    setComposerFocused(false);
+    setComposerError(null);
+    closeMention();
+  }, [closeMention]);
+
+  const resetComposer = useCallback(() => {
+    handleComposerClose();
     setComposerTarget(null);
     setComposerMode("new");
     setContent("");
-    setComposerError(null);
     setUploadedImages([]);
     setUploadError(null);
     setIsUploading(false);
     setLightboxImage(null);
+    setEditingInProgress(false);
     persistedComposerTargetIdRef.current = null;
     if (typeof window !== "undefined") {
       window.localStorage.removeItem(COMPOSER_STORAGE_KEY);
     }
-    setComposerFocused(false);
-    closeMention();
-  }, [closeMention]);
+  }, [handleComposerClose]);
 
   const clearComposerTarget = useCallback(() => {
     setComposerTarget(null);
     setComposerMode("new");
     persistedComposerTargetIdRef.current = null;
   }, [setComposerMode, setComposerTarget]);
+
+  const handleComposerModeOpen = useCallback(
+    (
+      mode: ComposerMode,
+      target: FeedPost | null,
+      { hasExistingDraft }: { hasExistingDraft: boolean },
+    ) => {
+      if (mode === "edit") {
+        if (!target) {
+          setUploadedImages([]);
+        } else if (!hasExistingDraft) {
+          const images = target.attachments
+            .filter((attachment) => attachment.mimeType.startsWith("image/"))
+            .map((attachment) => mapAttachmentToUploadedImage(attachment));
+          setUploadedImages(images);
+        }
+      } else if (!hasExistingDraft) {
+        setUploadedImages([]);
+      }
+      if (!hasExistingDraft) {
+        setUploadError(null);
+      }
+    },
+    [mapAttachmentToUploadedImage, setUploadError],
+  );
 
   const openComposerDialog = useMemo(
     () =>
@@ -544,21 +617,21 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         setContent,
         setComposerError,
         setComposerOpen,
+        getCurrentState: composerStateSnapshot,
+        shortenPubkey,
+        onOpenMode: handleComposerModeOpen,
       }),
-    [setComposerMode, setComposerTarget, setContent, setComposerError, setComposerOpen],
+    [
+      composerStateSnapshot,
+      handleComposerModeOpen,
+      setComposerError,
+      setComposerMode,
+      setComposerOpen,
+      setComposerTarget,
+      setContent,
+      shortenPubkey,
+    ],
   );
-
-  useEffect(() => {
-    if (!composerOpen) return;
-    const handler = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        resetComposer();
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [composerOpen, resetComposer]);
 
   useEffect(() => {
     if (composerOpen && textareaRef.current) {
@@ -601,7 +674,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   const handleSubmit = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
-      if (!ready || publishing || isUploading) return;
+      if (!ready || publishing || isUploading || editingInProgress) return;
       const normalizedContent = rewriteImgBbUrlsInText(content, { absolute: true });
       if (normalizedContent !== content) {
         setContent(normalizedContent);
@@ -630,6 +703,24 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       try {
         setComposerError(null);
         setUploadError(null);
+        if (composerMode === "edit" && composerTarget) {
+          setEditingInProgress(true);
+          const attachmentsForEdit =
+            attachments.length > 0 ? attachments : composerTarget.attachments ?? [];
+          try {
+            await editPost(composerTarget, trimmed, attachmentsForEdit);
+            resetComposer();
+          } catch (editError) {
+            setComposerError(
+              editError instanceof Error
+                ? editError.message
+                : "We couldn't update your post just yet.",
+            );
+          } finally {
+            setEditingInProgress(false);
+          }
+          return;
+        }
         await publishStatus({
           content: trimmed,
           context: composerTarget ? { type: composerMode, post: composerTarget } : undefined,
@@ -648,6 +739,8 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       composerMode,
       composerTarget,
       content,
+      editPost,
+      editingInProgress,
       isUploading,
       publishStatus,
       publishing,
@@ -658,16 +751,16 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   );
 
   const handleUploadClick = useCallback(() => {
-    if (!ready || publishing || isUploading) return;
+    if (!ready || publishing || isUploading || editingInProgress) return;
     fileInputRef.current?.click();
-  }, [isUploading, publishing, ready]);
+  }, [editingInProgress, isUploading, publishing, ready]);
 
   const handleFileChange = useCallback(
     async (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
       if (!file) return;
       event.target.value = "";
-      if (!ready || publishing || isUploading) {
+      if (!ready || publishing || isUploading || editingInProgress) {
         return;
       }
       setUploadError(null);
@@ -720,7 +813,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         setIsUploading(false);
       }
     },
-    [isUploading, publishing, ready],
+    [editingInProgress, isUploading, publishing, ready],
   );
 
   const handleRemoveImage = useCallback(
@@ -797,6 +890,44 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     });
     return map;
   }, [posts]);
+
+  const pinnedPostIdSet = useMemo(
+    () => new Set(pinnedPostEntries.map((entry) => entry.id)),
+    [pinnedPostEntries],
+  );
+
+  useEffect(() => {
+    if (pinnedPostEntries.length === 0) {
+      return;
+    }
+    const availableIds = new Set(posts.map((post) => post.id));
+    setPinnedPostEntries((prev) => {
+      const next = prev.filter((entry) => availableIds.has(entry.id));
+      if (next.length === prev.length) {
+        return prev;
+      }
+      return next;
+    });
+  }, [pinnedPostEntries, posts]);
+
+  useEffect(() => {
+    persistPinnedEntries(PINNED_POSTS_STORAGE_KEY, pinnedPostEntries);
+  }, [pinnedPostEntries]);
+
+  const displayedPosts = useMemo(() => {
+    if (pinnedPostEntries.length === 0 || filteredPosts.length === 0) {
+      return filteredPosts;
+    }
+    const pinned = pinnedPostEntries
+      .map((entry) => filteredPosts.find((post) => post.id === entry.id))
+      .filter((post): post is FeedPost => Boolean(post));
+    if (pinned.length === 0) {
+      return filteredPosts;
+    }
+    const pinnedIds = new Set(pinned.map((post) => post.id));
+    const others = filteredPosts.filter((post) => !pinnedIds.has(post.id));
+    return [...pinned, ...others];
+  }, [filteredPosts, pinnedPostEntries]);
 
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
 
@@ -995,6 +1126,20 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     [setHighlightedPostId],
   );
 
+  const pinPost = useCallback(
+    (post: FeedPost) => {
+      setPinnedPostEntries((prev) => togglePinnedEntry(prev, post.id));
+    },
+    [],
+  );
+
+  const unpinPost = useCallback(
+    (post: FeedPost) => {
+      setPinnedPostEntries((prev) => removePinnedEntry(prev, post.id));
+    },
+    [],
+  );
+
   const handleJumpToNewPosts = useCallback(() => {
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollTo({ top: 0, behavior: "smooth" });
@@ -1097,7 +1242,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     });
   }, []);
 
-  const { handlePost, handleLike } = useMemo(
+  const { handlePost, handleLike, handleEdit: openEditComposer } = useMemo(
     () =>
       createFeedActionHandlers({
         openComposerDialog,
@@ -1113,7 +1258,9 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       ? "Reply"
       : composerMode === "quote"
         ? "Quote note"
-        : "Create community post";
+        : composerMode === "edit"
+          ? "Edit post"
+          : "Create community post";
 
   const submitLabel =
     composerMode === "reply"
@@ -1124,9 +1271,13 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         ? publishing
           ? "Posting quote…"
           : "Post quote"
-        : publishing
-          ? "Posting…"
-          : "Post update";
+        : composerMode === "edit"
+          ? editingInProgress
+            ? "Saving changes…"
+            : "Save changes"
+          : publishing
+            ? "Posting…"
+            : "Post update";
 
   const composerTimestampLabel = composerTarget
     ? formatAbsoluteTimestamp(composerTarget.created_at)
@@ -1260,7 +1411,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        setComposerOpen(false);
+        handleComposerClose();
       }
     };
 
@@ -1268,7 +1419,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [composerMode, composerOpen]);
+  }, [composerMode, composerOpen, handleComposerClose]);
 
   useEffect(() => {
     const urls = extractMarkdownImageUrls(content);
@@ -1335,7 +1486,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     [uploadedImages],
   );
   const submitDisabled =
-    !ready || publishing || isUploading || (content.trim().length === 0 && !hasSendableAttachments);
+    !ready || publishing || editingInProgress || isUploading || (content.trim().length === 0 && !hasSendableAttachments);
 
   const handleComposerKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const handled = handleMentionKeyDown(event);
@@ -1371,8 +1522,10 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   const mentionDropdownBottom =
     uploadedImages.length > 0 ? "12rem" : composerExpanded ? "7rem" : "5.5rem";
 
+  const isDialogComposer = composerMode !== "reply";
+
   const composerContent = (
-    <>
+    <div className={`${isDialogComposer ? "flex h-full flex-col" : "flex flex-col"} overflow-hidden`}>
       <header className="flex items-center justify-between gap-3">
         <h2
           id="feed-composer-heading"
@@ -1382,7 +1535,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         </h2>
         <button
           type="button"
-          onClick={resetComposer}
+          onClick={handleComposerClose}
           className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
           aria-label="Close composer"
         >
@@ -1419,105 +1572,97 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-        <div className="relative">
-          <textarea
-            ref={textareaRef}
-            value={content}
-            onChange={handleComposerChange}
-            onKeyDown={handleComposerKeyDown}
-            onSelect={handleComposerSelectionChange}
-            onClick={handleComposerSelectionChange}
-            onFocus={handleComposerFocus}
-            onBlur={handleComposerBlur}
-            rows={composerExpanded ? 6 : 1}
-            className={`w-full rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 px-4 py-3 text-sm leading-relaxed text-[var(--fg-default)] shadow-inner focus:border-brand focus:outline-none ${composerExpanded ? "resize-y" : "resize-none"}`}
-            placeholder={
-              composerMode === "reply"
-                ? "Share your thoughts…"
-                : composerMode === "quote"
-                  ? "Add your perspective…"
-                  : "What’s happening in your corner of BitcoinSquare?"
-            }
-            disabled={!ready || publishing}
-            aria-autocomplete="list"
-            aria-haspopup="listbox"
-            aria-controls={mentionActive ? mentionListId : undefined}
-            aria-expanded={mentionActive}
-            aria-activedescendant={activeMentionOptionId}
-          />
-          {mentionActive && (
-            <div
-              id={mentionListId}
-              role="listbox"
-              aria-label="Mention suggestions"
-              style={{ bottom: mentionDropdownBottom }}
-              className="pointer-events-auto absolute left-4 right-4 z-40 max-h-60 overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] shadow-xl sm:right-auto sm:w-80"
-            >
-              {mentionResults.length === 0 ? (
-                <p className="px-3 py-2 text-xs text-[var(--fg-muted)]">No matches found.</p>
-              ) : (
-                <ul className="max-h-60 overflow-y-auto py-1">
-                  {mentionResults.map((candidate, index) => {
-                    const optionId = `${mentionListId}-${candidate.pubkey}`;
-                    const isActive = index === mentionHighlightIndex;
-                    return (
-                      <li key={candidate.pubkey} role="presentation">
-                        <button
-                          id={optionId}
-                          role="option"
-                          aria-selected={isActive}
-                          type="button"
-                          onMouseDown={(event) => event.preventDefault()}
-                          onClick={() => handleMentionSelection(candidate)}
-                          onMouseEnter={() => setMentionHighlightIndex(index)}
-                          className={`flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition ${
-                            isActive
-                              ? "bg-brand/10 text-brand"
-                              : "text-[var(--fg-default)] hover:bg-[var(--bg-surface)]/80"
-                          }`}
-                        >
-                          <img
-                            src={candidate.avatarUrl}
-                            alt={candidate.displayName}
-                            className="h-8 w-8 rounded-full border border-[var(--border-subtle)] object-cover"
-                          />
-                          <div className="flex min-w-0 flex-col">
-                            <span className="truncate font-semibold">{candidate.displayName}</span>
-                            <span className="truncate text-xs text-[var(--fg-muted)]">
-                              @{candidate.screenName || candidate.shortPubkey}
-                            </span>
-                          </div>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
-          )}
-        </div>
-        {uploadedImages.length > 0 && (
-          <div className="space-y-3">
-            <div className="flex flex-wrap gap-3">
+      <form
+        onSubmit={handleSubmit}
+        className={`mt-4 flex flex-1 flex-col gap-4 ${isDialogComposer ? "overflow-hidden" : ""}`}
+      >
+        <div className={`${isDialogComposer ? "flex-1 space-y-4 overflow-y-auto pr-1" : "space-y-4"}`}>
+          <div className="relative">
+            <textarea
+              ref={textareaRef}
+              value={content}
+              onChange={handleComposerChange}
+              onKeyDown={handleComposerKeyDown}
+              onSelect={handleComposerSelectionChange}
+              onClick={handleComposerSelectionChange}
+              onFocus={handleComposerFocus}
+              onBlur={handleComposerBlur}
+              rows={isDialogComposer ? 10 : composerExpanded ? 6 : 1}
+              className={`w-full rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 px-4 py-3 text-sm leading-relaxed text-[var(--fg-default)] shadow-inner focus:border-brand focus:outline-none ${composerExpanded ? "resize-y" : "resize-none"} ${isDialogComposer ? "min-h-[12rem]" : ""}`}
+              placeholder={
+                composerMode === "reply"
+                  ? "Share your thoughts…"
+                  : composerMode === "quote"
+                    ? "Add your perspective…"
+                    : composerMode === "edit"
+                      ? "Update your post…"
+                      : "What’s happening in your corner of BitcoinSquare?"
+              }
+              disabled={!ready || publishing || editingInProgress}
+              aria-autocomplete="list"
+              aria-haspopup="listbox"
+              aria-controls={mentionActive ? mentionListId : undefined}
+              aria-expanded={mentionActive}
+              aria-activedescendant={activeMentionOptionId}
+            />
+            {mentionActive && (
+              <div
+                id={mentionListId}
+                role="listbox"
+                aria-label="Mention suggestions"
+                style={{ bottom: mentionDropdownBottom }}
+                className="pointer-events-auto absolute left-4 right-4 z-40 max-h-60 overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] shadow-xl sm:right-auto sm:w-80"
+              >
+                {mentionResults.length === 0 ? (
+                  <p className="px-3 py-2 text-xs text-[var(--fg-muted)]">No matches found.</p>
+                ) : (
+                  <ul className="max-h-60 overflow-y-auto py-1">
+                    {mentionResults.map((candidate, index) => {
+                      const optionId = `${mentionListId}-${candidate.pubkey}`;
+                      const isActive = index === mentionHighlightIndex;
+                      return (
+                        <li key={candidate.pubkey} role="presentation">
+                          <button
+                            id={optionId}
+                            role="option"
+                            aria-selected={isActive}
+                            type="button"
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => handleMentionSelection(candidate)}
+                            className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
+                              isActive
+                                ? "bg-brand/10 text-brand"
+                                : "text-[var(--fg-muted)] hover:bg-[var(--bg-muted)]/60"
+                            }`}
+                          >
+                            <img
+                              src={candidate.avatarUrl}
+                              alt=""
+                              className="h-8 w-8 rounded-full object-cover"
+                            />
+                            <div className="flex flex-col">
+                              <span className="font-semibold text-[var(--fg-default)]">
+                                {candidate.displayName}
+                              </span>
+                              <span className="text-xs text-[var(--fg-muted)]">@{candidate.screenName}</span>
+                            </div>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
+          {uploadedImages.length > 0 && (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {uploadedImages.map((image) => (
                 <div
-                  key={image.digest ?? image.url}
-                  className="group relative overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/70"
+                  key={image.url}
+                  className="group relative overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60"
                 >
-                  <button
-                    type="button"
-                    onClick={() => setLightboxImage({ src: image.url, alt: "Uploaded image preview" })}
-                    className="block h-full w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
-                  >
-                    <img
-                      src={image.url}
-                      alt="Uploaded image preview"
-                      className="h-28 w-28 object-cover sm:h-32 sm:w-32"
-                      loading="lazy"
-                    />
-                    <span className="sr-only">View full image</span>
-                  </button>
+                  <img src={image.url} alt="Uploaded" className="h-full w-full object-cover" loading="lazy" />
                   <button
                     type="button"
                     onClick={() => handleRemoveImage(image.url)}
@@ -1529,8 +1674,8 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          )}
+        </div>
         <input
           ref={fileInputRef}
           type="file"
@@ -1540,10 +1685,10 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         />
         <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-[var(--fg-muted)]">
           <span>{content.length}/500</span>
-          {isUploading && (
+          {(isUploading || editingInProgress) && (
             <span className="inline-flex items-center gap-1">
               <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
-              <span>Uploading image…</span>
+              <span>{isUploading ? "Uploading image…" : "Saving edit…"}</span>
             </span>
           )}
         </div>
@@ -1551,7 +1696,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
           <button
             type="button"
             onClick={handleUploadClick}
-            disabled={!ready || publishing || isUploading}
+            disabled={!ready || publishing || isUploading || editingInProgress}
             className="inline-flex items-center justify-center rounded-full border border-[var(--border-subtle)] px-4 py-2 text-sm font-medium text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isUploading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <ImagePlus className="h-4 w-4" aria-hidden />}
@@ -1569,7 +1714,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         {uploadError && <p className="text-xs text-red-500">{uploadError}</p>}
         {error && <p className="text-center text-xs text-red-500">{error}</p>}
       </form>
-    </>
+    </div>
   );
 
   const composerDialog =
@@ -1579,12 +1724,12 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
             role="dialog"
             aria-modal="true"
             aria-labelledby="feed-composer-heading"
-            className="fixed inset-0 z-[85] flex items-end justify-center bg-white/80 px-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pt-16 dark:bg-white/10 sm:items-center sm:pt-24"
-            onClick={() => setComposerOpen(false)}
+            className="fixed inset-0 z-[85] flex flex-col bg-white/80 px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] pt-8 dark:bg-white/10 sm:px-6 sm:pt-10"
+            onClick={handleComposerClose}
           >
             <div
               ref={composerContainerRef}
-              className="pointer-events-auto w-full max-w-3xl rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-5 shadow-2xl backdrop-blur"
+              className="pointer-events-auto mx-auto flex h-full w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-5 shadow-2xl backdrop-blur"
               onClick={(event) => event.stopPropagation()}
             >
               {composerContent}
@@ -1618,9 +1763,12 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     const isPendingDelete = pendingDeletes.has(post.id);
     const canDelete = canModerate;
     const deleteDisabled = !ready || isPendingDelete;
+    const isPinned = pinnedPostIdSet.has(post.id);
     const statusLabel =
       post.status === "pending"
-        ? "Posting to relays…"
+        ? post.optimistic && post.edited
+          ? "Updating post…"
+          : "Posting to relays…"
         : post.status === "failed"
           ? post.error ?? "Delivery failed."
           : null;
@@ -1672,6 +1820,8 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     const showEventDetails = expandedEventDetails.has(post.id);
     const eventDetailsLabel = showEventDetails ? "Hide event data" : "View event data";
     const isMenuOpen = openPostMenuId === post.id;
+    const editedTimestampLabel = post.edited_at ? formatAbsoluteTimestamp(post.edited_at) : null;
+    const canEditPost = pubkey ? post.pubkey.toLowerCase() === pubkey.toLowerCase() : false;
 
     return (
       <article
@@ -1705,8 +1855,21 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
               openProfile(post.pubkey);
             }}
           />
-          <p className="text-xs uppercase tracking-[0.18em] text-[var(--fg-muted)]">
-            {formatRelativeTime(post.created_at)}
+          <p className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.18em] text-[var(--fg-muted)]">
+            <span>{formatRelativeTime(post.created_at)}</span>
+            {isPinned && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/60 bg-amber-400/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.24em] text-amber-700 dark:border-amber-200/60 dark:bg-amber-200/15 dark:text-amber-200">
+                Pinned
+              </span>
+            )}
+            {post.edited && (
+              <span
+                className="inline-flex items-center gap-1 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-muted)]/60 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.24em] text-[var(--fg-muted)]"
+                title={editedTimestampLabel ?? undefined}
+              >
+                Edited
+              </span>
+            )}
           </p>
         </header>
 
@@ -1942,6 +2105,38 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
                 >
                   {eventDetailsLabel}
                 </button>
+                {canEditPost && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setOpenPostMenuId(null);
+                      openEditComposer(post);
+                    }}
+                    className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-medium text-[var(--fg-muted)] transition hover:bg-[var(--bg-muted)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+                  >
+                    Edit post
+                  </button>
+                )}
+                {canModerate && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setOpenPostMenuId(null);
+                      if (isPinned) {
+                        unpinPost(post);
+                      } else {
+                        pinPost(post);
+                      }
+                    }}
+                    className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-medium text-[var(--fg-muted)] transition hover:bg-[var(--bg-muted)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+                  >
+                    {isPinned ? "Unpin post" : "Pin post"}
+                  </button>
+                )}
                 {canDelete && (
                   <button
                     type="button"
@@ -2064,22 +2259,22 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
             <p className="rounded-2xl border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-500">{error}</p>
           )}
 
-          {initialLoading && posts.length === 0 ? null : filteredPosts.length === 0 ? (
-            emptyStateMessage ?? (
-              <p className="text-sm text-[var(--fg-muted)]">
-                No posts yet{activeFilter ? " for this filter." : "."} Be the first to share what you’re working on!
-              </p>
-            )
-          ) : (
-            filteredPosts.map((post) =>
-              renderPostCard(post, {
-                variant: "list",
-                registerNode: registerPost(post.id),
-                highlight: highlightedPostId === post.id,
-                onOpenThread: openThread,
-              }),
-            )
-          )}
+          {initialLoading && posts.length === 0
+            ? null
+            : displayedPosts.length === 0
+              ? emptyStateMessage ?? (
+                  <p className="text-sm text-[var(--fg-muted)]">
+                    No posts yet{activeFilter ? " for this filter." : "."} Be the first to share what you’re working on!
+                  </p>
+                )
+              : displayedPosts.map((post) =>
+                  renderPostCard(post, {
+                    variant: "list",
+                    registerNode: registerPost(post.id),
+                    highlight: highlightedPostId === post.id,
+                    onOpenThread: openThread,
+                  }),
+                )}
 
         {initialLoading && posts.length === 0 && (
           <div className="space-y-4">
@@ -2119,7 +2314,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
           </div>
         )}
         <div ref={sentinelRef} />
-        {!hasMore && filteredPosts.length > 0 && (
+        {!hasMore && displayedPosts.length > 0 && (
           <p className="text-center text-xs text-[var(--fg-muted)]">You reached the end of the feed.</p>
         )}
         </ErrorBoundary>

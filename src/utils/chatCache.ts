@@ -10,6 +10,7 @@ export interface CachedMessage {
   kind?: number;
   tags?: string[][];
   sig?: string;
+  edited_at?: number | null;
 }
 
 const MESSAGE_LIMIT = 200;
