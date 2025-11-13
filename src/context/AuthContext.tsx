@@ -489,6 +489,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         nostrPublicKey: pub,
         nostrEncryptedKey: await encryptPrivateKey(priv, password),
       };
+      if (options.discountCode !== undefined) {
+        const trimmedCode = options.discountCode?.trim();
+        const normalizedCode = trimmedCode && trimmedCode.length > 0 ? trimmedCode : 'FREE';
+        body.txHash = `DISCOUNT-${normalizedCode}-${res.user.id}`;
+      } else if (options.txHash && options.txHash.trim().length > 0) {
+        body.txHash = options.txHash.trim();
+      }
       await strapiFetch(`/api/users/${res.user.id}`, {
         method: 'PUT',
         headers: { Authorization: `Bearer ${res.jwt}` },

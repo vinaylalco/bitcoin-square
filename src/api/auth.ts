@@ -2,6 +2,7 @@ import { strapiFetch } from './strapi-client';
 
 export interface RegisterOptions {
   txHash?: string;
+  discountCode?: string;
 }
 
 export interface AuthResponse {

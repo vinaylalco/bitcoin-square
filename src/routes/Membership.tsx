@@ -166,13 +166,11 @@ export default function Membership() {
     setSignupSubmitting(true);
     let pendingStored = false;
     try {
-      const discountTxHash = discountCode
-        ? `${discountCode}-${Math.floor(10000 + Math.random() * 90000)}`
-        : undefined;
-
-      const authResponse = await register(trimmedEmail, signupPassword, {
-        ...(discountTxHash ? { txHash: discountTxHash } : {}),
-      });
+      const authResponse = await register(
+        trimmedEmail,
+        signupPassword,
+        discountCode ? { discountCode } : {},
+      );
       const checkout = await startCheckout({
         email: trimmedEmail,
         membershipType: signupPlan,
