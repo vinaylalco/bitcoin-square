@@ -17,8 +17,44 @@ import { resolveStrapiAuthError } from "../utils/strapiErrors";
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 8;
 
-const formatDiscountTxHash = (discountCode: string | undefined) =>
-  `DISCOUNT-${discountCode?.trim() || "FREE"}`;
+const randomSuffix = () => {
+  const globalCrypto =
+    typeof globalThis === "object" ? (globalThis.crypto as Crypto | undefined) : undefined;
+
+  if (globalCrypto && typeof globalCrypto.randomUUID === "function") {
+    return globalCrypto.randomUUID();
+  }
+
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+};
+
+// Generate a deterministic, low-collision identifier from the email so each
+// discounted signup gets a unique transaction hash without leaking the raw
+// address.
+const hashEmailForDiscount = (email: string): string | null => {
+  const normalized = email.trim().toLowerCase();
+
+  if (!normalized) {
+    return null;
+  }
+
+  let hash = 0x811c9dc5;
+
+  for (let index = 0; index < normalized.length; index += 1) {
+    hash ^= normalized.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+
+  return (hash >>> 0).toString(16).padStart(8, "0");
+};
+
+const formatDiscountTxHash = (discountCode: string | undefined, email: string) => {
+  const code = discountCode?.trim() || "FREE";
+  const prefix = `DISCOUNT-${code}`;
+  const emailHash = hashEmailForDiscount(email);
+
+  return `${prefix}-${emailHash ?? randomSuffix()}`;
+};
 
 type PortalView = "login" | "signup";
 
@@ -170,7 +206,7 @@ export default function Membership() {
     let pendingStored = false;
     try {
       const discountTxHash = discountCode
-        ? formatDiscountTxHash(discountCode)
+        ? formatDiscountTxHash(discountCode, trimmedEmail)
         : undefined;
 
       const authResponse = await register(trimmedEmail, signupPassword, {
