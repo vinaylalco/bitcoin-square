@@ -17,58 +17,8 @@ import { resolveStrapiAuthError } from "../utils/strapiErrors";
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 8;
 
-const sanitizeTxSegment = (value: string) =>
-  value
-    .trim()
-    .replace(/[^a-z0-9]/gi, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-+/, "")
-    .replace(/-+$/, "");
-
-const bytesToHex = (bytes: Uint8Array) =>
-  Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
-
-const getRandomBytes = (length: number) => {
-  const size = Math.max(1, Math.ceil(length));
-  const buffer = new Uint8Array(size);
-
-  if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
-    crypto.getRandomValues(buffer);
-    return buffer;
-  }
-
-  for (let index = 0; index < size; index += 1) {
-    buffer[index] = Math.floor(Math.random() * 256);
-  }
-
-  return buffer;
-};
-
-const generateDiscountTxHash = async (discountCode: string, email: string) => {
-  const normalizedDiscount =
-    sanitizeTxSegment(discountCode).toUpperCase() || "DISCOUNT";
-  const normalizedEmailSegment =
-    sanitizeTxSegment(email).toLowerCase() || "user";
-  const entropySource =
-    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-      ? crypto.randomUUID()
-      : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-  const seed = `${normalizedDiscount}:${normalizedEmailSegment}:${entropySource}`;
-
-  if (typeof crypto !== "undefined" && crypto.subtle?.digest) {
-    try {
-      const digest = await crypto.subtle.digest(
-        "SHA-256",
-        new TextEncoder().encode(seed),
-      );
-      return bytesToHex(new Uint8Array(digest));
-    } catch (error) {
-      console.warn("Failed to hash discount seed for txHash", error);
-    }
-  }
-
-  return bytesToHex(getRandomBytes(32));
-};
+const formatDiscountTxHash = (discountCode: string | undefined) =>
+  `DISCOUNT-${discountCode?.trim() || "FREE"}`;
 
 type PortalView = "login" | "signup";
 
@@ -220,7 +170,7 @@ export default function Membership() {
     let pendingStored = false;
     try {
       const discountTxHash = discountCode
-        ? await generateDiscountTxHash(discountCode, trimmedEmail)
+        ? formatDiscountTxHash(discountCode)
         : undefined;
 
       const authResponse = await register(trimmedEmail, signupPassword, {
