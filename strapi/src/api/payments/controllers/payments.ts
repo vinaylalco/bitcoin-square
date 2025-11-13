@@ -13,6 +13,29 @@ const sanitizeTxSegment = (value: string) =>
     .replace(/^-+/, "")
     .replace(/-+$/, "");
 
+const DISCOUNT_PREFIX = "DISCOUNT-";
+
+const extractDiscountSegmentFromTxHash = (txHash: string): string | null => {
+  if (!txHash || typeof txHash !== "string") {
+    return null;
+  }
+
+  const trimmed = txHash.trim();
+  if (!trimmed || !trimmed.toUpperCase().startsWith(DISCOUNT_PREFIX)) {
+    return null;
+  }
+
+  const remainder = trimmed.slice(DISCOUNT_PREFIX.length);
+  if (!remainder) {
+    return null;
+  }
+
+  const [rawSegment] = remainder.split("-");
+  const sanitized = sanitizeTxSegment(rawSegment ?? "");
+
+  return sanitized ? sanitized.toUpperCase() : null;
+};
+
 const sanitizeUserId = (value: unknown): number | null => {
   if (typeof value === "number" && Number.isInteger(value) && value > 0) {
     return value;
@@ -69,24 +92,28 @@ export default factories.createCoreController("api::payments.payment", ({ strapi
     );
     const rawDiscount =
       typeof body.discountCode === "string" ? body.discountCode.trim() : "";
+    const existingTxHash =
+      typeof body.txHash === "string" ? body.txHash.trim() : "";
+    const normalizedExistingTxHash = existingTxHash.toUpperCase();
+    const existingDiscountSegment = extractDiscountSegmentFromTxHash(existingTxHash);
+    const shouldFormatDiscountTx =
+      hasDiscountField || existingDiscountSegment !== null;
 
-    if (hasDiscountField) {
-      const existingTxHash =
-        typeof body.txHash === "string" ? body.txHash.trim() : "";
-
-      const normalizedDiscountSegment =
-        sanitizeTxSegment(rawDiscount || "FREE").toUpperCase() || "FREE";
+    if (shouldFormatDiscountTx) {
+      const resolvedDiscountSegment =
+        sanitizeTxSegment(rawDiscount).toUpperCase() ||
+        existingDiscountSegment ||
+        "FREE";
       const emailHandle = normalizedEmail.split("@")[0] ?? normalizedEmail;
       const normalizedEmailSegment =
         sanitizeTxSegment(emailHandle).toUpperCase() || "USER";
-      const normalizedExistingTxHash = existingTxHash.toUpperCase();
-      const expectedPrefix = `DISCOUNT-${normalizedDiscountSegment}`;
+      const expectedPrefix = `${DISCOUNT_PREFIX}${resolvedDiscountSegment}`;
       const shouldOverrideExisting =
         !existingTxHash ||
         normalizedExistingTxHash === expectedPrefix ||
         normalizedExistingTxHash.startsWith(`${expectedPrefix}-`);
 
-      const discountTxHash = `DISCOUNT-${normalizedDiscountSegment}-${normalizedEmailSegment}`;
+      const discountTxHash = `${DISCOUNT_PREFIX}${resolvedDiscountSegment}-${normalizedEmailSegment}`;
       const resolvedTxHash = shouldOverrideExisting ? discountTxHash : existingTxHash;
 
       body.txHash = resolvedTxHash;
