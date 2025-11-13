@@ -1,4 +1,3 @@
-import crypto from "node:crypto";
 import { factories } from "@strapi/strapi";
 
 const USER_LOOKUP_ATTEMPTS = 3;
@@ -64,28 +63,30 @@ export default factories.createCoreController("api::payments.payment", ({ strapi
       }
     }
 
+    const hasDiscountField = Object.prototype.hasOwnProperty.call(
+      body,
+      "discountCode",
+    );
     const rawDiscount =
       typeof body.discountCode === "string" ? body.discountCode.trim() : "";
 
-    if (rawDiscount) {
+    if (hasDiscountField) {
       const existingTxHash =
         typeof body.txHash === "string" ? body.txHash.trim() : "";
 
-      const normalizedDiscount =
-        sanitizeTxSegment(rawDiscount).toUpperCase() || "DISCOUNT";
+      const normalizedDiscountSegment =
+        sanitizeTxSegment(rawDiscount || "FREE").toUpperCase() || "FREE";
+      const emailHandle = normalizedEmail.split("@")[0] ?? normalizedEmail;
       const normalizedEmailSegment =
-        sanitizeTxSegment(normalizedEmail) || "USER";
+        sanitizeTxSegment(emailHandle).toUpperCase() || "USER";
       const normalizedExistingTxHash = existingTxHash.toUpperCase();
+      const expectedPrefix = `DISCOUNT-${normalizedDiscountSegment}`;
       const shouldOverrideExisting =
         !existingTxHash ||
-        normalizedExistingTxHash === normalizedDiscount ||
-        normalizedExistingTxHash.startsWith(`${normalizedDiscount}:`);
+        normalizedExistingTxHash === expectedPrefix ||
+        normalizedExistingTxHash.startsWith(`${expectedPrefix}-`);
 
-      const uniqueSuffix =
-        typeof crypto.randomUUID === "function"
-          ? crypto.randomUUID()
-          : crypto.randomBytes(8).toString("hex");
-      const discountTxHash = `${normalizedDiscount}:${normalizedEmailSegment}:${uniqueSuffix}`;
+      const discountTxHash = `DISCOUNT-${normalizedDiscountSegment}-${normalizedEmailSegment}`;
       const resolvedTxHash = shouldOverrideExisting ? discountTxHash : existingTxHash;
 
       body.txHash = resolvedTxHash;
