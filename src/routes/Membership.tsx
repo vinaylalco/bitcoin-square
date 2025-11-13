@@ -11,60 +11,27 @@ import {
   clearPendingMembershipAuth,
 } from "../utils/pendingMembershipAuth";
 import { cn } from "../utils/cn";
-import { StrapiNetworkError, StrapiRequestError } from "../api/strapi-client";
+import { StrapiNetworkError } from "../api/strapi-client";
 import { resolveStrapiAuthError } from "../utils/strapiErrors";
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 8;
 
-const randomSuffix = () => {
-  const globalCrypto =
-    typeof globalThis === "object" ? (globalThis.crypto as Crypto | undefined) : undefined;
-
-  if (globalCrypto && typeof globalCrypto.randomUUID === "function") {
-    return globalCrypto.randomUUID();
-  }
-
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-};
-
-// Generate a deterministic, low-collision identifier from the email so each
-// discounted signup gets a unique transaction hash without leaking the raw
-// address.
-const hashEmailForDiscount = (email: string): string | null => {
-  const normalized = email.trim().toLowerCase();
-
-  if (!normalized) {
-    return null;
-  }
-
-  let hash = 0x811c9dc5;
-
-  for (let index = 0; index < normalized.length; index += 1) {
-    hash ^= normalized.charCodeAt(index);
-    hash = Math.imul(hash, 0x01000193);
-  }
-
-  return (hash >>> 0).toString(16).padStart(8, "0");
-};
-
 const formatDiscountTxHash = (discountCode: string | undefined, email: string) => {
-  const code = discountCode?.trim() || "FREE";
-  const prefix = `DISCOUNT-${code}`;
-  const emailHash = hashEmailForDiscount(email);
+  const sanitizeSegment = (value: string): string =>
+    value
+      .trim()
+      .replace(/[^a-z0-9]/gi, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-+/, "")
+      .replace(/-+$/, "")
+      .toUpperCase();
 
-  return `${prefix}-${emailHash ?? randomSuffix()}`;
-};
+  const codeSegment = sanitizeSegment(discountCode ?? "") || "FREE";
+  const emailHandle = email.split("@")[0] ?? email;
+  const emailSegment = sanitizeSegment(emailHandle) || "USER";
 
-const isTxHashInvalidError = (error: unknown): boolean => {
-  if (error instanceof StrapiRequestError || error instanceof Error) {
-    const message = error.message?.toLowerCase();
-    if (message) {
-      return message.includes("txhash");
-    }
-  }
-
-  return false;
+  return `DISCOUNT-${codeSegment}-${emailSegment}`;
 };
 
 type PortalView = "login" | "signup";
@@ -220,24 +187,13 @@ export default function Membership() {
         ? formatDiscountTxHash(discountCode, trimmedEmail)
         : undefined;
 
-      let authResponse;
-
-      try {
-        authResponse = await register(trimmedEmail, signupPassword, {
-          ...(discountTxHash ? { txHash: discountTxHash } : {}),
-        });
-      } catch (registerError) {
-        if (discountTxHash && isTxHashInvalidError(registerError)) {
-          authResponse = await register(trimmedEmail, signupPassword);
-        } else {
-          throw registerError;
-        }
-      }
+      const authResponse = await register(trimmedEmail, signupPassword);
       const checkout = await startCheckout({
         email: trimmedEmail,
         membershipType: signupPlan,
         discountCode,
         userId: authResponse.user.id,
+        txHash: discountTxHash,
       });
 
       if (checkout.invoiceUrl) {

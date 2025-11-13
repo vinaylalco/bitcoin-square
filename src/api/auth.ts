@@ -1,6 +1,9 @@
 import { strapiFetch } from './strapi-client';
 
 export interface RegisterOptions {
+  /**
+   * @deprecated Transaction hashes must be associated with memberships only.
+   */
   txHash?: string;
 }
 
@@ -21,7 +24,7 @@ export interface AuthResponse {
   };
 }
 
-export function register(email: string, password: string, options: RegisterOptions = {}) {
+export function register(email: string, password: string, _options: RegisterOptions = {}) {
   const trimmedEmail = email.trim();
   const payload: Record<string, unknown> = {
     email: trimmedEmail,
@@ -29,10 +32,6 @@ export function register(email: string, password: string, options: RegisterOptio
     password,
     // flow: 'membership',
   };
-
-  if (options.txHash && options.txHash.trim().length > 0) {
-    payload.txHash = options.txHash.trim();
-  }
 
   return strapiFetch<AuthResponse>('/api/auth/local/register', {
     method: 'POST',

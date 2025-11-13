@@ -6,6 +6,9 @@ export interface RegisterUserPayload {
   username: string;
   email: string;
   password: string;
+  /**
+   * @deprecated Transaction hashes must be associated with memberships only.
+   */
   txHash?: string;
   [key: string]: unknown;
 }
@@ -111,20 +114,14 @@ export const useRegisterUser = () => {
         }
 
         const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
-        const txHashCandidate = payload.txHash ?? generateRandomTxHash();
-        const uniqueTxHash = await ensureUniqueTxHash(txHashCandidate, {
-          baseUrl: normalizedBaseUrl,
-        });
+        const { txHash: _deprecatedTxHash, ...restPayload } = payload;
 
         const response = await fetch(`${normalizedBaseUrl}${REGISTER_ENDPOINT}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            ...payload,
-            txHash: uniqueTxHash,
-          }),
+          body: JSON.stringify(restPayload),
         });
 
         if (!response.ok) {
