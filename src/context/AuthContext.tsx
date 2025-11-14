@@ -31,6 +31,8 @@ interface LessonCompletionMap {
 
 interface UserPreferences {
   thunderSoundEnabled?: boolean;
+  directMessagesLastViewedAt?: number;
+  directMessagesLastViewedMessageId?: string | null;
   [key: string]: unknown;
 }
 
@@ -164,6 +166,25 @@ function normalizePreferences(raw: unknown): UserPreferences {
       prefs.thunderSoundEnabled = false;
     }
   }
+
+  const rawLastViewedAt = input.directMessagesLastViewedAt;
+  if (typeof rawLastViewedAt === 'number' && Number.isFinite(rawLastViewedAt)) {
+    prefs.directMessagesLastViewedAt = Math.max(0, Math.floor(rawLastViewedAt));
+  } else if (typeof rawLastViewedAt === 'string' && rawLastViewedAt.trim().length > 0) {
+    const parsed = Number(rawLastViewedAt.trim());
+    if (Number.isFinite(parsed)) {
+      prefs.directMessagesLastViewedAt = Math.max(0, Math.floor(parsed));
+    }
+  }
+
+  const rawLastViewedId = input.directMessagesLastViewedMessageId;
+  if (typeof rawLastViewedId === 'string') {
+    const trimmed = rawLastViewedId.trim();
+    prefs.directMessagesLastViewedMessageId = trimmed.length > 0 ? trimmed : null;
+  } else if (rawLastViewedId == null) {
+    prefs.directMessagesLastViewedMessageId = null;
+  }
+
   return prefs;
 }
 

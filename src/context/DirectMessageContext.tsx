@@ -17,6 +17,7 @@ import { SimplePool, type Event, type EventTemplate } from "../lib/nostrToolsShi
 import { useProfileIdentity } from "./ProfileIdentityContext";
 import { decryptDirectMessage, encryptDirectMessage } from "../utils/directMessageEncryption";
 import { isCommunityMessagesLocation } from "../utils/routes";
+import { strapiFetch } from "../api/strapi-client";
 
 const DM_RELAYS = ["wss://relay.damus.io", "wss://relay.primal.net", "wss://nos.lol"];
 const PORTAL_ELEMENT_ID = "direct-message-root";
@@ -44,6 +45,8 @@ export interface DirectMessageConversation {
 interface DirectMessageContextValue {
   activeConversation: string | null;
   conversations: Record<string, DirectMessageConversation>;
+  inboxLastViewed: InboxLastViewed;
+  hasUnreadMessages: boolean;
   ready: boolean;
   error: string | null;
   openConversation: (pubkey: string) => void;
@@ -54,11 +57,86 @@ interface DirectMessageContextValue {
     options?: { replyToId?: string | null },
   ) => Promise<void>;
   markAsRead: (pubkey: string) => void;
+  markInboxAsViewed: () => void;
   getDraft: (pubkey: string) => string;
   setDraft: (pubkey: string, value: string) => void;
 }
 
 const DirectMessageContext = createContext<DirectMessageContextValue | null>(null);
+
+interface InboxLastViewed {
+  timestamp: number;
+  messageId: string | null;
+}
+
+const normalizeInboxReference = (value: InboxLastViewed): InboxLastViewed => ({
+  timestamp: Number.isFinite(value.timestamp) ? Math.max(0, Math.floor(value.timestamp)) : 0,
+  messageId: value.messageId && value.messageId.trim().length > 0 ? value.messageId.trim() : null,
+});
+
+const getMessageIdentifier = (message: { id?: string | null; clientId?: string | null }): string | null => {
+  if (typeof message.id === "string" && message.id.trim().length > 0) {
+    return message.id.trim();
+  }
+  if (typeof message.clientId === "string" && message.clientId.trim().length > 0) {
+    return message.clientId.trim();
+  }
+  return null;
+};
+
+const isReferenceNewer = (next: InboxLastViewed, previous: InboxLastViewed): boolean => {
+  if (next.timestamp > previous.timestamp) {
+    return true;
+  }
+  if (next.timestamp < previous.timestamp) {
+    return false;
+  }
+  if (!next.messageId) {
+    return false;
+  }
+  if (!previous.messageId) {
+    return true;
+  }
+  return next.messageId !== previous.messageId;
+};
+
+const isMessageAfterReference = (
+  message: { createdAt: number; id?: string | null; clientId?: string | null },
+  reference: InboxLastViewed,
+): boolean => {
+  if (message.createdAt > reference.timestamp) {
+    return true;
+  }
+  if (message.createdAt < reference.timestamp) {
+    return false;
+  }
+  const identifier = getMessageIdentifier(message);
+  if (!identifier) {
+    return false;
+  }
+  if (!reference.messageId) {
+    return true;
+  }
+  return identifier !== reference.messageId;
+};
+
+const computeLatestInboxReference = (
+  conversations: Record<string, DirectMessageConversation>,
+): InboxLastViewed => {
+  let latest: InboxLastViewed = { timestamp: 0, messageId: null };
+  Object.values(conversations).forEach((conversation) => {
+    conversation.messages.forEach((message) => {
+      const candidate: InboxLastViewed = {
+        timestamp: message.createdAt,
+        messageId: getMessageIdentifier(message),
+      };
+      if (isReferenceNewer(candidate, latest)) {
+        latest = candidate;
+      }
+    });
+  });
+  return normalizeInboxReference(latest);
+};
 
 const bytesToHex = (bytes: Uint8Array): string =>
   Array.from(bytes)
@@ -102,7 +180,7 @@ const usePortalNode = () => {
 };
 
 export const DirectMessageProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
-  const { nostrPrivKey } = useAuth();
+  const { nostrPrivKey, token, user, updateUser } = useAuth();
   const { ready: accountReady, pubkey: accountPubkey, signEvent, privkey } = useNostrAccount();
   const [conversations, setConversations] = useState<Record<string, DirectMessageConversation>>({});
   const [activeConversation, setActiveConversation] = useState<string | null>(null);
@@ -112,6 +190,21 @@ export const DirectMessageProvider: React.FC<React.PropsWithChildren> = ({ child
   const processedEventsRef = useRef<Set<string>>(new Set());
   const activeConversationRef = useRef<string | null>(null);
   const portalNode = usePortalNode();
+  const [inboxLastViewed, setInboxLastViewed] = useState<InboxLastViewed>(() => {
+    const timestamp =
+      typeof user?.preferences?.directMessagesLastViewedAt === "number" &&
+      Number.isFinite(user.preferences.directMessagesLastViewedAt)
+        ? Math.max(0, Math.floor(user.preferences.directMessagesLastViewedAt))
+        : 0;
+    const messageId =
+      typeof user?.preferences?.directMessagesLastViewedMessageId === "string" &&
+      user.preferences.directMessagesLastViewedMessageId.trim().length > 0
+        ? user.preferences.directMessagesLastViewedMessageId.trim()
+        : null;
+    return { timestamp, messageId };
+  });
+  const inboxLastViewedRef = useRef<InboxLastViewed>(inboxLastViewed);
+  const conversationsRef = useRef<Record<string, DirectMessageConversation>>({});
 
   const privkeyHex = useMemo(() => {
     if (nostrPrivKey && nostrPrivKey.trim().length > 0) {
@@ -122,6 +215,39 @@ export const DirectMessageProvider: React.FC<React.PropsWithChildren> = ({ child
     }
     return null;
   }, [nostrPrivKey, privkey]);
+
+  useEffect(() => {
+    inboxLastViewedRef.current = inboxLastViewed;
+  }, [inboxLastViewed]);
+
+  useEffect(() => {
+    conversationsRef.current = conversations;
+  }, [conversations]);
+
+  useEffect(() => {
+    const timestamp =
+      typeof user?.preferences?.directMessagesLastViewedAt === "number" &&
+      Number.isFinite(user.preferences.directMessagesLastViewedAt)
+        ? Math.max(0, Math.floor(user.preferences.directMessagesLastViewedAt))
+        : 0;
+    const messageId =
+      typeof user?.preferences?.directMessagesLastViewedMessageId === "string" &&
+      user.preferences.directMessagesLastViewedMessageId.trim().length > 0
+        ? user.preferences.directMessagesLastViewedMessageId.trim()
+        : null;
+    const normalized = normalizeInboxReference({ timestamp, messageId });
+    setInboxLastViewed((prev) => {
+      if (prev.timestamp === normalized.timestamp && prev.messageId === normalized.messageId) {
+        return prev;
+      }
+      inboxLastViewedRef.current = normalized;
+      return normalized;
+    });
+  }, [
+    user?.id,
+    user?.preferences?.directMessagesLastViewedAt,
+    user?.preferences?.directMessagesLastViewedMessageId,
+  ]);
 
   const ready = Boolean(accountReady && accountPubkey && signEvent && privkeyHex);
 
@@ -141,6 +267,62 @@ export const DirectMessageProvider: React.FC<React.PropsWithChildren> = ({ child
     }
   }, [accountReady, accountPubkey, privkeyHex, ready, signEvent]);
 
+  const persistInboxLastViewed = useCallback(
+    async (next: InboxLastViewed) => {
+      const normalized = normalizeInboxReference(next);
+      const current = inboxLastViewedRef.current;
+      if (
+        current.timestamp === normalized.timestamp &&
+        current.messageId === normalized.messageId
+      ) {
+        return;
+      }
+
+      if (!isReferenceNewer(normalized, current)) {
+        return;
+      }
+
+      inboxLastViewedRef.current = normalized;
+      setInboxLastViewed(normalized);
+
+      updateUser((prev) => {
+        if (!prev) return prev;
+        const nextPreferences = {
+          ...(prev.preferences ?? {}),
+          directMessagesLastViewedAt: normalized.timestamp,
+          directMessagesLastViewedMessageId: normalized.messageId,
+        };
+        return {
+          ...prev,
+          preferences: nextPreferences,
+        };
+      });
+
+      if (!user || !token) {
+        return;
+      }
+
+      const payload = {
+        preferences: {
+          ...(user.preferences ?? {}),
+          directMessagesLastViewedAt: normalized.timestamp,
+          directMessagesLastViewedMessageId: normalized.messageId,
+        },
+      };
+
+      try {
+        await strapiFetch(`/api/users/${user.id}`, {
+          method: "PUT",
+          headers: { Authorization: `Bearer ${token}` },
+          body: JSON.stringify(payload),
+        });
+      } catch (persistError) {
+        console.error("Failed to persist direct message view state", persistError);
+      }
+    },
+    [token, updateUser, user],
+  );
+
   useEffect(() => {
     activeConversationRef.current = activeConversation;
   }, [activeConversation]);
@@ -154,24 +336,61 @@ export const DirectMessageProvider: React.FC<React.PropsWithChildren> = ({ child
     };
   }, []);
 
-  const markAsRead = useCallback((pubkey: string) => {
-    setConversations((prev) => {
-      const existing = prev[pubkey];
-      if (!existing || existing.unreadCount === 0) {
-        return prev;
+  const markAsRead = useCallback(
+    (pubkey: string) => {
+      setConversations((prev) => {
+        const existing = prev[pubkey];
+        if (!existing || existing.unreadCount === 0) {
+          return prev;
+        }
+        return {
+          ...prev,
+          [pubkey]: { ...existing, unreadCount: 0 },
+        };
+      });
+
+      const conversation = conversationsRef.current[pubkey];
+      if (!conversation || conversation.messages.length === 0) {
+        return;
       }
-      return {
-        ...prev,
-        [pubkey]: { ...existing, unreadCount: 0 },
-      };
-    });
-  }, []);
+      const latestMessage = conversation.messages[conversation.messages.length - 1];
+      const reference = normalizeInboxReference({
+        timestamp: latestMessage.createdAt,
+        messageId: getMessageIdentifier(latestMessage),
+      });
+      if (isReferenceNewer(reference, inboxLastViewedRef.current)) {
+        void persistInboxLastViewed(reference);
+      }
+    },
+    [persistInboxLastViewed],
+  );
 
   useEffect(() => {
     if (activeConversation) {
       markAsRead(activeConversation);
     }
   }, [activeConversation, markAsRead]);
+
+  const markInboxAsViewed = useCallback(() => {
+    const latestReference = computeLatestInboxReference(conversationsRef.current);
+    setConversations((prev) => {
+      let mutated = false;
+      const nextEntries: [string, DirectMessageConversation][] = [];
+      Object.entries(prev).forEach(([key, conversation]) => {
+        if (conversation.unreadCount > 0) {
+          mutated = true;
+          nextEntries.push([key, { ...conversation, unreadCount: 0 }]);
+        } else {
+          nextEntries.push([key, conversation]);
+        }
+      });
+      if (!mutated) {
+        return prev;
+      }
+      return Object.fromEntries(nextEntries);
+    });
+    void persistInboxLastViewed(latestReference);
+  }, [persistInboxLastViewed]);
 
   const encryptWithPeer = useCallback(
     async (peerPubkey: string, plaintext: string) => {
@@ -222,6 +441,8 @@ export const DirectMessageProvider: React.FC<React.PropsWithChildren> = ({ child
         const replyTags = event.tags.filter((tag) => tag[0] === "e" && typeof tag[1] === "string");
         const replyTag = replyTags.find((tag) => tag[3] === "reply") ?? replyTags[0];
         const replyToId = replyTag ? (replyTag[1] as string) : null;
+        const direction = event.pubkey === accountPubkey ? "outgoing" : "incoming";
+        let inboxReferenceUpdate: InboxLastViewed | null = null;
         setConversations((prev) => {
           const existing = ensureConversation(prev, peerPubkey);
           if (existing.messages.some((message) => message.id === event.id)) {
@@ -241,14 +462,10 @@ export const DirectMessageProvider: React.FC<React.PropsWithChildren> = ({ child
               [peerPubkey]: {
                 ...existing,
                 messages: sortMessages(updatedMessages),
-                unreadCount:
-                  event.pubkey !== accountPubkey && activeConversationRef.current !== peerPubkey
-                    ? existing.unreadCount + 1
-                    : existing.unreadCount,
+                unreadCount: existing.unreadCount,
               },
             };
           }
-          const direction = event.pubkey === accountPubkey ? "outgoing" : "incoming";
           const message: DirectMessageEntry = {
             id: event.id,
             createdAt: event.created_at,
@@ -258,10 +475,18 @@ export const DirectMessageProvider: React.FC<React.PropsWithChildren> = ({ child
             error: errorMessage,
             replyToId,
           };
-          const unread =
-            direction === "incoming" && activeConversationRef.current !== peerPubkey
-              ? existing.unreadCount + 1
-              : existing.unreadCount;
+          const isActiveConversation = activeConversationRef.current === peerPubkey;
+          if (direction === "incoming" && isActiveConversation) {
+            inboxReferenceUpdate = normalizeInboxReference({
+              timestamp: message.createdAt,
+              messageId: message.id,
+            });
+          }
+          const shouldCountAsUnread =
+            direction === "incoming" &&
+            !isActiveConversation &&
+            isMessageAfterReference(message, inboxLastViewedRef.current);
+          const unread = shouldCountAsUnread ? existing.unreadCount + 1 : existing.unreadCount;
           return {
             ...prev,
             [peerPubkey]: {
@@ -271,9 +496,12 @@ export const DirectMessageProvider: React.FC<React.PropsWithChildren> = ({ child
             },
           };
         });
+        if (inboxReferenceUpdate) {
+          void persistInboxLastViewed(inboxReferenceUpdate);
+        }
       })().catch(() => undefined);
     },
-    [accountPubkey, decryptWithPeer],
+    [accountPubkey, decryptWithPeer, persistInboxLastViewed],
   );
 
   useEffect(() => {
@@ -323,6 +551,16 @@ export const DirectMessageProvider: React.FC<React.PropsWithChildren> = ({ child
   const setDraft = useCallback((pubkey: string, value: string) => {
     setDrafts((prev) => ({ ...prev, [pubkey]: value }));
   }, []);
+
+  const hasUnreadMessages = useMemo(() => {
+    return Object.values(conversations).some((conversation) =>
+      conversation.messages.some(
+        (message) =>
+          message.direction === "incoming" &&
+          isMessageAfterReference(message, inboxLastViewed),
+      ),
+    );
+  }, [conversations, inboxLastViewed]);
 
   const sendMessage = useCallback(
     async (pubkey: string, body: string, options?: { replyToId?: string | null }) => {
@@ -458,12 +696,15 @@ export const DirectMessageProvider: React.FC<React.PropsWithChildren> = ({ child
     () => ({
       activeConversation,
       conversations,
+      inboxLastViewed,
+      hasUnreadMessages,
       ready,
       error,
       openConversation,
       closeConversation,
       sendMessage,
       markAsRead,
+      markInboxAsViewed,
       getDraft,
       setDraft,
     }),
@@ -471,9 +712,12 @@ export const DirectMessageProvider: React.FC<React.PropsWithChildren> = ({ child
       activeConversation,
       closeConversation,
       conversations,
+      hasUnreadMessages,
+      inboxLastViewed,
       error,
       getDraft,
       markAsRead,
+      markInboxAsViewed,
       openConversation,
       ready,
       sendMessage,
