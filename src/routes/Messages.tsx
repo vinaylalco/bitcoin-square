@@ -990,6 +990,14 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
                             className={`group relative flex ${
                               isOutgoing ? "justify-end" : "justify-start"
                             }`}
+                            style={
+                              isLatestMessage
+                                ? {
+                                    paddingBottom:
+                                      "calc(7rem + env(safe-area-inset-bottom, 0px) + 6.5rem)",
+                                  }
+                                : undefined
+                            }
                           >
                             <div
                               ref={(node) => {
