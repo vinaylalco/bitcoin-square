@@ -994,6 +994,14 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
                                 ? "pb-[calc(7rem+env(safe-area-inset-bottom,0px)+6.5rem)]"
                                 : ""
                             }`}
+                            style={
+                              isLatestMessage
+                                ? {
+                                    paddingBottom:
+                                      "calc(7rem + env(safe-area-inset-bottom, 0px) + 6.5rem)",
+                                  }
+                                : undefined
+                            }
                           >
                             <div
                               ref={(node) => {
