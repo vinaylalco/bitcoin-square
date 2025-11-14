@@ -1313,7 +1313,7 @@ const CommunityView: React.FC = () => {
   } = useCommunityTranslation();
   const translationEnabled = translationSupported && autoTranslateEnabled;
 
-  const { conversations } = useDirectMessages();
+  const { markInboxAsViewed, hasUnreadMessages } = useDirectMessages();
   const [activeView, setActiveView] = useState<ActiveView>("casual");
   const lastNonMessagesViewRef = useRef<Exclude<ActiveView, "messages">>("casual");
   const [notificationGroups, setNotificationGroups] = useState<CommunityNotificationGroup[]>(
@@ -1356,10 +1356,6 @@ const CommunityView: React.FC = () => {
     }
   }, [activeView, location.pathname, location.search]);
 
-  const hasUnreadMessages = useMemo(
-    () => Object.values(conversations).some((conversation) => conversation.unreadCount > 0),
-    [conversations],
-  );
   const isCasualView = activeView === "casual";
   const isPublicFeedView = activeView === "feed";
   const isPersonalFeedView = activeView === "personal";
@@ -1384,6 +1380,13 @@ const CommunityView: React.FC = () => {
       return new Set<string>();
     });
   }, [isNotificationsView]);
+
+  useEffect(() => {
+    if (!isMessagesView) {
+      return;
+    }
+    markInboxAsViewed();
+  }, [hasUnreadMessages, isMessagesView, markInboxAsViewed]);
   useEffect(() => {
     if (!isCasualView) {
       setIsComposerOpen(false);

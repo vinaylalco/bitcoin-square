@@ -70,6 +70,8 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
     error,
     getDraft,
     setDraft,
+    markInboxAsViewed,
+    hasUnreadMessages,
   } = useDirectMessages();
   const {
     profiles,
@@ -113,6 +115,10 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
       conversation.messages.length > 0,
   );
   const translationEnabled = translationContextAvailable && autoTranslateEnabled;
+
+  useEffect(() => {
+    markInboxAsViewed();
+  }, [hasUnreadMessages, markInboxAsViewed]);
 
   useEffect(() => {
     const keys = Object.keys(conversations);
@@ -419,6 +425,14 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
   const [replyTargetKey, setReplyTargetKey] = useState<string | null>(null);
   const composerContainerRef = useRef<HTMLDivElement | null>(null);
   const [composerHeight, setComposerHeight] = useState(0);
+  const chatSpacing = useMemo(() => {
+    const safeInset = "env(safe-area-inset-bottom, 0px)";
+    const measuredHeight = composerHeight > 0 ? `${composerHeight}px` : "7rem";
+    return {
+      padding: `calc(${measuredHeight} + ${safeInset} + 2.5rem)`,
+      buttonOffset: `calc(${measuredHeight} + ${safeInset} + 1.5rem)`,
+    };
+  }, [composerHeight]);
   useEffect(() => {
     if (!activeConversation) {
       closeMention();
@@ -905,7 +919,7 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
                   <div
                     ref={listRef}
                     className="flex-1 space-y-3 overflow-y-auto px-5 pt-4"
-                    style={{ paddingBottom: `${composerHeight + 48}px` }}
+                    style={{ paddingBottom: chatSpacing.padding }}
                   >
                     {conversation.messages.length === 0 ? (
                       <p className="mt-8 text-center text-xs uppercase tracking-[0.2em] text-[var(--fg-muted)]">
@@ -1128,7 +1142,7 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
                       type="button"
                       onClick={handleScrollToBottom}
                       className="absolute right-8 z-10 flex items-center gap-2 rounded-full bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-white shadow-lg transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
-                      style={{ bottom: composerHeight + 32 }}
+                      style={{ bottom: chatSpacing.buttonOffset }}
                     >
                       <ArrowDown className="h-4 w-4" />
                       <span>Go to latest</span>
