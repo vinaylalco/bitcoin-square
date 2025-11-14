@@ -69,10 +69,9 @@ import { resolveMentionTargets, type MentionCandidate } from "../utils/mentions"
 import useMentionAutocomplete from "../hooks/useMentionAutocomplete";
 import { normalizeToHexPubkey } from "../utils/nostr";
 import {
+  arePinnedEntriesEqual,
   loadPinnedEntries,
   persistPinnedEntries,
-  removePinnedEntry,
-  togglePinnedEntry,
   type PinnedEntry,
 } from "../utils/pinnedEntries";
 
@@ -1195,11 +1194,28 @@ const CommunityView: React.FC = () => {
     sendTyping,
     pinMessage: pinCasualMessage,
     unpinMessage: unpinCasualMessage,
-    pinnedEntries: pinnedMessageEntries,
+    pinnedEntries: casualPinnedMessageEntries,
   } = useBitcoinSquareCasualChat();
   const [pinnedMessageEntries, setPinnedMessageEntries] = useState<PinnedMessageEntry[]>(() =>
     loadPinnedEntries(PINNED_MESSAGES_STORAGE_KEY),
   );
+
+  useEffect(() => {
+    const limited =
+      casualPinnedMessageEntries.length > 1
+        ? [casualPinnedMessageEntries[casualPinnedMessageEntries.length - 1]]
+        : casualPinnedMessageEntries;
+    setPinnedMessageEntries((previous) => {
+      if (arePinnedEntriesEqual(previous, limited)) {
+        return previous;
+      }
+      return limited;
+    });
+  }, [casualPinnedMessageEntries]);
+
+  useEffect(() => {
+    persistPinnedEntries(PINNED_MESSAGES_STORAGE_KEY, pinnedMessageEntries);
+  }, [pinnedMessageEntries]);
 
   const pinnedMessageIdSet = useMemo(
     () => new Set(pinnedMessageEntries.map((entry) => entry.id)),
@@ -1423,6 +1439,11 @@ const CommunityView: React.FC = () => {
   const [quoteContext, setQuoteContext] = useState<QuoteContextState | null>(null);
   const [pendingDeletes, setPendingDeletes] = useState<Set<string>>(new Set());
   const [openMessageMenuId, setOpenMessageMenuId] = useState<string | null>(null);
+  const [messageMenuPosition, setMessageMenuPosition] = useState<{ top: number; left: number } | null>(null);
+  const closeMessageMenu = useCallback(() => {
+    setOpenMessageMenuId(null);
+    setMessageMenuPosition(null);
+  }, []);
   const [rawDataMessage, setRawDataMessage] = useState<CasualChatMessage | null>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const isAtBottomRef = useRef(true);
@@ -1664,34 +1685,63 @@ const CommunityView: React.FC = () => {
   }, [isCasualView, isComposerOpen]);
 
   useEffect(() => {
-    if (!openMessageMenuId) return;
+    if (!openMessageMenuId) {
+      setMessageMenuPosition(null);
+      return;
+    }
     if (typeof document === "undefined") return;
+
+    const updatePosition = () => {
+      const trigger = document.querySelector<HTMLElement>(
+        `[data-message-menu-trigger="${openMessageMenuId}"]`,
+      );
+      if (!trigger) {
+        closeMessageMenu();
+        return;
+      }
+      const rect = trigger.getBoundingClientRect();
+      setMessageMenuPosition({
+        top: rect.bottom + 8,
+        left: rect.right,
+      });
+    };
 
     const handlePointerDown = (event: MouseEvent) => {
       const target = event.target as HTMLElement | null;
       if (!target) {
-        setOpenMessageMenuId(null);
+        closeMessageMenu();
         return;
       }
-      const container = target.closest<HTMLElement>("[data-message-menu-root]");
-      if (!container || container.dataset.messageMenuRoot !== openMessageMenuId) {
-        setOpenMessageMenuId(null);
+      if (target.closest("[data-message-menu]")) {
+        return;
       }
+      const trigger = target.closest<HTMLElement>("[data-message-menu-trigger]");
+      if (trigger && trigger.dataset.messageMenuTrigger === openMessageMenuId) {
+        return;
+      }
+      closeMessageMenu();
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        setOpenMessageMenuId(null);
+        closeMessageMenu();
       }
     };
 
+    updatePosition();
+
     document.addEventListener("pointerdown", handlePointerDown);
     document.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+
     return () => {
       document.removeEventListener("pointerdown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
     };
-  }, [openMessageMenuId]);
+  }, [closeMessageMenu, openMessageMenuId]);
 
   useEffect(() => {
     if (!rawDataMessage) return;
@@ -2791,7 +2841,7 @@ const CommunityView: React.FC = () => {
         setComposerError("Only admins can delete messages.");
         return;
       }
-      setOpenMessageMenuId(null);
+      closeMessageMenu();
       if (typeof window !== "undefined") {
         const confirmed = window.confirm("Delete this message from chat?");
         if (!confirmed) {
@@ -2809,7 +2859,7 @@ const CommunityView: React.FC = () => {
         updatePendingDelete(message.id, false);
       }
     },
-    [canModerate, deleteMessage, setOpenMessageMenuId, updatePendingDelete, setComposerError],
+    [canModerate, closeMessageMenu, deleteMessage, updatePendingDelete, setComposerError],
   );
 
   const registerRow = useCallback(
@@ -3392,99 +3442,121 @@ const CommunityView: React.FC = () => {
                                             <MessageSquareQuote className="h-4 w-4" />
                                             <span className="sr-only">Quote</span>
                                           </button>
-                                          <div className="relative" data-message-menu-root={message.id}>
-                                        <button
-                                          type="button"
-                                          onClick={(event) => {
-                                            event.stopPropagation();
-                                            setOpenMessageMenuId((current) =>
-                                              current === message.id ? null : message.id,
-                                            );
-                                          }}
-                                          className={`inline-flex h-8 w-8 items-center justify-center rounded-full border text-sm font-semibold ${messageMenuButtonPalette} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60`}
-                                          aria-expanded={isMessageMenuOpen}
-                                          aria-haspopup="menu"
-                                          aria-label="Message options"
-                                          title="Message options"
-                                        >
-                                          ...
-                                        </button>
-                                        {isMessageMenuOpen && (
-                                          <div
-                                            role="menu"
-                                            className="absolute right-0 z-[120] mt-2 w-48 rounded-2xl border border-[color:var(--chat-floating-control-border)] bg-[var(--chat-floating-control-bg)] p-1 text-xs text-[color:var(--chat-floating-control-fg)] shadow-[var(--chat-floating-control-shadow)] backdrop-blur"
-                                          >
+                                          <div className="relative">
                                             <button
                                               type="button"
-                                              role="menuitem"
+                                              data-message-menu-trigger={message.id}
                                               onClick={(event) => {
                                                 event.stopPropagation();
-                                                setOpenMessageMenuId(null);
-                                                setRawDataMessage(message);
+                                                const rect = event.currentTarget.getBoundingClientRect();
+                                                setOpenMessageMenuId((current) => {
+                                                  if (current === message.id) {
+                                                    setMessageMenuPosition(null);
+                                                    return null;
+                                                  }
+                                                  setMessageMenuPosition({
+                                                    top: rect.bottom + 8,
+                                                    left: rect.right,
+                                                  });
+                                                  return message.id;
+                                                });
                                               }}
-                                              className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-medium transition hover:bg-[var(--bg-muted)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+                                              className={`inline-flex h-8 w-8 items-center justify-center rounded-full border text-sm font-semibold ${messageMenuButtonPalette} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60`}
+                                              aria-expanded={isMessageMenuOpen}
+                                              aria-haspopup="menu"
+                                              aria-label="Message options"
+                                              title="Message options"
                                             >
-                                              <span className="inline-block h-2 w-2 rounded-full bg-brand" aria-hidden />
-                                              <span>View raw data</span>
+                                              ...
                                             </button>
-                                            {canEditMessage && (
-                                              <button
-                                                type="button"
-                                                role="menuitem"
-                                                onClick={(event) => {
-                                                  event.stopPropagation();
-                                                  setOpenMessageMenuId(null);
-                                                  handleBeginEditMessage(message);
-                                                }}
-                                                className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-medium transition hover:bg-[var(--bg-muted)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
-                                              >
-                                                Edit message
-                                              </button>
-                                            )}
-                                            {canModerate && (
-                                              <button
-                                                type="button"
-                                                role="menuitem"
-                                                onClick={(event) => {
-                                                  event.stopPropagation();
-                                                  setOpenMessageMenuId(null);
-                                                  if (isPinnedMessage) {
-                                                    handleUnpinMessage(message);
-                                                  } else {
-                                                    handlePinMessage(message);
-                                                  }
-                                                }}
-                                                className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-medium transition hover:bg-[var(--bg-muted)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
-                                              >
-                                                {isPinnedMessage ? "Unpin message" : "Pin message"}
-                                              </button>
-                                            )}
-                                            {canModerate && (
-                                              <button
-                                                type="button"
-                                                role="menuitem"
-                                                disabled={deleteDisabled}
-                                                onClick={(event) => {
-                                                  event.stopPropagation();
-                                                  if (deleteDisabled) {
-                                                    return;
-                                                  }
-                                                  setOpenMessageMenuId(null);
-                                                  void handleDeleteMessage(message);
-                                                }}
-                                                className={`mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 disabled:cursor-not-allowed disabled:opacity-60 ${deleteOptionClasses}`}
-                                              >
-                                                {isPendingDelete ? (
-                                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                                ) : (
-                                                  <Trash2 className="h-4 w-4" />
-                                                )}
-                                                <span>Delete message</span>
-                                              </button>
-                                            )}
+                                            {isMessageMenuOpen &&
+                                            messageMenuPosition &&
+                                            typeof document !== "undefined"
+                                              ? createPortal(
+                                                  <div
+                                                    role="menu"
+                                                    data-message-menu="true"
+                                                    data-message-menu-id={message.id}
+                                                    className="fixed z-[120] w-48 rounded-2xl border border-[color:var(--chat-floating-control-border)] bg-[var(--chat-floating-control-bg)] p-1 text-xs text-[color:var(--chat-floating-control-fg)] shadow-[var(--chat-floating-control-shadow)] backdrop-blur"
+                                                    style={{
+                                                      top: messageMenuPosition.top,
+                                                      left: messageMenuPosition.left,
+                                                      transform: "translate(-100%, 0)",
+                                                    }}
+                                                  >
+                                                    <button
+                                                      type="button"
+                                                      role="menuitem"
+                                                      onClick={(event) => {
+                                                        event.stopPropagation();
+                                                        closeMessageMenu();
+                                                        setRawDataMessage(message);
+                                                      }}
+                                                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-medium transition hover:bg-[var(--bg-muted)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+                                                    >
+                                                      <span className="inline-block h-2 w-2 rounded-full bg-brand" aria-hidden />
+                                                      <span>View raw data</span>
+                                                    </button>
+                                                    {canEditMessage && (
+                                                      <button
+                                                        type="button"
+                                                        role="menuitem"
+                                                        onClick={(event) => {
+                                                          event.stopPropagation();
+                                                          closeMessageMenu();
+                                                          handleBeginEditMessage(message);
+                                                        }}
+                                                        className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-medium transition hover:bg-[var(--bg-muted)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+                                                      >
+                                                        Edit message
+                                                      </button>
+                                                    )}
+                                                    {canModerate && (
+                                                      <button
+                                                        type="button"
+                                                        role="menuitem"
+                                                        onClick={(event) => {
+                                                          event.stopPropagation();
+                                                          closeMessageMenu();
+                                                          if (isPinnedMessage) {
+                                                            handleUnpinMessage(message);
+                                                          } else {
+                                                            handlePinMessage(message);
+                                                          }
+                                                        }}
+                                                        className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-medium transition hover:bg-[var(--bg-muted)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+                                                      >
+                                                        {isPinnedMessage ? "Unpin message" : "Pin message"}
+                                                      </button>
+                                                    )}
+                                                    {canModerate && (
+                                                      <button
+                                                        type="button"
+                                                        role="menuitem"
+                                                        disabled={deleteDisabled}
+                                                        onClick={(event) => {
+                                                          event.stopPropagation();
+                                                          if (deleteDisabled) {
+                                                            return;
+                                                          }
+                                                          closeMessageMenu();
+                                                          void handleDeleteMessage(message);
+                                                        }}
+                                                        className={`mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 disabled:cursor-not-allowed disabled:opacity-60 ${deleteOptionClasses}`}
+                                                      >
+                                                        {isPendingDelete ? (
+                                                          <Loader2 className="h-4 w-4 animate-spin" />
+                                                        ) : (
+                                                          <Trash2 className="h-4 w-4" />
+                                                        )}
+                                                        <span>Delete message</span>
+                                                      </button>
+                                                    )}
+                                                  </div>,
+                                                  document.body,
+                                                )
+                                              : null}
                                           </div>
-                                        )}
-                                      </div>
                                           <button
                                             type="button"
                                             onClick={() => handleLikeMessage(message)}
