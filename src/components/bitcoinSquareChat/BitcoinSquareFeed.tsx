@@ -1170,6 +1170,18 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     [setHighlightedPostId],
   );
 
+  const updatePending = useCallback((setter: React.Dispatch<React.SetStateAction<PendingMap>>, id: string, add: boolean) => {
+    setter((prev) => {
+      const next = new Set(prev);
+      if (add) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
+      return next;
+    });
+  }, []);
+
   const handlePinPost = useCallback(
     async (post: FeedPost) => {
       updatePending(setPendingPins, post.id, true);
@@ -1289,18 +1301,6 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     },
     [now, relativeFormatter],
   );
-
-  const updatePending = useCallback((setter: React.Dispatch<React.SetStateAction<PendingMap>>, id: string, add: boolean) => {
-    setter((prev) => {
-      const next = new Set(prev);
-      if (add) {
-        next.add(id);
-      } else {
-        next.delete(id);
-      }
-      return next;
-    });
-  }, []);
 
   const { handlePost, handleLike, handleEdit: openEditComposer } = useMemo(
     () =>
