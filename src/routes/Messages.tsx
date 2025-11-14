@@ -989,6 +989,10 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
                             key={message.id || message.clientId || messageTranslationKey}
                             className={`group relative flex ${
                               isOutgoing ? "justify-end" : "justify-start"
+                            } ${
+                              isLatestMessage
+                                ? "pb-[calc(7rem+env(safe-area-inset-bottom,0px)+6.5rem)]"
+                                : ""
                             }`}
                           >
                             <div
