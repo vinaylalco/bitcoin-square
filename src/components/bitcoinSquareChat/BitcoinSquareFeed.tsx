@@ -29,7 +29,12 @@ import {
 } from "../../utils/imageUpload";
 import type { MentionCandidate } from "../../utils/mentions";
 import useMentionAutocomplete from "../../hooks/useMentionAutocomplete";
-import type { PinnedEntry } from "../../utils/pinnedEntries";
+import {
+  arePinnedEntriesEqual,
+  loadPinnedEntries,
+  persistPinnedEntries,
+  type PinnedEntry,
+} from "../../utils/pinnedEntries";
 
 interface BitcoinSquareFeedProps {
   posts: FeedPost[];
@@ -248,7 +253,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   const [composerOpen, setComposerOpen] = useState(false);
   const [composerMode, setComposerMode] = useState<ComposerMode>("new");
   const [composerTarget, setComposerTarget] = useState<FeedPost | null>(null);
-  const [pinnedPostEntries, setPinnedPostEntries] = useState<PinnedPostEntry[]>(() =>
+  const [cachedPinnedPostEntries, setCachedPinnedPostEntries] = useState<PinnedPostEntry[]>(() =>
     loadPinnedEntries(PINNED_POSTS_STORAGE_KEY),
   );
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>(null);
@@ -258,6 +263,25 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   const [expandedPosts, setExpandedPosts] = useState<Set<string>>(() => new Set());
   const [expandedEventDetails, setExpandedEventDetails] = useState<Set<string>>(() => new Set());
   const [openPostMenuId, setOpenPostMenuId] = useState<string | null>(null);
+  const [postMenuPosition, setPostMenuPosition] = useState<{ top: number; left: number } | null>(null);
+  const closePostMenu = useCallback(() => {
+    setOpenPostMenuId(null);
+    setPostMenuPosition(null);
+  }, []);
+  useEffect(() => {
+    const limited =
+      pinnedEntries.length > 1 ? [pinnedEntries[pinnedEntries.length - 1]] : pinnedEntries;
+    setCachedPinnedPostEntries((previous) => {
+      if (arePinnedEntriesEqual(previous, limited)) {
+        return previous;
+      }
+      return limited;
+    });
+  }, [pinnedEntries]);
+
+  useEffect(() => {
+    persistPinnedEntries(PINNED_POSTS_STORAGE_KEY, cachedPinnedPostEntries);
+  }, [cachedPinnedPostEntries]);
   const [showNewPostsToast, setShowNewPostsToast] = useState(false);
   const [isAtTop, setIsAtTop] = useState(true);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -527,34 +551,63 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   }, [ensureTranslation, posts, translationEnabled]);
 
   useEffect(() => {
-    if (!openPostMenuId) return;
+    if (!openPostMenuId) {
+      setPostMenuPosition(null);
+      return;
+    }
     if (typeof document === "undefined") return;
+
+    const updatePosition = () => {
+      const trigger = document.querySelector<HTMLElement>(
+        `[data-post-menu-trigger="${openPostMenuId}"]`,
+      );
+      if (!trigger) {
+        closePostMenu();
+        return;
+      }
+      const rect = trigger.getBoundingClientRect();
+      setPostMenuPosition({
+        top: rect.bottom + 8,
+        left: rect.right + 8,
+      });
+    };
 
     const handlePointerDown = (event: MouseEvent) => {
       const target = event.target as HTMLElement | null;
       if (!target) {
-        setOpenPostMenuId(null);
+        closePostMenu();
         return;
       }
-      const container = target.closest<HTMLElement>("[data-post-menu-root]");
-      if (!container || container.dataset.postMenuRoot !== openPostMenuId) {
-        setOpenPostMenuId(null);
+      if (target.closest("[data-post-menu]")) {
+        return;
       }
+      const trigger = target.closest<HTMLElement>("[data-post-menu-trigger]");
+      if (trigger && trigger.dataset.postMenuTrigger === openPostMenuId) {
+        return;
+      }
+      closePostMenu();
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        setOpenPostMenuId(null);
+        closePostMenu();
       }
     };
 
+    updatePosition();
+
     document.addEventListener("pointerdown", handlePointerDown);
     document.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+
     return () => {
       document.removeEventListener("pointerdown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
     };
-  }, [openPostMenuId]);
+  }, [closePostMenu, openPostMenuId]);
 
   const handleComposerClose = useCallback(() => {
     setComposerOpen(false);
@@ -892,24 +945,24 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     return map;
   }, [posts]);
 
-  const pinnedPostEntries = useMemo(() => {
-    if (pinnedEntries.length === 0) {
+  const visiblePinnedPostEntries = useMemo(() => {
+    if (cachedPinnedPostEntries.length === 0) {
       return [] as PinnedPostEntry[];
     }
     const availableIds = new Set(posts.map((post) => post.id));
-    return pinnedEntries.filter((entry) => availableIds.has(entry.id));
-  }, [pinnedEntries, posts]);
+    return cachedPinnedPostEntries.filter((entry) => availableIds.has(entry.id));
+  }, [cachedPinnedPostEntries, posts]);
 
   const pinnedPostIdSet = useMemo(
-    () => new Set(pinnedPostEntries.map((entry) => entry.id)),
-    [pinnedPostEntries],
+    () => new Set(visiblePinnedPostEntries.map((entry) => entry.id)),
+    [visiblePinnedPostEntries],
   );
 
   const displayedPosts = useMemo(() => {
-    if (pinnedPostEntries.length === 0 || filteredPosts.length === 0) {
+    if (visiblePinnedPostEntries.length === 0 || filteredPosts.length === 0) {
       return filteredPosts;
     }
-    const pinned = pinnedPostEntries
+    const pinned = visiblePinnedPostEntries
       .map((entry) => filteredPosts.find((post) => post.id === entry.id))
       .filter((post): post is FeedPost => Boolean(post));
     if (pinned.length === 0) {
@@ -918,7 +971,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     const pinnedIds = new Set(pinned.map((post) => post.id));
     const others = filteredPosts.filter((post) => !pinnedIds.has(post.id));
     return [...pinned, ...others];
-  }, [filteredPosts, pinnedPostEntries]);
+  }, [filteredPosts, visiblePinnedPostEntries]);
 
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
 
@@ -2082,12 +2135,24 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
             <Share2 className="h-4 w-4" />
             <span className="sr-only">Share</span>
           </button>
-          <div className="relative" data-post-menu-root={post.id}>
+          <div className="relative">
             <button
               type="button"
+              data-post-menu-trigger={post.id}
               onClick={(event) => {
                 event.stopPropagation();
-                setOpenPostMenuId((current) => (current === post.id ? null : post.id));
+                const rect = event.currentTarget.getBoundingClientRect();
+                setOpenPostMenuId((current) => {
+                  if (current === post.id) {
+                    setPostMenuPosition(null);
+                    return null;
+                  }
+                  setPostMenuPosition({
+                    top: rect.bottom + 8,
+                    left: rect.right + 8,
+                  });
+                  return post.id;
+                });
               }}
               className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-subtle)] text-lg font-semibold text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
               aria-expanded={isMenuOpen}
@@ -2097,84 +2162,93 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
             >
               ...
             </button>
-            {isMenuOpen && (
-              <div
-                role="menu"
-                className="absolute left-full top-full z-[120] ml-2 mt-2 w-48 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-1 text-sm shadow-xl"
-              >
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    toggleEventDetails(post.id);
-                    setOpenPostMenuId(null);
-                  }}
-                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-medium text-[var(--fg-muted)] transition hover:bg-[var(--bg-muted)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
-                >
-                  {eventDetailsLabel}
-                </button>
-                {canEditPost && (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setOpenPostMenuId(null);
-                      openEditComposer(post);
+            {isMenuOpen && postMenuPosition && typeof document !== "undefined"
+              ? createPortal(
+                  <div
+                    role="menu"
+                    data-post-menu="true"
+                    data-post-menu-id={post.id}
+                    className="fixed z-[120] w-48 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-1 text-sm shadow-xl"
+                    style={{
+                      top: postMenuPosition.top,
+                      left: postMenuPosition.left,
                     }}
-                    className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-medium text-[var(--fg-muted)] transition hover:bg-[var(--bg-muted)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
                   >
-                    Edit post
-                  </button>
-                )}
-                {canModerate && (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    disabled={pinActionDisabled}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      if (pinActionDisabled) {
-                        return;
-                      }
-                      setOpenPostMenuId(null);
-                      if (isPinned) {
-                        void handleUnpinPost(post);
-                      } else {
-                        void handlePinPost(post);
-                      }
-                    }}
-                    className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-medium text-[var(--fg-muted)] transition hover:bg-[var(--bg-muted)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {isPinned ? "Unpin post" : "Pin post"}
-                  </button>
-                )}
-                {canDelete && (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    disabled={deleteDisabled}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setOpenPostMenuId(null);
-                      if (deleteDisabled) {
-                        return;
-                      }
-                      void handleDeletePost(post);
-                    }}
-                    className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
-                      deleteDisabled
-                        ? "cursor-not-allowed text-[var(--fg-muted)]/60"
-                        : "text-red-500 hover:bg-red-500/10"
-                    }`}
-                  >
-                    {isPendingDelete ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                    <span>Delete post</span>
-                  </button>
-                )}
-              </div>
-            )}
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        closePostMenu();
+                        toggleEventDetails(post.id);
+                      }}
+                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-medium text-[var(--fg-muted)] transition hover:bg-[var(--bg-muted)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+                    >
+                      {eventDetailsLabel}
+                    </button>
+                    {canEditPost && (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          closePostMenu();
+                          openEditComposer(post);
+                        }}
+                        className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-medium text-[var(--fg-muted)] transition hover:bg-[var(--bg-muted)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+                      >
+                        Edit post
+                      </button>
+                    )}
+                    {canModerate && (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        disabled={pinActionDisabled}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          if (pinActionDisabled) {
+                            return;
+                          }
+                          closePostMenu();
+                          if (isPinned) {
+                            void handleUnpinPost(post);
+                          } else {
+                            void handlePinPost(post);
+                          }
+                        }}
+                        className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-medium text-[var(--fg-muted)] transition hover:bg-[var(--bg-muted)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {isPinned ? "Unpin post" : "Pin post"}
+                      </button>
+                    )}
+                    {canDelete && (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        disabled={deleteDisabled}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          if (deleteDisabled) {
+                            return;
+                          }
+                          closePostMenu();
+                          void handleDeletePost(post);
+                        }}
+                        className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
+                          deleteDisabled
+                            ? "cursor-not-allowed text-[var(--fg-muted)]/60"
+                            : "text-red-500 hover:bg-red-500/10"
+                        }`}
+                      >
+                        {isPendingDelete ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                        <span>Delete post</span>
+                      </button>
+                    )}
+                  </div>,
+                  document.body,
+                )
+              : null}
           </div>
         </div>
 

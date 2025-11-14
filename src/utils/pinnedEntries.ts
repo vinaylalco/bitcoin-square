@@ -98,15 +98,32 @@ export const togglePinnedEntry = (
   id: string,
   pinnedAt: number = Date.now(),
 ): PinnedEntry[] => {
-  const withoutCurrent = entries.filter((entry) => entry.id !== id);
-  const next = [...withoutCurrent, { id, pinnedAt } satisfies PinnedEntry];
-  next.sort((a, b) => a.pinnedAt - b.pinnedAt);
-  return next;
+  if (entries.length === 1 && entries[0].id === id) {
+    return entries;
+  }
+  return [{ id, pinnedAt } satisfies PinnedEntry];
 };
 
 export const removePinnedEntry = (entries: PinnedEntry[], id: string): PinnedEntry[] => {
   const next = entries.filter((entry) => entry.id !== id);
   return next.length === entries.length ? entries : next;
+};
+
+export const arePinnedEntriesEqual = (a: PinnedEntry[], b: PinnedEntry[]): boolean => {
+  if (a === b) {
+    return true;
+  }
+  if (a.length !== b.length) {
+    return false;
+  }
+  for (let index = 0; index < a.length; index += 1) {
+    const left = a[index];
+    const right = b[index];
+    if (left.id !== right.id || left.pinnedAt !== right.pinnedAt) {
+      return false;
+    }
+  }
+  return true;
 };
 
 export const encodePinnedEventContent = (entries: PinnedEntry[]): string =>

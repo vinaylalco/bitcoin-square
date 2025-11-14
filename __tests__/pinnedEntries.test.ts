@@ -3,6 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  arePinnedEntriesEqual,
   loadPinnedEntries,
   normalizePinnedEntries,
   persistPinnedEntries,
@@ -95,7 +96,7 @@ describe("storage helpers", () => {
 });
 
 describe("togglePinnedEntry", () => {
-  it("adds new entries with sorted order", () => {
+  it("replaces previous entries when pinning a new id", () => {
     const result = togglePinnedEntry(
       [
         { id: "b", pinnedAt: 20 },
@@ -105,27 +106,14 @@ describe("togglePinnedEntry", () => {
       10,
     );
 
-    expect(result).toEqual<PinnedEntry[]>([
-      { id: "a", pinnedAt: 10 },
-      { id: "b", pinnedAt: 20 },
-      { id: "c", pinnedAt: 30 },
-    ]);
+    expect(result).toEqual<PinnedEntry[]>([{ id: "a", pinnedAt: 10 }]);
   });
 
-  it("reorders existing entries with a fresh timestamp", () => {
-    const result = togglePinnedEntry(
-      [
-        { id: "a", pinnedAt: 10 },
-        { id: "b", pinnedAt: 20 },
-      ],
-      "a",
-      40,
-    );
+  it("preserves the existing entry when pinning the same id", () => {
+    const initial: PinnedEntry[] = [{ id: "a", pinnedAt: 10 }];
+    const result = togglePinnedEntry(initial, "a", 40);
 
-    expect(result).toEqual<PinnedEntry[]>([
-      { id: "b", pinnedAt: 20 },
-      { id: "a", pinnedAt: 40 },
-    ]);
+    expect(result).toBe(initial);
   });
 });
 
@@ -182,5 +170,40 @@ describe("pinned event content helpers", () => {
     expect(decodePinnedEventContent("not-json")).toEqual<PinnedEntry[]>([]);
     expect(decodePinnedEventContent(JSON.stringify({ foo: "bar" }))).toEqual<PinnedEntry[]>([]);
     warn.mockRestore();
+  });
+});
+
+describe("arePinnedEntriesEqual", () => {
+  it("returns true for arrays with matching ids and timestamps", () => {
+    const entries: PinnedEntry[] = [
+      { id: "one", pinnedAt: 1 },
+      { id: "two", pinnedAt: 2 },
+    ];
+
+    expect(arePinnedEntriesEqual(entries, [...entries])).toBe(true);
+  });
+
+  it("returns false when ids differ", () => {
+    const left: PinnedEntry[] = [
+      { id: "one", pinnedAt: 1 },
+      { id: "two", pinnedAt: 2 },
+    ];
+    const right: PinnedEntry[] = [
+      { id: "one", pinnedAt: 1 },
+      { id: "three", pinnedAt: 2 },
+    ];
+
+    expect(arePinnedEntriesEqual(left, right)).toBe(false);
+  });
+
+  it("returns false when timestamps differ", () => {
+    const left: PinnedEntry[] = [
+      { id: "one", pinnedAt: 1 },
+    ];
+    const right: PinnedEntry[] = [
+      { id: "one", pinnedAt: 5 },
+    ];
+
+    expect(arePinnedEntriesEqual(left, right)).toBe(false);
   });
 });
