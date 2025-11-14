@@ -103,8 +103,6 @@ const NOTIFICATIONS_TAB: ViewTab = {
   icon: Bell,
 };
 
-const DESKTOP_VIEW_TABS: ViewTab[] = [...PRIMARY_VIEW_TABS, MESSAGES_TAB];
-
 const MOBILE_VIEW_TABS: ViewTab[] = [
   ...PRIMARY_VIEW_TABS,
   MESSAGES_TAB,
@@ -2345,6 +2343,44 @@ const CommunityView: React.FC = () => {
         )}
       </div>
     );
+  const sidebarProfile = useMemo(() => {
+    if (!user && !pubkey) {
+      return null;
+    }
+    const summary = pubkey ? resolveProfileSummary(pubkey) : null;
+    const displayName =
+      summary?.displayName ??
+      user?.screenName ??
+      user?.username ??
+      t("community.sidebar.profileFallbackName", { defaultValue: "Your profile" });
+    let avatarUrl = summary?.avatarUrl ?? user?.avatarUrl ?? null;
+    if (!avatarUrl) {
+      const fallbackSeed =
+        pubkey ??
+        user?.nostrPublicKey ??
+        user?.screenName ??
+        user?.username ??
+        "community-profile";
+      avatarUrl = fallbackProfileAvatar(fallbackSeed);
+    }
+    const status = user?.screenName
+      ? `@${user.screenName}`
+      : user?.username
+        ? `@${user.username}`
+        : t("community.sidebar.profileStatusPlaceholder", { defaultValue: "Community member" });
+    return { displayName, avatarUrl, status };
+  }, [
+    fallbackProfileAvatar,
+    pubkey,
+    resolveProfileSummary,
+    t,
+    user,
+  ]);
+  const handleProfileCardClick = useCallback(() => {
+    if (pubkey) {
+      openProfile(pubkey);
+    }
+  }, [openProfile, pubkey]);
   const handleSelectView = useCallback(
     (view: ActiveView) => {
       const isMessagesLocation = isCommunityMessagesLocation(location.pathname, location.search);
@@ -2429,11 +2465,9 @@ const CommunityView: React.FC = () => {
       );
     }
 
-    const baseClasses =
-      "flex w-full items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 sm:text-sm";
-    const paletteClasses = isActive
-      ? "border-brand bg-brand/10 text-brand shadow-sm"
-      : "border-transparent text-[var(--fg-muted)] hover:border-brand hover:text-brand";
+    const desktopClasses = `community-sidebar__nav-item focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
+      isActive ? "community-sidebar__nav-item--active" : ""
+    }`.trim();
 
     return (
       <button
@@ -2445,18 +2479,20 @@ const CommunityView: React.FC = () => {
         aria-controls={panelId}
         tabIndex={isActive ? 0 : -1}
         onClick={() => handleSelectView(tab.key)}
-        className={`${baseClasses} ${paletteClasses}`}
+        className={desktopClasses}
       >
-        <Icon className="h-4 w-4" aria-hidden="true" />
-        <span className="flex items-center gap-2">
-          <span>{t(tab.labelKey)}</span>
+        <span className="community-sidebar__nav-item-icon" aria-hidden="true">
+          <Icon className="h-4 w-4" aria-hidden="true" />
+        </span>
+        <span className="community-sidebar__nav-item-text">
+          <span className="community-sidebar__nav-item-label">{t(tab.labelKey)}</span>
           {showNotificationDot && (
-            <span aria-hidden="true" className="text-brand text-xs leading-none">
+            <span aria-hidden="true" className="community-sidebar__nav-item-dot">
               ●
             </span>
           )}
           {showMessageDot && (
-            <span aria-hidden="true" className="text-brand text-xs leading-none">
+            <span aria-hidden="true" className="community-sidebar__nav-item-dot">
               ●
             </span>
           )}
@@ -3126,31 +3162,65 @@ const CommunityView: React.FC = () => {
   return (
     <>
       {mobileControls}
-      <div className="relative flex min-h-screen w-full overflow-hidden bg-[var(--bg-app)] transition-colors">
+      <div className="community-page relative flex min-h-screen w-full overflow-hidden bg-[var(--bg-app)] transition-colors">
         <div
           className="pointer-events-none absolute inset-0 transition-[background-image] duration-300"
           style={{ backgroundImage: backgroundTexture }}
           aria-hidden="true"
         />
         <div className="relative z-0 flex min-h-screen w-full flex-col">
-        <aside className="hidden border-r border-[var(--border-subtle)] bg-[var(--bg-card)]/70 px-5 pb-8 pt-24 backdrop-blur lg:fixed lg:inset-y-0 lg:left-0 lg:flex lg:w-80 lg:flex-col">
-          <nav
-            aria-label="Community navigation"
-            role="tablist"
-            className="flex flex-col gap-2"
-          >
-            {DESKTOP_VIEW_TABS.map((tab) => renderTabButton(tab, "desktop"))}
-          </nav>
-          <div className="mt-2">{renderTabButton(NOTIFICATIONS_TAB, "desktop")}</div>
-          <div className="mt-8 flex-1 overflow-hidden">
-            <h2 className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--fg-muted)]">{membersHeading}</h2>
-            <div ref={memberScrollRef} className="mt-5 h-full overflow-y-auto pr-1">
-              {memberListContent}
+          <aside className="community-sidebar hidden lg:fixed lg:inset-y-0 lg:left-0 lg:flex lg:flex-col lg:pb-8 lg:pt-24">
+            <div>
+              <p className="community-sidebar__section-title">
+                {t("community.sidebar.primaryNavigation", { defaultValue: "Browse" })}
+              </p>
+              <nav
+                aria-label="Community navigation"
+                role="tablist"
+                className="community-sidebar__nav-group"
+              >
+                {PRIMARY_VIEW_TABS.map((tab) => renderTabButton(tab, "desktop"))}
+              </nav>
             </div>
-          </div>
-        </aside>
-        <div className="relative flex flex-1 min-h-0 flex-col lg:ml-80 lg:pl-8">
-          <main className="relative flex flex-1 min-h-0 flex-col sm:pr-24 lg:pr-0">
+            <div>
+              <p className="community-sidebar__section-title">
+                {t("community.sidebar.messagesNavigation", { defaultValue: "Messages" })}
+              </p>
+              <nav className="community-sidebar__nav-group" role="tablist" aria-label="Community updates">
+                {renderTabButton(MESSAGES_TAB, "desktop")}
+                {renderTabButton(NOTIFICATIONS_TAB, "desktop")}
+              </nav>
+            </div>
+            <div className="community-sidebar__members-panel">
+              <p className="community-sidebar__section-title">{membersHeading}</p>
+              <div ref={memberScrollRef} className="community-sidebar__members-scroll">
+                {memberListContent}
+              </div>
+            </div>
+            {sidebarProfile && (
+              <button
+                type="button"
+                onClick={handleProfileCardClick}
+                className="community-sidebar__profile-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+                disabled={!pubkey}
+              >
+                <img
+                  src={sidebarProfile.avatarUrl}
+                  alt={sidebarProfile.displayName}
+                  className="community-sidebar__profile-avatar"
+                />
+                <div className="community-sidebar__profile-meta">
+                  <span className="community-sidebar__profile-name">{sidebarProfile.displayName}</span>
+                  <span className="community-sidebar__profile-status">{sidebarProfile.status}</span>
+                </div>
+                <span className="sr-only">
+                  {t("community.sidebar.openProfile", { defaultValue: "Open your profile" })}
+                </span>
+              </button>
+            )}
+          </aside>
+          <div className="community-main relative flex flex-1 min-h-0 flex-col lg:ml-[260px] lg:pl-8">
+            <main className="community-feed relative flex flex-1 min-h-0 flex-col sm:pr-24 lg:pr-0">
             {isCasualView ? (
               <section
                 id="community-panel-casual"
@@ -3831,7 +3901,8 @@ const CommunityView: React.FC = () => {
                 </div>
               </section>
             )}
-          </main>
+            </main>
+          </div>
         </div>
       </div>
 
@@ -3865,8 +3936,6 @@ const CommunityView: React.FC = () => {
       )}
 
       {composerOverlay}
-
-    </div>
     </>
   );
 };
