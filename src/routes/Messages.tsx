@@ -765,7 +765,7 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
         }
       >
         <div
-          className={`grid w-full gap-6 overflow-x-hidden lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] ${
+          className={`grid min-h-0 w-full gap-6 overflow-x-hidden lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] ${
             isEmbedded ? "flex-1 overflow-y-auto" : ""
           }`}
         >
@@ -869,7 +869,7 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
           </section>
 
           <section
-            className={`flex min-h-[32rem] flex-col rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] shadow-sm ${
+            className={`flex min-h-0 flex-col overflow-hidden rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] shadow-sm ${
               activeConversation ? "block" : "hidden lg:flex"
             }`}
           >
@@ -915,10 +915,10 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
                   </button>
                 </header>
 
-                <div className="relative flex h-full flex-1 flex-col bg-[var(--bg-surface)]/60">
+                <div className="relative flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-[var(--bg-surface)]/60">
                   <div
                     ref={listRef}
-                    className="flex-1 space-y-3 overflow-y-auto px-5 pt-4"
+                    className="flex-1 min-h-0 space-y-3 overflow-y-auto px-5 pt-4"
                     style={{ paddingBottom: chatSpacing.padding }}
                   >
                     {conversation.messages.length === 0 ? (
