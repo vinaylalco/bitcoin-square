@@ -1,9 +1,18 @@
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
 import Slider from "../components/lesson/Slider";
 import CourseDetailSkeleton from "../components/course/CourseDetailSkeleton";
+import fallbackEn from "../data/lessons.en.json";
+import fallbackEs from "../data/lessons.es.json";
 import { useLessonPlan } from "../hooks/useLessonPlan";
-import type { Card, LessonCard, Module, Topic } from "../types/lesson-plan";
+import type {
+  Card,
+  LessonCard,
+  LessonPlan,
+  Module,
+  Topic,
+} from "../types/lesson-plan";
 import { useAuth } from "../context/AuthContext";
 import { useCurrentUserMembership } from "../hooks/useCurrentUserMembership";
 import {
@@ -81,6 +90,28 @@ function sanitizeModule(
     name: moduleName,
     topics,
   } as Module & UnknownRecord;
+}
+
+function buildFallbackPlan(locale: string): LessonPlan | null {
+  const source = locale === "es" ? (fallbackEs as UnknownRecord) : (fallbackEn as UnknownRecord);
+  const course = (source as UnknownRecord)?.course;
+  if (!isRecord(course)) {
+    return null;
+  }
+
+  const modules = Array.isArray(course.modules)
+    ? course.modules
+        .map((module, moduleIndex) => sanitizeModule(module, moduleIndex))
+        .filter((module): module is Module & UnknownRecord => Boolean(module))
+    : [];
+
+  return {
+    id: isNonEmptyString(course.id) ? course.id : undefined,
+    title: isNonEmptyString(course.name) ? course.name : undefined,
+    slug: "full-btc-course",
+    modules,
+    locale,
+  } as LessonPlan;
 }
 
 const LOCALE_VIDEO_KEYS: Record<"en" | "es", string[]> = {
@@ -574,20 +605,22 @@ export default function CourseDetail() {
     !token ||
     (membershipResolved && (!hasLessonAccess || Boolean(membershipError)));
   const { data, isLoading, error } = useLessonPlan(locale, slug);
+  const fallbackPlan = useMemo(() => buildFallbackPlan(locale), [locale]);
+  const lessonPlan = data ?? fallbackPlan;
 
-  if (isLoading && !data) {
+  if (isLoading && !lessonPlan) {
     return <CourseDetailSkeleton />;
   }
 
-  if (error) {
+  if (error && !lessonPlan) {
     if (error.message === "Not Found") {
       return <div className="mx-auto max-w-3xl px-4 py-16 text-center text-[var(--fg-muted)]">Course not found.</div>;
     }
     return <div className="mx-auto max-w-3xl px-4 py-16 text-center text-brand">Failed to load lesson plan.</div>;
   }
 
-  const effectiveLocale = data?.locale ?? locale;
-  const rawModules = Array.isArray(data?.modules) ? data?.modules : [];
+  const effectiveLocale = lessonPlan?.locale ?? locale;
+  const rawModules = Array.isArray(lessonPlan?.modules) ? lessonPlan.modules : [];
   const sanitizedModules = rawModules
     .map((module, moduleIndex) => sanitizeModule(module, moduleIndex))
     .filter((module): module is Module & UnknownRecord => Boolean(module));
