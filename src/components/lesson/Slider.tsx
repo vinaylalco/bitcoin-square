@@ -126,6 +126,7 @@ export default function Slider({
   const completionTimeoutRef = useRef<number | null>(null);
   const skipScrollOnVideoRef = useRef(false);
   const shouldRestoreProgressRef = useRef(true);
+  const wheelLockRef = useRef(false);
   const [navHeight, setNavHeight] = useState<number | null>(null);
   const { user, token, updateUser } = useAuth();
   const initialLocalProgress = useMemo(() => readLocalProgress(), []);
@@ -617,6 +618,45 @@ export default function Slider({
     el.addEventListener("scroll", handle, { passive: true });
     return () => el.removeEventListener("scroll", handle);
   }, []);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const handleWheel = (event: WheelEvent) => {
+      const primaryDelta =
+        Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+
+      if (Math.abs(primaryDelta) < 10) {
+        return;
+      }
+
+      event.preventDefault();
+
+      if (wheelLockRef.current) {
+        return;
+      }
+
+      wheelLockRef.current = true;
+
+      const direction = primaryDelta > 0 ? 1 : -1;
+      void animateScroll(index + direction).finally(() => {
+        if (typeof window !== "undefined") {
+          window.setTimeout(() => {
+            wheelLockRef.current = false;
+          }, 350);
+        } else {
+          wheelLockRef.current = false;
+        }
+      });
+    };
+
+    el.addEventListener("wheel", handleWheel, { passive: false });
+
+    return () => {
+      el.removeEventListener("wheel", handleWheel);
+    };
+  }, [animateScroll, index]);
 
   const ease = useRef(createBezier(0.22, 1, 0.36, 1)).current;
 
