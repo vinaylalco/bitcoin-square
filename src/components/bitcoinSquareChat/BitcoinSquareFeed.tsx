@@ -12,7 +12,7 @@ import { useAuth } from "../../context/AuthContext";
 import ProfileCard from "../profile/ProfileCard";
 import ErrorBoundary from "../ErrorBoundary";
 import type { RoomDefinition } from "../RoomList";
-import { Heart, ImagePlus, Loader2, MessageSquareQuote, Plus, Share2, Trash2, X } from "lucide-react";
+import { Heart, ImagePlus, Loader2, Menu, MessageSquareQuote, Plus, Share2, Trash2, X } from "lucide-react";
 import {
   createFeedActionHandlers,
   createOpenComposerDialog,
