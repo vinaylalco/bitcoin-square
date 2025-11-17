@@ -558,6 +558,15 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
   }, [messageCount, updateScrollState]);
 
   useEffect(() => {
+    if (!activeConversation) {
+      return;
+    }
+
+    scrollStickToBottomRef.current = true;
+    requestAnimationFrame(() => handleScrollToBottom());
+  }, [activeConversation, handleScrollToBottom]);
+
+  useEffect(() => {
     if (!translationEnabled) {
       messageObserverRef.current?.disconnect();
       messageObserverRef.current = null;
