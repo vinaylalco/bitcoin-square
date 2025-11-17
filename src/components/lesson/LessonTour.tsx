@@ -198,22 +198,6 @@ export default function LessonTour({
     };
   }, [open]);
 
-  if (!open || !activeStep) {
-    return null;
-  }
-
-  const goToPrevious = () => {
-    setCurrentIndex((idx) => Math.max(idx - 1, 0));
-  };
-
-  const goToNext = () => {
-    if (currentIndex === totalSteps - 1) {
-      onComplete();
-      return;
-    }
-    setCurrentIndex((idx) => Math.min(idx + 1, totalSteps - 1));
-  };
-
   const dialogSide = useMemo(() => {
     if (typeof window === "undefined") {
       return "center" as const;
@@ -259,6 +243,22 @@ export default function LessonTour({
       transform: "translateY(-50%)",
     };
   }, [dialogSide]);
+
+  if (!open || !activeStep) {
+    return null;
+  }
+
+  const goToPrevious = () => {
+    setCurrentIndex((idx) => Math.max(idx - 1, 0));
+  };
+
+  const goToNext = () => {
+    if (currentIndex === totalSteps - 1) {
+      onComplete();
+      return;
+    }
+    setCurrentIndex((idx) => Math.min(idx + 1, totalSteps - 1));
+  };
 
   return (
     <div
