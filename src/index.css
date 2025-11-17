@@ -216,9 +216,15 @@
   border-right: 1px solid var(--border-subtle);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  display: flex;
+  display: none;
   flex-direction: column;
   gap: 24px;
+}
+
+@media (min-width: 1024px) {
+  .community-sidebar {
+    display: flex;
+  }
 }
 
 .community-sidebar__section-title {
