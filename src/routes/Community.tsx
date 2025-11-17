@@ -1233,9 +1233,25 @@ const CommunityView: React.FC = () => {
     [rawMessages, pinnedMessageIdSet],
   );
 
+  const sortedUnpinnedMessages = useMemo(() => {
+    const sorted = [...unpinnedMessages];
+    sorted.sort((a, b) => {
+      if (a.created_at !== b.created_at) {
+        return b.created_at - a.created_at;
+      }
+      return b.id.localeCompare(a.id);
+    });
+    return sorted;
+  }, [unpinnedMessages]);
+
   const messages = useMemo(
-    () => [...pinnedMessages, ...unpinnedMessages],
-    [pinnedMessages, unpinnedMessages],
+    () => [...pinnedMessages, ...sortedUnpinnedMessages],
+    [pinnedMessages, sortedUnpinnedMessages],
+  );
+
+  const newestMessage = useMemo(
+    () => sortedUnpinnedMessages[0] ?? pinnedMessages[0] ?? null,
+    [pinnedMessages, sortedUnpinnedMessages],
   );
 
   const {
@@ -1446,8 +1462,8 @@ const CommunityView: React.FC = () => {
     setMessageMenuPosition(null);
   }, []);
   const [rawDataMessage, setRawDataMessage] = useState<CasualChatMessage | null>(null);
-  const [isAtBottom, setIsAtBottom] = useState(true);
-  const isAtBottomRef = useRef(true);
+  const [isAtTop, setIsAtTop] = useState(true);
+  const isAtTopRef = useRef(true);
   const [newMessageAnchor, setNewMessageAnchor] = useState<string | null>(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const [composerHeight, setComposerHeight] = useState(0);
@@ -1874,22 +1890,21 @@ const CommunityView: React.FC = () => {
     const node = listRef.current;
     if (!node) return;
     const threshold = 80;
-    const distanceFromBottom = node.scrollHeight - node.scrollTop - node.clientHeight;
-    const atBottom = distanceFromBottom <= threshold;
-    setIsAtBottom(atBottom);
-    isAtBottomRef.current = atBottom;
-    if (atBottom) {
+    const distanceFromTop = node.scrollTop;
+    const atTop = distanceFromTop <= threshold;
+    setIsAtTop(atTop);
+    isAtTopRef.current = atTop;
+    if (atTop) {
       setNewMessageAnchor(null);
     }
     setVirtualVersion((value) => value + 1);
   }, []);
 
-  const scrollToBottom = useCallback(
+  const scrollToLatest = useCallback(
     (behavior: ScrollBehavior = "auto") => {
       const node = listRef.current;
       if (!node) return;
-      const target = Math.max(node.scrollHeight - node.clientHeight, 0);
-      node.scrollTo({ top: target, behavior });
+      node.scrollTo({ top: 0, behavior });
     },
     [],
   );
@@ -1930,33 +1945,30 @@ const CommunityView: React.FC = () => {
   useEffect(() => {
     if (activeView !== "casual") {
       previousMessageIdsRef.current = messages.map((message) => message.id);
-      const latestMessage = messages[messages.length - 1];
       previousLatestMessageRef.current =
-        latestMessage != null
-          ? { id: latestMessage.id, createdAt: latestMessage.created_at }
+        newestMessage != null
+          ? { id: newestMessage.id, createdAt: newestMessage.created_at }
           : null;
       initialScrollDoneRef.current = false;
       return;
     }
 
-    const latestMessage = messages[messages.length - 1];
-
-    if (!initialScrollDoneRef.current && latestMessage) {
+    if (!initialScrollDoneRef.current && newestMessage) {
       initialScrollDoneRef.current = true;
-      scrollToBottom("auto");
+      scrollToLatest("auto");
       computeScrollState();
-    } else if (latestMessage) {
+    } else if (newestMessage) {
       const previousLatest = previousLatestMessageRef.current;
       const hasNewerMessage =
         !previousLatest ||
-        latestMessage.created_at > previousLatest.createdAt ||
-        (latestMessage.created_at === previousLatest.createdAt && latestMessage.id !== previousLatest.id);
+        newestMessage.created_at > previousLatest.createdAt ||
+        (newestMessage.created_at === previousLatest.createdAt && newestMessage.id !== previousLatest.id);
 
       if (hasNewerMessage) {
         const previousIds = new Set(previousMessageIdsRef.current);
-        const anchorId = messages.find((message) => !previousIds.has(message.id))?.id ?? latestMessage.id;
-        if (isAtBottomRef.current && !pageHiddenRef.current) {
-          scrollToBottom("smooth");
+        const anchorId = messages.find((message) => !previousIds.has(message.id))?.id ?? newestMessage.id;
+        if (isAtTopRef.current && !pageHiddenRef.current) {
+          scrollToLatest("smooth");
           setNewMessageAnchor(null);
           scheduleScrollState();
         } else {
@@ -1967,8 +1979,8 @@ const CommunityView: React.FC = () => {
 
     previousMessageIdsRef.current = messages.map((message) => message.id);
     previousLatestMessageRef.current =
-      latestMessage != null ? { id: latestMessage.id, createdAt: latestMessage.created_at } : null;
-  }, [activeView, computeScrollState, messages, scheduleScrollState, scrollToBottom]);
+      newestMessage != null ? { id: newestMessage.id, createdAt: newestMessage.created_at } : null;
+  }, [activeView, computeScrollState, messages, newestMessage, scheduleScrollState, scrollToLatest]);
 
   useEffect(() => {
     setVirtualVersion((value) => value + 1);
@@ -1986,16 +1998,16 @@ const CommunityView: React.FC = () => {
   useEffect(() => {
     if (activeView === "casual") {
       if (typeof window === "undefined") {
-        scrollToBottom("auto");
+        scrollToLatest("auto");
         computeScrollState();
         return;
       }
       window.requestAnimationFrame(() => {
-        scrollToBottom("auto");
+        scrollToLatest("auto");
         computeScrollState();
       });
     }
-  }, [activeView, computeScrollState, scrollToBottom]);
+  }, [activeView, computeScrollState, scrollToLatest]);
 
   const casualMemberActivity = useMemo(() => collectMemberActivity(messages), [messages]);
   const feedMemberActivity = useMemo(() => collectMemberActivity(feedPosts), [feedPosts]);
@@ -2554,7 +2566,7 @@ const CommunityView: React.FC = () => {
     }
     return items;
   }, [estimatedRowHeight, isCasualView, messages, virtualVersion]);
-  const showJumpToLatest = isCasualView && !isAtBottom && messages.length > 0;
+  const showJumpToLatest = isCasualView && !isAtTop && messages.length > 0;
 
   const handleSend = useCallback(
     async (
@@ -2726,10 +2738,10 @@ const CommunityView: React.FC = () => {
     [estimatedRowHeight, messageIndexMap, messages, startHighlight],
   );
   const handleViewNewMessages = useCallback(() => {
-    scrollToBottom("smooth");
+    scrollToLatest("smooth");
     setNewMessageAnchor(null);
     scheduleScrollState();
-  }, [scheduleScrollState, scrollToBottom]);
+  }, [scheduleScrollState, scrollToLatest]);
 
   const handleBeginEditMessage = useCallback(
     (message: CasualChatMessage) => {
@@ -3159,9 +3171,33 @@ const CommunityView: React.FC = () => {
   const mobileControls =
     typeof document !== "undefined" ? createPortal(mobileControlsContent, document.body) : mobileControlsContent;
 
+  const desktopComposeButton = !isComposerOpen ? (
+    <button
+      type="button"
+      onClick={() => {
+        setEditingMessage(null);
+        setComposerAttachmentHints({});
+        setIsComposerOpen(true);
+      }}
+      aria-disabled={!ready}
+      className={`pointer-events-auto fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom,0px))] right-6 z-50 hidden h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-xl transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 lg:flex ${
+        ready ? "" : "opacity-60"
+      }`}
+    >
+      <Plus className="h-6 w-6" aria-hidden />
+      <span className="sr-only">Compose new message</span>
+    </button>
+  ) : null;
+
+  const desktopComposePortal =
+    desktopComposeButton && typeof document !== "undefined"
+      ? createPortal(desktopComposeButton, document.body)
+      : desktopComposeButton;
+
   return (
     <>
       {mobileControls}
+      {desktopComposePortal}
       <div className="community-page relative flex min-h-screen w-full overflow-hidden bg-[var(--bg-app)] transition-colors">
         <div
           className="pointer-events-none absolute inset-0 transition-[background-image] duration-300"
@@ -3233,7 +3269,7 @@ const CommunityView: React.FC = () => {
                     type="button"
                     onClick={() => {
                       setNewMessageAnchor(null);
-                      scrollToBottom("smooth");
+                      scrollToLatest("smooth");
                     }}
                     className="pointer-events-auto absolute bottom-28 right-6 z-30 inline-flex items-center gap-2 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-brand sm:bottom-36 sm:right-10"
                     style={jumpButtonStyle}
@@ -3681,34 +3717,15 @@ const CommunityView: React.FC = () => {
                     </div>
                   </div>
                 </ErrorBoundary>
-                {!isComposerOpen && (
-                  <>
-                    {isCasualView && newMessageAnchor && (
-                      <button
-                        type="button"
-                        onClick={handleViewNewMessages}
-                        className="pointer-events-auto absolute bottom-24 right-6 z-30 hidden items-center gap-2 rounded-full border border-[color:var(--chat-floating-control-border)] bg-[color:var(--chat-floating-control-bg)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--chat-floating-control-fg)] shadow-[var(--chat-floating-control-shadow)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 lg:flex"
-                      >
-                        <ArrowDown className="h-4 w-4" aria-hidden />
-                        <span>New</span>
-                      </button>
-                    )}
+                {!isComposerOpen && isCasualView && newMessageAnchor && (
                   <button
                     type="button"
-                    onClick={() => {
-                      setEditingMessage(null);
-                      setComposerAttachmentHints({});
-                      setIsComposerOpen(true);
-                    }}
-                    aria-disabled={!ready}
-                    className={`pointer-events-auto absolute bottom-6 right-6 z-30 hidden h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-xl transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 lg:flex ${
-                      ready ? "" : "opacity-60"
-                    }`}
+                    onClick={handleViewNewMessages}
+                    className="pointer-events-auto absolute bottom-24 right-6 z-30 hidden items-center gap-2 rounded-full border border-[color:var(--chat-floating-control-border)] bg-[color:var(--chat-floating-control-bg)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--chat-floating-control-fg)] shadow-[var(--chat-floating-control-shadow)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 lg:flex"
                   >
-                    <Plus className="h-6 w-6" aria-hidden />
-                    <span className="sr-only">Compose new message</span>
+                    <ArrowDown className="h-4 w-4" aria-hidden />
+                    <span>New</span>
                   </button>
-                  </>
                 )}
               </section>
             ) : isPublicFeedView ? (
