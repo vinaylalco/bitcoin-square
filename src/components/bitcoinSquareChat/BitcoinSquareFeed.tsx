@@ -12,7 +12,7 @@ import { useAuth } from "../../context/AuthContext";
 import ProfileCard from "../profile/ProfileCard";
 import ErrorBoundary from "../ErrorBoundary";
 import type { RoomDefinition } from "../RoomList";
-import { Heart, ImagePlus, Loader2, Plus, Share2, Trash2, X } from "lucide-react";
+import { Heart, ImagePlus, Loader2, Menu, MessageSquareQuote, Plus, Share2, Trash2, X } from "lucide-react";
 import {
   createFeedActionHandlers,
   createOpenComposerDialog,
@@ -1876,14 +1876,77 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       (attachment) => !attachment.mimeType.startsWith("image/"),
     );
     const interactive = typeof onOpenThread === "function" && (variant === "list" || variant === "thread");
-    const cardClassName = `rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-5 shadow-sm transition ${
-      interactive ? "hover:border-brand/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 cursor-pointer" : ""
-    } ${highlight ? "ring-2 ring-brand/60" : ""}`;
+    const cardClassName = [
+      "community-card",
+      interactive ? "community-card--interactive" : "",
+      highlight ? "community-card--highlight" : "",
+      isPinned ? "community-card--pinned" : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
     const showEventDetails = expandedEventDetails.has(post.id);
     const eventDetailsLabel = showEventDetails ? "Hide event data" : "View event data";
     const isMenuOpen = openPostMenuId === post.id;
     const editedTimestampLabel = post.edited_at ? formatAbsoluteTimestamp(post.edited_at) : null;
     const canEditPost = pubkey ? post.pubkey.toLowerCase() === pubkey.toLowerCase() : false;
+    const relativeTimestampLabel = formatRelativeTime(post.created_at);
+    const metaLeftItems: { key: string; content: React.ReactNode }[] = [];
+
+    if (translationEnabled) {
+      if (translationStatus === "loading") {
+        metaLeftItems.push({ key: "translation-status", content: "Translating…" });
+      } else if (translationStatus === "error") {
+        metaLeftItems.push({ key: "translation-status", content: "Translation unavailable" });
+        metaLeftItems.push({
+          key: "translation-retry",
+          content: (
+            <button
+              type="button"
+              className="community-card__meta-action"
+              onClick={(event) => {
+                event.stopPropagation();
+                refreshTranslation(translationKey, post.content);
+              }}
+            >
+              Retry
+            </button>
+          ),
+        });
+      } else if (translationReady) {
+        metaLeftItems.push({
+          key: "translation-status",
+          content: showOriginal
+            ? `Showing original${detectedLanguageLabel ? ` (${detectedLanguageLabel})` : ""}`
+            : `Translated from ${detectedLanguageLabel ?? "original language"}`,
+        });
+        metaLeftItems.push({
+          key: "translation-toggle",
+          content: (
+            <button
+              type="button"
+              className="community-card__meta-action"
+              onClick={(event) => {
+                event.stopPropagation();
+                toggleOriginal(translationKey);
+              }}
+            >
+              {showOriginal ? "View translation" : "View original"}
+            </button>
+          ),
+        });
+      }
+    }
+
+    metaLeftItems.push({ key: "timestamp", content: relativeTimestampLabel });
+
+    if (post.edited) {
+      metaLeftItems.push({
+        key: "edited",
+        content: (
+          <span title={editedTimestampLabel ?? undefined}>Edited</span>
+        ),
+      });
+    }
 
     return (
       <article
@@ -1905,11 +1968,11 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         className={cardClassName}
         title={interactive ? "View conversation" : undefined}
       >
-        <header className="space-y-3">
+        <header className="community-card__header">
           <ProfileCard
             pubkey={post.pubkey}
             contentClassName="items-center"
-            className="w-full"
+            className="w-full community-card__author"
             subtitle={shortenPubkey(post.pubkey)}
             onClick={(event) => {
               event.preventDefault();
@@ -1917,22 +1980,11 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
               openProfile(post.pubkey);
             }}
           />
-          <p className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.18em] text-[var(--fg-muted)]">
-            <span>{formatRelativeTime(post.created_at)}</span>
-            {isPinned && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/60 bg-amber-400/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.24em] text-amber-700 dark:border-amber-200/60 dark:bg-amber-200/15 dark:text-amber-200">
-                Pinned
-              </span>
-            )}
-            {post.edited && (
-              <span
-                className="inline-flex items-center gap-1 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-muted)]/60 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.24em] text-[var(--fg-muted)]"
-                title={editedTimestampLabel ?? undefined}
-              >
-                Edited
-              </span>
-            )}
-          </p>
+          {isPinned && (
+            <div className="community-card__title-row">
+              <span className="community-card__pin">Pinned</span>
+            </div>
+          )}
         </header>
 
         {showReferencePreview && (
@@ -1955,10 +2007,8 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
           </button>
         )}
 
-        <div className="mt-4 text-sm leading-relaxed text-[var(--fg-default)]">
-          <div className="min-w-0 whitespace-pre-wrap break-words">
-            {renderContent(displayContent, handleTagClick, handleMentionClick)}
-          </div>
+        <div className="community-card__body min-w-0">
+          {renderContent(displayContent, handleTagClick, handleMentionClick)}
         </div>
 
         {imageAttachments.length > 0 && (
@@ -1999,46 +2049,6 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
                 </div>
               );
             })}
-          </div>
-        )}
-
-        {translationEnabled && (
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.24em] text-[var(--fg-muted)]">
-            {translationStatus === "loading" ? (
-              <span>Translating…</span>
-            ) : translationStatus === "error" ? (
-              <>
-                <span>Translation unavailable</span>
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    refreshTranslation(translationKey, post.content);
-                  }}
-                  className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.24em] text-brand transition hover:text-brand/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand/60"
-                >
-                  Retry
-                </button>
-              </>
-            ) : translationReady ? (
-              <>
-                <span>
-                  {showOriginal
-                    ? `Showing original${detectedLanguageLabel ? ` (${detectedLanguageLabel})` : ""}`
-                    : `Translated from ${detectedLanguageLabel ?? "original language"}`}
-                </span>
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    toggleOriginal(translationKey);
-                  }}
-                  className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.24em] text-brand transition hover:text-brand/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand/60"
-                >
-                  {showOriginal ? "View translation" : "View original"}
-                </button>
-              </>
-            ) : null}
           </div>
         )}
 
@@ -2103,9 +2113,38 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
           </div>
         )}
 
-        {statusLabel && <p className="mt-3 text-xs text-[var(--fg-muted)]">{statusLabel}</p>}
+        {statusLabel && <p className="community-card__status">{statusLabel}</p>}
 
-        <div className="mt-4 flex flex-wrap items-center gap-2 text-[var(--fg-muted)]">
+        {metaLeftItems.length > 0 && (
+          <div className="community-card__meta">
+            <div className="community-card__meta-left">
+              {metaLeftItems.map(({ key, content }, index) => (
+                <span
+                  key={key}
+                  className={`community-card__meta-item${index > 0 ? " community-card__meta-dot" : ""}`}
+                >
+                  {content}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="community-card__actions">
+          {interactive && (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onOpenThread?.(post);
+              }}
+              className="community-card__action-button"
+              title="Open thread"
+            >
+              <MessageSquareQuote className="h-4 w-4" />
+              <span>Discuss</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={(event) => {
@@ -2113,15 +2152,13 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
               handleLike(post);
             }}
             disabled={likeDisabled}
-            className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 ${
-              isPendingLike
-                ? "border-brand text-brand"
-                : "border-[var(--border-subtle)] text-[var(--fg-muted)] hover:border-brand hover:text-brand"
-            } disabled:cursor-not-allowed disabled:opacity-60`}
+            className={`community-card__action-button${
+              isPendingLike ? " community-card__action-button--active" : ""
+            }`}
             title={isPendingLike ? "Sending like…" : "Like this post"}
           >
             {isPendingLike ? <Loader2 className="h-4 w-4 animate-spin" /> : <Heart className="h-4 w-4" />}
-            <span className="sr-only">Like</span>
+            <span>Like</span>
           </button>
           <button
             type="button"
@@ -2129,13 +2166,13 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
               event.stopPropagation();
               void handleSharePost(post);
             }}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+            className="community-card__action-button"
             title="Copy link to post"
           >
             <Share2 className="h-4 w-4" />
-            <span className="sr-only">Share</span>
+            <span>Share</span>
           </button>
-          <div className="relative">
+          <div className="community-card__actions-menu">
             <button
               type="button"
               data-post-menu-trigger={post.id}
@@ -2154,13 +2191,14 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
                   return post.id;
                 });
               }}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-subtle)] text-lg font-semibold text-[var(--fg-muted)] transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+              className="community-card__action-button"
               aria-expanded={isMenuOpen}
               aria-haspopup="menu"
               aria-label="Post options"
               title="Post options"
             >
-              ...
+              <Menu className="h-4 w-4" />
+              <span>More</span>
             </button>
             {isMenuOpen && postMenuPosition && typeof document !== "undefined"
               ? createPortal(

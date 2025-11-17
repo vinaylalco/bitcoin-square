@@ -765,7 +765,7 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
         }
       >
         <div
-          className={`grid w-full gap-6 overflow-x-hidden lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] ${
+          className={`grid min-h-0 w-full gap-6 overflow-x-hidden lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] ${
             isEmbedded ? "flex-1 overflow-y-auto" : ""
           }`}
         >
@@ -869,7 +869,7 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
           </section>
 
           <section
-            className={`flex min-h-[32rem] flex-col rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] shadow-sm ${
+            className={`flex min-h-0 flex-col overflow-hidden rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] shadow-sm ${
               activeConversation ? "block" : "hidden lg:flex"
             }`}
           >
@@ -915,10 +915,10 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
                   </button>
                 </header>
 
-                <div className="relative flex h-full flex-1 flex-col bg-[var(--bg-surface)]/60">
+                <div className="relative flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-[var(--bg-surface)]/60">
                   <div
                     ref={listRef}
-                    className="flex-1 space-y-3 overflow-y-auto px-5 pt-4"
+                    className="flex-1 min-h-0 space-y-3 overflow-y-auto px-5 pt-4"
                     style={{ paddingBottom: chatSpacing.padding }}
                   >
                     {conversation.messages.length === 0 ? (
@@ -956,10 +956,9 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
                             translationStatus === "error" ||
                             translationReady ||
                             allowManualTranslation);
-                        const translationMetaColor =
-                          message.direction === "outgoing"
-                            ? "text-white/70"
-                            : "text-[var(--fg-muted)]";
+                        const translationMetaColor = isOutgoing
+                          ? "text-[color:var(--chat-bubble-self-muted)]"
+                          : "text-[var(--fg-muted)]";
                         const displayedText =
                           showOriginal || !rawTranslatedText ? message.plaintext : rawTranslatedText;
                         const isOutgoing = message.direction === "outgoing";
@@ -972,14 +971,14 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
                             ? "You"
                             : summary.displayName || "Community member";
                         const replyPreviewClass = isOutgoing
-                          ? "border-white/20 bg-white/10 text-white/80"
-                          : "border-[var(--border-subtle)] bg-[var(--bg-surface)]/90 text-[var(--fg-muted)]";
+                          ? "border-[color:var(--chat-bubble-self-border)] bg-[color:var(--chat-bubble-self-bg)]/90 text-[color:var(--chat-bubble-self-muted)]"
+                          : "border-[color:var(--chat-bubble-peer-border)] bg-[var(--chat-bubble-peer-bg)] text-[var(--fg-muted)]";
                         const replyUnavailableClass = isOutgoing
-                          ? "border-white/20 bg-white/5 text-white/70"
-                          : "border-dashed border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 text-[var(--fg-muted)]";
+                          ? "border-dashed border-[color:var(--chat-bubble-self-border)] bg-[color:var(--chat-bubble-self-bg)]/70 text-[color:var(--chat-bubble-self-muted)]"
+                          : "border-dashed border-[color:var(--chat-bubble-peer-border)] bg-[var(--chat-bubble-peer-bg)] text-[var(--fg-muted)]";
                         const replyButtonTint = isOutgoing
-                          ? "border-white/30 bg-white/10 text-white/80 hover:bg-white/20 focus-visible:ring-white/60"
-                          : "border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--fg-muted)] hover:bg-[var(--bg-surface)] focus-visible:ring-brand/40";
+                          ? "border-[color:var(--chat-bubble-self-border)] bg-[color:var(--chat-bubble-self-bg)] text-[color:var(--chat-bubble-self-muted)] hover:bg-[color:var(--chat-bubble-self-bg)]/90 focus-visible:ring-brand/50"
+                          : "border-[color:var(--chat-bubble-peer-border)] bg-[var(--chat-bubble-peer-bg)] text-[var(--fg-muted)] hover:border-brand hover:text-brand focus-visible:ring-brand/40";
                         const messageKeyForReply = !message.id.startsWith("pending-")
                           ? message.id
                           : message.clientId ?? message.id;
@@ -1030,10 +1029,10 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
                                   }
                                 }
                               }}
-                              className={`relative max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow-md ${
+                              className={`relative max-w-[85%] rounded-2xl border px-4 py-3 text-sm ${
                                 isOutgoing
-                                  ? "bg-brand/90 text-white"
-                                  : "border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--fg-default)]"
+                                  ? "bg-[color:var(--chat-bubble-self-bg)] text-[color:var(--chat-bubble-self-fg)] shadow-xl border-[color:var(--chat-bubble-self-border)]"
+                                  : "bg-[var(--chat-bubble-peer-bg)] text-[var(--fg-default)] shadow-sm border-[color:var(--chat-bubble-peer-border)]"
                               }`}
                             >
                               <button
@@ -1117,7 +1116,7 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
                                       onClick={() => refreshTranslation(messageTranslationKey, message.plaintext)}
                                       className={`text-[10px] font-semibold uppercase tracking-[0.2em] transition hover:opacity-80 ${
                                         message.direction === "outgoing"
-                                          ? "text-white"
+                                          ? "text-[color:var(--chat-bubble-self-fg)]"
                                           : "text-[var(--fg-default)]"
                                       }`}
                                     >
