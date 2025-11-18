@@ -2,11 +2,13 @@ import { useTranslation } from "react-i18next";
 import CourseCard from "../components/course/CourseCard";
 import CourseDirectorySkeleton from "../components/course/CourseDirectorySkeleton";
 import { useLessonPlans } from "../hooks/useLessonPlans";
+import { resolveLocale } from "../utils/locale";
 
 export default function CourseDirectory() {
   const { t, i18n } = useTranslation();
-  const locale = i18n.language?.toLowerCase().startsWith("es") ? "es" : "en";
-  const { data, isLoading, error } = useLessonPlans(locale);
+  const locale = resolveLocale(i18n.language);
+  const contentLocale = locale === "es" ? "es" : "en";
+  const { data, isLoading, error } = useLessonPlans(contentLocale);
   const description = t("courses.description");
 
   if (isLoading && !data) {

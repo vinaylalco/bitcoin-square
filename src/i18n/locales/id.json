@@ -1,26 +1,26 @@
 {
   "common": {
-    "language": "Language",
+    "language": "Bahasa",
     "emailPlaceholder": "Email",
     "passwordPlaceholder": "Password",
     "newPasswordPlaceholder": "New password",
     "confirmPasswordPlaceholder": "Confirm password",
     "sendResetLink": "Send reset link",
     "updatePassword": "Update Password",
-    "loading": "Loading…"
+    "loading": "Memuat…"
   },
   "nav": {
-    "home": "Home",
-    "education": "Education",
-    "shop": "Shop",
-    "membership": "Membership",
-    "messages": "Messages",
-    "newsletter": "Newsletter",
-    "community": "Community",
-    "settings": "Settings",
-    "dashboard": "Dashboard",
-    "login": "Login",
-    "logout": "Logout"
+    "home": "Beranda",
+    "education": "Edukasi",
+    "shop": "Toko",
+    "membership": "Keanggotaan",
+    "messages": "Pesan",
+    "newsletter": "Buletin",
+    "community": "Komunitas",
+    "settings": "Pengaturan",
+    "dashboard": "Dasbor",
+    "login": "Masuk",
+    "logout": "Keluar"
   },
   "community": {
     "tabs": {
@@ -56,8 +56,8 @@
       "toggle": "Toggle"
     },
     "language": {
-      "title": "Language",
-      "description": "Switch between English and Spanish translations for every screen.",
+      "title": "Bahasa",
+      "description": "Pilih bahasa antarmuka Anda.",
       "english": "English",
       "spanish": "Español"
     },
@@ -208,186 +208,186 @@
     }
   },
   "home": {
-    "error": "Failed to load home.",
-    "imagePlaceholder": "Image coming soon",
+    "error": "Gagal memuat beranda.",
+    "imagePlaceholder": "Gambar segera hadir",
     "hero": {
-      "eyebrow": "Built on Nostr • BTC Only",
-      "title": "The Bitcoin Ecosystem",
-      "highlight": "You Need",
-      "description": "Professional education, community on Nostr and tools. A complete platform for serious bitcoiners.",
-      "primaryCta": "Join the Community",
-      "secondaryCta": "See How It Works",
+      "eyebrow": "Dibangun di Nostr • Hanya BTC",
+      "title": "Ekosistem Bitcoin",
+      "highlight": "yang Anda butuhkan",
+      "description": "Edukasi profesional, komunitas di Nostr, dan alat. Platform lengkap untuk bitcoiner serius.",
+      "primaryCta": "Gabung Komunitas",
+      "secondaryCta": "Lihat cara kerjanya",
       "stats": {
-        "members": "Active Members",
-        "courses": "Courses",
+        "members": "Anggota aktif",
+        "courses": "Kursus",
         "unavailable": "-"
       }
     },
     "sections": {
       "howItWorks": {
-        "eyebrow": "How it works",
-        "title": "How BitcoinSquare Works",
+        "eyebrow": "Cara kerja",
+        "title": "Cara kerja BitcoinSquare",
         "items": [
           {
             "step": "1️⃣",
-            "title": "Sign Up",
-            "description": "Create your account and access through Nostr. Complete control, privacy guaranteed."
+            "title": "Daftar",
+            "description": "Buat akun Anda dan masuk lewat Nostr. Kendali penuh, privasi terjaga."
           },
           {
             "step": "2️⃣",
-            "title": "Choose Your Plan",
-            "description": "Annual membership ($5/month) or lifetime access ($80). Both with complete access from day one."
+            "title": "Pilih paket",
+            "description": "Keanggotaan tahunan ($5/bulan) atau akses seumur hidup ($80). Keduanya dengan akses penuh sejak hari pertama."
           },
           {
             "step": "3️⃣",
-            "title": "Access the Ecosystem",
-            "description": "Education, community, store and advisory services. All integrated in one professional platform."
+            "title": "Masuk ke ekosistem",
+            "description": "Edukasi, komunitas, toko, dan layanan konsultasi. Semuanya terintegrasi di satu platform profesional."
           },
           {
             "step": "4️⃣",
-            "title": "Monetize",
-            "description": "Participate, grow, generate income. Referral program with attractive commissions."
+            "title": "Monetisasi",
+            "description": "Berpartisipasi, berkembang, dan hasilkan pendapatan. Program referral dengan komisi menarik."
           }
         ]
       },
       "offerings": {
         "eyebrow": "Platform",
-        "title": "What We Offer",
-        "description": "A complete platform built on Nostr that provides everything you need to master Bitcoin.",
+        "title": "Yang kami tawarkan",
+        "description": "Platform lengkap berbasis Nostr yang menyediakan semua yang Anda perlukan untuk menguasai Bitcoin.",
         "items": [
           {
             "icon": "📚",
-            "title": "Education",
-            "description": "Access structured courses covering Bitcoin fundamentals to advanced investment strategies and security."
+            "title": "Edukasi",
+            "description": "Akses kursus terstruktur yang membahas dasar Bitcoin hingga strategi investasi lanjutan dan keamanan."
           },
           {
             "icon": "👥",
-            "title": "Community",
-            "description": "Connect with committed bitcoiners, share experiences, create your own community and build professional networks on Nostr."
+            "title": "Komunitas",
+            "description": "Terhubung dengan bitcoiner berkomitmen, berbagi pengalaman, bangun komunitas sendiri, dan jaringan profesional di Nostr."
           },
           {
             "icon": "🛍️",
-            "title": "Store",
-            "description": "Access to curated products for bitcoiners: hardware wallets, technical literature, premium merchandise and specialized tools."
+            "title": "Toko",
+            "description": "Akses produk pilihan untuk bitcoiner: dompet keras, literatur teknis, merchandise premium, dan alat khusus."
           },
           {
             "icon": "💼",
-            "title": "Advisory Services",
-            "description": "Consult with experts on investment strategies, portfolio management and best practices in Bitcoin security."
+            "title": "Layanan konsultasi",
+            "description": "Konsultasi dengan pakar tentang strategi investasi, manajemen portofolio, dan praktik keamanan Bitcoin terbaik."
           }
         ]
       },
       "roadmap": {
-        "eyebrow": "Roadmap",
-        "title": "Ecosystem Roadmap",
+        "eyebrow": "Peta jalan",
+        "title": "Peta jalan ekosistem",
         "items": [
           {
-            "phase": "Phase 1: Live Now",
-            "focus": "Education, Community & Store",
-            "description": "Access to professional courses, Nostr community and specialized store. Everything ready for you to start your Bitcoin journey."
+            "phase": "Fase 1: Sudah aktif",
+            "focus": "Edukasi, Komunitas & Toko",
+            "description": "Akses ke kursus profesional, komunitas Nostr, dan toko khusus. Semua siap untuk memulai perjalanan Bitcoin Anda."
           },
           {
-            "phase": "Phase 2: Q1 2025",
-            "focus": "P2P Market",
-            "description": "Exchange Bitcoin and USDT directly between members. No intermediaries, total security and control."
+            "phase": "Fase 2: Q1 2025",
+            "focus": "Pasar P2P",
+            "description": "Tukar Bitcoin dan USDT langsung antar anggota. Tanpa perantara, keamanan dan kendali penuh."
           },
           {
-            "phase": "Phase 3: Q2 2025",
-            "focus": "Lending Solutions",
-            "description": "Access to Bitcoin financing options. Real investment opportunities for serious bitcoiners."
+            "phase": "Fase 3: Q2 2025",
+            "focus": "Solusi pinjaman",
+            "description": "Akses opsi pendanaan berbasis Bitcoin. Peluang nyata untuk bitcoiner serius."
           }
         ]
       },
       "events": {
-        "eyebrow": "Events",
-        "title": "Upcoming Events",
-        "cta": "Register",
+        "eyebrow": "Acara",
+        "title": "Acara mendatang",
+        "cta": "Daftar",
         "items": [
           {
             "day": "15",
             "month": "November",
-            "title": "Masterclass: Bitcoin Security",
-            "description": "Learn best practices to secure your Bitcoin. Live session with expert speakers.",
-            "subscribeMessage": "Sign up and we’ll let you know when this becomes available."
+            "title": "Masterclass: Keamanan Bitcoin",
+            "description": "Pelajari praktik terbaik mengamankan Bitcoin Anda. Sesi langsung dengan pemateri ahli.",
+            "subscribeMessage": "Daftar dan kami beri kabar saat tersedia."
           },
           {
             "day": "22",
             "month": "November",
-            "title": "Virtual Meetup: BTC Community",
-            "description": "Connect with bitcoiners from your region. Networking, Q&A in real time.",
-            "subscribeMessage": "Sign up and we’ll let you know when this becomes available."
+            "title": "Meetup virtual: Komunitas BTC",
+            "description": "Terhubung dengan bitcoiner di wilayah Anda. Networking dan tanya jawab langsung.",
+            "subscribeMessage": "Daftar dan kami beri kabar saat tersedia."
           },
           {
             "day": "30",
             "month": "November",
-            "title": "Workshop: Investment Strategies",
-            "description": "Build your Bitcoin investment strategy. Interactive session with live analysis.",
-            "subscribeMessage": "Sign up and we’ll let you know when this becomes available."
+            "title": "Lokakarya: Strategi investasi",
+            "description": "Bangun strategi investasi Bitcoin Anda. Sesi interaktif dengan analisis langsung.",
+            "subscribeMessage": "Daftar dan kami beri kabar saat tersedia."
           }
         ]
       },
       "pricing": {
-        "eyebrow": "Pricing",
-        "title": "Plans Designed for You",
-        "description": "Choose the plan that best fits your Bitcoin strategy.",
-        "recommended": "Recommended",
+        "eyebrow": "Harga",
+        "title": "Paket yang dirancang untuk Anda",
+        "description": "Pilih paket yang paling sesuai dengan strategi Bitcoin Anda.",
+        "recommended": "Direkomendasikan",
         "items": [
           {
-            "name": "Annual",
+            "name": "Tahunan",
             "price": "$5",
-            "highlight": "Billed annually ($60/year)",
-            "suffix": "/month",
+            "highlight": "Ditagih tahunan ($60/tahun)",
+            "suffix": "/bulan",
             "features": [
-              "Complete course library access",
-              "Unlimited Nostr community",
-              "Store access",
-              "1 professional consultation per month",
-              "Active referral program",
-              "Access to events and masterclasses"
+              "Akses penuh ke pustaka kursus",
+              "Komunitas Nostr tanpa batas",
+              "Akses toko",
+              "1 konsultasi profesional per bulan",
+              "Program referral aktif",
+              "Akses ke acara dan masterclass"
             ],
-            "cta": "Subscribe Now",
+            "cta": "Berlangganan sekarang",
             "accent": false
           },
           {
-            "name": "Lifetime",
+            "name": "Seumur hidup",
             "price": "$80",
-            "highlight": "Permanent and unlimited access",
-            "suffix": "/one time",
+            "highlight": "Akses permanen dan tidak terbatas",
+            "suffix": "/sekali bayar",
             "features": [
-              "Complete course library access",
-              "Unlimited Nostr community",
-              "Store access",
-              "Unlimited consultations",
-              "Premium referral program",
-              "Early access to P2P market",
-              "VIP events and exclusive networking"
+              "Akses penuh ke pustaka kursus",
+              "Komunitas Nostr tanpa batas",
+              "Akses toko",
+              "Konsultasi tanpa batas",
+              "Program referral premium",
+              "Akses awal ke pasar P2P",
+              "Acara VIP dan networking eksklusif"
             ],
-            "cta": "Get Lifetime",
+            "cta": "Dapatkan akses seumur hidup",
             "accent": true
           }
         ]
       },
       "cta": {
-        "eyebrow": "Take action",
-        "title": "Join the Bitcoin Era",
-        "description": "Access specialized education, advanced tools and a community of committed bitcoiners. Built for those who seek excellence.",
+        "eyebrow": "Ambil tindakan",
+        "title": "Bergabunglah dengan era Bitcoin",
+        "description": "Dapatkan edukasi khusus, alat canggih, dan komunitas bitcoiner yang berkomitmen. Dibuat untuk mereka yang mengejar keunggulan.",
         "cards": [
           {
-            "title": "🎯 Referrals",
-            "description": "Earn $20 per annual membership or $25 per lifetime you share with your network",
-            "cta": "Get Updates",
-            "subscribeMessage": "We’re working on referrals. Sign up to be notified when it’s ready."
+            "title": "🎯 Referral",
+            "description": "Dapatkan $20 per keanggotaan tahunan atau $25 per akses seumur hidup yang Anda bagikan ke jaringan Anda",
+            "cta": "Kirim kabar",
+            "subscribeMessage": "Kami sedang menyiapkan program referral. Daftar untuk diberi tahu saat siap."
           },
           {
-            "title": "🔗 Links",
-            "description": "Curated resources for professionals mastering the Bitcoin economy.",
-            "cta": "Keep Me Posted",
-            "subscribeMessage": "We’re building out curated links. Join the newsletter for updates."
+            "title": "🔗 Tautan",
+            "description": "Sumber terkurasi untuk profesional yang mendalami ekonomi Bitcoin.",
+            "cta": "Beritahu saya",
+            "subscribeMessage": "Kami sedang membangun daftar tautan terkurasi. Bergabunglah dengan buletin untuk pembaruan."
           },
           {
-            "title": "📊 Dashboards",
-            "description": "Manage your membership, track performance and unlock data-driven insights once your membership is active.",
-            "cta": "Explore Memberships",
+            "title": "📊 Dasbor",
+            "description": "Kelola keanggotaan, pantau performa, dan buka wawasan berbasis data setelah keanggotaan aktif.",
+            "cta": "Jelajahi keanggotaan",
             "href": "/memberships"
           }
         ]
@@ -587,74 +587,74 @@
   },
   "dashboard": {
     "common": {
-      "saved": "Saved",
-      "saving": "Saving…",
-      "copy": "Copy"
+      "saved": "Tersimpan",
+      "saving": "Menyimpan…",
+      "copy": "Salin"
     },
     "hero": {
-      "badge": "Welcome back",
-      "title": "Ready for your next breakthrough, {{name}}?",
-      "subtitle": "Keep stacking knowledge, unlocking modules, and building a streak that sticks. Your progress lives here.",
-      "logout": "Log out"
+      "badge": "Selamat datang kembali",
+      "title": "Siap untuk terobosan berikutnya, {{name}}?",
+      "subtitle": "Terus kumpulkan pengetahuan, buka modul, dan jaga streak belajar. Progres Anda tersimpan di sini.",
+      "logout": "Keluar"
     },
     "stats": {
       "points": {
-        "label": "Points",
-        "helper": "Cumulative sats-ready points earned"
+        "label": "Poin",
+        "helper": "Poin siap-sats yang telah diraih"
       },
       "streak": {
-        "label": "Study streak",
-        "helper": "Consecutive days showing up to learn"
+        "label": "Streak belajar",
+        "helper": "Jumlah hari berturut-turut belajar"
       },
       "lessons": {
-        "label": "Lessons",
-        "helper": "Total lessons conquered across all topics"
+        "label": "Pelajaran",
+        "helper": "Total pelajaran yang diselesaikan di semua topik"
       }
     },
     "account": {
-      "title": "Account overview",
+      "title": "Ringkasan akun",
       "email": "Email",
-      "username": "Username",
-      "userId": "User ID",
-      "screenName": "Screen name",
-      "screenNameHelper": "This name replaces your public key around the community. Make it friendly and easy to recognise.",
-      "screenNamePlaceholder": "SunnySpark310",
-      "avatarTip": "Tip: square images look best for your community avatar.",
-      "saveProfile": "Save profile",
-      "changePhoto": "Change",
-      "randomize": "Randomise",
-      "uploadPhoto": "Upload photo",
-      "avatarUploading": "Uploading photo…",
-      "avatarUpdated": "Profile photo updated!",
+      "username": "Nama pengguna",
+      "userId": "ID pengguna",
+      "screenName": "Nama tampilan",
+      "screenNameHelper": "Nama ini menggantikan kunci publik Anda di komunitas. Buat mudah dikenali.",
+      "screenNamePlaceholder": "CahayaCerlang310",
+      "avatarTip": "Tips: gambar persegi paling pas untuk avatar komunitas.",
+      "saveProfile": "Simpan profil",
+      "changePhoto": "Ubah",
+      "randomize": "Acak",
+      "uploadPhoto": "Unggah foto",
+      "avatarUploading": "Mengunggah foto…",
+      "avatarUpdated": "Foto profil diperbarui!",
       "errors": {
-        "authRequired": "You must be signed in to update your profile photo.",
-        "upload": "We were unable to upload that photo. Please try again.",
-        "profile": "Unable to update your profile details right now."
+        "authRequired": "Anda harus masuk untuk memperbarui foto profil.",
+        "upload": "Kami tidak dapat mengunggah foto itu. Coba lagi.",
+        "profile": "Profil tidak dapat diperbarui saat ini."
       }
     },
     "lightning": {
-      "label": "Lightning wallet address",
-      "helper": "Add a Lightning address (for example, {{example}}) so other members can send you sats directly from the community areas.",
-      "placeholder": "you@lightningaddress.com",
-      "save": "Save address",
+      "label": "Alamat dompet Lightning",
+      "helper": "Tambahkan alamat Lightning (misalnya {{example}}) agar anggota lain bisa mengirim sats langsung.",
+      "placeholder": "anda@lightningaddress.com",
+      "save": "Simpan alamat",
       "errors": {
-        "generic": "Unable to update your Lightning address right now."
+        "generic": "Alamat Lightning tidak bisa diperbarui sekarang."
       }
     },
     "messages": {
-      "title": "Direct messages",
-      "badge": "Private",
-      "description": "Jump straight into your encrypted conversations without leaving the dashboard.",
-      "cta": "Open messages",
-      "connectPrompt": "Add your Nostr public key in Settings to unlock the private inbox shortcut here."
+      "title": "Pesan langsung",
+      "badge": "Pribadi",
+      "description": "Masuk ke percakapan terenkripsi tanpa meninggalkan dasbor.",
+      "cta": "Buka pesan",
+      "connectPrompt": "Tambahkan kunci publik Nostr di Pengaturan untuk membuka pintasan kotak masuk pribadi di sini."
     },
     "nostr": {
-      "title": "Nostr credentials",
-      "description": "Securely manage your keys. Copy them when you need to plug into your favourite Nostr client.",
-      "public": "Public key",
-      "private": "Private key",
-      "connectPrompt": "Connect your Nostr keys in Settings to sync across the ecosystem.",
-      "privateSrOnly": "Private key hidden for security. Use the copy button to copy it when needed."
+      "title": "Kredensial Nostr",
+      "description": "Kelola kunci Anda dengan aman. Salin saat perlu menggunakannya di klien Nostr favorit.",
+      "public": "Kunci publik",
+      "private": "Kunci privat",
+      "connectPrompt": "Sambungkan kunci Nostr Anda di Pengaturan untuk sinkron di seluruh ekosistem.",
+      "privateSrOnly": "Kunci privat disembunyikan demi keamanan. Gunakan tombol salin saat diperlukan."
     }
   }
 }

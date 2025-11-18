@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { Copy, Flame, Layers, LogOut, MessageCircle, Sparkles, Trophy } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { updateProfileSettings } from '../api/account';
 import { uploadProfileAvatar } from '../api/media';
@@ -9,6 +10,7 @@ import { generateScreenName, normalizeAvatarUrl, normalizeScreenName } from '../
 import { COMMUNITY_MESSAGES_PATH } from '../utils/routes';
 
 export default function Dashboard() {
+  const { t } = useTranslation();
   const { user, logout, nostrPrivKey, token, updateUser } = useAuth();
   const nav = useNavigate();
 
@@ -56,6 +58,11 @@ export default function Dashboard() {
     );
   }, [user.lessonCompletions]);
 
+  const heroTitle = t('dashboard.hero.title', {
+    name: user.screenName || user.username || user.email,
+  });
+  const heroSubtitle = t('dashboard.hero.subtitle');
+
   function handleLogout() {
     logout();
     nav('/');
@@ -81,7 +88,7 @@ export default function Dashboard() {
       } catch (error) {
         setLightningStatus('error');
         setLightningError(
-          error instanceof Error ? error.message : 'Unable to update your Lightning address right now.',
+          error instanceof Error ? error.message : t('dashboard.lightning.errors.generic'),
         );
       }
     },
@@ -93,7 +100,7 @@ export default function Dashboard() {
       const file = event.target.files?.[0];
       if (!file) return;
       if (!user || !token) {
-        const message = 'You must be signed in to update your profile photo.';
+        const message = t('dashboard.account.errors.authRequired');
         setAvatarUploadStatus('error');
         setAvatarUploadError(message);
         event.target.value = '';
@@ -136,9 +143,7 @@ export default function Dashboard() {
       } catch (error) {
         console.error('Profile photo upload failed', error);
         const message =
-          error instanceof Error
-            ? error.message
-            : 'We were unable to upload that photo. Please try again.';
+          error instanceof Error ? error.message : t('dashboard.account.errors.upload');
         setAvatarUploadStatus('error');
         setAvatarUploadError(message);
         setProfileStatus('error');
@@ -184,7 +189,7 @@ export default function Dashboard() {
       } catch (error) {
         setProfileStatus('error');
         setProfileError(
-          error instanceof Error ? error.message : 'Unable to update your profile details right now.',
+          error instanceof Error ? error.message : t('dashboard.account.errors.profile'),
         );
       }
     },
@@ -236,13 +241,13 @@ export default function Dashboard() {
             <div>
               <span className="inline-flex items-center gap-2 rounded-full bg-brand/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-brand dark:bg-brand/20">
                 <Sparkles className="h-4 w-4" />
-                Welcome back
+                {t('dashboard.hero.badge')}
               </span>
               <h2 className="mt-6 text-3xl font-semibold leading-tight sm:text-4xl lg:text-5xl">
-                Ready for your next breakthrough, {user.screenName || user.username || user.email}?
+                {heroTitle}
               </h2>
               <p className="mt-4 max-w-2xl text-base text-neutral-600 dark:text-neutral-300">
-                Keep stacking knowledge, unlocking modules, and building a streak that sticks. Your progress lives here.
+                {heroSubtitle}
               </p>
             </div>
             <button
@@ -251,62 +256,62 @@ export default function Dashboard() {
               className="inline-flex items-center gap-2 self-start rounded-full bg-brand px-5 py-2 text-sm font-semibold uppercase tracking-[0.3em] text-white transition hover:bg-brand/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
             >
               <LogOut className="h-4 w-4" />
-              Log out
+              {t('dashboard.hero.logout')}
             </button>
           </div>
 
           <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <article className="flex flex-col gap-4 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm transition-colors dark:border-neutral-800 dark:bg-neutral-900">
               <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">
-                Points
+                {t('dashboard.stats.points.label')}
                 <span className="flex h-10 w-10 items-center justify-center rounded-full bg-brand text-white">
                   <Trophy className="h-5 w-5" />
                 </span>
               </div>
               <p className="text-4xl font-semibold text-neutral-900 dark:text-neutral-50">{formattedPoints}</p>
-              <p className="text-sm text-neutral-600 dark:text-neutral-300">Cumulative sats-ready points earned</p>
+              <p className="text-sm text-neutral-600 dark:text-neutral-300">{t('dashboard.stats.points.helper')}</p>
             </article>
 
             <article className="flex flex-col gap-4 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm transition-colors dark:border-neutral-800 dark:bg-neutral-900">
               <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">
-                Study streak
+                {t('dashboard.stats.streak.label')}
                 <span className="flex h-10 w-10 items-center justify-center rounded-full bg-brand text-white">
                   <Flame className="h-5 w-5" />
                 </span>
               </div>
               <p className="text-4xl font-semibold text-neutral-900 dark:text-neutral-50">{normalizedStreak}</p>
-              <p className="text-sm text-neutral-600 dark:text-neutral-300">Consecutive days showing up to learn</p>
+              <p className="text-sm text-neutral-600 dark:text-neutral-300">{t('dashboard.stats.streak.helper')}</p>
             </article>
 
             <article className="flex flex-col gap-4 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm transition-colors dark:border-neutral-800 dark:bg-neutral-900">
               <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">
-                Lessons
+                {t('dashboard.stats.lessons.label')}
                 <span className="flex h-10 w-10 items-center justify-center rounded-full bg-brand text-white">
                   <Layers className="h-5 w-5" />
                 </span>
               </div>
               <p className="text-4xl font-semibold text-neutral-900 dark:text-neutral-50">{lessonsCompleted}</p>
-              <p className="text-sm text-neutral-600 dark:text-neutral-300">Total lessons conquered across all topics</p>
+              <p className="text-sm text-neutral-600 dark:text-neutral-300">{t('dashboard.stats.lessons.helper')}</p>
             </article>
           </div>
         </header>
 
         <section className="grid gap-6 lg:grid-cols-2">
           <div className="rounded-3xl border border-neutral-200 bg-white p-8 shadow-sm transition-colors dark:border-neutral-800 dark:bg-neutral-900">
-            <h3 className="text-xl font-semibold">Account overview</h3>
+            <h3 className="text-xl font-semibold">{t('dashboard.account.title')}</h3>
             <dl className="mt-6 space-y-5 text-sm text-neutral-600 dark:text-neutral-300">
               <div className="flex flex-col gap-1 rounded-2xl border border-neutral-200 bg-neutral-50 p-4 transition-colors dark:border-neutral-800 dark:bg-neutral-950/40">
-                <dt className="text-xs uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">Email</dt>
+                <dt className="text-xs uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">{t('dashboard.account.email')}</dt>
                 <dd className="break-words text-base font-medium text-neutral-900 dark:text-neutral-100">{user.email}</dd>
               </div>
               {user.username && (
                 <div className="flex flex-col gap-1 rounded-2xl border border-neutral-200 bg-neutral-50 p-4 transition-colors dark:border-neutral-800 dark:bg-neutral-950/40">
-                  <dt className="text-xs uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">Username</dt>
+                  <dt className="text-xs uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">{t('dashboard.account.username')}</dt>
                   <dd className="break-words text-base font-medium text-neutral-900 dark:text-neutral-100">{user.username}</dd>
                 </div>
               )}
               <div className="flex flex-col gap-1 rounded-2xl border border-neutral-200 bg-neutral-50 p-4 transition-colors dark:border-neutral-800 dark:bg-neutral-950/40">
-                <dt className="text-xs uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">User ID</dt>
+                <dt className="text-xs uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">{t('dashboard.account.userId')}</dt>
                 <dd className="break-words text-base font-medium text-neutral-900 dark:text-neutral-100">{user.id}</dd>
               </div>
             </dl>
@@ -328,29 +333,29 @@ export default function Dashboard() {
                     onClick={openAvatarPicker}
                     className="absolute inset-x-2 bottom-2 rounded-full bg-neutral-900/70 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-white shadow-md transition hover:bg-neutral-900/90"
                   >
-                    Change
+                    {t('dashboard.account.changePhoto')}
                   </button>
                 </div>
                 <div className="flex-1 space-y-3">
                   <div className="flex items-center justify-between">
                     <label htmlFor="screen-name" className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">
-                      Screen name
+                      {t('dashboard.account.screenName')}
                     </label>
                     {profileStatus === 'success' && (
                       <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-500">
-                        Saved
+                        {t('dashboard.common.saved')}
                       </span>
                     )}
                   </div>
                   <p className="text-xs text-neutral-600 dark:text-neutral-300">
-                    This name replaces your public key around the community. Make it friendly and easy to recognise.
+                    {t('dashboard.account.screenNameHelper')}
                   </p>
                   <input
                     id="screen-name"
                     value={screenName}
                     onChange={handleScreenNameChange}
                     className="w-full rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 transition focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
-                    placeholder="SunnySpark310"
+                    placeholder={t('dashboard.account.screenNamePlaceholder')}
                     maxLength={40}
                     autoComplete="off"
                   />
@@ -361,14 +366,14 @@ export default function Dashboard() {
                         onClick={handleRandomizeName}
                         className="rounded-full border border-neutral-300 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-600 transition hover:border-brand hover:text-brand dark:border-neutral-700 dark:text-neutral-200"
                       >
-                        Randomise
+                        {t('dashboard.account.randomize')}
                       </button>
                       <button
                         type="button"
                         onClick={openAvatarPicker}
                         className="rounded-full border border-brand/40 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-brand transition hover:border-brand"
                       >
-                        Upload photo
+                        {t('dashboard.account.uploadPhoto')}
                       </button>
                     </div>
                   )}
@@ -392,10 +397,10 @@ export default function Dashboard() {
               {(avatarUploadStatus === 'uploading' || avatarUploadStatus === 'success' || avatarUploadStatus === 'error') && (
                 <div className="mt-2 space-y-1">
                   {avatarUploadStatus === 'uploading' && (
-                    <p className="text-xs text-neutral-500">Uploading photo…</p>
+                    <p className="text-xs text-neutral-500">{t('dashboard.account.avatarUploading')}</p>
                   )}
                   {avatarUploadStatus === 'success' && (
-                    <p className="text-xs text-emerald-500">Profile photo updated!</p>
+                    <p className="text-xs text-emerald-500">{t('dashboard.account.avatarUpdated')}</p>
                   )}
                   {avatarUploadStatus === 'error' && avatarUploadError && (
                     <p className="text-xs text-red-500">{avatarUploadError}</p>
@@ -412,14 +417,14 @@ export default function Dashboard() {
                   onChange={handleAvatarFileChange}
                 />
                 <span className="text-xs text-neutral-500 dark:text-neutral-400">
-                  Tip: square images look best for your community avatar.
+                  {t('dashboard.account.avatarTip')}
                 </span>
                 <button
                   type="submit"
                   disabled={isProfileSaving || avatarUploadStatus === 'uploading' || !token}
                   className="inline-flex items-center justify-center rounded-full bg-brand px-5 py-2 text-sm font-semibold uppercase tracking-[0.3em] text-white transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:bg-brand/40"
                 >
-                  {isProfileSaving ? 'Saving…' : 'Save profile'}
+                  {isProfileSaving ? t('dashboard.common.saving') : t('dashboard.account.saveProfile')}
                 </button>
               </div>
             </form>
@@ -427,16 +432,16 @@ export default function Dashboard() {
             <form onSubmit={handleLightningSubmit} className="mt-6 space-y-3 rounded-2xl border border-neutral-200 bg-neutral-50 p-4 transition-colors dark:border-neutral-800 dark:bg-neutral-950/40">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <label htmlFor="lightning-address" className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">
-                  Lightning wallet address
+                  {t('dashboard.lightning.label')}
                 </label>
                 {lightningStatus === 'success' && (
                   <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-500">
-                    Saved
+                    {t('dashboard.common.saved')}
                   </span>
                 )}
               </div>
               <p className="text-xs text-neutral-600 dark:text-neutral-300">
-                Add a Lightning address (for example, <code className="font-mono">name@provider.com</code>) so other members can send you sats directly from the community areas.
+                {t('dashboard.lightning.helper', { example: 'name@provider.com' })}
               </p>
               <div className="flex flex-col gap-3 sm:flex-row">
                 <input
@@ -449,7 +454,7 @@ export default function Dashboard() {
                       setLightningStatus('idle');
                     }
                   }}
-                  placeholder="you@lightningaddress.com"
+                  placeholder={t('dashboard.lightning.placeholder')}
                   className="w-full flex-1 rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 transition focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
                   autoComplete="off"
                 />
@@ -458,7 +463,7 @@ export default function Dashboard() {
                   disabled={isLightningSaving || !token}
                   className="inline-flex items-center justify-center rounded-full bg-brand px-5 py-2 text-sm font-semibold uppercase tracking-[0.3em] text-white transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:bg-brand/40"
                 >
-                  {isLightningSaving ? 'Saving…' : 'Save address'}
+                  {isLightningSaving ? t('dashboard.common.saving') : t('dashboard.lightning.save')}
                 </button>
               </div>
             {lightningError && (
@@ -468,13 +473,13 @@ export default function Dashboard() {
 
           <div className="flex flex-col gap-4 rounded-3xl border border-neutral-200 bg-white p-8 shadow-sm transition-colors dark:border-neutral-800 dark:bg-neutral-900">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h3 className="text-xl font-semibold">Direct messages</h3>
+              <h3 className="text-xl font-semibold">{t('dashboard.messages.title')}</h3>
               <span className="rounded-full bg-brand/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-brand">
-                Private
+                {t('dashboard.messages.badge')}
               </span>
             </div>
             <p className="text-sm text-neutral-600 dark:text-neutral-300">
-              Jump straight into your encrypted conversations without leaving the dashboard.
+              {t('dashboard.messages.description')}
             </p>
             {user.nostrPublicKey ? (
               <Link
@@ -482,53 +487,53 @@ export default function Dashboard() {
                 className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand px-5 py-2 text-sm font-semibold uppercase tracking-[0.3em] text-white transition hover:bg-brand/90"
               >
                 <MessageCircle className="h-4 w-4" />
-                Open messages
+                {t('dashboard.messages.cta')}
               </Link>
             ) : (
               <div className="rounded-2xl border border-dashed border-neutral-300 bg-neutral-50 p-4 text-sm text-neutral-600 transition-colors dark:border-neutral-700 dark:bg-neutral-950/40 dark:text-neutral-300">
-                Add your Nostr public key in Settings to unlock the private inbox shortcut here.
+                {t('dashboard.messages.connectPrompt')}
               </div>
             )}
           </div>
         </div>
 
         <div className="flex flex-col gap-4 rounded-3xl border border-neutral-200 bg-white p-8 shadow-sm transition-colors dark:border-neutral-800 dark:bg-neutral-900">
-          <h3 className="text-xl font-semibold">Nostr credentials</h3>
+          <h3 className="text-xl font-semibold">{t('dashboard.nostr.title')}</h3>
             <p className="text-sm text-neutral-600 dark:text-neutral-300">
-              Securely manage your keys. Copy them when you need to plug into your favourite Nostr client.
+              {t('dashboard.nostr.description')}
             </p>
             {user.nostrPublicKey ? (
               <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4 transition-colors dark:border-neutral-800 dark:bg-neutral-950/40">
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <span className="text-xs uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">Public key</span>
+                  <span className="text-xs uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">{t('dashboard.nostr.public')}</span>
                   <button
                     type="button"
                     onClick={() => navigator.clipboard.writeText(user.nostrPublicKey || '')}
                     className="inline-flex items-center gap-2 rounded-full bg-brand px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-white transition hover:bg-brand/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                   >
                     <Copy className="h-3.5 w-3.5" />
-                    Copy
+                    {t('dashboard.common.copy')}
                   </button>
                 </div>
                 <p className="mt-3 break-all text-sm font-mono text-neutral-900 dark:text-neutral-100">{user.nostrPublicKey}</p>
               </div>
             ) : (
               <div className="rounded-2xl border border-dashed border-neutral-300 bg-neutral-50 p-4 text-sm text-neutral-600 transition-colors dark:border-neutral-700 dark:bg-neutral-950/40 dark:text-neutral-300">
-                Connect your Nostr keys in Settings to sync across the ecosystem.
+                {t('dashboard.nostr.connectPrompt')}
               </div>
             )}
 
             {nostrPrivKey && (
               <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4 transition-colors dark:border-neutral-800 dark:bg-neutral-950/40">
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <span className="text-xs uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">Private key</span>
+                  <span className="text-xs uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">{t('dashboard.nostr.private')}</span>
                   <button
                     type="button"
                     onClick={() => navigator.clipboard.writeText(nostrPrivKey)}
                     className="inline-flex items-center gap-2 rounded-full bg-brand px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-white transition hover:bg-brand/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                   >
                     <Copy className="h-3.5 w-3.5" />
-                    Copy
+                    {t('dashboard.common.copy')}
                   </button>
                 </div>
                 <p
@@ -538,7 +543,7 @@ export default function Dashboard() {
                   {nostrPrivKey}
                 </p>
                 <span className="sr-only">
-                  Private key hidden for security. Use the copy button to copy it when needed.
+                  {t('dashboard.nostr.privateSrOnly')}
                 </span>
               </div>
             )}

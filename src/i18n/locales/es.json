@@ -6,7 +6,8 @@
     "newPasswordPlaceholder": "Nueva contraseña",
     "confirmPasswordPlaceholder": "Confirmar contraseña",
     "sendResetLink": "Enviar enlace de restablecimiento",
-    "updatePassword": "Actualizar contraseña"
+    "updatePassword": "Actualizar contraseña",
+    "loading": "Cargando…"
   },
   "nav": {
     "home": "Inicio",
@@ -208,7 +209,190 @@
   },
   "home": {
     "error": "No se pudo cargar la página de inicio.",
-    "imagePlaceholder": "Imagen disponible próximamente"
+    "imagePlaceholder": "Imagen disponible próximamente",
+    "hero": {
+      "eyebrow": "Construido sobre Nostr • Solo BTC",
+      "title": "El ecosistema Bitcoin",
+      "highlight": "que necesitas",
+      "description": "Educación profesional, comunidad en Nostr y herramientas. Una plataforma completa para bitcoiners serios.",
+      "primaryCta": "Únete a la comunidad",
+      "secondaryCta": "Ver cómo funciona",
+      "stats": {
+        "members": "Miembros activos",
+        "courses": "Cursos",
+        "unavailable": "-"
+      }
+    },
+    "sections": {
+      "howItWorks": {
+        "eyebrow": "Cómo funciona",
+        "title": "Cómo funciona BitcoinSquare",
+        "items": [
+          {
+            "step": "1️⃣",
+            "title": "Regístrate",
+            "description": "Crea tu cuenta y accede mediante Nostr. Control total y privacidad garantizada."
+          },
+          {
+            "step": "2️⃣",
+            "title": "Elige tu plan",
+            "description": "Membresía anual (5 $/mes) o acceso de por vida (80 $). Ambos con acceso completo desde el primer día."
+          },
+          {
+            "step": "3️⃣",
+            "title": "Accede al ecosistema",
+            "description": "Educación, comunidad, tienda y asesoría. Todo integrado en una plataforma profesional."
+          },
+          {
+            "step": "4️⃣",
+            "title": "Monetiza",
+            "description": "Participa, crece y genera ingresos. Programa de referidos con comisiones atractivas."
+          }
+        ]
+      },
+      "offerings": {
+        "eyebrow": "Plataforma",
+        "title": "Lo que ofrecemos",
+        "description": "Una plataforma completa construida sobre Nostr que te da todo lo que necesitas para dominar Bitcoin.",
+        "items": [
+          {
+            "icon": "📚",
+            "title": "Educación",
+            "description": "Accede a cursos estructurados que cubren desde fundamentos de Bitcoin hasta estrategias avanzadas y seguridad."
+          },
+          {
+            "icon": "👥",
+            "title": "Comunidad",
+            "description": "Conecta con bitcoiners comprometidos, comparte experiencias, crea tu propia comunidad y construye redes profesionales en Nostr."
+          },
+          {
+            "icon": "🛍️",
+            "title": "Tienda",
+            "description": "Acceso a productos seleccionados para bitcoiners: hardware wallets, literatura técnica, mercancía premium y herramientas especializadas."
+          },
+          {
+            "icon": "💼",
+            "title": "Servicios de asesoría",
+            "description": "Consulta con expertos sobre estrategias de inversión, gestión de portafolio y mejores prácticas de seguridad en Bitcoin."
+          }
+        ]
+      },
+      "roadmap": {
+        "eyebrow": "Hoja de ruta",
+        "title": "Hoja de ruta del ecosistema",
+        "items": [
+          {
+            "phase": "Fase 1: Disponible ahora",
+            "focus": "Educación, Comunidad y Tienda",
+            "description": "Acceso a cursos profesionales, comunidad en Nostr y tienda especializada. Todo listo para iniciar tu camino en Bitcoin."
+          },
+          {
+            "phase": "Fase 2: 1.º trimestre 2025",
+            "focus": "Mercado P2P",
+            "description": "Intercambia Bitcoin y USDT directamente entre miembros. Sin intermediarios, con seguridad y control total."
+          },
+          {
+            "phase": "Fase 3: 2.º trimestre 2025",
+            "focus": "Soluciones de préstamos",
+            "description": "Acceso a opciones de financiamiento en Bitcoin. Oportunidades reales para bitcoiners serios."
+          }
+        ]
+      },
+      "events": {
+        "eyebrow": "Eventos",
+        "title": "Próximos eventos",
+        "cta": "Regístrate",
+        "items": [
+          {
+            "day": "15",
+            "month": "Noviembre",
+            "title": "Masterclass: Seguridad en Bitcoin",
+            "description": "Aprende las mejores prácticas para proteger tu Bitcoin. Sesión en vivo con expertos.",
+            "subscribeMessage": "Regístrate y te avisaremos cuando esté disponible."
+          },
+          {
+            "day": "22",
+            "month": "Noviembre",
+            "title": "Encuentro virtual: Comunidad BTC",
+            "description": "Conecta con bitcoiners de tu región. Networking y preguntas en vivo.",
+            "subscribeMessage": "Regístrate y te avisaremos cuando esté disponible."
+          },
+          {
+            "day": "30",
+            "month": "Noviembre",
+            "title": "Taller: Estrategias de inversión",
+            "description": "Diseña tu estrategia de inversión en Bitcoin. Sesión interactiva con análisis en vivo.",
+            "subscribeMessage": "Regístrate y te avisaremos cuando esté disponible."
+          }
+        ]
+      },
+      "pricing": {
+        "eyebrow": "Precios",
+        "title": "Planes diseñados para ti",
+        "description": "Elige el plan que mejor se adapte a tu estrategia con Bitcoin.",
+        "recommended": "Recomendado",
+        "items": [
+          {
+            "name": "Anual",
+            "price": "$5",
+            "highlight": "Facturación anual (60 $ al año)",
+            "suffix": "/mes",
+            "features": [
+              "Acceso completo a la biblioteca de cursos",
+              "Comunidad Nostr ilimitada",
+              "Acceso a la tienda",
+              "1 consulta profesional al mes",
+              "Programa de referidos activo",
+              "Acceso a eventos y masterclasses"
+            ],
+            "cta": "Suscríbete ahora",
+            "accent": false
+          },
+          {
+            "name": "De por vida",
+            "price": "$80",
+            "highlight": "Acceso permanente e ilimitado",
+            "suffix": "/pago único",
+            "features": [
+              "Acceso completo a la biblioteca de cursos",
+              "Comunidad Nostr ilimitada",
+              "Acceso a la tienda",
+              "Consultas ilimitadas",
+              "Programa de referidos premium",
+              "Acceso anticipado al mercado P2P",
+              "Eventos VIP y networking exclusivo"
+            ],
+            "cta": "Obtener acceso de por vida",
+            "accent": true
+          }
+        ]
+      },
+      "cta": {
+        "eyebrow": "Actúa",
+        "title": "Únete a la era Bitcoin",
+        "description": "Accede a educación especializada, herramientas avanzadas y una comunidad de bitcoiners comprometidos. Diseñado para quienes buscan excelencia.",
+        "cards": [
+          {
+            "title": "🎯 Referidos",
+            "description": "Gana 20 $ por membresía anual o 25 $ por membresía de por vida que compartas con tu red",
+            "cta": "Quiero novedades",
+            "subscribeMessage": "Estamos trabajando en el programa de referidos. Regístrate para saber cuando esté listo."
+          },
+          {
+            "title": "🔗 Enlaces",
+            "description": "Recursos seleccionados para profesionales que dominan la economía Bitcoin.",
+            "cta": "Avísame",
+            "subscribeMessage": "Estamos construyendo los enlaces curados. Únete al boletín para recibir actualizaciones."
+          },
+          {
+            "title": "📊 Paneles",
+            "description": "Administra tu membresía, sigue tu desempeño y desbloquea insights una vez que esté activa.",
+            "cta": "Explorar membresías",
+            "href": "/memberships"
+          }
+        ]
+      }
+    }
   },
   "blog": {
     "title": "Blog",
@@ -399,6 +583,78 @@
         "invalidCode": "Código de verificación inválido.",
         "network": "No pudimos conectar con el servidor. Inténtalo de nuevo."
       }
+    }
+  },
+  "dashboard": {
+    "common": {
+      "saved": "Guardado",
+      "saving": "Guardando…",
+      "copy": "Copiar"
+    },
+    "hero": {
+      "badge": "Bienvenido de nuevo",
+      "title": "¿Listo para tu próximo avance, {{name}}?",
+      "subtitle": "Sigue acumulando conocimiento, desbloqueando módulos y manteniendo tu racha. Tu progreso vive aquí.",
+      "logout": "Cerrar sesión"
+    },
+    "stats": {
+      "points": {
+        "label": "Puntos",
+        "helper": "Puntos listos para sats acumulados"
+      },
+      "streak": {
+        "label": "Racha de estudio",
+        "helper": "Días consecutivos aprendiendo"
+      },
+      "lessons": {
+        "label": "Lecciones",
+        "helper": "Total de lecciones completadas en todos los temas"
+      }
+    },
+    "account": {
+      "title": "Resumen de cuenta",
+      "email": "Correo",
+      "username": "Usuario",
+      "userId": "ID de usuario",
+      "screenName": "Nombre público",
+      "screenNameHelper": "Este nombre reemplaza tu clave pública en la comunidad. Hazlo amigable y fácil de reconocer.",
+      "screenNamePlaceholder": "SolBrillante310",
+      "avatarTip": "Consejo: las imágenes cuadradas se ven mejor como avatar.",
+      "saveProfile": "Guardar perfil",
+      "changePhoto": "Cambiar",
+      "randomize": "Aleatorizar",
+      "uploadPhoto": "Subir foto",
+      "avatarUploading": "Subiendo foto…",
+      "avatarUpdated": "¡Foto de perfil actualizada!",
+      "errors": {
+        "authRequired": "Debes iniciar sesión para actualizar tu foto de perfil.",
+        "upload": "No pudimos subir esa foto. Inténtalo de nuevo.",
+        "profile": "No se pudo actualizar tu perfil en este momento."
+      }
+    },
+    "lightning": {
+      "label": "Dirección de Lightning",
+      "helper": "Añade una dirección Lightning (por ejemplo, {{example}}) para que otros miembros te envíen sats directamente desde la comunidad.",
+      "placeholder": "tu@lightningaddress.com",
+      "save": "Guardar dirección",
+      "errors": {
+        "generic": "No pudimos actualizar tu dirección Lightning en este momento."
+      }
+    },
+    "messages": {
+      "title": "Mensajes directos",
+      "badge": "Privado",
+      "description": "Entra directo a tus conversaciones cifradas sin salir del panel.",
+      "cta": "Abrir mensajes",
+      "connectPrompt": "Agrega tu clave pública de Nostr en Configuración para activar el acceso directo al buzón privado."
+    },
+    "nostr": {
+      "title": "Credenciales Nostr",
+      "description": "Administra tus llaves con seguridad. Cópialas cuando necesites usarlas en tu cliente Nostr favorito.",
+      "public": "Clave pública",
+      "private": "Clave privada",
+      "connectPrompt": "Conecta tus llaves Nostr en Configuración para sincronizar en todo el ecosistema.",
+      "privateSrOnly": "Clave privada oculta por seguridad. Usa el botón Copiar cuando la necesites."
     }
   }
 }

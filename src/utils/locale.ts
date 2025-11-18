@@ -1,4 +1,4 @@
-const SUPPORTED_LOCALES = ["en", "es"] as const;
+export const SUPPORTED_LOCALES = ["en", "es", "id", "th", "ru"] as const;
 
 const LOCALE_STORAGE_KEY = "pref:locale";
 
@@ -14,6 +14,9 @@ export function normalizeLocale(value?: string | null): AppLocale | undefined {
   if (!value || typeof value !== "string") return undefined;
   const normalized = sanitizeLocale(value);
   if (normalized.startsWith("es")) return "es";
+  if (normalized.startsWith("id")) return "id";
+  if (normalized.startsWith("th")) return "th";
+  if (normalized.startsWith("ru")) return "ru";
   if (normalized.startsWith("en")) return "en";
   return undefined;
 }
@@ -130,11 +133,10 @@ function detectEnvironmentLocale(): AppLocale | undefined {
 }
 
 export function detectPreferredLocale(): AppLocale {
-  return (
-    readPersistedLocale() ||
+  const runtimeLocale =
     detectNavigatorLocale() ||
     detectIntlLocale() ||
-    detectEnvironmentLocale() ||
-    DEFAULT_LOCALE
-  );
+    detectEnvironmentLocale();
+
+  return runtimeLocale || readPersistedLocale() || DEFAULT_LOCALE;
 }
