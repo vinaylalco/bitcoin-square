@@ -1,0 +1,404 @@
+{
+  "common": {
+    "language": "ภาษา",
+    "emailPlaceholder": "Email",
+    "passwordPlaceholder": "Password",
+    "newPasswordPlaceholder": "New password",
+    "confirmPasswordPlaceholder": "Confirm password",
+    "sendResetLink": "Send reset link",
+    "updatePassword": "Update Password"
+  },
+  "nav": {
+    "home": "หน้าแรก",
+    "education": "การศึกษา",
+    "shop": "ร้านค้า",
+    "membership": "สมาชิก",
+    "messages": "ข้อความ",
+    "newsletter": "จดหมายข่าว",
+    "community": "ชุมชน",
+    "settings": "การตั้งค่า",
+    "dashboard": "แดชบอร์ด",
+    "login": "เข้าสู่ระบบ",
+    "logout": "ออกจากระบบ"
+  },
+  "community": {
+    "tabs": {
+      "chat": "Chat",
+      "forum": "Forum",
+      "personal": "Your Feed",
+      "notifications": "Notifications",
+      "messages": "Messages",
+      "members": "Members"
+    }
+  },
+  "app": {
+    "btcFullCourse": "BTC Full Course",
+    "brandTagline": "Crafted with conviction.",
+    "mobileMenu": {
+      "title": "Menu",
+      "close": "Close",
+      "openAria": "Open menu",
+      "closeAria": "Close menu",
+      "ariaLabel": "Main menu",
+      "toggleEducation": "Toggle education submenu"
+    }
+  },
+  "settings": {
+    "label": "Settings",
+    "title": "Tailor your experience",
+    "description": "Switch themes instantly and keep sound preferences locked in. Minimal interfaces, lightning-fast feedback.",
+    "theme": {
+      "title": "Theme",
+      "description": "Choose a light or dark palette crafted around red, black, and white.",
+      "light": "Light",
+      "dark": "Dark",
+      "toggle": "Toggle"
+    },
+    "language": {
+      "title": "ภาษา",
+      "description": "สลับภาษาสำหรับอินเทอร์เฟซของคุณ.",
+      "english": "English",
+      "spanish": "Español"
+    },
+    "sound": {
+      "title": "Sound",
+      "label": "Thunder sound",
+      "description": "Play a thunder strike whenever you earn new points.",
+      "toggleAria": "Toggle thunder sound",
+      "helper": "This sound effect is off by default and saved to your preferences."
+    }
+  },
+  "shop": {
+    "label": "Shop",
+    "title": "Tools built for Bitcoiners",
+    "description": "",
+    "error": "Failed to load products."
+  },
+  "courses": {
+    "label": "Education Hub",
+    "title": "Courses engineered for clarity and more effective learning",
+    "description": "Our courses incorporate neurological principles to help you learn more effectively. Customize lessons based on your 'learning style,' and prioritize the topics that interest you most so you stay engaged from the very start.",
+    "error": "Failed to load courses."
+  },
+  "newsletter": {
+    "label": "Newsletter",
+    "title": "Stay ahead without the noise",
+    "description": "No spam, just essential updates, new lessons, and product drops.",
+    "form": {
+      "emailLabel": "Email",
+      "emailPlaceholder": "you@example.com",
+      "invalidEmail": "Please enter a valid email.",
+      "subscribe": "Subscribe",
+      "unsubscribe": "Unsubscribe"
+    },
+    "status": {
+      "subscribeSuccess": "Subscribed successfully!",
+      "subscribeError": "Subscription failed.",
+      "unsubscribeSuccess": "Unsubscribed successfully.",
+      "unsubscribeError": "Unsubscribe failed."
+    }
+  },
+  "membership": {
+    "badge": "Membership",
+    "title": "Support Bitcoin Square & unlock perks",
+    "description": "Become a member to fund community learning initiatives and access exclusive releases.",
+    "benefits": {
+      "one": "Fund new lessons, workshops, and translations for the community.",
+      "two": "Receive early access to private events, drops, and behind-the-scenes updates.",
+      "three": "Keep Bitcoin Square independent, community-driven, and focused on education."
+    },
+    "form": {
+      "emailLabel": "Email",
+      "emailPlaceholder": "you@example.com",
+      "usingAccount": "Using your account email. Update it if you'd like to use a different address.",
+      "submit": "Start checkout",
+      "pending": "Redirecting…",
+      "annual": "$60 / year",
+      "lifetime": "$80 lifetime"
+    },
+    "portal": {
+      "tabs": {
+        "login": "Log In",
+        "signup": "Sign Up"
+      },
+      "login": {
+        "title": "Already a member?",
+        "subtitle": "Sign in to reach the community and your saved progress.",
+        "submit": "Log In",
+        "pending": "Signing in…",
+        "forgot": "Forgot password?"
+      },
+      "signup": {
+        "title": "Join Bitcoin Square",
+        "subtitle": "Create your account, choose a plan, and complete checkout to unlock access.",
+        "submit": "Continue to checkout",
+        "pending": "Preparing checkout…",
+        "planLabel": "Choose your membership"
+      },
+      "inputs": {
+        "email": "Email",
+        "password": "Password"
+      },
+      "planLabels": {
+        "annual": "Annual membership",
+        "lifetime": "Lifetime membership"
+      },
+      "passwordHint": "Use at least {{count}} characters.",
+      "successMessage": "Checkout opened in a new tab. Complete your payment to continue.",
+      "alreadySignedIn": "You're already signed in. Jump back into the community any time.",
+      "benefitsTitle": "Why members join",
+      "errors": {
+        "loginInvalid": "Incorrect email or password.",
+        "loginGeneric": "We couldn't log you in. Please try again.",
+        "signupGeneric": "We couldn't create your account. Please try again.",
+        "passwordLength": "Password must be at least {{count}} characters.",
+        "network": "We couldn't reach the server. Check your connection and try again.",
+        "emailTaken": "Email already registered — try logging in instead.",
+        "discountExpired": "Discount code expired.",
+        "invalidCode": "Invalid verification code."
+      }
+    },
+    "nowpaymentsNote": "Redirects to secure checkout (NowPayments).",
+    "errors": {
+      "invalidEmail": "Enter a valid email to continue.",
+      "missingRedirect": "Membership checkout link was missing from the response.",
+      "generic": "We couldn't start the membership checkout. Please try again."
+    },
+    "success": {
+      "badge": "Membership",
+      "title": "Payment received. Activating your membership…",
+      "description": "Keep this tab open while we confirm your membership payment.",
+      "checking": "We'll refresh your status automatically every 10 seconds.",
+      "active": "Membership unlocked. 🎉",
+      "timeout": "Still processing. We'll update your access shortly.",
+      "refresh": "Refresh status",
+      "footer": "You can close this page once your membership is confirmed.",
+      "signinRequired": "Sign in to check your membership status.",
+      "tour": {
+        "badge": "Start here",
+        "title": "Where do you want to explore first?",
+        "description": "Pick a destination to discover everything your new membership unlocks.",
+        "cards": {
+          "dashboard": {
+            "title": "Dashboard",
+            "description": "Track your study streak, points, and personalized lesson queue."
+          },
+          "education": {
+            "title": "Bitcoin Education",
+            "description": "Jump into curated courses and deepen your Bitcoin knowledge."
+          },
+          "community": {
+            "title": "Community",
+            "description": "Meet other members, join discussions, and share your wins."
+          }
+        }
+      },
+      "errors": {
+        "config": "Membership status is unavailable because the Strapi API URL is not configured.",
+        "network": "We couldn't reach Strapi to check your membership. We'll keep trying automatically.",
+        "generic": "Something went wrong while checking your membership. We'll retry automatically."
+      }
+    },
+    "cancel": {
+      "badge": "Membership",
+      "title": "Payment cancelled.",
+      "description": "You can retry anytime.",
+      "retry": "Back to Membership"
+    }
+  },
+  "home": {
+    "error": "Failed to load home.",
+    "imagePlaceholder": "Image coming soon"
+  },
+  "blog": {
+    "title": "Blog",
+    "empty": "No posts yet."
+  },
+  "checkout": {
+    "actions": {
+      "browseCourses": "Browse Courses",
+      "contactSupport": "Contact Support"
+    },
+    "success": {
+      "badge": "Payment successful",
+      "title": "Thank you for your purchase!",
+      "description": "Your access to the course will be unlocked shortly. Log in to your account to view your courses and start learning.",
+      "ctaPrompt": "Ready to start learning?",
+      "helper": "Need a refresher on the curriculum? Head back to the course directory any time."
+    },
+    "cancelled": {
+      "badge": "Checkout canceled",
+      "title": "Your course is still waiting for you",
+      "description": "The payment was not completed. You can retry the checkout or explore other courses in our directory.",
+      "support": "Need help finishing your purchase? Email us at <link>{{email}}</link>."
+    }
+  },
+  "lesson": {
+    "courseContent": {
+      "title": "Course Content",
+      "label": "Course Content",
+      "aria": "Course content"
+    },
+    "hud": {
+      "account": "Account",
+      "logIn": "Log in",
+      "signUp": "Sign up",
+      "dismiss": "Dismiss",
+      "loginPrompt": "Create an account so your points and lesson progress are saved.",
+      "customize": "Customize",
+      "close": "Close"
+    },
+    "tour": {
+      "heading": "Welcome tour {{current}} / {{total}}",
+      "skip": "Skip tour",
+      "prev": "Prev",
+      "next": "Next",
+      "finish": "Finish",
+      "steps": {
+        "courseNavigation": {
+          "title": "Explore the course map",
+          "description": "Use the course navigation on the right to jump between lessons. On mobile tap Course Content to open it."
+        },
+        "lessonFlow": {
+          "title": "Work through each lesson",
+          "description": "Every topic starts with a video overview followed by three lessons and quizzes to lock in what you learn."
+        },
+        "pointsAndStreaks": {
+          "title": "Earn points & streaks",
+          "description": "Completing lessons and quizzes adds to your points and daily streak shown in this HUD."
+        },
+        "saveProgress": {
+          "title": "Save your progress",
+          "description": "Log in so your points and streak days stay with you on any device."
+        },
+        "customize": {
+          "title": "Customize what's next",
+          "description": "Answer a short survey to reprioritize the upcoming lessons."
+        }
+      }
+    },
+    "customize": {
+      "title": "Customize your lesson path",
+      "intro": "Answer five quick questions to reprioritize the course topics around what matters to you.",
+      "summary": {
+        "title": "Your current focus",
+        "primary": "Primary: {{label}}",
+        "secondary": "Secondary: {{list}}"
+      },
+      "categories": {
+        "1": "Monetary history & fiat dynamics",
+        "2": "\"Honest money\" vs today's system",
+        "3": "Bitcoin's origins & ethos",
+        "4": "Core technology & network mechanics",
+        "5": "Economic roles & adoption",
+        "6": "Payments, access & financial sovereignty",
+        "7": "Human rights & social impact",
+        "8": "Security, self-custody & personal risk"
+      },
+      "q1": {
+        "prompt": "Which themes feel most relevant for you right now?",
+        "helper": "Select exactly three themes to prioritize.",
+        "selectedCount": "{{count}} of {{total}} selected"
+      },
+      "q2": {
+        "prompt": "Which challenge sounds most like you?",
+        "options": {
+          "12": "I need context on money's history and why today's fiat system feels unstable.",
+          "3": "I want the origin story and ethos behind Bitcoin.",
+          "4": "I'm curious about how the technology actually works.",
+          "56": "I need practical guidance for using Bitcoin in daily life.",
+          "7": "I'm focused on human rights, energy, and community impact.",
+          "8": "I'm worried about personal security and avoiding mistakes."
+        }
+      },
+      "q3": {
+        "prompt": "What kind of lessons keep you motivated?",
+        "options": {
+          "1": "Stories about how money evolved and why inflation happens.",
+          "2": "Comparisons between Bitcoin and today's financial system.",
+          "3": "The why, philosophy, and culture behind Bitcoin.",
+          "4": "Deep dives into nodes, mining, and network mechanics.",
+          "5": "Case studies on adoption and economic outcomes.",
+          "6": "Hands-on steps for acquiring and spending Bitcoin.",
+          "7": "Examples of Bitcoin improving lives or energy systems.",
+          "8": "Guides that help me protect my savings and manage risk."
+        }
+      },
+      "q4": {
+        "prompt": "Which outcome would feel most valuable after this course?",
+        "options": {
+          "1": "Explain monetary history and inflation with confidence.",
+          "2": "Debate fiat versus Bitcoin using strong arguments.",
+          "3": "Share Bitcoin's mission and ethos with others.",
+          "4": "Feel capable of running or troubleshooting the tech.",
+          "5": "Spot real-world adoption opportunities and trends.",
+          "6": "Help someone go from zero to their first Bitcoin transaction.",
+          "7": "Advocate for human rights, energy, or social impact conversations.",
+          "8": "Secure my own savings and avoid costly custody errors."
+        }
+      },
+      "q5": {
+        "prompt": "Where do you need the most support right now?",
+        "options": {
+          "12": "Inflation and fiat policy still confuse me.",
+          "3": "I haven't explored Bitcoin's origin story yet.",
+          "4": "Technical concepts like nodes or mining slow me down.",
+          "5": "I need examples that prove Bitcoin's economic role.",
+          "6": "I want clearer steps to get and spend Bitcoin safely.",
+          "7": "I look for stories about Bitcoin empowering communities.",
+          "8": "I'm unsure how to self-custody securely for the long term."
+        }
+      },
+      "actions": {
+        "close": "Close",
+        "cancel": "Cancel",
+        "continue": "Continue",
+        "revert": "Revert to original"
+      },
+      "errors": {
+        "q1": "Select exactly three themes to continue.",
+        "required": "Choose one option to continue."
+      },
+      "footerNote": "You can update these answers anytime."
+    }
+  },
+  "auth": {
+    "login": {
+      "title": "Login",
+      "submit": "Log In",
+      "linkRegister": "Create account",
+      "errors": {
+        "invalid": "Incorrect user or password, try again",
+        "generic": "Login failed"
+      }
+    },
+    "register": {
+      "title": "Register",
+      "submit": "Create Account",
+      "linkLogin": "Already have an account? Login",
+      "storeRecovery": "Store encrypted private key for recovery",
+      "warning": "If you lose your password and recovery key, you lose access to your Nostr identity.",
+      "errors": {
+        "generic": "Registration failed"
+      }
+    },
+    "forgotPassword": {
+      "title": "Reset Password",
+      "success": "Check your email for a reset link.",
+      "errors": {
+        "generic": "Request failed",
+        "network": "We couldn't reach the server. Please try again.",
+        "invalidCode": "Invalid verification code."
+      }
+    },
+    "resetPassword": {
+      "title": "Set New Password",
+      "errors": {
+        "mismatch": "Passwords do not match",
+        "generic": "Reset failed",
+        "invalidCode": "Invalid verification code.",
+        "network": "We couldn't reach the server. Please try again."
+      }
+    }
+  }
+}

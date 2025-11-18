@@ -5,6 +5,7 @@ import Slider from "../components/lesson/Slider";
 import CourseDetailSkeleton from "../components/course/CourseDetailSkeleton";
 import fallbackEn from "../data/lessons.en.json";
 import fallbackEs from "../data/lessons.es.json";
+import { resolveLocale } from "../utils/locale";
 import { useLessonPlan } from "../hooks/useLessonPlan";
 import type {
   Card,
@@ -140,11 +141,10 @@ const LOCALE_VIDEO_KEYS: Record<"en" | "es", string[]> = {
 };
 
 function normalizeLocale(locale?: string): "en" | "es" | undefined {
-  if (!locale) return undefined;
-  const lower = locale.toLowerCase();
-  if (lower.startsWith("es")) return "es";
-  if (lower.startsWith("en")) return "en";
-  return undefined;
+  const resolved = resolveLocale(locale);
+  if (resolved === "es") return "es";
+  if (resolved === "en") return "en";
+  return "en";
 }
 
 function standardizeKey(key: string): string {
@@ -584,7 +584,7 @@ function buildLessonCard({
 export default function CourseDetail() {
   const { t, i18n } = useTranslation();
   const { slug = "" } = useParams();
-  const locale = i18n.language?.toLowerCase().startsWith("es") ? "es" : "en";
+  const locale = normalizeLocale(i18n.language);
   const { token } = useAuth();
   const {
     me: membershipInfo,
