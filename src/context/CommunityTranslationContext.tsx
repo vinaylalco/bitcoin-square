@@ -27,6 +27,12 @@ interface RequestOptions {
   force?: boolean;
 }
 
+interface TranslationJob {
+  key: string;
+  originalText: string;
+  controller: AbortController;
+}
+
 export interface CommunityTranslationContextValue {
   /**
    * Indicates whether dynamic community message translation is currently supported.
@@ -50,6 +56,8 @@ const noop = () => undefined;
 const SUPPORTED_LANGUAGES = new Set<string>(SUPPORTED_LOCALES);
 const FALLBACK_LANGUAGE = DEFAULT_LOCALE;
 const STORAGE_KEY = "community:autoTranslate";
+const MAX_CONCURRENT_TRANSLATIONS = 3;
+const QUEUE_FLUSH_DELAY_MS = 25;
 
 const normalizeLanguageCode = (value?: string | null): string | null => normalizeLocale(value) ?? null;
 
@@ -179,6 +187,9 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
   const [entries, setEntries] = useState<Map<string, TranslationEntry>>(() => new Map());
   const entriesRef = useRef(entries);
   const controllersRef = useRef(new Map<string, AbortController>());
+  const queueRef = useRef<TranslationJob[]>([]);
+  const activeCountRef = useRef(0);
+  const processTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     entriesRef.current = entries;
@@ -188,6 +199,12 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
     controllersRef.current.forEach((controller) => controller.abort());
     controllersRef.current.clear();
     setEntries(new Map());
+    queueRef.current = [];
+    activeCountRef.current = 0;
+    if (processTimerRef.current) {
+      clearTimeout(processTimerRef.current);
+      processTimerRef.current = null;
+    }
   }, [targetLanguage]);
 
   const [visibleOriginals, setVisibleOriginals] = useState<Set<string>>(() => new Set());
@@ -199,6 +216,79 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
       return next;
     });
   }, []);
+
+  const processQueue = useCallback(() => {
+    processTimerRef.current = null;
+
+    while (activeCountRef.current < MAX_CONCURRENT_TRANSLATIONS && queueRef.current.length > 0) {
+      const job = queueRef.current.shift();
+      if (!job) {
+        break;
+      }
+
+      const { key, originalText, controller } = job;
+      activeCountRef.current += 1;
+
+      mutateEntries((map) => {
+        const current = map.get(key);
+        map.set(key, {
+          status: "loading",
+          originalText,
+          translatedText: current?.translatedText,
+          detectedLanguage: current?.detectedLanguage,
+          provider: current?.provider,
+          error: undefined,
+        });
+      });
+
+      translateText({ text: originalText, targetLanguage, signal: controller.signal })
+        .then((result) => {
+          if (controller.signal.aborted) {
+            return;
+          }
+          const detected = normalizeLanguageCode(result.detectedLanguage) ?? undefined;
+          const translatedText = result.text ?? "";
+
+          mutateEntries((map) => {
+            map.set(key, {
+              status: "ready",
+              originalText,
+              translatedText,
+              detectedLanguage: detected,
+              provider: result.provider,
+              error: undefined,
+            });
+          });
+        })
+        .catch((error: unknown) => {
+          if (controller.signal.aborted) {
+            return;
+          }
+          mutateEntries((map) => {
+            map.set(key, {
+              status: "error",
+              originalText,
+              translatedText: undefined,
+              detectedLanguage: undefined,
+              provider: undefined,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          });
+        })
+        .finally(() => {
+          controllersRef.current.delete(key);
+          activeCountRef.current = Math.max(0, activeCountRef.current - 1);
+          processQueue();
+        });
+    }
+  }, [mutateEntries, targetLanguage]);
+
+  const scheduleProcessQueue = useCallback(() => {
+    if (processTimerRef.current !== null) {
+      return;
+    }
+    processTimerRef.current = setTimeout(processQueue, QUEUE_FLUSH_DELAY_MS);
+  }, [processQueue]);
 
   const ensureTranslation = useCallback(
     (key: string, text: string, options?: RequestOptions) => {
@@ -257,6 +347,8 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
         previousController.abort();
       }
 
+      queueRef.current = queueRef.current.filter((job) => job.key !== key);
+
       const controller = new AbortController();
       controllersRef.current.set(key, controller);
 
@@ -272,45 +364,10 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
         });
       });
 
-      translateText({ text: originalText, targetLanguage, signal: controller.signal })
-        .then((result) => {
-          if (controller.signal.aborted) {
-            return;
-          }
-          const detected = normalizeLanguageCode(result.detectedLanguage) ?? undefined;
-          const translatedText = result.text ?? "";
-
-          mutateEntries((map) => {
-            map.set(key, {
-              status: "ready",
-              originalText,
-              translatedText,
-              detectedLanguage: detected,
-              provider: result.provider,
-              error: undefined,
-            });
-          });
-        })
-        .catch((error: unknown) => {
-          if (controller.signal.aborted) {
-            return;
-          }
-          mutateEntries((map) => {
-            map.set(key, {
-              status: "error",
-              originalText,
-              translatedText: undefined,
-              detectedLanguage: undefined,
-              provider: undefined,
-              error: error instanceof Error ? error.message : String(error),
-            });
-          });
-        })
-        .finally(() => {
-          controllersRef.current.delete(key);
-        });
+      queueRef.current.push({ key, originalText, controller });
+      scheduleProcessQueue();
     },
-    [autoTranslateEnabled, isSupported, mutateEntries, targetLanguage],
+    [autoTranslateEnabled, isSupported, mutateEntries, scheduleProcessQueue],
   );
 
   const refreshTranslation = useCallback(
@@ -320,6 +377,11 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
 
   useEffect(
     () => () => {
+      if (processTimerRef.current) {
+        clearTimeout(processTimerRef.current);
+      }
+      queueRef.current = [];
+      activeCountRef.current = 0;
       controllersRef.current.forEach((controller) => controller.abort());
       controllersRef.current.clear();
     },
