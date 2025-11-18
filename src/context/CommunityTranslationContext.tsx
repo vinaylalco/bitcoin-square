@@ -7,6 +7,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { useTranslation } from "react-i18next";
 import { getBrowserLanguageTag } from "../utils/browserLanguage";
 import { DEFAULT_LOCALE, normalizeLocale, SUPPORTED_LOCALES } from "../utils/locale";
 import { translateText } from "../utils/translationService";
@@ -98,12 +99,20 @@ const CommunityTranslationContext = createContext<CommunityTranslationContextVal
 export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = ({
   children,
 }) => {
+  const { i18n } = useTranslation();
   const isSupported = typeof fetch === "function" && typeof AbortController === "function";
 
-  const [targetLanguage] = useState<string>(() => resolveTargetLanguage());
+  const [targetLanguage, setTargetLanguage] = useState<string>(() =>
+    normalizeLanguageCode(i18n.language) ?? resolveTargetLanguage(),
+  );
   const [formatter, setFormatter] = useState<Intl.DisplayNames | null>(() =>
     createLanguageFormatter(targetLanguage),
   );
+
+  useEffect(() => {
+    const normalized = normalizeLanguageCode(i18n.language) ?? resolveTargetLanguage();
+    setTargetLanguage(normalized);
+  }, [i18n.language]);
 
   useEffect(() => {
     setFormatter(createLanguageFormatter(targetLanguage));
@@ -169,14 +178,19 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
 
   const [entries, setEntries] = useState<Map<string, TranslationEntry>>(() => new Map());
   const entriesRef = useRef(entries);
+  const controllersRef = useRef(new Map<string, AbortController>());
 
   useEffect(() => {
     entriesRef.current = entries;
   }, [entries]);
 
-  const [visibleOriginals, setVisibleOriginals] = useState<Set<string>>(() => new Set());
+  useEffect(() => {
+    controllersRef.current.forEach((controller) => controller.abort());
+    controllersRef.current.clear();
+    setEntries(new Map());
+  }, [targetLanguage]);
 
-  const controllersRef = useRef(new Map<string, AbortController>());
+  const [visibleOriginals, setVisibleOriginals] = useState<Set<string>>(() => new Set());
 
   const mutateEntries = useCallback((updater: (map: Map<string, TranslationEntry>) => void) => {
     setEntries((current) => {
