@@ -20,7 +20,8 @@
     "settings": "Settings",
     "dashboard": "Dashboard",
     "login": "Login",
-    "logout": "Logout"
+    "logout": "Logout",
+    "minerQuotation": "Miner Quote"
   },
   "community": {
     "tabs": {
@@ -655,6 +656,56 @@
       "private": "Private key",
       "connectPrompt": "Connect your Nostr keys in Settings to sync across the ecosystem.",
       "privateSrOnly": "Private key hidden for security. Use the copy button to copy it when needed."
+    }
+  },
+  "minerQuotation": {
+    "title": "Professional BTC Mining Quotation",
+    "subtitle": "Investment Analysis and Projected Profitability",
+    "minerModelLabel": "Miner Model",
+    "generalInformation": "General Information",
+    "equipmentModel": "Equipment Model",
+    "customLabel": "Custom ASIC Miner",
+    "issueDate": "Issue Date",
+    "technicalSpecifications": "Technical Specifications",
+    "unitPowerConsumption": "Unit Power Consumption",
+    "hashrate": "Hashrate",
+    "efficiency": "Efficiency",
+    "totalUnits": "Total Units",
+    "totalPowerConsumption": "Total Power Consumption",
+    "electricityCost": "Electricity Cost",
+    "profitabilityProjection": "Profitability Projection",
+    "projectionHelper": "Projected earnings with current market conditions",
+    "grossRevenue": "Gross Revenue",
+    "electricityCostRow": "Electricity Cost",
+    "netProfit": "Net Profit",
+    "investmentStructure": "Investment Structure",
+    "columns": {
+      "item": "Item",
+      "unitPrice": "Unit Price",
+      "quantity": "Quantity",
+      "subtotal": "Subtotal"
+    },
+    "rows": {
+      "equipment": "Mining Equipment",
+      "logistics": "International Logistics",
+      "taxes": "Taxes and Customs Duties"
+    },
+    "total": "Total",
+    "totalInvestment": "Total Investment Required",
+    "estimatedPayback": "Estimated Payback Period",
+    "projectedAnnualRoi": "Projected Annual ROI",
+    "monthsUnit": "months",
+    "marketPriceLabel": "Market BTC Price (USD)",
+    "autoUpdate": "Auto-update BTC price from API",
+    "footnote": "* Calculations are based on current market conditions and may vary depending on mining difficulty, Bitcoin price, and operating costs.",
+    "buckets": {
+      "daily": "Daily",
+      "weekly": "Weekly",
+      "monthly": "Monthly"
+    },
+    "options": {
+      "s21": "S21",
+      "custom": "Custom"
     }
   }
 }

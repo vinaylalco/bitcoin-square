@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   Mail,
   Menu,
+  Pickaxe,
   Sparkles,
   Users,
   Settings,
@@ -81,6 +82,9 @@ export default function App() {
     { label: t("nav.shop"), to: "/shop" },
     { label: t("nav.membership"), to: "/membership" },
     { label: t("nav.community"), to: "/community" },
+    ...(user?.isAdmin
+      ? [{ label: t("nav.minerQuotation"), to: "/miner-quotation" }]
+      : []),
   ];
 
   const educationRootMatch = useMatch("/education");
@@ -469,6 +473,20 @@ export default function App() {
               >
                 <Users className="h-5 w-5" /> {t("nav.community")}
               </NavLink>
+              {user?.isAdmin ? (
+                <NavLink
+                  to="/miner-quotation"
+                  onClick={() => setOpen(false)}
+                  className={({ isActive }) =>
+                    cn(
+                      "inline-flex items-center gap-3 rounded-2xl border border-transparent px-4 py-3 transition hover:border-brand/40 hover:bg-brand/5",
+                      isActive && "border-brand bg-brand/10 text-brand",
+                    )
+                  }
+                >
+                  <Pickaxe className="h-5 w-5" /> {t("nav.minerQuotation")}
+                </NavLink>
+              ) : null}
               <NavLink
                 to="/settings"
                 onClick={() => setOpen(false)}
