@@ -133,11 +133,10 @@ function detectEnvironmentLocale(): AppLocale | undefined {
 }
 
 export function detectPreferredLocale(): AppLocale {
-  return (
-    readPersistedLocale() ||
+  const runtimeLocale =
     detectNavigatorLocale() ||
     detectIntlLocale() ||
-    detectEnvironmentLocale() ||
-    DEFAULT_LOCALE
-  );
+    detectEnvironmentLocale();
+
+  return runtimeLocale || readPersistedLocale() || DEFAULT_LOCALE;
 }
