@@ -38,6 +38,7 @@ import { ProfileIdentityProvider } from "./context/ProfileIdentityContext";
 import { DirectMessageProvider } from "./context/DirectMessageContext";
 import { ToastProvider } from "./context/ToastContext";
 import RequireMembership from "./components/RequireMembership";
+import { MinerQuotation2Page } from "./pages/MinerQuotation2Page";
 
 const router = createBrowserRouter([
   {
@@ -87,6 +88,14 @@ const router = createBrowserRouter([
         element: (
           <RequireMembership>
             <Community />
+          </RequireMembership>
+        ),
+      },
+      {
+        path: "miner-quotation",
+        element: (
+          <RequireMembership>
+            <MinerQuotation2Page />
           </RequireMembership>
         ),
       },
