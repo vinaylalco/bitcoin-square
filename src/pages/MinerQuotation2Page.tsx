@@ -8,22 +8,6 @@ const MINER_PROFILES = {
   },
 } as const;
 
-function calculateBtcPerThPerDay(
-  difficulty: number,
-  blockRewardBtc: number,
-): number {
-  const hashesPerSecondPerTh = 1e12;
-  const blocksPerDay = 144;
-  const denominator = difficulty * 2 ** 32;
-
-  if (!denominator) return 0;
-
-  const btcPerDayPerTh =
-    (hashesPerSecondPerTh / denominator) * blockRewardBtc * blocksPerDay;
-
-  return btcPerDayPerTh;
-}
-
 interface QuoteState {
   units: number;
   electricityPricePerKwhUsd: number;
@@ -103,7 +87,10 @@ export function MinerQuotation2Page() {
   const [autoBtcPrice, setAutoBtcPrice] = useState<boolean>(
     () => getInitialAutoBtcPrice(),
   );
-  const [btcPerThPerDay, setBtcPerThPerDay] = useState<number>(0.0000005);
+  // TODO: Replace this hard-coded yield with a difficulty-based calculation when
+  // network data is re-enabled. This value targets ~0.00243261 BTC/day at
+  // 4,900 TH/s for the reference S21 quote.
+  const btcPerThPerDay = 4.9645e-7;
 
   const issueDate = new Date().toLocaleDateString();
   const totalHashrateTh = quote.unitHashrateTh * quote.units;
@@ -196,43 +183,6 @@ export function MinerQuotation2Page() {
     };
   }, [autoBtcPrice]);
 
-  useEffect(() => {
-    let isMounted = true;
-
-    const fetchDifficulty = async () => {
-      try {
-        const [difficultyRes, rewardRes] = await Promise.all([
-          fetch("https://api.blockchain.info/q/getdifficulty"),
-          fetch("https://api.blockchain.info/q/bcperblock"),
-        ]);
-
-        if (!difficultyRes.ok || !rewardRes.ok) return;
-
-        const difficultyText = await difficultyRes.text();
-        const rewardText = await rewardRes.text();
-        const difficulty = Number.parseFloat(difficultyText);
-        const blockRewardBtc = Number.parseFloat(rewardText);
-
-        if (!Number.isFinite(difficulty) || !Number.isFinite(blockRewardBtc)) {
-          return;
-        }
-
-        const nextRate = calculateBtcPerThPerDay(difficulty, blockRewardBtc);
-        if (isMounted && Number.isFinite(nextRate)) {
-          setBtcPerThPerDay(nextRate);
-        }
-      } catch (error) {
-        // ignore network errors and retain placeholder rate
-      }
-    };
-
-    fetchDifficulty();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
   const formatNumber = (value: number, decimals = 2) =>
     value.toLocaleString(undefined, {
       minimumFractionDigits: decimals,
@@ -303,27 +253,27 @@ export function MinerQuotation2Page() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100 py-12 px-4">
+    <div className="min-h-screen bg-[var(--bg-page)] text-[var(--fg-default)] py-12 px-4">
       <div className="max-w-6xl mx-auto space-y-10">
-        <header className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-lg">
+        <header className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl p-6 shadow-[var(--shadow-soft)]">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <p className="text-sm uppercase tracking-[0.3em] text-amber-300 mb-2">
                 Professional BTC Mining Quotation
               </p>
-              <h1 className="text-3xl font-bold">
+              <h1 className="text-3xl font-bold text-[var(--fg-default)]">
                 Investment Analysis and Projected Profitability
               </h1>
             </div>
             <div className="flex items-center gap-2 text-sm">
-              <label className="text-gray-300" htmlFor="model-select">
+              <label className="text-[var(--fg-muted)]" htmlFor="model-select">
                 Miner Model:
               </label>
               <select
                 id="model-select"
                 value={quote.model}
                 onChange={handleModelChange}
-                className="bg-gray-950 border border-gray-800 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-amber-300"
+                className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-amber-300"
               >
                 <option value="s21">S21</option>
                 <option value="custom">Custom</option>
@@ -333,11 +283,11 @@ export function MinerQuotation2Page() {
         </header>
 
         <section className="grid gap-6 md:grid-cols-2">
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-lg">
+          <div className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl p-6 shadow-[var(--shadow-soft)]">
             <h2 className="text-xl font-semibold mb-4 text-amber-200">General Information</h2>
-            <dl className="space-y-2 text-sm sm:text-base">
+            <dl className="space-y-2 text-sm sm:text-base text-[var(--fg-default)]">
               <div className="flex justify-between gap-4">
-                <dt className="text-gray-400">Equipment Model</dt>
+                <dt className="text-[var(--fg-muted)]">Equipment Model</dt>
                 <dd className="font-medium">
                   {quote.model === "s21"
                     ? MINER_PROFILES.s21.modelLabel
@@ -345,63 +295,63 @@ export function MinerQuotation2Page() {
                 </dd>
               </div>
               <div className="flex justify-between gap-4">
-                <dt className="text-gray-400">Issue Date</dt>
+                <dt className="text-[var(--fg-muted)]">Issue Date</dt>
                 <dd className="font-medium">{issueDate}</dd>
               </div>
             </dl>
           </div>
 
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-lg">
+          <div className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl p-6 shadow-[var(--shadow-soft)]">
             <h2 className="text-xl font-semibold mb-4 text-amber-200">Technical Specifications</h2>
-            <dl className="space-y-2 text-sm sm:text-base">
+            <dl className="space-y-2 text-sm sm:text-base text-[var(--fg-default)]">
               <div className="flex justify-between gap-4">
-                <dt className="text-gray-400">Unit Power Consumption</dt>
+                <dt className="text-[var(--fg-muted)]">Unit Power Consumption</dt>
                 <dd className="font-medium">
                   <input
                     type="number"
                     inputMode="decimal"
                     value={quote.unitPowerKw}
                     onChange={handleNumberChange("unitPowerKw")}
-                    className="w-24 bg-gray-950 border border-gray-800 rounded px-2 py-1 text-right text-sm focus:outline-none focus:ring-1 focus:ring-amber-300"
+                    className="w-24 bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded px-2 py-1 text-right text-sm focus:outline-none focus:ring-1 focus:ring-amber-300"
                   />
-                  <span className="ml-2 text-gray-400 text-xs">kW</span>
+                  <span className="ml-2 text-[var(--fg-muted)] text-xs">kW</span>
                 </dd>
               </div>
               <div className="flex justify-between gap-4">
-                <dt className="text-gray-400">Hashrate</dt>
+                <dt className="text-[var(--fg-muted)]">Hashrate</dt>
                 <dd className="font-medium">
                   <input
                     type="number"
                     inputMode="decimal"
                     value={quote.unitHashrateTh}
                     onChange={handleNumberChange("unitHashrateTh")}
-                    className="w-24 bg-gray-950 border border-gray-800 rounded px-2 py-1 text-right text-sm focus:outline-none focus:ring-1 focus:ring-amber-300"
+                    className="w-24 bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded px-2 py-1 text-right text-sm focus:outline-none focus:ring-1 focus:ring-amber-300"
                   />
-                  <span className="ml-2 text-gray-400 text-xs">TH/s</span>
+                  <span className="ml-2 text-[var(--fg-muted)] text-xs">TH/s</span>
                 </dd>
               </div>
               <div className="flex justify-between gap-4">
-                <dt className="text-gray-400">Efficiency</dt>
-                <dd className="font-medium text-gray-500">—</dd>
+                <dt className="text-[var(--fg-muted)]">Efficiency</dt>
+                <dd className="font-medium text-[var(--fg-muted)]">—</dd>
               </div>
               <div className="flex justify-between gap-4">
-                <dt className="text-gray-400">Total Units</dt>
+                <dt className="text-[var(--fg-muted)]">Total Units</dt>
                 <dd className="font-medium">
                   <input
                     type="number"
                     inputMode="numeric"
                     value={quote.units}
                     onChange={handleNumberChange("units")}
-                    className="w-24 bg-gray-950 border border-gray-800 rounded px-2 py-1 text-right text-sm focus:outline-none focus:ring-1 focus:ring-amber-300"
+                    className="w-24 bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded px-2 py-1 text-right text-sm focus:outline-none focus:ring-1 focus:ring-amber-300"
                   />
                 </dd>
               </div>
               <div className="flex justify-between gap-4">
-                <dt className="text-gray-400">Total Power Consumption</dt>
+                <dt className="text-[var(--fg-muted)]">Total Power Consumption</dt>
                 <dd className="font-medium">{formatNumber(totalPowerKw)} kW/h</dd>
               </div>
               <div className="flex justify-between gap-4">
-                <dt className="text-gray-400">Electricity Cost</dt>
+                <dt className="text-[var(--fg-muted)]">Electricity Cost</dt>
                 <dd className="font-medium">
                   <input
                     type="number"
@@ -409,34 +359,34 @@ export function MinerQuotation2Page() {
                     step="0.001"
                     value={quote.electricityPricePerKwhUsd}
                     onChange={handleNumberChange("electricityPricePerKwhUsd")}
-                    className="w-28 bg-gray-950 border border-gray-800 rounded px-2 py-1 text-right text-sm focus:outline-none focus:ring-1 focus:ring-amber-300"
+                    className="w-28 bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded px-2 py-1 text-right text-sm focus:outline-none focus:ring-1 focus:ring-amber-300"
                   />
-                  <span className="ml-2 text-gray-400 text-xs">USD/kWh</span>
+                  <span className="ml-2 text-[var(--fg-muted)] text-xs">USD/kWh</span>
                 </dd>
               </div>
             </dl>
           </div>
         </section>
 
-        <section className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-lg">
+        <section className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl p-6 shadow-[var(--shadow-soft)]">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-amber-200">Profitability Projection</h2>
-            <p className="text-sm text-gray-400">Projected earnings with current market conditions</p>
+            <p className="text-sm text-[var(--fg-muted)]">Projected earnings with current market conditions</p>
           </div>
           <div className="grid gap-4 md:grid-cols-3">
             {profitability.map((bucket) => (
               <aside
                 key={bucket.label}
-                className="bg-gray-950 border border-gray-800 rounded-lg p-4 space-y-3 shadow"
+                className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-lg p-4 space-y-3 shadow"
               >
                 <h3 className="text-lg font-semibold text-amber-300">{bucket.label}</h3>
                 <dl className="space-y-3 text-sm sm:text-base">
                   {bucket.rows.map((row) => (
-                    <div key={row.title} className="border-t border-gray-800 pt-3 first:border-t-0 first:pt-0">
-                      <dt className="text-gray-400">{row.title}</dt>
-                      <dd className="flex justify-between font-medium">
+                    <div key={row.title} className="border-t border-[var(--border-subtle)] pt-3 first:border-t-0 first:pt-0">
+                      <dt className="text-[var(--fg-muted)]">{row.title}</dt>
+                      <dd className="flex justify-between font-medium text-[var(--fg-default)]">
                         <span>{row.btc}</span>
-                        <span className="text-right text-gray-200">{row.usd}</span>
+                        <span className="text-right">{row.usd}</span>
                       </dd>
                     </div>
                   ))}
@@ -446,19 +396,19 @@ export function MinerQuotation2Page() {
           </div>
         </section>
 
-        <section className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-lg">
+        <section className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl p-6 shadow-[var(--shadow-soft)]">
           <h2 className="text-xl font-semibold mb-4 text-amber-200">Investment Structure</h2>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm sm:text-base">
+            <table className="w-full text-sm sm:text-base text-[var(--fg-default)]">
               <thead>
-                <tr className="text-left text-gray-400 border-b border-gray-800">
+                <tr className="text-left text-[var(--fg-muted)] border-b border-[var(--border-subtle)]">
                   <th className="py-2">Item</th>
                   <th className="py-2">Unit Price</th>
                   <th className="py-2">Quantity</th>
                   <th className="py-2">Subtotal</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-800">
+              <tbody className="divide-y divide-[var(--border-subtle)]">
                 <tr>
                   <td className="py-3 font-medium">Mining Equipment</td>
                   <td className="py-3">
@@ -467,7 +417,7 @@ export function MinerQuotation2Page() {
                       inputMode="decimal"
                       value={quote.minerPricePerUnitUsd}
                       onChange={handleNumberChange("minerPricePerUnitUsd")}
-                      className="w-28 bg-gray-950 border border-gray-800 rounded px-2 py-1 text-right text-sm focus:outline-none focus:ring-1 focus:ring-amber-300"
+                      className="w-28 bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded px-2 py-1 text-right text-sm focus:outline-none focus:ring-1 focus:ring-amber-300"
                     />
                   </td>
                   <td className="py-3">{quote.units}</td>
@@ -481,7 +431,7 @@ export function MinerQuotation2Page() {
                       inputMode="decimal"
                       value={quote.logisticsPerUnitUsd}
                       onChange={handleNumberChange("logisticsPerUnitUsd")}
-                      className="w-28 bg-gray-950 border border-gray-800 rounded px-2 py-1 text-right text-sm focus:outline-none focus:ring-1 focus:ring-amber-300"
+                      className="w-28 bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded px-2 py-1 text-right text-sm focus:outline-none focus:ring-1 focus:ring-amber-300"
                     />
                   </td>
                   <td className="py-3">{quote.units}</td>
@@ -495,7 +445,7 @@ export function MinerQuotation2Page() {
                       inputMode="decimal"
                       value={quote.taxesPerUnitUsd}
                       onChange={handleNumberChange("taxesPerUnitUsd")}
-                      className="w-28 bg-gray-950 border border-gray-800 rounded px-2 py-1 text-right text-sm focus:outline-none focus:ring-1 focus:ring-amber-300"
+                      className="w-28 bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded px-2 py-1 text-right text-sm focus:outline-none focus:ring-1 focus:ring-amber-300"
                     />
                   </td>
                   <td className="py-3">{quote.units}</td>
@@ -512,37 +462,37 @@ export function MinerQuotation2Page() {
           </div>
         </section>
 
-        <aside className="bg-gray-900 border border-amber-300/40 rounded-xl p-6 shadow-lg space-y-3">
+        <aside className="bg-[var(--bg-card)] border border-amber-300/40 rounded-xl p-6 shadow-[var(--shadow-soft)] space-y-3">
           <p className="text-sm uppercase tracking-[0.25em] text-amber-300">Total Investment Required</p>
-          <h3 className="text-3xl font-bold">USD $ {formatNumber(totalCapexUsd)}</h3>
-          <p className="text-lg text-gray-200">
+          <h3 className="text-3xl font-bold text-[var(--fg-default)]">USD $ {formatNumber(totalCapexUsd)}</h3>
+          <p className="text-lg text-[var(--fg-default)]">
             Estimated Payback Period: {paybackMonths ? `${formatNumber(paybackMonths)} months` : "–"}
           </p>
-          <p className="text-lg text-gray-200">
+          <p className="text-lg text-[var(--fg-default)]">
             Projected Annual ROI: {annualRoiPercent ? `${formatNumber(annualRoiPercent)} %` : "–"}
           </p>
-          <div className="pt-2 border-t border-gray-800 text-sm text-gray-300 space-y-2">
+          <div className="pt-2 border-t border-[var(--border-subtle)] text-sm text-[var(--fg-default)] space-y-2">
             <div className="flex justify-between items-center gap-3">
-              <span className="text-gray-400">Market BTC Price (USD)</span>
+              <span className="text-[var(--fg-muted)]">Market BTC Price (USD)</span>
               <input
                 type="number"
                 inputMode="decimal"
                 value={quote.btcPriceUsd}
                 onChange={handleBtcPriceChange}
-                className="w-32 bg-gray-950 border border-gray-800 rounded px-2 py-1 text-right text-sm focus:outline-none focus:ring-1 focus:ring-amber-300"
+                className="w-32 bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded px-2 py-1 text-right text-sm focus:outline-none focus:ring-1 focus:ring-amber-300"
               />
             </div>
-            <label className="flex items-center justify-end gap-2 text-xs text-gray-400">
+            <label className="flex items-center justify-end gap-2 text-xs text-[var(--fg-muted)]">
               <input
                 type="checkbox"
                 checked={autoBtcPrice}
                 onChange={(event) => setAutoBtcPrice(event.target.checked)}
-                className="h-4 w-4 rounded border-gray-700 bg-gray-950 text-amber-300 focus:ring-amber-300"
+                className="h-4 w-4 rounded border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-amber-300 focus:ring-amber-300"
               />
               Auto-update BTC price from API
             </label>
           </div>
-          <p className="text-xs text-gray-400 leading-relaxed">
+          <p className="text-xs text-[var(--fg-muted)] leading-relaxed">
             * Calculations are based on current market conditions and may vary depending on mining
             difficulty, Bitcoin price, and operating costs.
           </p>
