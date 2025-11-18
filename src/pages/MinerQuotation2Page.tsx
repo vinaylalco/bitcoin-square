@@ -22,7 +22,7 @@ interface QuoteState {
 
 const defaultQuoteState: QuoteState = {
   units: 20,
-  electricityPricePerKwhUsd: 0.008,
+  electricityPricePerKwhUsd: 0.08,
   btcPriceUsd: 60000,
   minerPricePerUnitUsd: 3860,
   logisticsPerUnitUsd: 359,
