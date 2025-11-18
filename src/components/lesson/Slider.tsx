@@ -127,6 +127,7 @@ export default function Slider({
   const skipScrollOnVideoRef = useRef(false);
   const shouldRestoreProgressRef = useRef(true);
   const wheelLockRef = useRef(false);
+  const wheelUnlockTimeoutRef = useRef<number | null>(null);
   const [navHeight, setNavHeight] = useState<number | null>(null);
   const { user, token, updateUser } = useAuth();
   const initialLocalProgress = useMemo(() => readLocalProgress(), []);
@@ -605,6 +606,9 @@ export default function Slider({
       if (typeof window !== "undefined" && completionTimeoutRef.current !== null) {
         window.clearTimeout(completionTimeoutRef.current);
       }
+      if (typeof window !== "undefined" && wheelUnlockTimeoutRef.current !== null) {
+        window.clearTimeout(wheelUnlockTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -667,7 +671,7 @@ export default function Slider({
       const primaryDelta =
         Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
 
-      if (Math.abs(primaryDelta) < 10) {
+      if (Math.abs(primaryDelta) < 60) {
         return;
       }
 
@@ -682,9 +686,13 @@ export default function Slider({
       const direction = primaryDelta > 0 ? 1 : -1;
       void animateScroll(index + direction).finally(() => {
         if (typeof window !== "undefined") {
-          window.setTimeout(() => {
+          if (wheelUnlockTimeoutRef.current !== null) {
+            window.clearTimeout(wheelUnlockTimeoutRef.current);
+          }
+          wheelUnlockTimeoutRef.current = window.setTimeout(() => {
             wheelLockRef.current = false;
-          }, 350);
+            wheelUnlockTimeoutRef.current = null;
+          }, 200);
         } else {
           wheelLockRef.current = false;
         }
@@ -1247,7 +1255,7 @@ export default function Slider({
                 return (
                   <div
                     key={key}
-                    className="w-full flex-shrink-0 snap-start lg:flex lg:h-full lg:flex-col"
+                    className="w-full flex-shrink-0 snap-start snap-always lg:flex lg:h-full lg:flex-col"
                   >
                     <div ref={registerCardWrapper(key)}>
                       <Card
