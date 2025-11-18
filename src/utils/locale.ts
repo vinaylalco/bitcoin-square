@@ -1,4 +1,4 @@
-const SUPPORTED_LOCALES = ["en", "es", "id", "th", "ru"] as const;
+export const SUPPORTED_LOCALES = ["en", "es", "id", "th", "ru"] as const;
 
 const LOCALE_STORAGE_KEY = "pref:locale";
 

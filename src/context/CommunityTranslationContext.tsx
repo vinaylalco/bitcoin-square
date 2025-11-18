@@ -8,6 +8,7 @@ import React, {
   useState,
 } from "react";
 import { getBrowserLanguageTag } from "../utils/browserLanguage";
+import { DEFAULT_LOCALE, normalizeLocale, SUPPORTED_LOCALES } from "../utils/locale";
 import { translateText } from "../utils/translationService";
 
 type TranslationStatus = "idle" | "loading" | "ready" | "error";
@@ -45,33 +46,11 @@ export interface CommunityTranslationContextValue {
 
 const noop = () => undefined;
 
-const SUPPORTED_LANGUAGES = new Set([
-  "en",
-  "es",
-  "fr",
-  "de",
-  "it",
-  "pt",
-  "ar",
-  "zh",
-  "hi",
-  "ru",
-]);
-
-const FALLBACK_LANGUAGE = "en";
+const SUPPORTED_LANGUAGES = new Set<string>(SUPPORTED_LOCALES);
+const FALLBACK_LANGUAGE = DEFAULT_LOCALE;
 const STORAGE_KEY = "community:autoTranslate";
 
-const normalizeLanguageCode = (value?: string | null): string | null => {
-  if (!value) return null;
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  const lower = trimmed.toLowerCase();
-  const separatorIndex = lower.search(/[-_]/);
-  if (separatorIndex !== -1) {
-    return lower.slice(0, separatorIndex) || null;
-  }
-  return lower;
-};
+const normalizeLanguageCode = (value?: string | null): string | null => normalizeLocale(value) ?? null;
 
 const resolveTargetLanguage = (): string => {
   const browserTag = getBrowserLanguageTag();
