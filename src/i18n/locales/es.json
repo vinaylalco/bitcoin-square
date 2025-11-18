@@ -20,7 +20,8 @@
     "settings": "Configuración",
     "dashboard": "Panel",
     "login": "Iniciar sesión",
-    "logout": "Cerrar sesión"
+    "logout": "Cerrar sesión",
+    "minerQuotation": "Cotización minera"
   },
   "community": {
     "tabs": {
@@ -655,6 +656,56 @@
       "private": "Clave privada",
       "connectPrompt": "Conecta tus llaves Nostr en Configuración para sincronizar en todo el ecosistema.",
       "privateSrOnly": "Clave privada oculta por seguridad. Usa el botón Copiar cuando la necesites."
+    }
+  },
+  "minerQuotation": {
+    "title": "COTIZACIÓN PROFESIONAL DE MINERÍA BTC",
+    "subtitle": "Análisis de inversión y rentabilidad proyectada",
+    "minerModelLabel": "Modelo de minero",
+    "generalInformation": "Información general",
+    "equipmentModel": "Modelo del equipo",
+    "customLabel": "Minero ASIC personalizado",
+    "issueDate": "Fecha de emisión",
+    "technicalSpecifications": "Especificaciones técnicas",
+    "unitPowerConsumption": "Consumo de energía por unidad",
+    "hashrate": "Hashrate",
+    "efficiency": "Eficiencia",
+    "totalUnits": "Unidades totales",
+    "totalPowerConsumption": "Consumo energético total",
+    "electricityCost": "Costo de electricidad",
+    "profitabilityProjection": "Proyección de rentabilidad",
+    "projectionHelper": "Ganancias proyectadas con las condiciones actuales del mercado",
+    "grossRevenue": "Ingresos brutos",
+    "electricityCostRow": "Costo de electricidad",
+    "netProfit": "Beneficio neto",
+    "investmentStructure": "Estructura de inversión",
+    "columns": {
+      "item": "Artículo",
+      "unitPrice": "Precio unitario",
+      "quantity": "Cantidad",
+      "subtotal": "Subtotal"
+    },
+    "rows": {
+      "equipment": "Equipos de minería",
+      "logistics": "Logística internacional",
+      "taxes": "Impuestos y aranceles aduaneros"
+    },
+    "total": "Total",
+    "totalInvestment": "Inversión total requerida",
+    "estimatedPayback": "Período estimado de recuperación",
+    "projectedAnnualRoi": "ROI anual proyectado",
+    "monthsUnit": "meses",
+    "marketPriceLabel": "Precio de BTC de mercado (USD)",
+    "autoUpdate": "Actualizar precio de BTC automáticamente desde la API",
+    "footnote": "* Los cálculos se basan en las condiciones actuales del mercado y pueden variar según la dificultad de minería, el precio de Bitcoin y los costos operativos.",
+    "buckets": {
+      "daily": "Diario",
+      "weekly": "Semanal",
+      "monthly": "Mensual"
+    },
+    "options": {
+      "s21": "S21",
+      "custom": "Personalizado"
     }
   }
 }
