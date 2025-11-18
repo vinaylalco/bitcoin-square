@@ -6,7 +6,8 @@
     "newPasswordPlaceholder": "New password",
     "confirmPasswordPlaceholder": "Confirm password",
     "sendResetLink": "Send reset link",
-    "updatePassword": "Update Password"
+    "updatePassword": "Update Password",
+    "loading": "Loading…"
   },
   "nav": {
     "home": "Home",
@@ -208,7 +209,190 @@
   },
   "home": {
     "error": "Failed to load home.",
-    "imagePlaceholder": "Image coming soon"
+    "imagePlaceholder": "Image coming soon",
+    "hero": {
+      "eyebrow": "Built on Nostr • BTC Only",
+      "title": "The Bitcoin Ecosystem",
+      "highlight": "You Need",
+      "description": "Professional education, community on Nostr and tools. A complete platform for serious bitcoiners.",
+      "primaryCta": "Join the Community",
+      "secondaryCta": "See How It Works",
+      "stats": {
+        "members": "Active Members",
+        "courses": "Courses",
+        "unavailable": "-"
+      }
+    },
+    "sections": {
+      "howItWorks": {
+        "eyebrow": "How it works",
+        "title": "How BitcoinSquare Works",
+        "items": [
+          {
+            "step": "1️⃣",
+            "title": "Sign Up",
+            "description": "Create your account and access through Nostr. Complete control, privacy guaranteed."
+          },
+          {
+            "step": "2️⃣",
+            "title": "Choose Your Plan",
+            "description": "Annual membership ($5/month) or lifetime access ($80). Both with complete access from day one."
+          },
+          {
+            "step": "3️⃣",
+            "title": "Access the Ecosystem",
+            "description": "Education, community, store and advisory services. All integrated in one professional platform."
+          },
+          {
+            "step": "4️⃣",
+            "title": "Monetize",
+            "description": "Participate, grow, generate income. Referral program with attractive commissions."
+          }
+        ]
+      },
+      "offerings": {
+        "eyebrow": "Platform",
+        "title": "What We Offer",
+        "description": "A complete platform built on Nostr that provides everything you need to master Bitcoin.",
+        "items": [
+          {
+            "icon": "📚",
+            "title": "Education",
+            "description": "Access structured courses covering Bitcoin fundamentals to advanced investment strategies and security."
+          },
+          {
+            "icon": "👥",
+            "title": "Community",
+            "description": "Connect with committed bitcoiners, share experiences, create your own community and build professional networks on Nostr."
+          },
+          {
+            "icon": "🛍️",
+            "title": "Store",
+            "description": "Access to curated products for bitcoiners: hardware wallets, technical literature, premium merchandise and specialized tools."
+          },
+          {
+            "icon": "💼",
+            "title": "Advisory Services",
+            "description": "Consult with experts on investment strategies, portfolio management and best practices in Bitcoin security."
+          }
+        ]
+      },
+      "roadmap": {
+        "eyebrow": "Roadmap",
+        "title": "Ecosystem Roadmap",
+        "items": [
+          {
+            "phase": "Phase 1: Live Now",
+            "focus": "Education, Community & Store",
+            "description": "Access to professional courses, Nostr community and specialized store. Everything ready for you to start your Bitcoin journey."
+          },
+          {
+            "phase": "Phase 2: Q1 2025",
+            "focus": "P2P Market",
+            "description": "Exchange Bitcoin and USDT directly between members. No intermediaries, total security and control."
+          },
+          {
+            "phase": "Phase 3: Q2 2025",
+            "focus": "Lending Solutions",
+            "description": "Access to Bitcoin financing options. Real investment opportunities for serious bitcoiners."
+          }
+        ]
+      },
+      "events": {
+        "eyebrow": "Events",
+        "title": "Upcoming Events",
+        "cta": "Register",
+        "items": [
+          {
+            "day": "15",
+            "month": "November",
+            "title": "Masterclass: Bitcoin Security",
+            "description": "Learn best practices to secure your Bitcoin. Live session with expert speakers.",
+            "subscribeMessage": "Sign up and we’ll let you know when this becomes available."
+          },
+          {
+            "day": "22",
+            "month": "November",
+            "title": "Virtual Meetup: BTC Community",
+            "description": "Connect with bitcoiners from your region. Networking, Q&A in real time.",
+            "subscribeMessage": "Sign up and we’ll let you know when this becomes available."
+          },
+          {
+            "day": "30",
+            "month": "November",
+            "title": "Workshop: Investment Strategies",
+            "description": "Build your Bitcoin investment strategy. Interactive session with live analysis.",
+            "subscribeMessage": "Sign up and we’ll let you know when this becomes available."
+          }
+        ]
+      },
+      "pricing": {
+        "eyebrow": "Pricing",
+        "title": "Plans Designed for You",
+        "description": "Choose the plan that best fits your Bitcoin strategy.",
+        "recommended": "Recommended",
+        "items": [
+          {
+            "name": "Annual",
+            "price": "$5",
+            "highlight": "Billed annually ($60/year)",
+            "suffix": "/month",
+            "features": [
+              "Complete course library access",
+              "Unlimited Nostr community",
+              "Store access",
+              "1 professional consultation per month",
+              "Active referral program",
+              "Access to events and masterclasses"
+            ],
+            "cta": "Subscribe Now",
+            "accent": false
+          },
+          {
+            "name": "Lifetime",
+            "price": "$80",
+            "highlight": "Permanent and unlimited access",
+            "suffix": "/one time",
+            "features": [
+              "Complete course library access",
+              "Unlimited Nostr community",
+              "Store access",
+              "Unlimited consultations",
+              "Premium referral program",
+              "Early access to P2P market",
+              "VIP events and exclusive networking"
+            ],
+            "cta": "Get Lifetime",
+            "accent": true
+          }
+        ]
+      },
+      "cta": {
+        "eyebrow": "Take action",
+        "title": "Join the Bitcoin Era",
+        "description": "Access specialized education, advanced tools and a community of committed bitcoiners. Built for those who seek excellence.",
+        "cards": [
+          {
+            "title": "🎯 Referrals",
+            "description": "Earn $20 per annual membership or $25 per lifetime you share with your network",
+            "cta": "Get Updates",
+            "subscribeMessage": "We’re working on referrals. Sign up to be notified when it’s ready."
+          },
+          {
+            "title": "🔗 Links",
+            "description": "Curated resources for professionals mastering the Bitcoin economy.",
+            "cta": "Keep Me Posted",
+            "subscribeMessage": "We’re building out curated links. Join the newsletter for updates."
+          },
+          {
+            "title": "📊 Dashboards",
+            "description": "Manage your membership, track performance and unlock data-driven insights once your membership is active.",
+            "cta": "Explore Memberships",
+            "href": "/memberships"
+          }
+        ]
+      }
+    }
   },
   "blog": {
     "title": "Blog",
@@ -399,6 +583,78 @@
         "invalidCode": "Invalid verification code.",
         "network": "We couldn't reach the server. Please try again."
       }
+    }
+  },
+  "dashboard": {
+    "common": {
+      "saved": "Saved",
+      "saving": "Saving…",
+      "copy": "Copy"
+    },
+    "hero": {
+      "badge": "Welcome back",
+      "title": "Ready for your next breakthrough, {{name}}?",
+      "subtitle": "Keep stacking knowledge, unlocking modules, and building a streak that sticks. Your progress lives here.",
+      "logout": "Log out"
+    },
+    "stats": {
+      "points": {
+        "label": "Points",
+        "helper": "Cumulative sats-ready points earned"
+      },
+      "streak": {
+        "label": "Study streak",
+        "helper": "Consecutive days showing up to learn"
+      },
+      "lessons": {
+        "label": "Lessons",
+        "helper": "Total lessons conquered across all topics"
+      }
+    },
+    "account": {
+      "title": "Account overview",
+      "email": "Email",
+      "username": "Username",
+      "userId": "User ID",
+      "screenName": "Screen name",
+      "screenNameHelper": "This name replaces your public key around the community. Make it friendly and easy to recognise.",
+      "screenNamePlaceholder": "SunnySpark310",
+      "avatarTip": "Tip: square images look best for your community avatar.",
+      "saveProfile": "Save profile",
+      "changePhoto": "Change",
+      "randomize": "Randomise",
+      "uploadPhoto": "Upload photo",
+      "avatarUploading": "Uploading photo…",
+      "avatarUpdated": "Profile photo updated!",
+      "errors": {
+        "authRequired": "You must be signed in to update your profile photo.",
+        "upload": "We were unable to upload that photo. Please try again.",
+        "profile": "Unable to update your profile details right now."
+      }
+    },
+    "lightning": {
+      "label": "Lightning wallet address",
+      "helper": "Add a Lightning address (for example, {{example}}) so other members can send you sats directly from the community areas.",
+      "placeholder": "you@lightningaddress.com",
+      "save": "Save address",
+      "errors": {
+        "generic": "Unable to update your Lightning address right now."
+      }
+    },
+    "messages": {
+      "title": "Direct messages",
+      "badge": "Private",
+      "description": "Jump straight into your encrypted conversations without leaving the dashboard.",
+      "cta": "Open messages",
+      "connectPrompt": "Add your Nostr public key in Settings to unlock the private inbox shortcut here."
+    },
+    "nostr": {
+      "title": "Nostr credentials",
+      "description": "Securely manage your keys. Copy them when you need to plug into your favourite Nostr client.",
+      "public": "Public key",
+      "private": "Private key",
+      "connectPrompt": "Connect your Nostr keys in Settings to sync across the ecosystem.",
+      "privateSrOnly": "Private key hidden for security. Use the copy button to copy it when needed."
     }
   }
 }
