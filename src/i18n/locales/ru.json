@@ -1,26 +1,26 @@
 {
   "common": {
-    "language": "Language",
+    "language": "Язык",
     "emailPlaceholder": "Email",
     "passwordPlaceholder": "Password",
     "newPasswordPlaceholder": "New password",
     "confirmPasswordPlaceholder": "Confirm password",
     "sendResetLink": "Send reset link",
     "updatePassword": "Update Password",
-    "loading": "Loading…"
+    "loading": "Загрузка…"
   },
   "nav": {
-    "home": "Home",
-    "education": "Education",
-    "shop": "Shop",
-    "membership": "Membership",
-    "messages": "Messages",
-    "newsletter": "Newsletter",
-    "community": "Community",
-    "settings": "Settings",
-    "dashboard": "Dashboard",
-    "login": "Login",
-    "logout": "Logout"
+    "home": "Главная",
+    "education": "Обучение",
+    "shop": "Магазин",
+    "membership": "Подписка",
+    "messages": "Сообщения",
+    "newsletter": "Рассылка",
+    "community": "Сообщество",
+    "settings": "Настройки",
+    "dashboard": "Панель",
+    "login": "Вход",
+    "logout": "Выход"
   },
   "community": {
     "tabs": {
@@ -56,8 +56,8 @@
       "toggle": "Toggle"
     },
     "language": {
-      "title": "Language",
-      "description": "Switch between English and Spanish translations for every screen.",
+      "title": "Язык",
+      "description": "Выберите язык интерфейса.",
       "english": "English",
       "spanish": "Español"
     },
@@ -208,186 +208,186 @@
     }
   },
   "home": {
-    "error": "Failed to load home.",
-    "imagePlaceholder": "Image coming soon",
+    "error": "Не удалось загрузить главную страницу.",
+    "imagePlaceholder": "Изображение скоро появится",
     "hero": {
-      "eyebrow": "Built on Nostr • BTC Only",
-      "title": "The Bitcoin Ecosystem",
-      "highlight": "You Need",
-      "description": "Professional education, community on Nostr and tools. A complete platform for serious bitcoiners.",
-      "primaryCta": "Join the Community",
-      "secondaryCta": "See How It Works",
+      "eyebrow": "Построено на Nostr • Только BTC",
+      "title": "Биткоин-экосистема",
+      "highlight": "которая вам нужна",
+      "description": "Профессиональное обучение, сообщество в Nostr и инструменты. Полноценная платформа для серьёзных биткоинеров.",
+      "primaryCta": "Присоединиться к сообществу",
+      "secondaryCta": "Как это работает",
       "stats": {
-        "members": "Active Members",
-        "courses": "Courses",
+        "members": "Активные участники",
+        "courses": "Курсы",
         "unavailable": "-"
       }
     },
     "sections": {
       "howItWorks": {
-        "eyebrow": "How it works",
-        "title": "How BitcoinSquare Works",
+        "eyebrow": "Как это работает",
+        "title": "Как работает BitcoinSquare",
         "items": [
           {
             "step": "1️⃣",
-            "title": "Sign Up",
-            "description": "Create your account and access through Nostr. Complete control, privacy guaranteed."
+            "title": "Зарегистрируйтесь",
+            "description": "Создайте аккаунт и входите через Nostr. Полный контроль и сохранение приватности."
           },
           {
             "step": "2️⃣",
-            "title": "Choose Your Plan",
-            "description": "Annual membership ($5/month) or lifetime access ($80). Both with complete access from day one."
+            "title": "Выберите план",
+            "description": "Годовая подписка ($5 в месяц) или пожизненный доступ ($80). Полный доступ с первого дня."
           },
           {
             "step": "3️⃣",
-            "title": "Access the Ecosystem",
-            "description": "Education, community, store and advisory services. All integrated in one professional platform."
+            "title": "Получите доступ к экосистеме",
+            "description": "Обучение, сообщество, магазин и консультации — всё в одной профессиональной платформе."
           },
           {
             "step": "4️⃣",
-            "title": "Monetize",
-            "description": "Participate, grow, generate income. Referral program with attractive commissions."
+            "title": "Монетизируйте",
+            "description": "Участвуйте, развивайтесь и зарабатывайте. Партнёрская программа с привлекательными комиссиями."
           }
         ]
       },
       "offerings": {
-        "eyebrow": "Platform",
-        "title": "What We Offer",
-        "description": "A complete platform built on Nostr that provides everything you need to master Bitcoin.",
+        "eyebrow": "Платформа",
+        "title": "Что мы предлагаем",
+        "description": "Полная платформа на базе Nostr, в которой есть всё, чтобы освоить Bitcoin.",
         "items": [
           {
             "icon": "📚",
-            "title": "Education",
-            "description": "Access structured courses covering Bitcoin fundamentals to advanced investment strategies and security."
+            "title": "Обучение",
+            "description": "Доступ к структурированным курсам: от основ Bitcoin до продвинутых стратегий и безопасности."
           },
           {
             "icon": "👥",
-            "title": "Community",
-            "description": "Connect with committed bitcoiners, share experiences, create your own community and build professional networks on Nostr."
+            "title": "Сообщество",
+            "description": "Общайтесь с увлечёнными биткоинерами, делитесь опытом, создавайте своё сообщество и профессиональные связи в Nostr."
           },
           {
             "icon": "🛍️",
-            "title": "Store",
-            "description": "Access to curated products for bitcoiners: hardware wallets, technical literature, premium merchandise and specialized tools."
+            "title": "Магазин",
+            "description": "Подборка товаров для биткоинеров: аппаратные кошельки, техническая литература, мерч и специализированные инструменты."
           },
           {
             "icon": "💼",
-            "title": "Advisory Services",
-            "description": "Consult with experts on investment strategies, portfolio management and best practices in Bitcoin security."
+            "title": "Консалтинг",
+            "description": "Консультации со специалистами по инвестиционным стратегиям, управлению портфелем и лучшим практикам безопасности Bitcoin."
           }
         ]
       },
       "roadmap": {
-        "eyebrow": "Roadmap",
-        "title": "Ecosystem Roadmap",
+        "eyebrow": "Дорожная карта",
+        "title": "Дорожная карта экосистемы",
         "items": [
           {
-            "phase": "Phase 1: Live Now",
-            "focus": "Education, Community & Store",
-            "description": "Access to professional courses, Nostr community and specialized store. Everything ready for you to start your Bitcoin journey."
+            "phase": "Этап 1: Уже доступно",
+            "focus": "Обучение, сообщество и магазин",
+            "description": "Доступ к профессиональным курсам, сообществу Nostr и специализированному магазину. Всё готово, чтобы начать ваш путь в Bitcoin."
           },
           {
-            "phase": "Phase 2: Q1 2025",
-            "focus": "P2P Market",
-            "description": "Exchange Bitcoin and USDT directly between members. No intermediaries, total security and control."
+            "phase": "Этап 2: 1 квартал 2025",
+            "focus": "P2P-рынок",
+            "description": "Обменивайте Bitcoin и USDT напрямую между участниками. Без посредников, с полной безопасностью и контролем."
           },
           {
-            "phase": "Phase 3: Q2 2025",
-            "focus": "Lending Solutions",
-            "description": "Access to Bitcoin financing options. Real investment opportunities for serious bitcoiners."
+            "phase": "Этап 3: 2 квартал 2025",
+            "focus": "Кредитные решения",
+            "description": "Доступ к вариантам финансирования в Bitcoin. Реальные возможности для серьёзных биткоинеров."
           }
         ]
       },
       "events": {
-        "eyebrow": "Events",
-        "title": "Upcoming Events",
-        "cta": "Register",
+        "eyebrow": "События",
+        "title": "Ближайшие события",
+        "cta": "Зарегистрироваться",
         "items": [
           {
             "day": "15",
-            "month": "November",
-            "title": "Masterclass: Bitcoin Security",
-            "description": "Learn best practices to secure your Bitcoin. Live session with expert speakers.",
-            "subscribeMessage": "Sign up and we’ll let you know when this becomes available."
+            "month": "Ноября",
+            "title": "Мастеркласс: Безопасность Bitcoin",
+            "description": "Узнайте лучшие практики защиты Bitcoin. Живой сеанс с экспертами.",
+            "subscribeMessage": "Зарегистрируйтесь, и мы сообщим, когда будет доступно."
           },
           {
             "day": "22",
-            "month": "November",
-            "title": "Virtual Meetup: BTC Community",
-            "description": "Connect with bitcoiners from your region. Networking, Q&A in real time.",
-            "subscribeMessage": "Sign up and we’ll let you know when this becomes available."
+            "month": "Ноября",
+            "title": "Виртуальная встреча: BTC-сообщество",
+            "description": "Познакомьтесь с биткоинерами из вашего региона. Нетворкинг и вопросы в реальном времени.",
+            "subscribeMessage": "Зарегистрируйтесь, и мы сообщим, когда будет доступно."
           },
           {
             "day": "30",
-            "month": "November",
-            "title": "Workshop: Investment Strategies",
-            "description": "Build your Bitcoin investment strategy. Interactive session with live analysis.",
-            "subscribeMessage": "Sign up and we’ll let you know when this becomes available."
+            "month": "Ноября",
+            "title": "Воркшоп: Инвестиционные стратегии",
+            "description": "Постройте свою стратегию инвестирования в Bitcoin. Интерактивная сессия с живым разбором.",
+            "subscribeMessage": "Зарегистрируйтесь, и мы сообщим, когда будет доступно."
           }
         ]
       },
       "pricing": {
-        "eyebrow": "Pricing",
-        "title": "Plans Designed for You",
-        "description": "Choose the plan that best fits your Bitcoin strategy.",
-        "recommended": "Recommended",
+        "eyebrow": "Цены",
+        "title": "Тарифы для вас",
+        "description": "Выберите тариф, который лучше всего подходит под вашу стратегию в Bitcoin.",
+        "recommended": "Рекомендуем",
         "items": [
           {
-            "name": "Annual",
+            "name": "Годовой",
             "price": "$5",
-            "highlight": "Billed annually ($60/year)",
-            "suffix": "/month",
+            "highlight": "Оплата раз в год ($60/год)",
+            "suffix": "/месяц",
             "features": [
-              "Complete course library access",
-              "Unlimited Nostr community",
-              "Store access",
-              "1 professional consultation per month",
-              "Active referral program",
-              "Access to events and masterclasses"
+              "Полный доступ к библиотеке курсов",
+              "Безлимитное сообщество Nostr",
+              "Доступ к магазину",
+              "1 профессиональная консультация в месяц",
+              "Активная партнёрская программа",
+              "Доступ к событиям и мастер-классам"
             ],
-            "cta": "Subscribe Now",
+            "cta": "Оформить подписку",
             "accent": false
           },
           {
-            "name": "Lifetime",
+            "name": "Пожизненный",
             "price": "$80",
-            "highlight": "Permanent and unlimited access",
-            "suffix": "/one time",
+            "highlight": "Постоянный и неограниченный доступ",
+            "suffix": "/единовременно",
             "features": [
-              "Complete course library access",
-              "Unlimited Nostr community",
-              "Store access",
-              "Unlimited consultations",
-              "Premium referral program",
-              "Early access to P2P market",
-              "VIP events and exclusive networking"
+              "Полный доступ к библиотеке курсов",
+              "Безлимитное сообщество Nostr",
+              "Доступ к магазину",
+              "Неограниченные консультации",
+              "Премиальная партнёрская программа",
+              "Ранний доступ к P2P-рынку",
+              "VIP-события и эксклюзивный нетворкинг"
             ],
-            "cta": "Get Lifetime",
+            "cta": "Получить пожизненный доступ",
             "accent": true
           }
         ]
       },
       "cta": {
-        "eyebrow": "Take action",
-        "title": "Join the Bitcoin Era",
-        "description": "Access specialized education, advanced tools and a community of committed bitcoiners. Built for those who seek excellence.",
+        "eyebrow": "Действуйте",
+        "title": "Присоединяйтесь к эпохе Bitcoin",
+        "description": "Получите специализированное обучение, продвинутые инструменты и сообщество увлечённых биткоинеров. Создано для тех, кто стремится к совершенству.",
         "cards": [
           {
-            "title": "🎯 Referrals",
-            "description": "Earn $20 per annual membership or $25 per lifetime you share with your network",
-            "cta": "Get Updates",
-            "subscribeMessage": "We’re working on referrals. Sign up to be notified when it’s ready."
+            "title": "🎯 Рефералы",
+            "description": "Получайте $20 за годовую подписку или $25 за пожизненный доступ, который вы делитесь со своей сетью",
+            "cta": "Сообщать новости",
+            "subscribeMessage": "Мы готовим реферальную программу. Зарегистрируйтесь, чтобы узнать, когда она будет готова."
           },
           {
-            "title": "🔗 Links",
-            "description": "Curated resources for professionals mastering the Bitcoin economy.",
-            "cta": "Keep Me Posted",
-            "subscribeMessage": "We’re building out curated links. Join the newsletter for updates."
+            "title": "🔗 Ссылки",
+            "description": "Подборка ресурсов для профессионалов, осваивающих биткоин-экономику.",
+            "cta": "Сообщить мне",
+            "subscribeMessage": "Мы создаём подборку ссылок. Подпишитесь на рассылку, чтобы получать обновления."
           },
           {
-            "title": "📊 Dashboards",
-            "description": "Manage your membership, track performance and unlock data-driven insights once your membership is active.",
-            "cta": "Explore Memberships",
+            "title": "📊 Дашборды",
+            "description": "Управляйте членством, отслеживайте результаты и открывайте аналитические инсайты после активации членства.",
+            "cta": "Изучить членство",
             "href": "/memberships"
           }
         ]
@@ -587,74 +587,74 @@
   },
   "dashboard": {
     "common": {
-      "saved": "Saved",
-      "saving": "Saving…",
-      "copy": "Copy"
+      "saved": "Сохранено",
+      "saving": "Сохранение…",
+      "copy": "Копировать"
     },
     "hero": {
-      "badge": "Welcome back",
-      "title": "Ready for your next breakthrough, {{name}}?",
-      "subtitle": "Keep stacking knowledge, unlocking modules, and building a streak that sticks. Your progress lives here.",
-      "logout": "Log out"
+      "badge": "С возвращением",
+      "title": "Готовы к следующему прорыву, {{name}}?",
+      "subtitle": "Продолжайте накапливать знания, открывать модули и держать серию. Ваш прогресс сохраняется здесь.",
+      "logout": "Выйти"
     },
     "stats": {
       "points": {
-        "label": "Points",
-        "helper": "Cumulative sats-ready points earned"
+        "label": "Баллы",
+        "helper": "Накопленные баллы, готовые к конвертации в sats"
       },
       "streak": {
-        "label": "Study streak",
-        "helper": "Consecutive days showing up to learn"
+        "label": "Серия обучения",
+        "helper": "Количество подряд идущих дней обучения"
       },
       "lessons": {
-        "label": "Lessons",
-        "helper": "Total lessons conquered across all topics"
+        "label": "Уроки",
+        "helper": "Всего пройденных уроков по всем темам"
       }
     },
     "account": {
-      "title": "Account overview",
+      "title": "Обзор аккаунта",
       "email": "Email",
-      "username": "Username",
-      "userId": "User ID",
-      "screenName": "Screen name",
-      "screenNameHelper": "This name replaces your public key around the community. Make it friendly and easy to recognise.",
-      "screenNamePlaceholder": "SunnySpark310",
-      "avatarTip": "Tip: square images look best for your community avatar.",
-      "saveProfile": "Save profile",
-      "changePhoto": "Change",
-      "randomize": "Randomise",
-      "uploadPhoto": "Upload photo",
-      "avatarUploading": "Uploading photo…",
-      "avatarUpdated": "Profile photo updated!",
+      "username": "Имя пользователя",
+      "userId": "ID пользователя",
+      "screenName": "Отображаемое имя",
+      "screenNameHelper": "Это имя заменяет ваш публичный ключ в сообществе. Сделайте его узнаваемым.",
+      "screenNamePlaceholder": "Искра310",
+      "avatarTip": "Совет: квадратные изображения лучше всего подходят для аватара.",
+      "saveProfile": "Сохранить профиль",
+      "changePhoto": "Изменить",
+      "randomize": "Случайно",
+      "uploadPhoto": "Загрузить фото",
+      "avatarUploading": "Загрузка фото…",
+      "avatarUpdated": "Фото профиля обновлено!",
       "errors": {
-        "authRequired": "You must be signed in to update your profile photo.",
-        "upload": "We were unable to upload that photo. Please try again.",
-        "profile": "Unable to update your profile details right now."
+        "authRequired": "Нужно войти в систему, чтобы обновить фото профиля.",
+        "upload": "Не удалось загрузить это фото. Попробуйте ещё раз.",
+        "profile": "Не удаётся обновить данные профиля прямо сейчас."
       }
     },
     "lightning": {
-      "label": "Lightning wallet address",
-      "helper": "Add a Lightning address (for example, {{example}}) so other members can send you sats directly from the community areas.",
+      "label": "Адрес Lightning",
+      "helper": "Добавьте адрес Lightning (например {{example}}), чтобы участники могли отправлять вам sats напрямую.",
       "placeholder": "you@lightningaddress.com",
-      "save": "Save address",
+      "save": "Сохранить адрес",
       "errors": {
-        "generic": "Unable to update your Lightning address right now."
+        "generic": "Не удалось обновить адрес Lightning."
       }
     },
     "messages": {
-      "title": "Direct messages",
-      "badge": "Private",
-      "description": "Jump straight into your encrypted conversations without leaving the dashboard.",
-      "cta": "Open messages",
-      "connectPrompt": "Add your Nostr public key in Settings to unlock the private inbox shortcut here."
+      "title": "Личные сообщения",
+      "badge": "Приватно",
+      "description": "Переходите в зашифрованные диалоги прямо из панели.",
+      "cta": "Открыть сообщения",
+      "connectPrompt": "Добавьте публичный ключ Nostr в настройках, чтобы открыть быстрый доступ к личным сообщениям."
     },
     "nostr": {
-      "title": "Nostr credentials",
-      "description": "Securely manage your keys. Copy them when you need to plug into your favourite Nostr client.",
-      "public": "Public key",
-      "private": "Private key",
-      "connectPrompt": "Connect your Nostr keys in Settings to sync across the ecosystem.",
-      "privateSrOnly": "Private key hidden for security. Use the copy button to copy it when needed."
+      "title": "Учетные данные Nostr",
+      "description": "Безопасно управляйте своими ключами. Копируйте их, когда нужно подключиться к любимому клиенту Nostr.",
+      "public": "Публичный ключ",
+      "private": "Приватный ключ",
+      "connectPrompt": "Подключите ключи Nostr в настройках, чтобы синхронизироваться по экосистеме.",
+      "privateSrOnly": "Приватный ключ скрыт для безопасности. Используйте кнопку копирования при необходимости."
     }
   }
 }

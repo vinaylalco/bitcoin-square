@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { resolveLocale } from "../../utils/locale";
 import type { TopicFile, LessonCardData } from "./types";
 
 export function useLessons() {
@@ -13,9 +14,10 @@ export function useLessons() {
     let alive = true;
     (async () => {
       setState({ lessons: [], loading: true, error: undefined });
-      const lang = i18n.language?.toLowerCase().startsWith("es") ? "es" : "en";
+      const locale = resolveLocale(i18n.language);
+      const contentLocale = locale === "es" ? "es" : "en";
       try {
-        const mod = await import(`../../data/lessons.${lang}.json`);
+        const mod = await import(`../../data/lessons.${contentLocale}.json`);
         const data = (mod as any).default as TopicFile;
         const flat = data.course.modules.flatMap((m) =>
           m.topics.flatMap((t) =>

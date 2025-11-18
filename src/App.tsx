@@ -23,6 +23,8 @@ import Footer from "./components/Footer";
 import ProfileModalPortal from "./components/profile/ProfileModal";
 import { cn } from "./utils/cn";
 import { useLessonPlans } from "./hooks/useLessonPlans";
+import { resolveLocale } from "./utils/locale";
+import LanguageSwitcher from "./components/LanguageSwitcher";
 
 export default function App() {
   const [open, setOpen] = useState(false);
@@ -40,10 +42,11 @@ export default function App() {
   const isCommunityRoute = loc.pathname.startsWith("/community");
   const hideFooterOnPage = /^\/education\/[\w-]+/.test(loc.pathname) || isCommunityRoute;
 
-  const lang = (i18n.language || "en").toLowerCase().startsWith("es") ? "es" : "en";
-  const changeLang = (lng: "en" | "es") => i18n.changeLanguage(lng);
+  const locale = resolveLocale(i18n.language);
 
-  const { data: lessonPlans } = useLessonPlans(lang);
+  const lessonPlanLocale = locale === "es" ? "es" : "en";
+
+  const { data: lessonPlans } = useLessonPlans(lessonPlanLocale);
   const educationChildren = (() => {
     const normalized = (lessonPlans ?? [])
       .map((course) => {
@@ -518,27 +521,7 @@ export default function App() {
               )}
             </nav>
             <div className="px-5 pb-6">
-              <p className="text-[0.65rem] font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">{t("common.language")}</p>
-              <div className="mt-3 inline-flex overflow-hidden rounded-full border border-[var(--border-subtle)]">
-                <button
-                  onClick={() => changeLang("en")}
-                  className={cn(
-                    "px-4 py-2 text-[0.65rem] font-semibold uppercase tracking-[0.32em] transition",
-                    lang === "en" ? "bg-brand text-white" : "text-[var(--fg-muted)] hover:text-brand",
-                  )}
-                >
-                  EN
-                </button>
-                <button
-                  onClick={() => changeLang("es")}
-                  className={cn(
-                    "px-4 py-2 text-[0.65rem] font-semibold uppercase tracking-[0.32em] transition",
-                    lang === "es" ? "bg-brand text-white" : "text-[var(--fg-muted)] hover:text-brand",
-                  )}
-                >
-                  ES
-                </button>
-              </div>
+              <LanguageSwitcher size="sm" />
             </div>
           </div>
         </FocusTrap>

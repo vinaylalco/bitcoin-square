@@ -1,15 +1,12 @@
 import { useTranslation } from "react-i18next";
 import { useTheme } from "../context/ThemeContext";
 import { usePreferences } from "../context/PreferencesContext";
+import LanguageSwitcher from "../components/LanguageSwitcher";
 
 export default function Settings() {
   const { theme, setTheme, toggle } = useTheme();
   const { thunderSoundEnabled, setThunderSoundEnabled } = usePreferences();
-  const { t, i18n } = useTranslation();
-  const lang = (i18n.language || "en").toLowerCase().startsWith("es") ? "es" : "en";
-  const changeLanguage = (lng: "en" | "es") => {
-    void i18n.changeLanguage(lng);
-  };
+  const { t } = useTranslation();
 
   return (
     <div className="mx-auto max-w-4xl space-y-8 px-4 pb-20 pt-12 sm:px-6">
@@ -61,23 +58,8 @@ export default function Settings() {
         <p className="mt-2 text-sm text-[var(--fg-muted)]">
           {t("settings.language.description")}
         </p>
-        <div className="mt-5 inline-flex overflow-hidden rounded-full border border-brand/30 text-xs font-semibold uppercase tracking-[0.32em]">
-          <button
-            onClick={() => changeLanguage("en")}
-            className={`px-5 py-2 transition ${
-              lang === "en" ? "bg-brand text-white" : "text-[var(--fg-muted)] hover:text-brand"
-            }`}
-          >
-            {t("settings.language.english")}
-          </button>
-          <button
-            onClick={() => changeLanguage("es")}
-            className={`px-5 py-2 transition ${
-              lang === "es" ? "bg-brand text-white" : "text-[var(--fg-muted)] hover:text-brand"
-            }`}
-          >
-            {t("settings.language.spanish")}
-          </button>
+        <div className="mt-5">
+          <LanguageSwitcher />
         </div>
       </section>
 
