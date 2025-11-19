@@ -1,5 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { BreakevenHeatmap } from "../components/BreakevenHeatmap";
+import { CumulativeNetChart } from "../components/CumulativeNetChart";
+import { MiningVsHodlChart } from "../components/MiningVsHodlChart";
+import { useRoiScenarios } from "../hooks/useRoiScenarios";
+import { RiskAndInsuranceSection } from "../components/RiskAndInsuranceSection";
+import { PassiveIncomeComparisonChart } from "../components/PassiveIncomeComparisonChart";
 
 const MINER_PROFILES = {
   s21: {
@@ -89,6 +95,9 @@ export function MinerQuotation2Page() {
   const [autoBtcPrice, setAutoBtcPrice] = useState<boolean>(
     () => getInitialAutoBtcPrice(),
   );
+  const [activeTab, setActiveTab] = useState<
+    "scenario" | "breakeven" | "passive" | "risk"
+  >("scenario");
   // TODO: Replace this hard-coded yield with a difficulty-based calculation when
   // network data is re-enabled. This value targets ~0.00243261 BTC/day at
   // 4,900 TH/s for the reference S21 quote.
@@ -116,6 +125,13 @@ export function MinerQuotation2Page() {
   const totalPerUnit =
     quote.minerPricePerUnitUsd + quote.logisticsPerUnitUsd + quote.taxesPerUnitUsd;
   const usdToBtc = (usd: number) => (quote.btcPriceUsd > 0 ? usd / quote.btcPriceUsd : 0);
+  const roiScenarios = useRoiScenarios({
+    dailyBtc,
+    dailyElecUsd,
+    totalCapexUsd,
+    btcPriceUsd: quote.btcPriceUsd,
+    months: 60,
+  });
   const paybackMonths = monthlyNetUsd > 0 && totalCapexUsd > 0
     ? totalCapexUsd / monthlyNetUsd
     : null;
@@ -461,6 +477,157 @@ export function MinerQuotation2Page() {
                 </tr>
               </tbody>
             </table>
+          </div>
+        </section>
+
+        <section className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl p-6 shadow-[var(--shadow-soft)] space-y-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-xl font-semibold text-amber-200">Deep-Dive Explorer</h2>
+              <p className="text-sm text-[var(--fg-muted)]">
+                Switch between ROI scenarios, breakeven views, income comparisons, and risk context.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {[{ key: "scenario", label: "Scenario Explorer" }, { key: "breakeven", label: "Breakeven Analysis" }, { key: "passive", label: "Passive Income" }, { key: "risk", label: "Risk & Insurance" }].map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setActiveTab(tab.key as typeof activeTab)}
+                  className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                    activeTab === tab.key
+                      ? "bg-amber-300 text-black border-amber-300"
+                      : "bg-[var(--bg-elevated)] border-[var(--border-subtle)] text-[var(--fg-default)] hover:border-amber-300/60"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-xl p-4 sm:p-6">
+            {activeTab === "scenario" && (
+              <div className="space-y-4">
+                <div className="flex flex-col gap-2">
+                  <h3 className="text-lg font-semibold text-[var(--fg-default)]">Scenario Explorer</h3>
+                  <div className="space-y-2 text-sm text-[var(--fg-muted)]">
+                    <p>
+                      This view projects how your mining setup could perform over time under different hypothetical Bitcoin price paths. Each line stacks monthly revenue minus power costs so you can see cumulative net profit for your configuration.
+                    </p>
+                    <div className="grid gap-2 md:grid-cols-2">
+                      <div className="rounded-lg bg-[var(--bg-card)]/60 p-3">
+                        <p className="font-semibold text-[var(--fg-default)]">How it’s calculated</p>
+                        <ul className="mt-1 list-disc space-y-1 pl-4">
+                          <li>Starts from your hashrate, power draw, electricity rate, BTC price, and upfront CAPEX.</li>
+                          <li>Applies four BTC price paths: Flat (0%/yr), Conservative (20%/yr), Bullish (40%/yr), and optional Ultra (60%/yr).</li>
+                          <li>For each month: revenue = BTC mined × price path; power = kW × hours × $/kWh; net = revenue − power; cumulative net sums the net month over month.</li>
+                        </ul>
+                      </div>
+                      <div className="rounded-lg bg-[var(--bg-card)]/60 p-3">
+                        <p className="font-semibold text-[var(--fg-default)]">How to read it</p>
+                        <ul className="mt-1 list-disc space-y-1 pl-4">
+                          <li>Steeper lines indicate faster payback and higher ROI.</li>
+                          <li>Where a line crosses your initial CAPEX (if shown) is the estimated payback month for that scenario.</li>
+                          <li>The flat path is the built-in “worst case” here (no BTC appreciation, no difficulty changes).</li>
+                        </ul>
+                      </div>
+                    </div>
+                    <p className="text-[0.85rem] text-[var(--fg-default)]">
+                      Takeaways: Efficient hardware plus low power can still work on flatter price paths; higher BTC growth shortens payback but isn’t guaranteed. This is a what-if tool, not a prediction.
+                    </p>
+                  </div>
+                </div>
+                <div className="grid gap-6 lg:grid-cols-2">
+                  <div className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-lg p-4 space-y-3">
+                    <h4 className="text-base font-semibold text-[var(--fg-default)]">Cumulative net profit</h4>
+                    <CumulativeNetChart points={roiScenarios.points} />
+                  </div>
+                  <div className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-lg p-4 space-y-3">
+                    <h4 className="text-base font-semibold text-[var(--fg-default)]">Mining vs HODL (20%/yr price path)</h4>
+                    <div className="space-y-1 text-xs text-[var(--fg-muted)]">
+                      <p>
+                        Compares two strategies using the same starting capital: buying miners and running them versus buying BTC once and holding it. Values are revalued along the same 20%/yr BTC price curve.
+                      </p>
+                      <p className="text-[var(--fg-default)]">
+                        If the mining line sits below the HODL line, buying BTC would have outperformed under these assumptions; if the mining line crosses and stays above, operations beat a simple buy-and-hold.
+                      </p>
+                      <p>
+                        Mining effectively converts power and OPEX into BTC exposure; this chart shows whether that extra complexity pays off relative to just stacking sats.
+                      </p>
+                    </div>
+                    <MiningVsHodlChart
+                      points={roiScenarios.points}
+                      totalCapexUsd={totalCapexUsd}
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-[var(--fg-muted)]">Hypothetical BTC price paths, not predictions or financial advice.</p>
+              </div>
+            )}
+
+            {activeTab === "breakeven" && (
+              <div className="space-y-4">
+                <div className="flex flex-col gap-2">
+                  <h3 className="text-lg font-semibold text-[var(--fg-default)]">Breakeven Analysis</h3>
+                  <div className="space-y-2 text-sm text-[var(--fg-muted)]">
+                    <p>
+                      The breakeven heatmap shows how daily net profit changes as BTC price and electricity cost vary. It highlights the BTC price needed to offset your power bill at different rates.
+                    </p>
+                    <p className="text-[var(--fg-default)]">
+                      For each BTC price and electricity price pair we compute: revenue = dailyBtc × BTC price; electricity = totalPowerKw × 24 × $/kWh; net = revenue − electricity. Cells shade red for losses, neutral around breakeven, green for profit.
+                    </p>
+                    <p>
+                      Read across the row closest to your actual power rate (e.g., $0.08/kWh) to see how net profit responds to BTC price. Where the color shifts toward neutral/green is your rough breakeven if other factors stay constant.
+                    </p>
+                  </div>
+                </div>
+                <BreakevenHeatmap dailyBtc={dailyBtc} totalPowerKw={totalPowerKw} />
+              </div>
+            )}
+
+            {activeTab === "passive" && (
+              <div className="space-y-4">
+                <div className="flex flex-col gap-2">
+                  <h3 className="text-lg font-semibold text-[var(--fg-default)]">Passive Income Comparison</h3>
+                  <div className="space-y-2 text-sm text-[var(--fg-muted)]">
+                    <p>
+                      This bar chart compares annual income from mining to other passive-income style investments, assuming the same $10,000 starting capital.
+                    </p>
+                    <p className="text-[var(--fg-default)]">
+                      Mining income uses your monthly net profit scaled to a $10k allocation. Other bars use simple, illustrative yields: dividend stocks (~3%), rentals (~5%), savings/T-bills (~4%), gold (~1%), and BTC HODL (0% income, pure price exposure).
+                    </p>
+                    <p>
+                      If the mining bar is higher, your configuration implies more annual cashflow—but usually with higher operational and market risk. Some alternatives trade yield for stability or pure price exposure.
+                    </p>
+                  </div>
+                </div>
+                <PassiveIncomeComparisonChart
+                  monthlyNetUsd={monthlyNetUsd}
+                  totalCapexUsd={totalCapexUsd}
+                />
+                <p className="text-xs text-[var(--fg-muted)]">
+                  These are hypothetical yields for comparison only; actual results and risks vary by investment and operator capability.
+                </p>
+              </div>
+            )}
+
+            {activeTab === "risk" && (
+              <div className="space-y-4">
+                <div className="flex flex-col gap-2">
+                  <h3 className="text-lg font-semibold text-[var(--fg-default)]">Risk &amp; Insurance</h3>
+                  <div className="space-y-2 text-sm text-[var(--fg-muted)]">
+                    <p>
+                      This section summarizes common mining risks and outlines insurance and mitigation ideas. It complements the charts by looking at downside scenarios tied to BTC price, network difficulty, power costs, and operations.
+                    </p>
+                    <p className="text-[var(--fg-default)]">
+                      Use it as a checklist to stress-test your plan: What if BTC halves in price, power rates rise, hardware fails, or regulation shifts? The mitigation bullets point to insurance, SLAs, hedging, and custody practices you can investigate with qualified professionals.
+                    </p>
+                  </div>
+                </div>
+                <RiskAndInsuranceSection />
+              </div>
+            )}
           </div>
         </section>
 
