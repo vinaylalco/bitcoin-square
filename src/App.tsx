@@ -82,9 +82,6 @@ export default function App() {
     { label: t("nav.shop"), to: "/shop" },
     { label: t("nav.membership"), to: "/membership" },
     { label: t("nav.community"), to: "/community" },
-    ...(user?.isAdmin
-      ? [{ label: t("nav.minerQuotation"), to: "/miner-quotation" }]
-      : []),
   ];
 
   const educationRootMatch = useMatch("/education");
@@ -473,7 +470,7 @@ export default function App() {
               >
                 <Users className="h-5 w-5" /> {t("nav.community")}
               </NavLink>
-              {user?.isAdmin ? (
+              {user ? (
                 <NavLink
                   to="/miner-quotation"
                   onClick={() => setOpen(false)}
