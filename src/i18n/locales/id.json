@@ -656,5 +656,136 @@
       "connectPrompt": "Sambungkan kunci Nostr Anda di Pengaturan untuk sinkron di seluruh ekosistem.",
       "privateSrOnly": "Kunci privat disembunyikan demi keamanan. Gunakan tombol salin saat diperlukan."
     }
+  },
+  "minerQuotation": {
+    "title": "Penawaran Profesional Penambangan BTC",
+    "subtitle": "Analisis investasi dan proyeksi profitabilitas",
+    "minerModelLabel": "Model miner",
+    "generalInformation": "Informasi umum",
+    "equipmentModel": "Model peralatan",
+    "customLabel": "ASIC kustom",
+    "issueDate": "Tanggal terbit",
+    "technicalSpecifications": "Spesifikasi teknis",
+    "unitPowerConsumption": "Konsumsi daya per unit",
+    "hashrate": "Hashrate",
+    "efficiency": "Efisiensi",
+    "totalUnits": "Total unit",
+    "totalPowerConsumption": "Total konsumsi daya",
+    "electricityCost": "Biaya listrik",
+    "profitabilityProjection": "Proyeksi profitabilitas",
+    "projectionHelper": "Perkiraan pendapatan dengan kondisi pasar saat ini",
+    "grossRevenue": "Pendapatan kotor",
+    "electricityCostRow": "Biaya listrik",
+    "netProfit": "Laba bersih",
+    "investmentStructure": "Struktur investasi",
+    "columns": {
+      "item": "Item",
+      "unitPrice": "Harga satuan",
+      "quantity": "Jumlah",
+      "subtotal": "Subtotal"
+    },
+    "rows": {
+      "equipment": "Peralatan penambangan",
+      "logistics": "Logistik internasional",
+      "taxes": "Pajak dan bea"
+    },
+    "total": "Total",
+    "totalInvestment": "Total investasi",
+    "estimatedPayback": "Perkiraan balik modal",
+    "projectedAnnualRoi": "Proyeksi ROI tahunan",
+    "monthsUnit": "bulan",
+    "marketPriceLabel": "Harga pasar BTC (USD)",
+    "autoUpdate": "Perbarui harga BTC otomatis dari API",
+    "footnote": "* Perhitungan berdasarkan kondisi pasar saat ini dan dapat berubah karena kesulitan jaringan, harga BTC, dan biaya operasional.",
+    "buckets": {
+      "daily": "Harian",
+      "weekly": "Mingguan",
+      "monthly": "Bulanan"
+    },
+    "options": {
+      "s21": "S21",
+      "custom": "Kustom"
+    },
+    "charts": {
+      "scenario": {
+        "flat": "Datar (0%/tahun)",
+        "conservative": "20%/tahun",
+        "bullish": "40%/tahun",
+        "ultra": "60%/tahun"
+      },
+      "monthLabel": "Bulan {{value}}",
+      "lines": {
+        "mining": "Menambang (jalur harga 20%/tahun)",
+        "hodl": "Beli & HODL BTC (jalur harga 20%/tahun)"
+      },
+      "passive": {
+        "annualIncome": "Pendapatan tahunan",
+        "labels": {
+          "mining": "Menambang",
+          "dividends": "Saham dividen",
+          "rental": "Properti sewa",
+          "savings": "Tabungan / T-bills",
+          "gold": "Emas",
+          "hodl": "BTC HODL"
+        }
+      },
+      "breakeven": {
+        "heading": "Harga impas BTC vs biaya listrik",
+        "subtitle": "Laba/rugi harian untuk berbagai harga BTC dan tarif listrik. Membantu melihat titik impas Anda.",
+        "electricityLabel": "Biaya listrik (USD/kWh)",
+        "btcLabel": "Harga BTC (USD)"
+      }
+    },
+    "deepDive": {
+      "title": "Penjelajah mendalam",
+      "description": "Beralih antara skenario ROI, analisis impas, perbandingan pendapatan, dan konteks risiko.",
+      "tabs": {
+        "scenario": "Penjelajah skenario – Jalur harga BTC & laba bersih",
+        "breakeven": "Analisis impas",
+        "passive": "Perbandingan pendapatan pasif",
+        "risk": "Risiko & asuransi"
+      },
+      "scenario": {
+        "heading": "Penjelajah skenario – Jalur harga BTC & laba bersih",
+        "description": "Memproyeksikan kinerja setup mining Anda di bawah berbagai jalur harga BTC hipotetis. Tiap garis menjumlahkan pendapatan bulanan dikurangi biaya listrik untuk menunjukkan laba bersih kumulatif.",
+        "howCalculatedTitle": "Cara dihitung",
+        "howCalculatedBullets": [
+          "Berawal dari hashrate, konsumsi daya, tarif listrik, harga BTC, dan CAPEX awal Anda.",
+          "Menerapkan empat jalur harga BTC: Datar (0%/th), Konservatif (20%/th), Bullish (40%/th), dan Ultra opsional (60%/th).",
+          "Per bulan: pendapatan = BTC ditambang × harga; listrik = kW × jam × $/kWh; bersih = pendapatan − listrik; laba kumulatif dijumlah setiap bulan."
+        ],
+        "howToReadTitle": "Cara membaca",
+        "howToReadBullets": [
+          "Garis lebih curam = balik modal dan ROI lebih cepat.",
+          "Titik perpotongan garis dengan CAPEX (jika ditampilkan) adalah perkiraan bulan balik modal untuk skenario itu.",
+          "Jalur datar adalah ‘kasus terburuk’ bawaan (tidak ada apresiasi BTC, tidak ada perubahan kesulitan)."
+        ],
+        "takeaways": "Intinya: perangkat efisien + listrik murah dapat tetap bekerja pada harga datar; pertumbuhan BTC mempercepat balik modal namun tidak dijamin. Ini alat simulasi, bukan prediksi.",
+        "cumulativeTitle": "Laba bersih kumulatif",
+        "miningVsHodlTitle": "Menambang vs membeli & menahan BTC",
+        "miningVsHodlIntro": "Membandingkan dua strategi dengan modal awal sama: membeli miner dan mengoperasikannya vs membeli BTC sekali dan menahannya pada jalur harga yang sama.",
+        "miningVsHodlDetail": "Nilai mining = CAPEX + laba bersih kumulatif (pendapatan – listrik) memakai input Anda. Nilai HODL membeli BTC dengan modal yang sama hari ini dan menilainya ulang di kurva yang sama.",
+        "miningVsHodlInterpretation": "Jika garis mining berada di bawah HODL, membeli BTC lebih unggul pada asumsi tersebut. Jika menyeberang dan tetap di atas, operasi mengungguli beli-dan-tahan dalam skenario itu.",
+        "disclaimer": "Jalur harga hipotetis, bukan prediksi atau nasihat finansial."
+      },
+      "breakeven": {
+        "heading": "Analisis impas",
+        "description": "Heatmap menunjukkan bagaimana laba harian berubah ketika harga BTC dan biaya listrik berubah. Menyoroti harga yang menutup tagihan listrik Anda.",
+        "formula": "Untuk tiap kombinasi harga BTC dan tarif listrik: pendapatan = BTC harian × harga; listrik = daya total × 24 × $/kWh; bersih = pendapatan − listrik. Sel berwarna merah (rugi), netral (impas), hijau (untung).",
+        "reading": "Lihat baris yang paling mendekati tarif Anda (mis. $0,08/kWh) untuk melihat sensitivitas terhadap harga BTC. Titik perubahan warna ke netral/hijau adalah kisaran impas jika faktor lain tetap sama."
+      },
+      "passive": {
+        "heading": "Perbandingan pendapatan pasif",
+        "description": "Grafik batang yang membandingkan pendapatan tahunan mining dengan aset pendapatan pasif lain dengan modal $10.000 yang sama.",
+        "details": "Mining memakai laba bersih bulanan Anda yang diskalakan ke $10k. Batang lain memakai imbal hasil ilustratif: saham dividen (~3%), sewa (~5%), tabungan/T-bills (~4%), emas (~1%), dan BTC HODL (0% pendapatan, hanya eksposur harga).",
+        "interpretation": "Jika batang mining lebih tinggi, konfigurasi Anda memberi arus kas lebih besar tetapi biasanya dengan risiko operasional dan pasar yang lebih tinggi. Alternatif lain mungkin menukar imbal hasil untuk stabilitas atau sekadar eksposur harga.",
+        "disclaimer": "Imbal hasil hipotetis hanya untuk perbandingan; hasil nyata dan risiko berbeda sesuai investasi dan operator."
+      },
+      "risk": {
+        "heading": "Risiko & asuransi",
+        "description": "Ringkasan risiko umum penambangan dan ide asuransi/mitigasi. Melengkapi grafik dengan skenario penurunan terkait harga BTC, kesulitan, biaya listrik, dan operasi.",
+        "checklist": "Gunakan sebagai daftar periksa untuk uji tekan: bagaimana jika harga BTC turun setengah, tarif listrik naik, perangkat rusak, atau regulasi berubah? Poin-poinnya menyoroti asuransi, SLA, lindung nilai, dan praktik kustodi yang bisa dikaji dengan profesional."
+      }
+    }
   }
 }

@@ -1,5 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { BreakevenHeatmap } from "../components/BreakevenHeatmap";
+import { CumulativeNetChart } from "../components/CumulativeNetChart";
+import { MiningVsHodlChart } from "../components/MiningVsHodlChart";
+import { useRoiScenarios } from "../hooks/useRoiScenarios";
+import { RiskAndInsuranceSection } from "../components/RiskAndInsuranceSection";
+import { PassiveIncomeComparisonChart } from "../components/PassiveIncomeComparisonChart";
 
 const MINER_PROFILES = {
   s21: {
@@ -89,6 +95,9 @@ export function MinerQuotation2Page() {
   const [autoBtcPrice, setAutoBtcPrice] = useState<boolean>(
     () => getInitialAutoBtcPrice(),
   );
+  const [activeTab, setActiveTab] = useState<
+    "scenario" | "breakeven" | "passive" | "risk"
+  >("scenario");
   // TODO: Replace this hard-coded yield with a difficulty-based calculation when
   // network data is re-enabled. This value targets ~0.00243261 BTC/day at
   // 4,900 TH/s for the reference S21 quote.
@@ -116,6 +125,13 @@ export function MinerQuotation2Page() {
   const totalPerUnit =
     quote.minerPricePerUnitUsd + quote.logisticsPerUnitUsd + quote.taxesPerUnitUsd;
   const usdToBtc = (usd: number) => (quote.btcPriceUsd > 0 ? usd / quote.btcPriceUsd : 0);
+  const roiScenarios = useRoiScenarios({
+    dailyBtc,
+    dailyElecUsd,
+    totalCapexUsd,
+    btcPriceUsd: quote.btcPriceUsd,
+    months: 60,
+  });
   const paybackMonths = monthlyNetUsd > 0 && totalCapexUsd > 0
     ? totalCapexUsd / monthlyNetUsd
     : null;
@@ -461,6 +477,136 @@ export function MinerQuotation2Page() {
                 </tr>
               </tbody>
             </table>
+          </div>
+        </section>
+
+        <section className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl p-6 shadow-[var(--shadow-soft)] space-y-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-xl font-semibold text-amber-200">{t("minerQuotation.deepDive.title")}</h2>
+              <p className="text-sm text-[var(--fg-muted)]">
+                {t("minerQuotation.deepDive.description")}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { key: "scenario", label: t("minerQuotation.deepDive.tabs.scenario") },
+                { key: "breakeven", label: t("minerQuotation.deepDive.tabs.breakeven") },
+                { key: "passive", label: t("minerQuotation.deepDive.tabs.passive") },
+                { key: "risk", label: t("minerQuotation.deepDive.tabs.risk") },
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setActiveTab(tab.key as typeof activeTab)}
+                  className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                    activeTab === tab.key
+                      ? "bg-amber-300 text-slate-900 border-amber-300"
+                      : "bg-[var(--bg-elevated)] border-[var(--border-subtle)] text-[var(--fg-default)] hover:border-amber-300/60"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-xl p-4 sm:p-6">
+            {activeTab === "scenario" && (
+              <div className="space-y-4">
+                <div className="flex flex-col gap-2">
+                  <h3 className="text-lg font-semibold text-[var(--fg-default)]">{t("minerQuotation.deepDive.scenario.heading")}</h3>
+                  <div className="space-y-2 text-sm text-[var(--fg-muted)]">
+                    <p>{t("minerQuotation.deepDive.scenario.description")}</p>
+                    <div className="grid gap-2 md:grid-cols-2">
+                      <div className="rounded-lg bg-[var(--bg-card)]/60 p-3">
+                        <p className="font-semibold text-[var(--fg-default)]">{t("minerQuotation.deepDive.scenario.howCalculatedTitle")}</p>
+                        <ul className="mt-1 list-disc space-y-1 pl-4">
+                          {(t("minerQuotation.deepDive.scenario.howCalculatedBullets", { returnObjects: true }) as string[]).map((item) => (
+                            <li key={item}>{item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div className="rounded-lg bg-[var(--bg-card)]/60 p-3">
+                        <p className="font-semibold text-[var(--fg-default)]">{t("minerQuotation.deepDive.scenario.howToReadTitle")}</p>
+                        <ul className="mt-1 list-disc space-y-1 pl-4">
+                          {(t("minerQuotation.deepDive.scenario.howToReadBullets", { returnObjects: true }) as string[]).map((item) => (
+                            <li key={item}>{item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                    <p className="text-[0.85rem] text-[var(--fg-default)]">
+                      {t("minerQuotation.deepDive.scenario.takeaways")}
+                    </p>
+                  </div>
+                </div>
+                <div className="grid gap-6 lg:grid-cols-2">
+                  <div className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-lg p-4 space-y-3">
+                    <h4 className="text-base font-semibold text-[var(--fg-default)]">{t("minerQuotation.deepDive.scenario.cumulativeTitle")}</h4>
+                    <CumulativeNetChart points={roiScenarios.points} />
+                  </div>
+                  <div className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-lg p-4 space-y-3">
+                    <h4 className="text-base font-semibold text-[var(--fg-default)]">{t("minerQuotation.deepDive.scenario.miningVsHodlTitle")}</h4>
+                    <div className="space-y-1 text-xs text-[var(--fg-muted)]">
+                      <p>{t("minerQuotation.deepDive.scenario.miningVsHodlIntro")}</p>
+                      <p className="text-[var(--fg-default)]">{t("minerQuotation.deepDive.scenario.miningVsHodlDetail")}</p>
+                      <p>{t("minerQuotation.deepDive.scenario.miningVsHodlInterpretation")}</p>
+                    </div>
+                    <MiningVsHodlChart
+                      points={roiScenarios.points}
+                      totalCapexUsd={totalCapexUsd}
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-[var(--fg-muted)]">{t("minerQuotation.deepDive.scenario.disclaimer")}</p>
+              </div>
+            )}
+
+            {activeTab === "breakeven" && (
+              <div className="space-y-4">
+                <div className="flex flex-col gap-2">
+                  <h3 className="text-lg font-semibold text-[var(--fg-default)]">{t("minerQuotation.deepDive.breakeven.heading")}</h3>
+                  <div className="space-y-2 text-sm text-[var(--fg-muted)]">
+                    <p>{t("minerQuotation.deepDive.breakeven.description")}</p>
+                    <p className="text-[var(--fg-default)]">{t("minerQuotation.deepDive.breakeven.formula")}</p>
+                    <p>{t("minerQuotation.deepDive.breakeven.reading")}</p>
+                  </div>
+                </div>
+                <BreakevenHeatmap dailyBtc={dailyBtc} totalPowerKw={totalPowerKw} />
+              </div>
+            )}
+
+            {activeTab === "passive" && (
+              <div className="space-y-4">
+                <div className="flex flex-col gap-2">
+                  <h3 className="text-lg font-semibold text-[var(--fg-default)]">{t("minerQuotation.deepDive.passive.heading")}</h3>
+                  <div className="space-y-2 text-sm text-[var(--fg-muted)]">
+                    <p>{t("minerQuotation.deepDive.passive.description")}</p>
+                    <p className="text-[var(--fg-default)]">{t("minerQuotation.deepDive.passive.details")}</p>
+                    <p>{t("minerQuotation.deepDive.passive.interpretation")}</p>
+                  </div>
+                </div>
+                <PassiveIncomeComparisonChart
+                  monthlyNetUsd={monthlyNetUsd}
+                  totalCapexUsd={totalCapexUsd}
+                />
+                <p className="text-xs text-[var(--fg-muted)]">{t("minerQuotation.deepDive.passive.disclaimer")}</p>
+              </div>
+            )}
+
+            {activeTab === "risk" && (
+              <div className="space-y-4">
+                <div className="flex flex-col gap-2">
+                  <h3 className="text-lg font-semibold text-[var(--fg-default)]">{t("minerQuotation.deepDive.risk.heading")}</h3>
+                  <div className="space-y-2 text-sm text-[var(--fg-muted)]">
+                    <p>{t("minerQuotation.deepDive.risk.description")}</p>
+                    <p className="text-[var(--fg-default)]">{t("minerQuotation.deepDive.risk.checklist")}</p>
+                  </div>
+                </div>
+                <RiskAndInsuranceSection />
+              </div>
+            )}
           </div>
         </section>
 

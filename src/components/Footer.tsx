@@ -3,10 +3,12 @@ import { NavLink, useLocation } from "react-router-dom";
 import { Instagram } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "./LanguageSwitcher";
+import { useAuth } from "../context/AuthContext";
 
 export default function Footer() {
   const { t } = useTranslation();
   const location = useLocation();
+  const { user } = useAuth();
 
   const isCommunityRoute = /^\/community(?:\/|$)/i.test(location.pathname);
 
@@ -36,6 +38,11 @@ export default function Footer() {
           <NavLink to="/settings" className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }>
             {t("nav.settings")}
           </NavLink>
+          {user ? (
+            <NavLink to="/miner-quotation" className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }>
+              {t("nav.minerQuotation")}
+            </NavLink>
+          ) : null}
         </nav>
         <LanguageSwitcher size="sm" />
         <p className="text-[var(--fg-muted)]">
