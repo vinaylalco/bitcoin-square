@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
   CartesianGrid,
   Legend,
@@ -9,34 +9,13 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { useTranslation } from "react-i18next";
 import { type RoiScenarioPoint } from "../hooks/useRoiScenarios";
+import { getThemeColor } from "../utils/themeColors";
 
 interface CumulativeNetChartProps {
   points: RoiScenarioPoint[];
 }
-
-const SCENARIO_LINES = [
-  {
-    key: "cumNet_flat",
-    label: "Flat (0%/yr)",
-    color: "#fbbf24",
-  },
-  {
-    key: "cumNet_conservative",
-    label: "20%/yr",
-    color: "#60a5fa",
-  },
-  {
-    key: "cumNet_bullish",
-    label: "40%/yr",
-    color: "#34d399",
-  },
-  {
-    key: "cumNet_ultra",
-    label: "60%/yr",
-    color: "#f472b6",
-  },
-] as const;
 
 const formatCurrency = (value: number) =>
   `$${value.toLocaleString(undefined, {
@@ -44,14 +23,50 @@ const formatCurrency = (value: number) =>
   })}`;
 
 export function CumulativeNetChart({ points }: CumulativeNetChartProps) {
+  const { t } = useTranslation();
+  const axisColor = useMemo(
+    () => getThemeColor("--fg-muted", "#d1d5db"),
+    [],
+  );
+  const gridColor = useMemo(
+    () => getThemeColor("--border-subtle", "#374151"),
+    [],
+  );
+
+  const scenarioLines = useMemo(
+    () => [
+      {
+        key: "cumNet_flat",
+        label: t("minerQuotation.charts.scenario.flat"),
+        color: "#fbbf24",
+      },
+      {
+        key: "cumNet_conservative",
+        label: t("minerQuotation.charts.scenario.conservative"),
+        color: "#60a5fa",
+      },
+      {
+        key: "cumNet_bullish",
+        label: t("minerQuotation.charts.scenario.bullish"),
+        color: "#34d399",
+      },
+      {
+        key: "cumNet_ultra",
+        label: t("minerQuotation.charts.scenario.ultra"),
+        color: "#f472b6",
+      },
+    ],
+    [t],
+  );
+
   if (!points.length) {
     return null;
   }
 
   const hasUltra = points.some((point) => point.cumNet_ultra !== undefined);
   const lineConfigs = hasUltra
-    ? SCENARIO_LINES
-    : SCENARIO_LINES.filter((line) => line.key !== "cumNet_ultra");
+    ? scenarioLines
+    : scenarioLines.filter((line) => line.key !== "cumNet_ultra");
 
   return (
     <div className="h-80">
@@ -60,15 +75,17 @@ export function CumulativeNetChart({ points }: CumulativeNetChartProps) {
           data={points}
           margin={{ top: 8, right: 16, bottom: 8, left: 0 }}
         >
-          <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-          <XAxis dataKey="month" stroke="#d1d5db" />
+          <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+          <XAxis dataKey="month" stroke={axisColor} />
           <YAxis
-            stroke="#d1d5db"
+            stroke={axisColor}
             tickFormatter={(value: number) => formatCurrency(value)}
           />
           <Tooltip
             formatter={(value: number) => formatCurrency(value)}
-            labelFormatter={(label) => `Month ${label}`}
+            labelFormatter={(label) =>
+              t("minerQuotation.charts.monthLabel", { value: label })
+            }
           />
           <Legend />
           {lineConfigs.map((line) => (

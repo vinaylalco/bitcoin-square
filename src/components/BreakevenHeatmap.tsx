@@ -1,4 +1,5 @@
 import React, { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 
 interface BreakevenHeatmapProps {
   dailyBtc: number;
@@ -18,6 +19,7 @@ export function BreakevenHeatmap({
   dailyBtc,
   totalPowerKw,
 }: BreakevenHeatmapProps) {
+  const { t } = useTranslation();
   const btcPrices = useMemo(() => {
     const values: number[] = [];
     for (let price = 20000; price <= 200000; price += 10000) {
@@ -79,10 +81,10 @@ export function BreakevenHeatmap({
     <div className="space-y-3">
       <div className="flex flex-col gap-1">
         <h3 className="text-lg font-semibold text-[var(--fg-default)]">
-          Breakeven BTC price vs electricity cost
+          {t("minerQuotation.charts.breakeven.heading")}
         </h3>
         <p className="text-sm text-[var(--fg-muted)]">
-          Daily net profit for different BTC prices and electricity rates. Helps you see at what price you break even.
+          {t("minerQuotation.charts.breakeven.subtitle")}
         </p>
       </div>
 
@@ -90,7 +92,9 @@ export function BreakevenHeatmap({
         <table className="min-w-full border-collapse text-xs md:text-sm">
           <thead>
             <tr>
-              <th className="sticky left-0 bg-[var(--bg-card)] px-3 py-2 text-left align-bottom">Electricity Cost (USD/kWh)</th>
+              <th className="sticky left-0 bg-[var(--bg-card)] px-3 py-2 text-left align-bottom">
+                {t("minerQuotation.charts.breakeven.electricityLabel")}
+              </th>
               {btcPrices.map((price) => (
                 <th key={price} className="px-2 py-2 text-center align-bottom text-[var(--fg-muted)]">
                   ${price / 1000}k
@@ -121,8 +125,8 @@ export function BreakevenHeatmap({
       </div>
 
       <div className="text-xs text-[var(--fg-muted)] flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-        <span>BTC Price (USD)</span>
-        <span>Electricity Cost (USD/kWh)</span>
+        <span>{t("minerQuotation.charts.breakeven.btcLabel")}</span>
+        <span>{t("minerQuotation.charts.breakeven.electricityLabel")}</span>
       </div>
     </div>
   );

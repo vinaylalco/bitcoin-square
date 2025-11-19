@@ -9,7 +9,9 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { useTranslation } from "react-i18next";
 import { type RoiScenarioPoint } from "../hooks/useRoiScenarios";
+import { getThemeColor } from "../utils/themeColors";
 
 interface MiningVsHodlChartProps {
   points: RoiScenarioPoint[];
@@ -23,6 +25,16 @@ export function MiningVsHodlChart({
   points,
   totalCapexUsd,
 }: MiningVsHodlChartProps) {
+  const { t } = useTranslation();
+  const axisColor = useMemo(
+    () => getThemeColor("--fg-muted", "#d1d5db"),
+    [],
+  );
+  const gridColor = useMemo(
+    () => getThemeColor("--border-subtle", "#374151"),
+    [],
+  );
+
   const chartData = useMemo(
     () =>
       points.map((point) => ({
@@ -44,21 +56,23 @@ export function MiningVsHodlChart({
           data={chartData}
           margin={{ top: 8, right: 16, bottom: 8, left: 0 }}
         >
-          <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-          <XAxis dataKey="month" stroke="#d1d5db" />
+          <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+          <XAxis dataKey="month" stroke={axisColor} />
           <YAxis
-            stroke="#d1d5db"
+            stroke={axisColor}
             tickFormatter={(value: number) => formatCurrency(value)}
           />
           <Tooltip
             formatter={(value: number) => formatCurrency(value)}
-            labelFormatter={(label) => `Month ${label}`}
+            labelFormatter={(label) =>
+              t("minerQuotation.charts.monthLabel", { value: label })
+            }
           />
           <Legend />
           <Line
             type="monotone"
             dataKey="miningValue"
-            name="Mining (20%/yr price path)"
+            name={t("minerQuotation.charts.lines.mining")}
             stroke="#f59e0b"
             strokeWidth={2}
             dot={false}
@@ -66,7 +80,7 @@ export function MiningVsHodlChart({
           <Line
             type="monotone"
             dataKey="hodlValue"
-            name="Buy & HODL BTC (20%/yr price path)"
+            name={t("minerQuotation.charts.lines.hodl")}
             stroke="#3b82f6"
             strokeWidth={2}
             dot={false}

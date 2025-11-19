@@ -706,6 +706,87 @@
     "options": {
       "s21": "S21",
       "custom": "Personalizado"
+    },
+    "charts": {
+      "scenario": {
+        "flat": "Plano (0%/año)",
+        "conservative": "20%/año",
+        "bullish": "40%/año",
+        "ultra": "60%/año"
+      },
+      "monthLabel": "Mes {{value}}",
+      "lines": {
+        "mining": "Minería (trayectoria del precio 20%/año)",
+        "hodl": "Comprar y HODL BTC (trayectoria del precio 20%/año)"
+      },
+      "passive": {
+        "annualIncome": "Ingreso anual",
+        "labels": {
+          "mining": "Minería",
+          "dividends": "Acciones con dividendo",
+          "rental": "Propiedad en alquiler",
+          "savings": "Ahorros / T-bills",
+          "gold": "Oro",
+          "hodl": "BTC HODL"
+        }
+      },
+      "breakeven": {
+        "heading": "Precio de equilibrio BTC vs costo eléctrico",
+        "subtitle": "Ganancia/pérdida diaria para distintos precios de BTC y tarifas eléctricas. Te muestra a qué precio empatas.",
+        "electricityLabel": "Costo eléctrico (USD/kWh)",
+        "btcLabel": "Precio BTC (USD)"
+      }
+    },
+    "deepDive": {
+      "title": "Explorador detallado",
+      "description": "Cambia entre escenarios de ROI, vista de equilibrio, comparaciones de ingresos y contexto de riesgo.",
+      "tabs": {
+        "scenario": "Explorador de escenarios – Trayectorias BTC y beneficio neto",
+        "breakeven": "Análisis de equilibrio",
+        "passive": "Comparación de ingreso pasivo",
+        "risk": "Riesgos y seguros"
+      },
+      "scenario": {
+        "heading": "Explorador de escenarios – Trayectorias BTC y beneficio neto",
+        "description": "Proyecta cómo podría rendir tu operación de minería con distintas trayectorias hipotéticas de precio BTC. Cada línea acumula ingresos mensuales menos costo eléctrico para ver el beneficio neto.",
+        "howCalculatedTitle": "Cómo se calcula",
+        "howCalculatedBullets": [
+          "Parte de tu hashrate, consumo, tarifa eléctrica, precio BTC y CAPEX inicial.",
+          "Aplica cuatro caminos de precio BTC: Plano (0%/año), Conservador (20%/año), Alcista (40%/año) y Ultra opcional (60%/año).",
+          "Por mes: ingresos = BTC minado × precio; energía = kW × horas × $/kWh; neto = ingresos – energía; el neto acumulado suma mes a mes."
+        ],
+        "howToReadTitle": "Cómo leerlo",
+        "howToReadBullets": [
+          "Líneas más inclinadas = retorno y payback más rápidos.",
+          "Donde la línea cruza tu CAPEX inicial (si se muestra) es el mes estimado de recuperación para ese escenario.",
+          "La ruta plana es el “peor caso” integrado (sin apreciación BTC ni cambios de dificultad)."
+        ],
+        "takeaways": "Conclusión: hardware eficiente más energía barata puede funcionar incluso con precios planos; más crecimiento BTC acorta el payback pero no está garantizado. Es una herramienta de hipótesis, no una predicción.",
+        "cumulativeTitle": "Beneficio neto acumulado",
+        "miningVsHodlTitle": "Minería vs comprar y mantener BTC",
+        "miningVsHodlIntro": "Compara dos estrategias con el mismo capital inicial: comprar mineros y operarlos vs comprar BTC una sola vez y mantenerlo en la misma trayectoria de precio.",
+        "miningVsHodlDetail": "Valor minería = CAPEX + neto acumulado (ingresos – energía) con tus datos. Valor HODL usa el mismo capital para comprar BTC hoy y revaloriza en la misma curva.",
+        "miningVsHodlInterpretation": "Si la línea de minería queda debajo de HODL, habría rendido peor bajo esos supuestos. Si cruza y se mantiene arriba, la operación supera comprar y mantener.",
+        "disclaimer": "Trayectorias de precio hipotéticas, no predicciones ni consejo financiero."
+      },
+      "breakeven": {
+        "heading": "Análisis de equilibrio",
+        "description": "El mapa de calor muestra cómo cambia el beneficio diario según el precio BTC y el costo eléctrico. Destaca el precio necesario para cubrir tu factura de energía.",
+        "formula": "Para cada par precio BTC / tarifa eléctrica calculamos: ingresos = BTC diario × precio; electricidad = potencia total × 24 × $/kWh; neto = ingresos − electricidad. Las celdas se tiñen en rojo (pérdida), neutro (casi equilibrio) o verde (ganancia).",
+        "reading": "Lee la fila más cercana a tu tarifa real (p.ej. $0.08/kWh) para ver cómo responde el beneficio al precio BTC. Donde el color pasa a neutro/verde es tu equilibrio aproximado si todo lo demás se mantiene."
+      },
+      "passive": {
+        "heading": "Comparación de ingreso pasivo",
+        "description": "Gráfico de barras que compara ingreso anual de la minería con otras inversiones de ingreso pasivo, asumiendo el mismo capital inicial de $10,000.",
+        "details": "La minería usa tu beneficio neto mensual escalado a $10k. Las otras barras usan rendimientos ilustrativos: acciones con dividendo (~3%), renta (~5%), ahorros/T-bills (~4%), oro (~1%) y BTC HODL (0% de ingreso, solo precio).",
+        "interpretation": "Si la barra de minería es mayor, tu configuración implica más flujo anual, normalmente con más riesgo operativo y de mercado. Algunas alternativas sacrifican rendimiento por estabilidad o simple exposición al precio.",
+        "disclaimer": "Rendimientos hipotéticos solo para comparación; los resultados reales y riesgos varían según inversión y operador."
+      },
+      "risk": {
+        "heading": "Riesgos y seguros",
+        "description": "Resumen de riesgos comunes en minería y posibles ideas de seguro/mitigación. Complementa los gráficos con escenarios a la baja ligados al precio BTC, dificultad, costos de energía y operación.",
+        "checklist": "Úsalo como checklist para probar tu plan: ¿y si BTC cae a la mitad, sube la tarifa eléctrica, falla el hardware o cambia la regulación? Las viñetas apuntan a seguros, SLAs, coberturas y custodia que puedes investigar con profesionales."
+      }
     }
   }
 }

@@ -706,6 +706,87 @@
     "options": {
       "s21": "S21",
       "custom": "Custom"
+    },
+    "charts": {
+      "scenario": {
+        "flat": "Flat (0%/yr)",
+        "conservative": "20%/yr",
+        "bullish": "40%/yr",
+        "ultra": "60%/yr"
+      },
+      "monthLabel": "Month {{value}}",
+      "lines": {
+        "mining": "Mining (20%/yr price path)",
+        "hodl": "Buy & HODL BTC (20%/yr price path)"
+      },
+      "passive": {
+        "annualIncome": "Annual income",
+        "labels": {
+          "mining": "Mining",
+          "dividends": "Dividend stocks",
+          "rental": "Rental property",
+          "savings": "Savings / T-bills",
+          "gold": "Gold",
+          "hodl": "BTC HODL"
+        }
+      },
+      "breakeven": {
+        "heading": "Breakeven BTC price vs electricity cost",
+        "subtitle": "Daily net profit for different BTC prices and electricity rates. Helps you see at what price you break even.",
+        "electricityLabel": "Electricity Cost (USD/kWh)",
+        "btcLabel": "BTC Price (USD)"
+      }
+    },
+    "deepDive": {
+      "title": "Deep-Dive Explorer",
+      "description": "Switch between ROI scenarios, breakeven views, income comparisons, and risk context.",
+      "tabs": {
+        "scenario": "Scenario Explorer – BTC Price Paths & Net Profit",
+        "breakeven": "Breakeven Analysis",
+        "passive": "Passive Income Comparison",
+        "risk": "Risk & Insurance"
+      },
+      "scenario": {
+        "heading": "Scenario Explorer – BTC Price Paths & Net Profit",
+        "description": "This view projects how your mining setup could perform over time under different hypothetical Bitcoin price paths. Each line stacks monthly revenue minus power costs so you can see cumulative net profit for your configuration.",
+        "howCalculatedTitle": "How it’s calculated",
+        "howCalculatedBullets": [
+          "Starts from your hashrate, power draw, electricity rate, BTC price, and upfront CAPEX.",
+          "Applies four BTC price paths: Flat (0%/yr), Conservative (20%/yr), Bullish (40%/yr), and optional Ultra (60%/yr).",
+          "For each month: revenue = BTC mined × price path; power = kW × hours × $/kWh; net = revenue − power; cumulative net sums the net month over month."
+        ],
+        "howToReadTitle": "How to read it",
+        "howToReadBullets": [
+          "Steeper lines indicate faster payback and higher ROI.",
+          "Where a line crosses your initial CAPEX (if shown) is the estimated payback month for that scenario.",
+          "The flat path is the built-in ‘worst case’ here (no BTC appreciation, no difficulty changes)."
+        ],
+        "takeaways": "Takeaways: Efficient hardware plus low power can still work on flatter price paths; higher BTC growth shortens payback but isn’t guaranteed. This is a what-if tool, not a prediction.",
+        "cumulativeTitle": "Cumulative net profit",
+        "miningVsHodlTitle": "Mining vs Buying & Holding BTC",
+        "miningVsHodlIntro": "Compares two strategies using the same starting capital: buying miners and running them versus buying BTC once and holding it along the same price path.",
+        "miningVsHodlDetail": "Mining value = CAPEX + cumulative net (revenue – power) using your quote inputs. HODL value uses the same starting capital to buy BTC at today’s price and revalues along the same curve.",
+        "miningVsHodlInterpretation": "If the mining line stays below the HODL line, buying BTC would have outperformed under those assumptions. If mining crosses and stays above, operations would outperform in that scenario.",
+        "disclaimer": "Hypothetical BTC price paths, not predictions or financial advice."
+      },
+      "breakeven": {
+        "heading": "Breakeven Analysis",
+        "description": "The breakeven heatmap shows how daily net profit changes as BTC price and electricity cost vary. It highlights the BTC price needed to offset your power bill at different rates.",
+        "formula": "For each BTC price and electricity price pair we compute: revenue = dailyBtc × BTC price; electricity = totalPowerKw × 24 × $/kWh; net = revenue − electricity. Cells shade red for losses, neutral around breakeven, green for profit.",
+        "reading": "Read across the row closest to your actual power rate (e.g., $0.08/kWh) to see how net profit responds to BTC price. Where the color shifts toward neutral/green is your rough breakeven if other factors stay constant."
+      },
+      "passive": {
+        "heading": "Passive Income Comparison",
+        "description": "This bar chart compares annual income from mining to other passive-income style investments, assuming the same $10,000 starting capital.",
+        "details": "Mining income uses your monthly net profit scaled to a $10k allocation. Other bars use simple, illustrative yields: dividend stocks (~3%), rentals (~5%), savings/T-bills (~4%), gold (~1%), and BTC HODL (0% income, pure price exposure).",
+        "interpretation": "If the mining bar is higher, your configuration implies more annual cashflow—but usually with higher operational and market risk. Some alternatives trade yield for stability or pure price exposure.",
+        "disclaimer": "These are hypothetical yields for comparison only; actual results and risks vary by investment and operator capability."
+      },
+      "risk": {
+        "heading": "Risk & Insurance",
+        "description": "This section summarizes common mining risks and outlines insurance and mitigation ideas. It complements the charts by looking at downside scenarios tied to BTC price, network difficulty, power costs, and operations.",
+        "checklist": "Use it as a checklist to stress-test your plan: What if BTC halves in price, power rates rise, hardware fails, or regulation shifts? The mitigation bullets point to insurance, SLAs, hedging, and custody practices you can investigate with qualified professionals."
+      }
     }
   }
 }
