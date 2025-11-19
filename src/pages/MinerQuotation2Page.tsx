@@ -1,5 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { BreakevenHeatmap } from "../components/BreakevenHeatmap";
+import { CumulativeNetChart } from "../components/CumulativeNetChart";
+import { MiningVsHodlChart } from "../components/MiningVsHodlChart";
+import { useRoiScenarios } from "../hooks/useRoiScenarios";
+import { RiskAndInsuranceSection } from "../components/RiskAndInsuranceSection";
+import { PassiveIncomeComparisonChart } from "../components/PassiveIncomeComparisonChart";
 
 const MINER_PROFILES = {
   s21: {
@@ -89,6 +95,9 @@ export function MinerQuotation2Page() {
   const [autoBtcPrice, setAutoBtcPrice] = useState<boolean>(
     () => getInitialAutoBtcPrice(),
   );
+  const [activeTab, setActiveTab] = useState<
+    "scenario" | "breakeven" | "passive" | "risk"
+  >("scenario");
   // TODO: Replace this hard-coded yield with a difficulty-based calculation when
   // network data is re-enabled. This value targets ~0.00243261 BTC/day at
   // 4,900 TH/s for the reference S21 quote.
@@ -116,6 +125,13 @@ export function MinerQuotation2Page() {
   const totalPerUnit =
     quote.minerPricePerUnitUsd + quote.logisticsPerUnitUsd + quote.taxesPerUnitUsd;
   const usdToBtc = (usd: number) => (quote.btcPriceUsd > 0 ? usd / quote.btcPriceUsd : 0);
+  const roiScenarios = useRoiScenarios({
+    dailyBtc,
+    dailyElecUsd,
+    totalCapexUsd,
+    btcPriceUsd: quote.btcPriceUsd,
+    months: 60,
+  });
   const paybackMonths = monthlyNetUsd > 0 && totalCapexUsd > 0
     ? totalCapexUsd / monthlyNetUsd
     : null;
@@ -461,6 +477,102 @@ export function MinerQuotation2Page() {
                 </tr>
               </tbody>
             </table>
+          </div>
+        </section>
+
+        <section className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl p-6 shadow-[var(--shadow-soft)] space-y-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-xl font-semibold text-amber-200">Deep-Dive Explorer</h2>
+              <p className="text-sm text-[var(--fg-muted)]">
+                Switch between ROI scenarios, breakeven views, income comparisons, and risk context.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {[{ key: "scenario", label: "Scenario Explorer" }, { key: "breakeven", label: "Breakeven Analysis" }, { key: "passive", label: "Passive Income" }, { key: "risk", label: "Risk & Insurance" }].map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setActiveTab(tab.key as typeof activeTab)}
+                  className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                    activeTab === tab.key
+                      ? "bg-amber-300 text-black border-amber-300"
+                      : "bg-[var(--bg-elevated)] border-[var(--border-subtle)] text-[var(--fg-default)] hover:border-amber-300/60"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-xl p-4 sm:p-6">
+            {activeTab === "scenario" && (
+              <div className="space-y-4">
+                <div className="flex flex-col gap-2">
+                  <h3 className="text-lg font-semibold text-[var(--fg-default)]">Scenario Explorer</h3>
+                  <p className="text-sm text-[var(--fg-muted)]">
+                    Hypothetical BTC price paths help you compare cumulative mining cashflows and a simple buy-and-hold benchmark.
+                  </p>
+                </div>
+                <div className="grid gap-6 lg:grid-cols-2">
+                  <div className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-lg p-4 space-y-3">
+                    <h4 className="text-base font-semibold text-[var(--fg-default)]">Cumulative net profit</h4>
+                    <CumulativeNetChart points={roiScenarios.points} />
+                  </div>
+                  <div className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-lg p-4 space-y-3">
+                    <h4 className="text-base font-semibold text-[var(--fg-default)]">Mining vs HODL (20%/yr price path)</h4>
+                    <MiningVsHodlChart
+                      points={roiScenarios.points}
+                      totalCapexUsd={totalCapexUsd}
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-[var(--fg-muted)]">Hypothetical BTC price paths, not predictions or financial advice.</p>
+              </div>
+            )}
+
+            {activeTab === "breakeven" && (
+              <div className="space-y-4">
+                <div className="flex flex-col gap-2">
+                  <h3 className="text-lg font-semibold text-[var(--fg-default)]">Breakeven Analysis</h3>
+                  <p className="text-sm text-[var(--fg-muted)]">
+                    Explore how daily profitability shifts across BTC prices and electricity rates to see when operations turn positive.
+                  </p>
+                </div>
+                <BreakevenHeatmap dailyBtc={dailyBtc} totalPowerKw={totalPowerKw} />
+              </div>
+            )}
+
+            {activeTab === "passive" && (
+              <div className="space-y-4">
+                <div className="flex flex-col gap-2">
+                  <h3 className="text-lg font-semibold text-[var(--fg-default)]">Passive Income Comparison</h3>
+                  <p className="text-sm text-[var(--fg-muted)]">
+                    Illustrative annual passive income from $10,000 under simple assumptions.
+                  </p>
+                </div>
+                <PassiveIncomeComparisonChart
+                  monthlyNetUsd={monthlyNetUsd}
+                  totalCapexUsd={totalCapexUsd}
+                />
+                <p className="text-xs text-[var(--fg-muted)]">
+                  These are hypothetical yields for comparison only; actual results and risks vary by investment and operator capability.
+                </p>
+              </div>
+            )}
+
+            {activeTab === "risk" && (
+              <div className="space-y-4">
+                <div className="flex flex-col gap-2">
+                  <h3 className="text-lg font-semibold text-[var(--fg-default)]">Risk &amp; Insurance</h3>
+                  <p className="text-sm text-[var(--fg-muted)]">
+                    A concise overview of common mining risks plus insurance and mitigation ideas to investigate.
+                  </p>
+                </div>
+                <RiskAndInsuranceSection />
+              </div>
+            )}
           </div>
         </section>
 
