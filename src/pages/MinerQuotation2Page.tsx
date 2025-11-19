@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { BreakevenHeatmap } from "../components/BreakevenHeatmap";
 import { CumulativeNetChart } from "../components/CumulativeNetChart";
@@ -14,6 +14,27 @@ const MINER_PROFILES = {
     unitPowerKw: 3.51,
   },
 } as const;
+
+const formatDateInputValue = (date: Date) => {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const parseDateInputValue = (value: string) => {
+  if (!value) return null;
+  const [yearStr, monthStr, dayStr] = value.split("-");
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  const day = Number(dayStr);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+    return null;
+  }
+  const parsed = new Date(year, month - 1, day);
+  parsed.setHours(0, 0, 0, 0);
+  return parsed;
+};
 
 interface QuoteState {
   units: number;
@@ -95,6 +116,10 @@ export function MinerQuotation2Page() {
   const [autoBtcPrice, setAutoBtcPrice] = useState<boolean>(
     () => getInitialAutoBtcPrice(),
   );
+  const todayRef = useRef<string>(formatDateInputValue(new Date()));
+  const [simulationStartDate, setSimulationStartDate] = useState<string>(
+    () => todayRef.current,
+  );
   const [activeTab, setActiveTab] = useState<
     "scenario" | "breakeven" | "passive" | "risk"
   >("scenario");
@@ -125,16 +150,51 @@ export function MinerQuotation2Page() {
   const totalPerUnit =
     quote.minerPricePerUnitUsd + quote.logisticsPerUnitUsd + quote.taxesPerUnitUsd;
   const usdToBtc = (usd: number) => (quote.btcPriceUsd > 0 ? usd / quote.btcPriceUsd : 0);
+  const normalizedSimulationStartDate = simulationStartDate || todayRef.current;
+  const parsedSimulationStartDate = useMemo(() => {
+    const parsed = parseDateInputValue(normalizedSimulationStartDate);
+    if (parsed) return parsed;
+    const fallback = parseDateInputValue(todayRef.current);
+    return fallback ?? new Date();
+  }, [normalizedSimulationStartDate]);
   const roiScenarios = useRoiScenarios({
     dailyBtc,
     dailyElecUsd,
     totalCapexUsd,
     btcPriceUsd: quote.btcPriceUsd,
     months: 60,
+    startDate: parsedSimulationStartDate,
   });
   const paybackMonths = monthlyNetUsd > 0 && totalCapexUsd > 0
     ? totalCapexUsd / monthlyNetUsd
     : null;
+  const getDateLabelForMonth = (monthIndex: number) => {
+    if (!Number.isFinite(monthIndex)) return null;
+    const roundedIndex = Math.max(0, Math.round(monthIndex));
+    const matchingPoint = roiScenarios.points.find((point) => point.month === roundedIndex);
+    if (matchingPoint) {
+      return matchingPoint.date;
+    }
+    const derivedDate = new Date(parsedSimulationStartDate);
+    derivedDate.setMonth(derivedDate.getMonth() + roundedIndex);
+    return formatDateInputValue(derivedDate);
+  };
+  const paybackMonthIndex = roiScenarios.paybackMonths_conservative ?? (paybackMonths !== null ? Math.round(paybackMonths) : null);
+  const paybackDateLabel =
+    paybackMonthIndex !== null ? getDateLabelForMonth(paybackMonthIndex) : null;
+  const paybackSummaryText =
+    paybackMonthIndex !== null
+      ? paybackDateLabel
+        ? t("minerQuotation.paybackSummaryWithDate", {
+            month: paybackMonthIndex,
+            date: paybackDateLabel,
+            defaultValue: `Month ${paybackMonthIndex} (~${paybackDateLabel})`,
+          })
+        : t("minerQuotation.paybackSummary", {
+            month: paybackMonthIndex,
+            defaultValue: `Month ${paybackMonthIndex}`,
+          })
+      : null;
   const annualRoiPercent = monthlyNetUsd > 0 && totalCapexUsd > 0
     ? (12 * monthlyNetUsd * 100) / totalCapexUsd
     : null;
@@ -271,10 +331,10 @@ export function MinerQuotation2Page() {
   ];
 
   return (
-    <div className="min-h-screen bg-[var(--bg-page)] text-[var(--fg-default)] py-12 px-4">
-      <div className="max-w-6xl mx-auto space-y-10">
-        <header className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl p-6 shadow-[var(--shadow-soft)]">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="min-h-screen bg-[var(--bg-page)] px-3 py-8 text-[var(--fg-default)] sm:px-4">
+      <div className="mx-auto max-w-6xl space-y-8 sm:space-y-10">
+        <header className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 shadow-[var(--shadow-soft)] sm:p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm uppercase tracking-[0.3em] text-amber-300 mb-2">
                 {t("minerQuotation.title")}
@@ -300,8 +360,8 @@ export function MinerQuotation2Page() {
           </div>
         </header>
 
-        <section className="grid gap-6 md:grid-cols-2">
-          <div className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl p-6 shadow-[var(--shadow-soft)]">
+        <section className="flex flex-col gap-6 md:grid md:grid-cols-2">
+          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 shadow-[var(--shadow-soft)] sm:p-6">
             <h2 className="text-xl font-semibold mb-4 text-amber-200">{t("minerQuotation.generalInformation")}</h2>
             <dl className="space-y-2 text-sm sm:text-base text-[var(--fg-default)]">
               <div className="flex justify-between gap-4">
@@ -319,7 +379,7 @@ export function MinerQuotation2Page() {
             </dl>
           </div>
 
-          <div className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl p-6 shadow-[var(--shadow-soft)]">
+          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 shadow-[var(--shadow-soft)] sm:p-6">
             <h2 className="text-xl font-semibold mb-4 text-amber-200">{t("minerQuotation.technicalSpecifications")}</h2>
             <dl className="space-y-2 text-sm sm:text-base text-[var(--fg-default)]">
               <div className="flex justify-between gap-4">
@@ -386,16 +446,16 @@ export function MinerQuotation2Page() {
           </div>
         </section>
 
-        <section className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl p-6 shadow-[var(--shadow-soft)]">
-          <div className="flex items-center justify-between mb-4">
+        <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 shadow-[var(--shadow-soft)] sm:p-6">
+          <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-xl font-semibold text-amber-200">{t("minerQuotation.profitabilityProjection")}</h2>
             <p className="text-sm text-[var(--fg-muted)]">{t("minerQuotation.projectionHelper")}</p>
           </div>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="flex flex-col gap-4 md:grid md:grid-cols-3">
             {profitability.map((bucket) => (
               <aside
                 key={bucket.label}
-                className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-lg p-4 space-y-3 shadow"
+                className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-4 shadow"
               >
                 <h3 className="text-lg font-semibold text-amber-300">{bucket.label}</h3>
                 <dl className="space-y-3 text-sm sm:text-base">
@@ -414,15 +474,15 @@ export function MinerQuotation2Page() {
           </div>
         </section>
 
-        <section className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl p-6 shadow-[var(--shadow-soft)]">
+        <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 shadow-[var(--shadow-soft)] sm:p-6">
           <h2 className="text-xl font-semibold mb-4 text-amber-200">{t("minerQuotation.investmentStructure")}</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm sm:text-base text-[var(--fg-default)]">
+          <div className="-mx-2 overflow-x-auto sm:mx-0">
+            <table className="w-full text-left text-xs text-[var(--fg-default)] sm:text-sm">
               <thead>
                 <tr className="text-left text-[var(--fg-muted)] border-b border-[var(--border-subtle)]">
-                  <th className="py-2">{t("minerQuotation.columns.item")}</th>
-                  <th className="py-2">{t("minerQuotation.columns.unitPrice")}</th>
-                  <th className="py-2">{t("minerQuotation.columns.quantity")}</th>
+                  <th className="py-2 pr-2">{t("minerQuotation.columns.item")}</th>
+                  <th className="py-2 pr-2">{t("minerQuotation.columns.unitPrice")}</th>
+                  <th className="py-2 pr-2">{t("minerQuotation.columns.quantity")}</th>
                   <th className="py-2">{t("minerQuotation.columns.subtotal")}</th>
                 </tr>
               </thead>
@@ -480,7 +540,7 @@ export function MinerQuotation2Page() {
           </div>
         </section>
 
-        <section className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl p-6 shadow-[var(--shadow-soft)] space-y-4">
+        <section className="space-y-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 shadow-[var(--shadow-soft)] sm:p-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-xl font-semibold text-amber-200">{t("minerQuotation.deepDive.title")}</h2>
@@ -488,7 +548,7 @@ export function MinerQuotation2Page() {
                 {t("minerQuotation.deepDive.description")}
               </p>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex w-full flex-wrap gap-2 sm:w-auto">
               {[
                 { key: "scenario", label: t("minerQuotation.deepDive.tabs.scenario") },
                 { key: "breakeven", label: t("minerQuotation.deepDive.tabs.breakeven") },
@@ -499,7 +559,7 @@ export function MinerQuotation2Page() {
                   key={tab.key}
                   type="button"
                   onClick={() => setActiveTab(tab.key as typeof activeTab)}
-                  className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                  className={`w-full rounded-lg border px-3 py-2 text-sm font-medium transition-colors sm:w-auto ${
                     activeTab === tab.key
                       ? "bg-amber-300 text-slate-900 border-amber-300"
                       : "bg-[var(--bg-elevated)] border-[var(--border-subtle)] text-[var(--fg-default)] hover:border-amber-300/60"
@@ -511,15 +571,15 @@ export function MinerQuotation2Page() {
             </div>
           </div>
 
-          <div className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-xl p-4 sm:p-6">
+          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-4 sm:p-6">
             {activeTab === "scenario" && (
               <div className="space-y-4">
                 <div className="flex flex-col gap-2">
                   <h3 className="text-lg font-semibold text-[var(--fg-default)]">{t("minerQuotation.deepDive.scenario.heading")}</h3>
                   <div className="space-y-2 text-sm text-[var(--fg-muted)]">
                     <p>{t("minerQuotation.deepDive.scenario.description")}</p>
-                    <div className="grid gap-2 md:grid-cols-2">
-                      <div className="rounded-lg bg-[var(--bg-card)]/60 p-3">
+                    <div className="flex flex-col gap-2 md:grid md:grid-cols-2">
+                      <div className="rounded-lg bg-[var(--bg-card)]/60 p-3 text-xs sm:text-sm">
                         <p className="font-semibold text-[var(--fg-default)]">{t("minerQuotation.deepDive.scenario.howCalculatedTitle")}</p>
                         <ul className="mt-1 list-disc space-y-1 pl-4">
                           {(t("minerQuotation.deepDive.scenario.howCalculatedBullets", { returnObjects: true }) as string[]).map((item) => (
@@ -527,7 +587,7 @@ export function MinerQuotation2Page() {
                           ))}
                         </ul>
                       </div>
-                      <div className="rounded-lg bg-[var(--bg-card)]/60 p-3">
+                      <div className="rounded-lg bg-[var(--bg-card)]/60 p-3 text-xs sm:text-sm">
                         <p className="font-semibold text-[var(--fg-default)]">{t("minerQuotation.deepDive.scenario.howToReadTitle")}</p>
                         <ul className="mt-1 list-disc space-y-1 pl-4">
                           {(t("minerQuotation.deepDive.scenario.howToReadBullets", { returnObjects: true }) as string[]).map((item) => (
@@ -539,14 +599,27 @@ export function MinerQuotation2Page() {
                     <p className="text-[0.85rem] text-[var(--fg-default)]">
                       {t("minerQuotation.deepDive.scenario.takeaways")}
                     </p>
+                    <label className="flex max-w-xs flex-col gap-1 text-xs text-[var(--fg-default)] sm:text-sm">
+                      <span className="font-medium text-[var(--fg-muted)]">
+                        {t("minerQuotation.deepDive.scenario.startDateLabel", {
+                          defaultValue: "Simulation start date",
+                        })}
+                      </span>
+                      <input
+                        type="date"
+                        value={simulationStartDate}
+                        onChange={(event) => setSimulationStartDate(event.target.value)}
+                        className="rounded border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-2 text-xs text-[var(--fg-default)] focus:outline-none focus:ring-1 focus:ring-amber-300 sm:text-sm"
+                      />
+                    </label>
                   </div>
                 </div>
-                <div className="grid gap-6 lg:grid-cols-2">
-                  <div className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-lg p-4 space-y-3">
+                <div className="flex flex-col gap-6 lg:grid lg:grid-cols-2">
+                  <div className="space-y-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3 sm:p-4">
                     <h4 className="text-base font-semibold text-[var(--fg-default)]">{t("minerQuotation.deepDive.scenario.cumulativeTitle")}</h4>
                     <CumulativeNetChart points={roiScenarios.points} />
                   </div>
-                  <div className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-lg p-4 space-y-3">
+                  <div className="space-y-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3 sm:p-4">
                     <h4 className="text-base font-semibold text-[var(--fg-default)]">{t("minerQuotation.deepDive.scenario.miningVsHodlTitle")}</h4>
                     <div className="space-y-1 text-xs text-[var(--fg-muted)]">
                       <p>{t("minerQuotation.deepDive.scenario.miningVsHodlIntro")}</p>
@@ -610,11 +683,11 @@ export function MinerQuotation2Page() {
           </div>
         </section>
 
-        <aside className="bg-[var(--bg-card)] border border-amber-300/40 rounded-xl p-6 shadow-[var(--shadow-soft)] space-y-3">
+        <aside className="space-y-3 rounded-xl border border-amber-300/40 bg-[var(--bg-card)] p-4 shadow-[var(--shadow-soft)] sm:p-6">
           <p className="text-sm uppercase tracking-[0.25em] text-amber-300">{t("minerQuotation.totalInvestment")}</p>
           <h3 className="text-3xl font-bold text-[var(--fg-default)]">USD $ {formatNumber(totalCapexUsd)}</h3>
           <p className="text-lg text-[var(--fg-default)]">
-            {t("minerQuotation.estimatedPayback")}: {paybackMonths ? `${formatNumber(paybackMonths)} ${t("minerQuotation.monthsUnit")}` : "–"}
+            {t("minerQuotation.estimatedPayback")}: {paybackSummaryText ?? "–"}
           </p>
           <p className="text-lg text-[var(--fg-default)]">
             {t("minerQuotation.projectedAnnualRoi")}: {annualRoiPercent ? `${formatNumber(annualRoiPercent)} %` : "–"}

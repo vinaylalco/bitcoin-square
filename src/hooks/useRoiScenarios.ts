@@ -2,6 +2,7 @@ import { useMemo } from "react";
 
 export interface RoiScenarioPoint {
   month: number;
+  date: string;
   price_flat: number;
   price_conservative: number;
   price_bullish: number;
@@ -30,6 +31,7 @@ interface UseRoiScenariosParams {
   totalCapexUsd: number;
   btcPriceUsd: number;
   months?: number;
+  startDate?: Date;
 }
 
 const SCENARIO_GROWTH_RATES = {
@@ -45,11 +47,30 @@ export function useRoiScenarios({
   totalCapexUsd,
   btcPriceUsd,
   months = 60,
+  startDate,
 }: UseRoiScenariosParams): RoiScenarioResult {
+  const anchorTimestamp = startDate?.getTime();
+
   return useMemo(() => {
     const simulationMonths = Math.max(0, Math.floor(months));
     const monthlyElecUsd = dailyElecUsd * 30;
     const hodlBtc = btcPriceUsd > 0 ? totalCapexUsd / btcPriceUsd : 0;
+
+    const anchorDate = anchorTimestamp ? new Date(anchorTimestamp) : new Date();
+    anchorDate.setHours(0, 0, 0, 0);
+
+    const formatDate = (date: Date) => {
+      const year = date.getFullYear();
+      const monthValue = `${date.getMonth() + 1}`.padStart(2, "0");
+      const day = `${date.getDate()}`.padStart(2, "0");
+      return `${year}-${monthValue}-${day}`;
+    };
+
+    const getDateForMonth = (monthIndex: number) => {
+      const date = new Date(anchorDate);
+      date.setMonth(date.getMonth() + monthIndex);
+      return formatDate(date);
+    };
 
     let cumulativeFlat = 0;
     let cumulativeConservative = 0;
@@ -102,7 +123,10 @@ export function useRoiScenarios({
       }
 
       points.push({
+        // month tracks elapsed months since the start date and date is the
+        // resolved calendar date based on that start date.
         month,
+        date: getDateForMonth(month),
         price_flat,
         price_conservative,
         price_bullish,
@@ -125,5 +149,12 @@ export function useRoiScenarios({
       paybackMonths_bullish: paybackBullish,
       paybackMonths_ultra: paybackUltra,
     };
-  }, [btcPriceUsd, dailyBtc, dailyElecUsd, months, totalCapexUsd]);
+  }, [
+    anchorTimestamp,
+    btcPriceUsd,
+    dailyBtc,
+    dailyElecUsd,
+    months,
+    totalCapexUsd,
+  ]);
 }
