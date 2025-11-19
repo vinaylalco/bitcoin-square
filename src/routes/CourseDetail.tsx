@@ -584,7 +584,7 @@ function buildLessonCard({
 export default function CourseDetail() {
   const { t, i18n } = useTranslation();
   const { slug = "" } = useParams();
-  const locale = normalizeLocale(i18n.language);
+  const locale = resolveLocale(i18n.language);
   const { token } = useAuth();
   const {
     me: membershipInfo,

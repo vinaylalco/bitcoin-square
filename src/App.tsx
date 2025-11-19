@@ -45,7 +45,7 @@ export default function App() {
 
   const locale = resolveLocale(i18n.language);
 
-  const lessonPlanLocale = locale === "es" ? "es" : "en";
+  const lessonPlanLocale = locale === "es" || locale === "id" ? locale : "en";
 
   const { data: lessonPlans } = useLessonPlans(lessonPlanLocale);
   const educationChildren = (() => {
