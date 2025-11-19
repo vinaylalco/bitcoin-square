@@ -7,7 +7,7 @@ import { resolveLocale } from "../utils/locale";
 export default function CourseDirectory() {
   const { t, i18n } = useTranslation();
   const locale = resolveLocale(i18n.language);
-  const contentLocale = locale === "es" ? "es" : "en";
+  const contentLocale = locale === "es" || locale === "id" ? locale : "en";
   const { data, isLoading, error } = useLessonPlans(contentLocale);
   const description = t("courses.description");
 
