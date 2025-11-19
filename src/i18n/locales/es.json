@@ -786,6 +786,169 @@
         "heading": "Riesgos y seguros",
         "description": "Resumen de riesgos comunes en minería y posibles ideas de seguro/mitigación. Complementa los gráficos con escenarios a la baja ligados al precio BTC, dificultad, costos de energía y operación.",
         "checklist": "Úsalo como checklist para probar tu plan: ¿y si BTC cae a la mitad, sube la tarifa eléctrica, falla el hardware o cambia la regulación? Las viñetas apuntan a seguros, SLAs, coberturas y custodia que puedes investigar con profesionales."
+      },
+      "riskAndInsurance": {
+        "risksHeading": "Principales riesgos de la minería de Bitcoin",
+        "risksIntro": "Usa estas preguntas para poner a prueba los escenarios de arriba. Cada tarjeta explica cómo aparece el riesgo en el mundo real y cómo simularlo con el explorador de ROI, las tablas o los mapas de calor.",
+        "practiceLabel": "Qué significa en la práctica",
+        "stressTestLabel": "Cómo tensionarlo en esta herramienta",
+        "mitigationHeading": "Ideas de seguros y mitigación de riesgos",
+        "mitigationIntro": "Opciones para investigar; no son recomendaciones ni avales.",
+        "prosLabel": "Pros",
+        "limitationsLabel": "Limitaciones",
+        "howToUse": "Cómo usar esta sección: combina las pruebas de estrés, tablas y gráficos anteriores con estas ideas de riesgo para definir tus propios planes optimista, base y pesimista. Es solo información; no es asesoría legal, fiscal, financiera ni de seguros. Consulta con profesionales antes de decidir.",
+        "risks": [
+          {
+            "title": "Riesgo de precio de Bitcoin",
+            "description": "Los ingresos en BTC son volátiles y se pagan en un activo que puede desplomarse justo cuando debes cubrir facturas en fiat.",
+            "practice": [
+              "El payback puede alargarse meses o nunca llegar si BTC pasa mucho tiempo por debajo de tu curva modelada.",
+              "Los costos fijos (energía, hosting, intereses) se pagan en USD, así que las caídas golpean el flujo de caja al instante."
+            ],
+            "stressTest": "Prueba bajar la curva de precio BTC un 30–50% en el Explorador de escenarios y compara los nuevos meses de recuperación."
+          },
+          {
+            "title": "Crecimiento de dificultad y halvings",
+            "description": "La dificultad suele subir con más hashrate y los halvings reducen la recompensa cada ~4 años.",
+            "practice": [
+              "Saltos repentinos de dificultad reducen el BTC ganado por TH/s antes de que puedas actualizar hardware.",
+              "Un halving puede cortar tus ingresos a la mitad si el precio no se revaloriza rápido."
+            ],
+            "stressTest": "Reduce el BTC minado por mes o sube los costos operativos para imitar un entorno post-halving."
+          },
+          {
+            "title": "Costo eléctrico y suministro",
+            "description": "Contratos de energía, recortes de red y estacionalidad pueden cambiar tu $/kWh efectivo sin aviso.",
+            "practice": [
+              "Alzas inesperadas o cláusulas de curtailment pueden duplicar costos u obligar a detenerse.",
+              "Cargos por demanda y combustibles variables erosionan márgenes aunque el precio BTC siga plano."
+            ],
+            "stressTest": "Incrementa el valor de electricidad en el Explorador o en el heatmap para ver los nuevos márgenes netos."
+          },
+          {
+            "title": "Adquisición y confiabilidad del hardware",
+            "description": "Los ASIC requieren mucho capital, tienen largos plazos de entrega y pueden fallar cuando operan 24/7 en condiciones duras.",
+            "practice": [
+              "Filas de reparación o demoras logísticas pueden dejar equipos fuera semanas, reduciendo ingresos diarios.",
+              "Los modelos nuevos suelen llegar antes de recuperar la inversión, dejando viejas flotas en desventaja."
+            ],
+            "stressTest": "En el Explorador de escenarios baja el hashrate o el porcentaje de uptime para simular parte de la flota apagada."
+          },
+          {
+            "title": "Riesgo operativo, regulatorio y fiscal",
+            "description": "Contratos de hosting, permisos y políticas locales pueden cambiar más rápido de lo previsto y afectar el flujo de caja.",
+            "practice": [
+              "Apagones específicos del sitio, huelgas o reglas adversas pueden frenar la operación aunque el hardware esté listo.",
+              "Controles de importación/exportación o impuestos pueden atrapar capital cuando intentas mover o vender equipos."
+            ],
+            "stressTest": "Modela tiempo fuera de servicio o mayores costos operativos y revisa el resumen de payback para ver nuevos escenarios."
+          },
+          {
+            "title": "Contrapartes y custodia del BTC minado",
+            "description": "Los ingresos suelen acumularse en pools, exchanges o wallets hospedadas que tienen riesgo de robo o insolvencia.",
+            "practice": [
+              "Grandes saldos en un único exchange o hot wallet amplifican el impacto de un compromiso.",
+              "Errores operativos (llaves perdidas, mala disciplina multi-sig) pueden destruir BTC minado."
+            ],
+            "stressTest": "Compara retener todo el BTC minado vs vender mensualmente usando la tabla de Minería vs HODL para medir la exposición."
+          }
+        ],
+        "mitigationGroups": [
+          {
+            "title": "Coberturas físicas y operativas",
+            "items": [
+              {
+                "name": "Seguro de hardware (propiedad e inland marine)",
+                "description": "Pregunta por cobertura ante incendio, robo, daños en tránsito y si los hashboards están cubiertos cuando están instalados fuera del sitio.",
+                "pros": [
+                  "Ayuda a recuperar el CAPEX tras un evento cubierto.",
+                  "Algunas pólizas incluyen riders para reparación o reemplazo acelerado."
+                ],
+                "limitations": [
+                  "La disponibilidad depende de la jurisdicción y muchos aseguradores exigen controles estrictos del sitio.",
+                  "Primas y deducibles pueden equivaler a varios meses de utilidad."
+                ]
+              },
+              {
+                "name": "Seguro de la hosting facility y SLAs",
+                "description": "Pide pruebas de cobertura patrimonial, entiende las cláusulas de interrupción del negocio y deja por escrito las garantías de uptime.",
+                "pros": [
+                  "Transfiere parte del riesgo operativo a un actor con balance suficiente."
+                ],
+                "limitations": [
+                  "Los reclamos pueden tardar y solo cubren peligros específicos.",
+                  "Los SLAs suelen limitar compensaciones y rara vez igualan el BTC perdido."
+                ]
+              },
+              {
+                "name": "Seguro de interrupción del negocio / contingente",
+                "description": "Pregunta si podrían reembolsar ingresos perdidos o gastos extra por un apagón cubierto y qué eventos disparan el pago.",
+                "pros": [
+                  "Entrega liquidez para cubrir costos fijos mientras el equipo está apagado."
+                ],
+                "limitations": [
+                  "Normalmente se ata a peligros muy específicos y topes de pago.",
+                  "La carga documental es alta; operadores pequeños quizá no califiquen."
+                ]
+              }
+            ]
+          },
+          {
+            "title": "Herramientas financieras y de mercado",
+            "items": [
+              {
+                "name": "Coberturas de precio BTC",
+                "description": "Analiza collars, puts u otros estructurados que aseguren un valor mínimo en USD para la producción futura.",
+                "pros": [
+                  "Estabiliza el flujo de caja y el servicio de deuda durante caídas de precio."
+                ],
+                "limitations": [
+                  "Primas o requisitos de margen añaden costo.",
+                  "Se limita el upside si BTC supera el strike."
+                ]
+              },
+              {
+                "name": "Contratos de energía a plazo / precio fijo",
+                "description": "Pregunta a utilities o generadores independientes por bloques a tarifa fija, contratos take-or-pay o créditos por demanda controlada.",
+                "pros": [
+                  "Asegura un costo operativo predecible para modelar el payback.",
+                  "Puede habilitar financiamiento más barato si los prestamistas ven costos estables."
+                ],
+                "limitations": [
+                  "Podrías pagar energía incluso si te cortan o tienes downtime.",
+                  "Contratos largos a precio fijo pueden quedar por encima del spot cuando baja."
+                ]
+              }
+            ]
+          },
+          {
+            "title": "Prácticas de seguridad y custodia",
+            "items": [
+              {
+                "name": "Cold storage y multifirma",
+                "description": "Pregunta a custodios o proveedores de wallets sobre módulos HSM, segregación de activos y políticas multi-sig.",
+                "pros": [
+                  "Reduce puntos únicos de falla frente a dejar saldos en exchanges.",
+                  "Mejora la auditabilidad ante prestamistas o socios."
+                ],
+                "limitations": [
+                  "El trabajo operativo (ceremonias de firma, rotación de llaves) agrega fricción.",
+                  "Perder quórum o hardware puede retrasar pagos si no se planea."
+                ]
+              },
+              {
+                "name": "Diversificación de contrapartes",
+                "description": "Divide payouts de pools, tesorería y cuentas de exchange entre proveedores confiables con reportes de solvencia.",
+                "pros": [
+                  "Limita el daño si un venue congela retiros o sufre un hack."
+                ],
+                "limitations": [
+                  "Más cuentas implican más procesos operativos y revisiones KYC que mantener."
+                ]
+              }
+            ]
+          }
+        ]
       }
     }
   }

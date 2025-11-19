@@ -785,6 +785,169 @@
         "heading": "Risiko & asuransi",
         "description": "Ringkasan risiko umum penambangan dan ide asuransi/mitigasi. Melengkapi grafik dengan skenario penurunan terkait harga BTC, kesulitan, biaya listrik, dan operasi.",
         "checklist": "Gunakan sebagai daftar periksa untuk uji tekan: bagaimana jika harga BTC turun setengah, tarif listrik naik, perangkat rusak, atau regulasi berubah? Poin-poinnya menyoroti asuransi, SLA, lindung nilai, dan praktik kustodi yang bisa dikaji dengan profesional."
+      },
+      "riskAndInsurance": {
+        "risksHeading": "Risiko utama penambangan Bitcoin",
+        "risksIntro": "Gunakan panduan ini untuk mengetes skenario di atas. Setiap kartu menjelaskan bagaimana risiko muncul di dunia nyata dan cara mensimulasikannya lewat penjelajah ROI, tabel, atau heatmap.",
+        "practiceLabel": "Implikasi di lapangan",
+        "stressTestLabel": "Cara uji ketahanan di alat ini",
+        "mitigationHeading": "Ide asuransi & mitigasi risiko",
+        "mitigationIntro": "Opsi untuk ditelusuri; bukan rekomendasi resmi.",
+        "prosLabel": "Kelebihan",
+        "limitationsLabel": "Keterbatasan",
+        "howToUse": "Cara menggunakan bagian ini: gabungkan uji stres, tabel, dan grafik di atas dengan daftar risiko ini untuk membuat skenario terbaik, dasar, dan terburuk versi Anda. Informasi ini bukan nasihat hukum, pajak, finansial, atau asuransi. Konsultasikan dengan profesional sebelum mengambil keputusan.",
+        "risks": [
+          {
+            "title": "Risiko harga Bitcoin",
+            "description": "Pendapatan BTC sangat fluktuatif dan dibayar dalam aset yang bisa jatuh tajam saat tagihan listrik jatuh tempo.",
+            "practice": [
+              "Periode balik modal bisa molor atau tidak pernah tercapai jika harga BTC lama berada di bawah asumsi model Anda.",
+              "Biaya operasional (listrik, hosting, bunga) tetap dalam USD sehingga penurunan harga langsung memukul arus kas."
+            ],
+            "stressTest": "Turunkan kurva harga BTC 30–50% di Scenario Explorer dan bandingkan bulan payback yang baru."
+          },
+          {
+            "title": "Kenaikan difficulty & halving",
+            "description": "Difficulty biasanya naik ketika hashrate bertambah, dan halving memangkas subsidi blok setiap ~4 tahun.",
+            "practice": [
+              "Lonjakan difficulty mendadak menurunkan BTC per TH/s sebelum Anda sempat upgrade perangkat.",
+              "Halving bisa memangkas pendapatan hingga 50% dalam semalam jika harga tidak ikut naik cepat."
+            ],
+            "stressTest": "Kurangi BTC yang ditambang per bulan atau naikkan biaya operasi untuk meniru kondisi pasca-halving."
+          },
+          {
+            "title": "Biaya listrik & pasokan energi",
+            "description": "Kontrak listrik, pemutusan jaringan, dan musim dapat mengubah tarif $/kWh efektif Anda sewaktu-waktu.",
+            "practice": [
+              "Kenaikan tarif mendadak atau klausul curtailment bisa menggandakan biaya atau memaksa downtime.",
+              "Biaya permintaan dan bahan bakar variabel menggerus margin meski harga BTC datar."
+            ],
+            "stressTest": "Naikkan input listrik di Scenario Explorer atau heatmap breakeven untuk melihat margin baru."
+          },
+          {
+            "title": "Pengadaan & keandalan hardware",
+            "description": "ASIC mahal, butuh waktu pengiriman panjang, dan dapat rusak tanpa peringatan ketika berjalan 24/7.",
+            "practice": [
+              "Antrian servis atau keterlambatan logistik bisa membuat rig menganggur berminggu-minggu, memangkas pendapatan harian.",
+              "Model generasi baru sering tiba sebelum ROI tercapai sehingga armada lama kurang kompetitif."
+            ],
+            "stressTest": "Di Scenario Explorer turunkan hashrate atau persentase uptime untuk mensimulasikan sebagian armada mati."
+          },
+          {
+            "title": "Operasional, regulasi & pajak",
+            "description": "Kontrak hosting, perizinan, dan kebijakan lokal bisa berubah lebih cepat dari perkiraan sehingga memengaruhi uptime dan arus kas.",
+            "practice": [
+              "Gangguan di lokasi, mogok, atau regulasi tidak ramah dapat menghentikan penambangan meski perangkat siap.",
+              "Kontrol impor/ekspor atau pajak dapat menahan modal saat ingin memindahkan atau menjual perangkat."
+            ],
+            "stressTest": "Modelkan downtime atau biaya operasi yang lebih tinggi dan lihat ringkasan payback untuk skenario baru."
+          },
+          {
+            "title": "Risiko pihak ketiga & kustodi BTC",
+            "description": "Pendapatan tambang sering menumpuk di pool, exchange, atau wallet hosted yang membawa risiko pencurian maupun insolvency.",
+            "practice": [
+              "Saldo besar di satu exchange atau hot wallet memperbesar dampak jika terjadi kompromi.",
+              "Kesalahan operasional (kunci hilang, disiplin multi-sig buruk) bisa menghilangkan BTC selamanya."
+            ],
+            "stressTest": "Bandingkan menahan semua BTC vs menjual bulanan lewat tabel Mining vs HODL untuk mengukur eksposur."
+          }
+        ],
+        "mitigationGroups": [
+          {
+            "title": "Perlindungan fisik & operasional",
+            "items": [
+              {
+                "name": "Asuransi hardware (property & inland marine)",
+                "description": "Tanyakan cakupan kebakaran, pencurian, kerusakan saat pengiriman, dan apakah hashboard dilindungi ketika dipasang di lokasi hosting.",
+                "pros": [
+                  "Membantu memulihkan capex setelah kejadian yang diasuransikan.",
+                  "Beberapa polis menyediakan layanan perbaikan atau penggantian cepat."
+                ],
+                "limitations": [
+                  "Ketersediaan berbeda per yurisdiksi dan sering mensyaratkan kontrol fasilitas yang ketat.",
+                  "Premi serta deductible bisa setara beberapa bulan profit."
+                ]
+              },
+              {
+                "name": "Asuransi fasilitas hosting & SLA",
+                "description": "Minta bukti pertanggungan properti/tanggung gugat, pahami klausul gangguan usaha, dan dokumentasikan jaminan uptime.",
+                "pros": [
+                  "Mengalihkan sebagian risiko fasilitas ke pihak dengan neraca lebih kuat."
+                ],
+                "limitations": [
+                  "Klaim bisa memakan waktu dan hanya menanggung risiko tertentu.",
+                  "SLA biasanya membatasi kompensasi dan jarang mengganti pendapatan BTC yang hilang."
+                ]
+              },
+              {
+                "name": "Asuransi gangguan usaha / kontinjensi",
+                "description": "Tanyakan apakah pendapatan yang hilang atau biaya ekstra akibat outage yang ditanggung dapat diganti dan apa pemicunya.",
+                "pros": [
+                  "Memberi kas untuk menutup biaya tetap saat perangkat offline."
+                ],
+                "limitations": [
+                  "Umumnya hanya berlaku pada risiko spesifik dengan batas klaim.",
+                  "Beban dokumentasi tinggi; operator kecil mungkin tak memenuhi syarat."
+                ]
+              }
+            ]
+          },
+          {
+            "title": "Alat risiko finansial & pasar",
+            "items": [
+              {
+                "name": "Hedging harga BTC",
+                "description": "Diskusikan collar, put, atau produk terstruktur untuk mengunci nilai USD minimum produksi mendatang.",
+                "pros": [
+                  "Menstabilkan arus kas dan pembayaran utang saat harga turun."
+                ],
+                "limitations": [
+                  "Premi atau margin menambah biaya.",
+                  "Potensi kenaikan dibatasi jika harga BTC melewati strike."
+                ]
+              },
+              {
+                "name": "Kontrak listrik forward / harga tetap",
+                "description": "Tanyakan utilitas atau penyedia listrik independen tentang blok tarif tetap, skema take-or-pay, atau kredit demand-response.",
+                "pros": [
+                  "Mengunci biaya operasi yang dapat diprediksi untuk memodelkan payback.",
+                  "Dapat membuka pembiayaan lebih murah jika pemberi pinjaman melihat biaya listrik stabil."
+                ],
+                "limitations": [
+                  "Anda tetap wajib bayar listrik walau terjadi curtailment atau downtime.",
+                  "Kontrak jangka panjang bisa lebih mahal dari harga spot saat turun."
+                ]
+              }
+            ]
+          },
+          {
+            "title": "Praktik keamanan & kustodi",
+            "items": [
+              {
+                "name": "Cold storage & multi-signature",
+                "description": "Tanyakan penyedia kustodi/wallet soal HSM, pemisahan aset klien, dan kebijakan multi-sig.",
+                "pros": [
+                  "Mengurangi single point of failure dibanding menyimpan saldo di exchange.",
+                  "Meningkatkan auditabilitas bagi pemberi pinjaman atau mitra."
+                ],
+                "limitations": [
+                  "Ritual operasional (seremoni tanda tangan, rotasi kunci) menambah friksi.",
+                  "Kehilangan kuorum atau perangkat bisa menunda pembayaran jika tidak direncanakan."
+                ]
+              },
+              {
+                "name": "Diversifikasi counterparty",
+                "description": "Pisahkan payout pool, treasury, dan akun exchange di beberapa penyedia tepercaya dengan laporan solvabilitas jelas.",
+                "pros": [
+                  "Membatasi dampak jika satu platform membekukan penarikan atau diretas."
+                ],
+                "limitations": [
+                  "Lebih banyak akun berarti proses operasional dan KYC yang harus dijaga."
+                ]
+              }
+            ]
+          }
+        ]
       }
     }
   }

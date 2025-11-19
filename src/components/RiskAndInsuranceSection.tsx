@@ -1,6 +1,26 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 
-const riskSections = [
+interface RiskSection {
+  title: string;
+  description: string;
+  practice?: string[];
+  stressTest: string;
+}
+
+interface MitigationItem {
+  name: string;
+  description: string;
+  pros?: string[];
+  limitations?: string[];
+}
+
+interface MitigationGroup {
+  title: string;
+  items: MitigationItem[];
+}
+
+const fallbackRiskSections: RiskSection[] = [
   {
     title: "Bitcoin price risk",
     description:
@@ -63,7 +83,7 @@ const riskSections = [
   },
 ];
 
-const mitigationSections = [
+const fallbackMitigationSections: MitigationGroup[] = [
   {
     title: "Physical & operational coverage",
     items: [
@@ -149,14 +169,46 @@ const mitigationSections = [
 ];
 
 export function RiskAndInsuranceSection() {
+  const { t } = useTranslation();
+  const riskSections =
+    (t("minerQuotation.riskAndInsurance.risks", { returnObjects: true }) as RiskSection[] | undefined) ??
+    fallbackRiskSections;
+  const mitigationSections =
+    (t("minerQuotation.riskAndInsurance.mitigationGroups", { returnObjects: true }) as MitigationGroup[] | undefined) ??
+    fallbackMitigationSections;
+  const risksHeading = t("minerQuotation.riskAndInsurance.risksHeading", {
+    defaultValue: "Key Risks of Bitcoin Mining",
+  });
+  const risksIntro = t("minerQuotation.riskAndInsurance.risksIntro", {
+    defaultValue:
+      "Use these prompts to pressure-test the scenarios above. Each card outlines how a risk shows up in the real world and how to simulate it with the ROI explorer, tables, or heatmaps.",
+  });
+  const practiceLabel = t("minerQuotation.riskAndInsurance.practiceLabel", {
+    defaultValue: "What it means in practice",
+  });
+  const stressTestLabel = t("minerQuotation.riskAndInsurance.stressTestLabel", {
+    defaultValue: "How to stress-test it in this tool",
+  });
+  const mitigationHeading = t("minerQuotation.riskAndInsurance.mitigationHeading", {
+    defaultValue: "Insurance & Risk Mitigation Ideas",
+  });
+  const mitigationIntro = t("minerQuotation.riskAndInsurance.mitigationIntro", {
+    defaultValue: "Options to investigate; not recommendations or endorsements.",
+  });
+  const prosLabel = t("minerQuotation.riskAndInsurance.prosLabel", { defaultValue: "Pros" });
+  const limitationsLabel = t("minerQuotation.riskAndInsurance.limitationsLabel", {
+    defaultValue: "Limitations",
+  });
+  const howToUseText = t("minerQuotation.riskAndInsurance.howToUse", {
+    defaultValue:
+      "How to use this section: combine the stress tests, tables, and charts above with these risk ideas to outline your own best-, base-, and worst-case playbooks. This content is for information only and not legal, tax, financial, or insurance advice. Work with qualified professionals before making decisions.",
+  });
+
   return (
     <section className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl p-6 shadow-[var(--shadow-soft)] space-y-6">
       <div>
-        <h2 className="text-2xl font-semibold text-amber-200">Key Risks of Bitcoin Mining</h2>
-        <p className="mt-2 text-sm text-[var(--fg-muted)]">
-          Use these prompts to pressure-test the scenarios above. Each card outlines how a risk shows up in the real world and
-          how to simulate it with the ROI explorer, tables, or heatmaps.
-        </p>
+        <h2 className="text-2xl font-semibold text-amber-200">{risksHeading}</h2>
+        <p className="mt-2 text-sm text-[var(--fg-muted)]">{risksIntro}</p>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           {riskSections.map((section) => (
             <div
@@ -167,16 +219,18 @@ export function RiskAndInsuranceSection() {
                 <h3 className="text-lg font-semibold text-[var(--fg-default)]">{section.title}</h3>
                 <p className="text-sm text-[var(--fg-muted)]">{section.description}</p>
               </div>
-              <div className="space-y-2 text-sm text-[var(--fg-default)]">
-                <p className="font-semibold text-[var(--fg-default)]">What it means in practice</p>
-                <ul className="list-disc pl-5 space-y-1">
-                  {section.practice.map((item) => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </ul>
-              </div>
+              {section.practice?.length ? (
+                <div className="space-y-2 text-sm text-[var(--fg-default)]">
+                  <p className="font-semibold text-[var(--fg-default)]">{practiceLabel}</p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    {section.practice.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
               <div className="text-sm text-[var(--fg-default)]">
-                <p className="font-semibold">How to stress-test it in this tool</p>
+                <p className="font-semibold">{stressTestLabel}</p>
                 <p className="text-[var(--fg-muted)]">{section.stressTest}</p>
               </div>
             </div>
@@ -185,8 +239,8 @@ export function RiskAndInsuranceSection() {
       </div>
 
       <div>
-        <h2 className="text-2xl font-semibold text-amber-200">Insurance &amp; Risk Mitigation Ideas</h2>
-        <p className="text-sm text-[var(--fg-muted)]">Options to investigate; not recommendations or endorsements.</p>
+        <h2 className="text-2xl font-semibold text-amber-200">{mitigationHeading}</h2>
+        <p className="text-sm text-[var(--fg-muted)]">{mitigationIntro}</p>
         <div className="mt-4 space-y-4">
           {mitigationSections.map((group) => (
             <div key={group.title} className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-lg p-4 space-y-3">
@@ -200,17 +254,17 @@ export function RiskAndInsuranceSection() {
                     </div>
                     <div className="grid gap-3 md:grid-cols-2">
                       <div>
-                        <p className="text-sm font-semibold text-emerald-300">Pros</p>
+                        <p className="text-sm font-semibold text-emerald-300">{prosLabel}</p>
                         <ul className="list-disc pl-5 text-sm text-[var(--fg-default)] space-y-1">
-                          {item.pros.map((pro) => (
+                          {(item.pros ?? []).map((pro) => (
                             <li key={pro}>{pro}</li>
                           ))}
                         </ul>
                       </div>
                       <div>
-                        <p className="text-sm font-semibold text-rose-300">Limitations</p>
+                        <p className="text-sm font-semibold text-rose-300">{limitationsLabel}</p>
                         <ul className="list-disc pl-5 text-sm text-[var(--fg-default)] space-y-1">
-                          {item.limitations.map((limitation) => (
+                          {(item.limitations ?? []).map((limitation) => (
                             <li key={limitation}>{limitation}</li>
                           ))}
                         </ul>
@@ -222,11 +276,7 @@ export function RiskAndInsuranceSection() {
             </div>
           ))}
         </div>
-        <p className="mt-4 text-xs text-[var(--fg-muted)]">
-          How to use this section: combine the stress tests, tables, and charts above with these risk ideas to outline your own
-          best-, base-, and worst-case playbooks. This content is for information only and not legal, tax, financial, or
-          insurance advice. Work with qualified professionals before making decisions.
-        </p>
+        <p className="mt-4 text-xs text-[var(--fg-muted)]">{howToUseText}</p>
       </div>
     </section>
   );

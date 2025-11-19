@@ -787,6 +787,169 @@
         "description": "This section summarizes common mining risks and outlines insurance and mitigation ideas. It complements the charts by looking at downside scenarios tied to BTC price, network difficulty, power costs, and operations.",
         "checklist": "Use it as a checklist to stress-test your plan: What if BTC halves in price, power rates rise, hardware fails, or regulation shifts? The mitigation bullets point to insurance, SLAs, hedging, and custody practices you can investigate with qualified professionals."
       }
+    },
+    "riskAndInsurance": {
+      "risksHeading": "Key Risks of Bitcoin Mining",
+      "risksIntro": "Use these prompts to pressure-test the scenarios above. Each card outlines how a risk shows up in the real world and how to simulate it with the ROI explorer, tables, or heatmaps.",
+      "practiceLabel": "What it means in practice",
+      "stressTestLabel": "How to stress-test it in this tool",
+      "mitigationHeading": "Insurance & Risk Mitigation Ideas",
+      "mitigationIntro": "Options to investigate; not recommendations or endorsements.",
+      "prosLabel": "Pros",
+      "limitationsLabel": "Limitations",
+      "howToUse": "How to use this section: combine the stress tests, tables, and charts above with these risk ideas to outline your own best-, base-, and worst-case playbooks. This content is for information only and not legal, tax, financial, or insurance advice. Work with qualified professionals before making decisions.",
+      "risks": [
+        {
+          "title": "Bitcoin price risk",
+          "description": "BTC revenue is volatile and denominated in an asset that can fall sharply just as your power bills come due in fiat.",
+          "practice": [
+            "Payback can stretch out months or never arrive if BTC spends long periods below your modeled price curve.",
+            "Running costs (power, hosting, interest) stay denominated in USD, so drawdowns hit cash flow immediately."
+          ],
+          "stressTest": "Try dropping the BTC price curve by 30–50% in the Scenario Explorer and compare new payback months."
+        },
+        {
+          "title": "Difficulty growth & halvings",
+          "description": "Network difficulty tends to rise with new hashrate, and halvings instantly cut the block subsidy every ~4 years.",
+          "practice": [
+            "Sudden difficulty jumps reduce BTC earned per TH/s before you have time to upgrade hardware.",
+            "Halving events can cut revenue in half overnight if price does not re-rate quickly enough."
+          ],
+          "stressTest": "Reduce the BTC mined per month or increase operating costs to mimic a post-halving environment."
+        },
+        {
+          "title": "Electricity cost & power supply",
+          "description": "Power contracts, grid curtailment, and seasonal demand swings can change your effective $/kWh at short notice.",
+          "practice": [
+            "Unexpected tariff hikes or curtailment clauses can double operating costs or force downtime.",
+            "Demand charges and variable fuel costs can erode margins even if BTC price stays flat."
+          ],
+          "stressTest": "Increase the electricity input in the Scenario Explorer or breakeven heatmap to see new net margins."
+        },
+        {
+          "title": "Hardware procurement & reliability",
+          "description": "ASICs are capital-intensive, face long lead times, and can fail without warning when run 24/7 in harsh conditions.",
+          "practice": [
+            "Repair queues or shipping delays can sideline rigs for weeks, slashing daily revenue.",
+            "Next-gen models often arrive before ROI is realized, making older fleets uncompetitive."
+          ],
+          "stressTest": "In Scenario Explorer, lower hashrate or uptime percentages to simulate part of the fleet going offline."
+        },
+        {
+          "title": "Operational, regulatory & tax",
+          "description": "Hosting contracts, permitting, and local policy can change faster than expected, impacting uptime or cash flows.",
+          "practice": [
+            "Site-specific outages, strikes, or unfavorable regulation can halt mining even if your hardware is ready.",
+            "Import/export controls or taxes can trap capital when trying to move or sell equipment."
+          ],
+          "stressTest": "Model downtime or higher operating costs, and review the payback summary for new best/worst cases."
+        },
+        {
+          "title": "Counterparty & custody of mined BTC",
+          "description": "Mining revenue often accumulates on pools, exchanges, or hosted wallets that carry theft and solvency risk.",
+          "practice": [
+            "Large balances sitting on a single exchange or hot wallet increase the blast radius of a compromise.",
+            "Operational errors (lost keys, poor multi-sig discipline) can permanently destroy mined BTC."
+          ],
+          "stressTest": "Compare holding all mined BTC vs. selling monthly using the Mining vs. HODL table to gauge exposure."
+        }
+      ],
+      "mitigationGroups": [
+        {
+          "title": "Physical & operational coverage",
+          "items": [
+            {
+              "name": "Hardware insurance (property & inland marine)",
+              "description": "Ask about coverage for fire, theft, transit damage, and whether hashboards are covered while installed off-site.",
+              "pros": [
+                "Helps recover capex after a covered event.",
+                "Some policies include expedited repair or replacement riders."
+              ],
+              "limitations": [
+                "Availability varies by jurisdiction and underwriters often require strict facility controls.",
+                "Premiums and deductibles can rival several months of profit."
+              ]
+            },
+            {
+              "name": "Hosting facility insurance & SLAs",
+              "description": "Request proof of property/casualty coverage, understand business interruption clauses, and document uptime guarantees.",
+              "pros": [
+                "Transfers part of the facility-level risk to a party with balance sheet capacity."
+              ],
+              "limitations": [
+                "Claims may require lengthy investigations and only cover specific perils.",
+                "SLAs often cap compensation and rarely repay lost BTC revenue exactly."
+              ]
+            },
+            {
+              "name": "Business interruption / contingent coverage",
+              "description": "Ask whether lost mining revenue or extra expense from a covered outage could be reimbursed, and what triggers payment.",
+              "pros": [
+                "Provides cash to cover fixed costs while equipment is offline."
+              ],
+              "limitations": [
+                "Usually tied to narrowly defined perils and capped payouts.",
+                "Documentation burden is high; small operators may not qualify."
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Financial & market risk tools",
+          "items": [
+            {
+              "name": "BTC price hedging",
+              "description": "Discuss collars, puts, or structured products that lock in a minimum USD value for future production.",
+              "pros": [
+                "Stabilizes cash flow and debt service even during price drawdowns."
+              ],
+              "limitations": [
+                "Premiums or margin requirements add cost.",
+                "Upside is capped if BTC rallies above the hedge strike."
+              ]
+            },
+            {
+              "name": "Forward power contracts / fixed-price energy",
+              "description": "Ask utilities or independent power providers about fixed-rate blocks, take-or-pay structures, or demand-response credits.",
+              "pros": [
+                "Locks in a predictable operating cost for modeling payback.",
+                "May unlock cheaper financing if lenders see stable power costs."
+              ],
+              "limitations": [
+                "You may owe for power even if curtailment or downtime hits.",
+                "Long-term fixed contracts can be above spot when prices fall."
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Security & custody practices",
+          "items": [
+            {
+              "name": "Cold storage & multi-signature",
+              "description": "Ask custodians or wallet providers about hardware security modules, segregation of client assets, and multi-sig policies.",
+              "pros": [
+                "Reduces single-point-of-failure risk compared to keeping balances on exchanges.",
+                "Improves auditability for lenders or partners."
+              ],
+              "limitations": [
+                "Operational overhead (signing ceremonies, key rotation) adds friction.",
+                "Losing quorum or hardware devices can delay payouts if not planned carefully."
+              ]
+            },
+            {
+              "name": "Counterparty diversification",
+              "description": "Keep mining pool payouts, treasury storage, and exchange accounts split across reputable providers with clear solvency reports.",
+              "pros": [
+                "Limits blast radius if one venue freezes withdrawals or is hacked."
+              ],
+              "limitations": [
+                "More accounts mean more operational processes and KYC reviews to maintain."
+              ]
+            }
+          ]
+        }
+      ]
     }
   }
 }
