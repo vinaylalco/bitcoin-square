@@ -50,11 +50,9 @@ export function login(email: string, password: string) {
 }
 
 export function forgotPassword(email: string) {
-  const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const url = `${origin}/reset-password`;
   return strapiFetch<{ ok: boolean }>('/api/auth/forgot-password', {
     method: 'POST',
-    body: JSON.stringify({ email, url }),
+    body: JSON.stringify({ email }),
   });
 }
 

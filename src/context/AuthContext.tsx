@@ -528,8 +528,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function reset(code: string, password: string, confirm: string) {
-    const res = await apiReset(code, password, confirm);
-    applyAuth(res);
+    setNostrKeyLoading(true);
+    try {
+      const res = await apiReset(code, password, confirm);
+      await completeAuthFromResponse(res, { passphrases: [password, res.jwt] });
+    } finally {
+      setNostrKeyLoading(false);
+    }
   }
 
   function logout() {

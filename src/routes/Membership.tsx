@@ -386,7 +386,7 @@ export default function Membership() {
 
                 <div className="text-center text-xs font-semibold uppercase tracking-[0.28em] text-[var(--fg-muted)]">
                   <Link to="/forgot-password" className="text-brand hover:underline">
-                    {t("membership.portal.login.forgot")}
+                    {t("auth.login.forgotPasswordLink")}
                   </Link>
                 </div>
               </form>
