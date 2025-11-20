@@ -551,6 +551,7 @@
     "login": {
       "title": "Login",
       "submit": "Log In",
+      "forgotPasswordLink": "Forgot password?",
       "linkRegister": "Create account",
       "errors": {
         "invalid": "Incorrect user or password, try again",
@@ -568,21 +569,32 @@
       }
     },
     "forgotPassword": {
-      "title": "Reset Password",
+      "title": "Forgot your password?",
+      "subtitle": "Enter your email and we'll send you a link to create a new password.",
+      "emailLabel": "Email address",
+      "submit": "Send reset link",
       "success": "Check your email for a reset link.",
+      "sentMessage": "Check your email for a link to reset your password.",
       "errors": {
-        "generic": "Request failed",
-        "network": "We couldn't reach the server. Please try again.",
-        "invalidCode": "Invalid verification code."
+        "generic": "We couldn't process your request. Please try again.",
+        "network": "We couldn't reach the server. Please check your connection and try again.",
+        "invalidCode": "The reset link is invalid or has expired."
       }
     },
     "resetPassword": {
-      "title": "Set New Password",
+      "title": "Create a new password",
+      "subtitle": "Choose a new password to secure your account.",
+      "passwordLabel": "New password",
+      "confirmPasswordLabel": "Confirm new password",
+      "submit": "Update password",
+      "success": "Password updated successfully.",
+      "backToRequest": "Request a new reset link",
       "errors": {
         "mismatch": "Passwords do not match",
-        "generic": "Reset failed",
-        "invalidCode": "Invalid verification code.",
-        "network": "We couldn't reach the server. Please try again."
+        "missingCode": "The reset link is missing. Please request a new one.",
+        "generic": "We couldn't reset your password. Please try again.",
+        "invalidCode": "The reset link is invalid or has expired.",
+        "network": "We couldn't reach the server. Please check your connection and try again."
       }
     }
   },

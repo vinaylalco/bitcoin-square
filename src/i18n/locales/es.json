@@ -551,6 +551,7 @@
     "login": {
       "title": "Iniciar sesión",
       "submit": "Iniciar sesión",
+      "forgotPasswordLink": "¿Olvidaste tu contraseña?",
       "linkRegister": "Crear cuenta",
       "errors": {
         "invalid": "Usuario o contraseña incorrectos, inténtalo de nuevo",
@@ -568,21 +569,32 @@
       }
     },
     "forgotPassword": {
-      "title": "Restablecer contraseña",
-      "success": "Revisa tu correo para encontrar un enlace de restablecimiento.",
+      "title": "Forgot your password?",
+      "subtitle": "Enter your email and we'll send you a link to create a new password.",
+      "emailLabel": "Email address",
+      "submit": "Send reset link",
+      "success": "Check your email for a reset link.",
+      "sentMessage": "Check your email for a link to reset your password.",
       "errors": {
-        "generic": "Error en la solicitud",
-        "network": "No pudimos conectar con el servidor. Inténtalo de nuevo.",
-        "invalidCode": "Código de verificación inválido."
+        "generic": "We couldn't process your request. Please try again.",
+        "network": "We couldn't reach the server. Please check your connection and try again.",
+        "invalidCode": "The reset link is invalid or has expired."
       }
     },
     "resetPassword": {
-      "title": "Establecer nueva contraseña",
+      "title": "Create a new password",
+      "subtitle": "Choose a new password to secure your account.",
+      "passwordLabel": "New password",
+      "confirmPasswordLabel": "Confirm new password",
+      "submit": "Update password",
+      "success": "Password updated successfully.",
+      "backToRequest": "Request a new reset link",
       "errors": {
         "mismatch": "Las contraseñas no coinciden",
-        "generic": "Error al restablecer",
-        "invalidCode": "Código de verificación inválido.",
-        "network": "No pudimos conectar con el servidor. Inténtalo de nuevo."
+        "missingCode": "The reset link is missing. Please request a new one.",
+        "generic": "We couldn't reset your password. Please try again.",
+        "invalidCode": "The reset link is invalid or has expired.",
+        "network": "We couldn't reach the server. Please check your connection and try again."
       }
     }
   },
