@@ -27,50 +27,51 @@ export async function fetchAccountNostrKeys(
   if (!getStrapiBaseUrl()) {
     return Promise.resolve(null);
   }
-  const query =
-    'fields[0]=nostrPublicKey&fields[1]=nostrPrivateKey&fields[2]=nostrEncryptedKey';
+  const query = 'fields[0]=nostrPublicKey&fields[1]=nostrEncryptedKey';
 
-  const fetchFromPath = (path: string) =>
-    strapiFetch<Record<string, unknown> | null>(path, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${jwt}`,
+  const fetchFromPath = (path: string, includeFields: boolean) =>
+    strapiFetch<Record<string, unknown> | null>(
+      includeFields ? `${path}?${query}` : path,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${jwt}`,
+        },
       },
-    });
+    );
+
+  const attempts: Array<{ path: string; includeFields: boolean }> = [
+    { path: `/api/users/${userId}`, includeFields: true },
+    { path: `/api/users/me`, includeFields: true },
+    { path: `/api/users/${userId}`, includeFields: false },
+    { path: `/api/users/me`, includeFields: false },
+  ];
 
   const response = await (async () => {
-    try {
-      return await fetchFromPath(`/api/users/${userId}?${query}`);
-    } catch (error) {
-      const isFallbackAllowed =
-        error instanceof StrapiRequestError
-          ? error.status === 403 || error.status === 400
-          : error instanceof Error && /status\s+403/.test(error.message);
-
-      if (isFallbackAllowed) {
-        try {
-          return await fetchFromPath(`/api/users/me?${query}`);
-        } catch (innerError) {
-          if (
-            innerError instanceof StrapiRequestError &&
-            [400, 403, 404].includes(innerError.status)
-          ) {
+    for (const attempt of attempts) {
+      try {
+        return await fetchFromPath(attempt.path, attempt.includeFields);
+      } catch (error) {
+        if (error instanceof StrapiRequestError) {
+          if (error.status === 404) {
             return null;
           }
-          throw innerError;
+          if ([400, 403].includes(error.status)) {
+            continue;
+          }
         }
-      }
 
-      if (error instanceof StrapiRequestError && error.status === 404) {
-        return null;
-      }
+        if (error instanceof Error && /status\s+404/.test(error.message)) {
+          return null;
+        }
+        if (error instanceof Error && /status\s+(400|403)/.test(error.message)) {
+          continue;
+        }
 
-      if (error instanceof Error && /status\s+404/.test(error.message)) {
-        return null;
+        throw error;
       }
-
-      throw error;
     }
+    return null;
   })();
 
   if (!response || typeof response !== 'object') {
