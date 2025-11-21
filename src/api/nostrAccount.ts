@@ -1,4 +1,4 @@
-import { getStrapiBaseUrl, strapiFetch } from './strapi-client';
+import { getStrapiBaseUrl, strapiFetch, StrapiRequestError } from './strapi-client';
 
 export interface AccountNostrKeyResponse {
   nostrPublicKey?: string;
@@ -38,17 +38,40 @@ export async function fetchAccountNostrKeys(
       },
     });
 
-  const response = await fetchFromPath(`/api/users/${userId}?${query}`).catch((error) => {
-    if (error instanceof Error) {
-      if (/status\s+403/.test(error.message)) {
-        return fetchFromPath(`/api/users/me?${query}`);
+  const response = await (async () => {
+    try {
+      return await fetchFromPath(`/api/users/${userId}?${query}`);
+    } catch (error) {
+      const isFallbackAllowed =
+        error instanceof StrapiRequestError
+          ? error.status === 403 || error.status === 400
+          : error instanceof Error && /status\s+403/.test(error.message);
+
+      if (isFallbackAllowed) {
+        try {
+          return await fetchFromPath(`/api/users/me?${query}`);
+        } catch (innerError) {
+          if (
+            innerError instanceof StrapiRequestError &&
+            [400, 403, 404].includes(innerError.status)
+          ) {
+            return null;
+          }
+          throw innerError;
+        }
       }
-      if (/status\s+404/.test(error.message)) {
+
+      if (error instanceof StrapiRequestError && error.status === 404) {
         return null;
       }
+
+      if (error instanceof Error && /status\s+404/.test(error.message)) {
+        return null;
+      }
+
+      throw error;
     }
-    throw error;
-  });
+  })();
 
   if (!response || typeof response !== 'object') {
     return null;

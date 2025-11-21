@@ -14,6 +14,7 @@ import {
 import {
   StrapiConfigError,
   StrapiNetworkError,
+  StrapiRequestError,
   strapiFetch,
 } from '../api/strapi-client';
 import { normalizeLessonCompletionList } from '../utils/localProgress';
@@ -431,6 +432,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       if (error instanceof StrapiNetworkError) {
         console.info('Skipping nostr key refresh: Strapi API is unreachable.');
+      } else if (
+        error instanceof StrapiRequestError &&
+        [400, 403, 404].includes(error.status)
+      ) {
+        console.info('Skipping nostr key refresh: Strapi denied access to key fields.');
       } else {
         console.warn('Failed to refresh nostr keys', error);
       }
