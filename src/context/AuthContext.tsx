@@ -530,7 +530,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   async function reset(code: string, password: string, confirm: string) {
     setNostrKeyLoading(true);
     try {
-      const res = await apiReset(code, password, confirm);
+      let res = await apiReset(code, password, confirm);
+
+      let nostrEncryptedKey: string | undefined;
+
+      try {
+        const fetchedKeys = await fetchAccountNostrKeys(res.user.id, res.jwt);
+        if (fetchedKeys?.nostrEncryptedKey?.trim()) {
+          nostrEncryptedKey = fetchedKeys.nostrEncryptedKey.trim();
+        }
+      } catch (error) {
+        console.warn('Failed to fetch nostr keys after password reset', error);
+      }
+
+      if (nostrPrivKey?.trim()) {
+        const reencrypted = await encryptPrivateKey(nostrPrivKey.trim(), password);
+
+        try {
+          await strapiFetch(`/api/users/${res.user.id}`, {
+            method: 'PUT',
+            headers: { Authorization: `Bearer ${res.jwt}` },
+            body: JSON.stringify({ nostrEncryptedKey: reencrypted }),
+          });
+
+          nostrEncryptedKey = reencrypted;
+        } catch (error) {
+          console.warn('Failed to re-encrypt nostr key after password reset', error);
+        }
+      }
+
+      if (nostrEncryptedKey) {
+        res = {
+          ...res,
+          user: {
+            ...res.user,
+            nostrEncryptedKey,
+          },
+        };
+      }
+
       await completeAuthFromResponse(res, { passphrases: [password, res.jwt] });
     } finally {
       setNostrKeyLoading(false);
