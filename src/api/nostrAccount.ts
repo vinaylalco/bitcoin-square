@@ -2,7 +2,6 @@ import { getStrapiBaseUrl, strapiFetch, StrapiRequestError } from './strapi-clie
 
 export interface AccountNostrKeyResponse {
   nostrPublicKey?: string;
-  nostrPrivateKey?: string;
   nostrEncryptedKey?: string;
 }
 
@@ -83,7 +82,6 @@ export async function fetchAccountNostrKeys(
   const record = response as Record<string, unknown>;
   const normalized: AccountNostrKeyResponse = {
     nostrPublicKey: coerceString(record, 'nostrPublicKey', 'publicKey', 'pubkey', 'npub'),
-    nostrPrivateKey: coerceString(record, 'nostrPrivateKey', 'privateKey', 'privkey', 'nsec'),
     nostrEncryptedKey: coerceString(
       record,
       'nostrEncryptedKey',
@@ -91,7 +89,7 @@ export async function fetchAccountNostrKeys(
       'ciphertext',
     ),
   };
-  if (!normalized.nostrPublicKey && !normalized.nostrPrivateKey && !normalized.nostrEncryptedKey) {
+  if (!normalized.nostrPublicKey && !normalized.nostrEncryptedKey) {
     return null;
   }
   return normalized;

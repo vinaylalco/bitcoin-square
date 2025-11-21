@@ -56,7 +56,6 @@ export interface User {
 
 type NostrKeyPayload = {
   nostrPublicKey?: string | null;
-  nostrPrivateKey?: string | null;
   nostrEncryptedKey?: string | null;
 };
 
@@ -369,7 +368,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .map((value) => value?.trim())
         .filter((value, index, array): value is string => !!value && array.indexOf(value) === index);
 
-      const { nostrPublicKey, nostrEncryptedKey, nostrPrivateKey } = response;
+      const { nostrPublicKey, nostrEncryptedKey } = response;
 
       if (nostrPublicKey || nostrEncryptedKey) {
         updateUser((prev) => {
@@ -392,12 +391,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             ...(nostrEncryptedKey ? { nostrEncryptedKey } : {}),
           });
         });
-      }
-
-      if (typeof nostrPrivateKey === 'string' && nostrPrivateKey.trim().length > 0) {
-        const priv = nostrPrivateKey.trim();
-        persistNostrPrivKey(priv);
-        return true;
       }
 
       if (typeof nostrEncryptedKey === 'string' && nostrEncryptedKey.trim().length > 0) {
