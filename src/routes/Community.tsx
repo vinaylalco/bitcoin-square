@@ -1326,8 +1326,22 @@ const CommunityView: React.FC = () => {
   const translationEnabled = translationSupported && autoTranslateEnabled;
 
   const { markInboxAsViewed, hasUnreadMessages } = useDirectMessages();
-  const [activeView, setActiveView] = useState<ActiveView>("casual");
-  const lastNonMessagesViewRef = useRef<Exclude<ActiveView, "messages">>("casual");
+  const [activeView, setActiveView] = useState<ActiveView>(() => {
+    if (isCommunityMessagesLocation(location.pathname, location.search)) {
+      return "messages";
+    }
+    if (routePostId) {
+      return "feed";
+    }
+    return "casual";
+  });
+  const lastNonMessagesViewRef = useRef<Exclude<ActiveView, "messages">>(
+    isCommunityMessagesLocation(location.pathname, location.search)
+      ? "casual"
+      : routePostId
+        ? "feed"
+        : "casual",
+  );
   const [notificationGroups, setNotificationGroups] = useState<CommunityNotificationGroup[]>(
     INITIAL_NOTIFICATION_GROUPS,
   );
@@ -1343,10 +1357,10 @@ const CommunityView: React.FC = () => {
   );
 
   useEffect(() => {
-    if (routePostId) {
+    if (routePostId && activeView !== "messages") {
       setActiveView("feed");
     }
-  }, [routePostId]);
+  }, [activeView, routePostId]);
 
   useEffect(() => {
     if (activeView !== "messages") {
