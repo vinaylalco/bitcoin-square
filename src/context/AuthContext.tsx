@@ -240,16 +240,54 @@ function computeIsAdmin(raw: any): boolean {
   return false;
 }
 
+function coerceString(source: Record<string, unknown> | null | undefined, ...keys: string[]) {
+  if (!source) return undefined;
+  for (const key of keys) {
+    const value = source[key];
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+  return undefined;
+}
+
+function extractNostrKeys(raw: any): NostrKeyPayload {
+  const nostrPublicKey = coerceString(
+    raw,
+    'nostrPublicKey',
+    'nostr_public_key',
+    'nostrPubkey',
+    'publicKey',
+    'pubkey',
+    'npub',
+  );
+  const nostrEncryptedKey = coerceString(
+    raw,
+    'nostrEncryptedKey',
+    'nostr_encrypted_key',
+    'nostrCiphertext',
+    'encryptedKey',
+    'ciphertext',
+  );
+
+  return {
+    nostrPublicKey: nostrPublicKey ?? undefined,
+    nostrEncryptedKey: nostrEncryptedKey ?? undefined,
+  };
+}
+
 function normalizeUser(raw: any | null | undefined): User | null {
   if (!raw) return null;
+  const nostrKeys = extractNostrKeys(raw);
   const seedSource =
-    (typeof raw.nostrPublicKey === 'string' && raw.nostrPublicKey.trim().length > 0
-      ? raw.nostrPublicKey
+    (nostrKeys.nostrPublicKey && nostrKeys.nostrPublicKey.length > 0
+      ? nostrKeys.nostrPublicKey
       : '') ||
     (raw.id != null ? String(raw.id) : '') ||
     (typeof raw.email === 'string' ? raw.email : '');
   const normalized: User = {
     ...raw,
+    ...nostrKeys,
     isAdmin: computeIsAdmin(raw),
     points: normalizePoints(raw.points),
     lessonCompletions: normalizeLessonCompletions(raw.lessonCompletions),
@@ -367,8 +405,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const normalizedPassphrases = passphrases
         .map((value) => value?.trim())
         .filter((value, index, array): value is string => !!value && array.indexOf(value) === index);
-
-      const { nostrPublicKey, nostrEncryptedKey } = response;
+      const { nostrPublicKey, nostrEncryptedKey } = extractNostrKeys(response ?? {});
 
       if (nostrPublicKey || nostrEncryptedKey) {
         updateUser((prev) => {
