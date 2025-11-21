@@ -1829,7 +1829,7 @@ const CommunityView: React.FC = () => {
       );
     }
 
-    if (!accountReady || !globalSignEvent || !accountPubkey) {
+    if (!accountReady || !accountPubkey) {
       return (
         <div className="flex h-full items-center justify-center bg-[var(--bg-app)] px-6 py-12">
           <div className="max-w-lg rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-8 text-center shadow-sm">

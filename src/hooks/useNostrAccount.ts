@@ -35,7 +35,6 @@ export const useNostrAccount = (): UseNostrAccountResult => {
   useEffect(() => {
     if (!nostrPrivKey) {
       setPrivkeyBytes(null);
-      setDerivedPubkey(null);
       setModuleError(null);
       setModuleLoading(false);
       return;
@@ -101,29 +100,29 @@ export const useNostrAccount = (): UseNostrAccountResult => {
       };
     }
 
+    const pubkey = user?.nostrPublicKey ?? derivedPubkey ?? null;
+
     if (!privkeyBytes) {
       return {
-        ready: false,
+        ready: Boolean(pubkey),
         loading: false,
-        pubkey: user?.nostrPublicKey ?? null,
+        pubkey,
         privkey: null,
-        error: moduleError,
+        error: pubkey ? "Nostr private key unavailable; running in read-only mode" : moduleError,
         signEvent: null,
       };
     }
 
     if (moduleError) {
       return {
-        ready: false,
+        ready: Boolean(pubkey),
         loading: false,
-        pubkey: user?.nostrPublicKey ?? derivedPubkey,
+        pubkey,
         privkey: privkeyBytes,
         error: moduleError,
         signEvent: null,
       };
     }
-
-    const pubkey = user?.nostrPublicKey ?? derivedPubkey;
 
     if (!pubkey) {
       return {
