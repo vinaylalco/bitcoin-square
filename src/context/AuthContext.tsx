@@ -14,6 +14,7 @@ import {
 import {
   StrapiConfigError,
   StrapiNetworkError,
+  StrapiRequestError,
   strapiFetch,
 } from '../api/strapi-client';
 import { normalizeLessonCompletionList } from '../utils/localProgress';
@@ -55,7 +56,6 @@ export interface User {
 
 type NostrKeyPayload = {
   nostrPublicKey?: string | null;
-  nostrPrivateKey?: string | null;
   nostrEncryptedKey?: string | null;
 };
 
@@ -368,7 +368,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .map((value) => value?.trim())
         .filter((value, index, array): value is string => !!value && array.indexOf(value) === index);
 
-      const { nostrPublicKey, nostrEncryptedKey, nostrPrivateKey } = response;
+      const { nostrPublicKey, nostrEncryptedKey } = response;
 
       if (nostrPublicKey || nostrEncryptedKey) {
         updateUser((prev) => {
@@ -391,12 +391,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             ...(nostrEncryptedKey ? { nostrEncryptedKey } : {}),
           });
         });
-      }
-
-      if (typeof nostrPrivateKey === 'string' && nostrPrivateKey.trim().length > 0) {
-        const priv = nostrPrivateKey.trim();
-        persistNostrPrivKey(priv);
-        return true;
       }
 
       if (typeof nostrEncryptedKey === 'string' && nostrEncryptedKey.trim().length > 0) {
@@ -431,6 +425,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       if (error instanceof StrapiNetworkError) {
         console.info('Skipping nostr key refresh: Strapi API is unreachable.');
+      } else if (
+        error instanceof StrapiRequestError &&
+        [400, 403, 404].includes(error.status)
+      ) {
+        console.info('Skipping nostr key refresh: Strapi denied access to key fields.');
       } else {
         console.warn('Failed to refresh nostr keys', error);
       }
@@ -530,7 +529,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   async function reset(code: string, password: string, confirm: string) {
     setNostrKeyLoading(true);
     try {
-      const res = await apiReset(code, password, confirm);
+      let res = await apiReset(code, password, confirm);
+
+      let nostrEncryptedKey: string | undefined;
+
+      try {
+        const fetchedKeys = await fetchAccountNostrKeys(res.user.id, res.jwt);
+        if (fetchedKeys?.nostrEncryptedKey?.trim()) {
+          nostrEncryptedKey = fetchedKeys.nostrEncryptedKey.trim();
+        }
+      } catch (error) {
+        console.warn('Failed to fetch nostr keys after password reset', error);
+      }
+
+      if (nostrPrivKey?.trim()) {
+        const reencrypted = await encryptPrivateKey(nostrPrivKey.trim(), password);
+
+        try {
+          await strapiFetch(`/api/users/${res.user.id}`, {
+            method: 'PUT',
+            headers: { Authorization: `Bearer ${res.jwt}` },
+            body: JSON.stringify({ nostrEncryptedKey: reencrypted }),
+          });
+
+          nostrEncryptedKey = reencrypted;
+        } catch (error) {
+          console.warn('Failed to re-encrypt nostr key after password reset', error);
+        }
+      }
+
+      if (nostrEncryptedKey) {
+        res = {
+          ...res,
+          user: {
+            ...res.user,
+            nostrEncryptedKey,
+          },
+        };
+      }
+
       await completeAuthFromResponse(res, { passphrases: [password, res.jwt] });
     } finally {
       setNostrKeyLoading(false);
