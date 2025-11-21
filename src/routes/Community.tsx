@@ -1271,7 +1271,7 @@ const CommunityView: React.FC = () => {
     unpinPost: unpinFeedPost,
     pinnedEntries: feedPinnedEntries,
   } = useBitcoinSquareFeed();
-  const { user, refreshNostrKeys } = useAuth();
+  const { user } = useAuth();
   const canModerate = user?.isAdmin === true;
 
   const navigate = useNavigate();
@@ -1309,10 +1309,8 @@ const CommunityView: React.FC = () => {
 
   const {
     ready: accountReady,
-    loading: accountLoading,
     signEvent: globalSignEvent,
     pubkey: accountPubkey,
-    error: accountError,
   } = useNostrAccount();
 
   const {
@@ -1813,56 +1811,8 @@ const CommunityView: React.FC = () => {
       return <Navigate to="/membership?view=login" replace />;
     }
 
-    if (accountLoading) {
-      return (
-        <div className="flex h-full items-center justify-center bg-[var(--bg-app)] px-6 py-12">
-          <div className="max-w-lg rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-8 text-center shadow-sm">
-            <h1 className="text-lg font-semibold uppercase tracking-[0.24em] text-[var(--fg-default)]">
-              Loading account keys
-            </h1>
-            <p className="mt-4 text-sm leading-relaxed text-[var(--fg-muted)]">
-              We&apos;re securely retrieving your BitcoinSquare-issued Nostr credentials. This only takes a
-              moment.
-            </p>
-          </div>
-        </div>
-      );
-    }
-
-    if (!accountReady || !accountPubkey) {
-      return (
-        <div className="flex h-full items-center justify-center bg-[var(--bg-app)] px-6 py-12">
-          <div className="max-w-lg rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-8 text-center shadow-sm">
-            <h1 className="text-lg font-semibold uppercase tracking-[0.24em] text-[var(--fg-default)]">
-              Unable to access keys
-            </h1>
-            <p className="mt-4 text-sm leading-relaxed text-[var(--fg-muted)]">
-              {accountError
-                ? accountError
-                : 'We couldn\'t load the Nostr keys linked to your BitcoinSquare account. If your dashboard shows active keys, try refreshing them below.'}
-            </p>
-            <button
-              type="button"
-              onClick={() => refreshNostrKeys().catch(() => undefined)}
-              className="mt-6 inline-flex items-center justify-center rounded-full bg-[var(--accent)] px-6 py-2 text-sm font-semibold text-white transition hover:brightness-110"
-            >
-              Retry key sync
-            </button>
-          </div>
-        </div>
-      );
-    }
-
     return null;
-  }, [
-    accountError,
-    accountLoading,
-    accountPubkey,
-    accountReady,
-    globalSignEvent,
-    refreshNostrKeys,
-    user,
-  ]);
+  }, [user]);
 
   useEffect(() => {
     const uniquePubkeys = new Set<string>();

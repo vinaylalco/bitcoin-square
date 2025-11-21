@@ -38,11 +38,7 @@ export default function RequireMembership({
       me?.["grandfathered"] ?? me?.["isGrandfathered"],
     ) || extractGrandfatheredFlag(me?.["membership"]);
 
-  const hasNostrPublicKey =
-    typeof me?.nostrPublicKey === "string" && me.nostrPublicKey.trim().length > 0;
-
-  const allowAccess =
-    grandfathered || (membershipStatus.isActive && hasNostrPublicKey);
+  const allowAccess = grandfathered || membershipStatus.isActive;
   const stillLoading = loading && !error;
 
   if (stillLoading) {
