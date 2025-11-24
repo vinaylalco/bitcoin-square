@@ -565,21 +565,21 @@ const AttachmentPreview: React.FC<{ attachment: CasualAttachmentMeta }> = ({ att
             }
           }}
           disabled={status !== "ready" || !fullUrl}
-          className={`relative block w-full overflow-hidden rounded-lg border border-[var(--border-subtle)] ${
+          className={`relative block w-full overflow-hidden rounded-lg border border-[var(--border-subtle)] sm:max-w-[18rem] ${
             status !== "ready" ? "cursor-not-allowed opacity-60" : "cursor-zoom-in"
           }`}
         >
           <img
             src={previewUrl ?? attachment.url}
             alt="Attachment preview"
-            className="max-h-48 w-full object-cover"
+            className="max-h-48 w-full object-cover sm:w-[18rem]"
             loading="lazy"
           />
           <span className="sr-only">View full image</span>
         </button>
       )}
       {status === "ready" && fullUrl && attachment.mimeType.startsWith("video/") && (
-        <video src={fullUrl} controls className="max-h-64 w-full rounded-lg" />
+        <video src={fullUrl} controls className="max-h-64 w-full rounded-lg sm:w-[18rem]" />
       )}
       {status === "loading" && <p className="text-xs text-[var(--fg-muted)]">Loading media…</p>}
       {status === "error" && (
@@ -3365,7 +3365,7 @@ const CommunityView: React.FC = () => {
                                 </div>
                               )}
                               <div className={`flex w-full ${isSelf ? "justify-end" : "justify-start"} py-2`}>
-                                <div className="w-full max-w-full min-w-0">
+                                <div className="w-full min-w-0 max-w-[95%] sm:max-w-[80%] lg:max-w-[50%]">
                                   <div
                                     className={`min-w-0 max-w-full rounded-3xl border px-4 py-3 backdrop-blur ${
                                       isSelf
@@ -3492,7 +3492,7 @@ const CommunityView: React.FC = () => {
                                             {message.attachments.map((attachment) => (
                                               <div
                                                 key={`${message.id}-${attachment.digest ?? attachment.url}`}
-                                                className="overflow-hidden rounded-2xl border border-white/40 bg-black/10"
+                                                className="overflow-hidden rounded-2xl border border-white/40 bg-black/10 sm:w-fit sm:max-w-[18rem]"
                                               >
                                                 <AttachmentPreview attachment={attachment} />
                                               </div>
