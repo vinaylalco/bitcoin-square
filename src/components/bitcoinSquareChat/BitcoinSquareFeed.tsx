@@ -2033,13 +2033,13 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
                       event.stopPropagation();
                       setLightboxImage({ src: safeAttachmentUrl, alt: "Feed attachment" });
                     }}
-                    className="group block w-full overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/80 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+                    className="group block w-full overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/80 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 sm:inline-block sm:w-auto sm:max-w-[18rem]"
                     title="View full image"
                   >
                     <img
                       src={safeAttachmentUrl}
                       alt="Feed attachment"
-                      className="h-auto w-full object-cover transition duration-200 group-hover:scale-[1.02]"
+                      className="h-auto w-full object-cover transition duration-200 group-hover:scale-[1.02] sm:w-[18rem]"
                       loading="lazy"
                     />
                   </button>

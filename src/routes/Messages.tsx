@@ -965,12 +965,12 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
                             translationStatus === "error" ||
                             translationReady ||
                             allowManualTranslation);
+                        const isOutgoing = message.direction === "outgoing";
                         const translationMetaColor = isOutgoing
                           ? "text-[color:var(--chat-bubble-self-muted)]"
                           : "text-[var(--fg-muted)]";
                         const displayedText =
                           showOriginal || !rawTranslatedText ? message.plaintext : rawTranslatedText;
-                        const isOutgoing = message.direction === "outgoing";
                         const replySource =
                           message.replyToId && messageLookup.has(message.replyToId)
                             ? messageLookup.get(message.replyToId) ?? null
@@ -1038,7 +1038,7 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
                                   }
                                 }
                               }}
-                              className={`relative max-w-[85%] rounded-2xl border px-4 py-3 text-sm ${
+                              className={`relative max-w-[85%] rounded-2xl border px-4 py-3 text-sm lg:max-w-[50%] ${
                                 isOutgoing
                                   ? "bg-[color:var(--chat-bubble-self-bg)] text-[color:var(--chat-bubble-self-fg)] shadow-xl border-[color:var(--chat-bubble-self-border)]"
                                   : "bg-[var(--chat-bubble-peer-bg)] text-[var(--fg-default)] shadow-sm border-[color:var(--chat-bubble-peer-border)]"
