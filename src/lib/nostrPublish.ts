@@ -91,24 +91,28 @@ const publishToRelay = async (
   relayUrl: string,
   event: Event,
 ): Promise<void> => {
-  const relay = await pool.ensureRelay(relayUrl);
-  await ensureRelayConnection(relay);
-
-  const attemptPublish = async () => {
+  const publishWithRelay = async (relay: RelayLike) => {
     const publication = relay.publish(event);
     await awaitPublishResult(publication);
   };
 
+  const connectAndPublish = async (relay: RelayLike) => {
+    await ensureRelayConnection(relay);
+    await publishWithRelay(relay);
+  };
+
+  const relay = await pool.ensureRelay(relayUrl);
+
   try {
-    await attemptPublish();
+    await connectAndPublish(relay);
   } catch (error) {
     if (!isClosingSocketError(error)) {
       throw error;
     }
 
     relay.close?.();
-    await ensureRelayConnection(relay);
-    await attemptPublish();
+    const reconnectedRelay = await pool.ensureRelay(relayUrl);
+    await connectAndPublish(reconnectedRelay);
   }
 };
 

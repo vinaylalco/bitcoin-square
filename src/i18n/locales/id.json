@@ -298,34 +298,6 @@
           }
         ]
       },
-      "events": {
-        "eyebrow": "Acara",
-        "title": "Acara mendatang",
-        "cta": "Daftar",
-        "items": [
-          {
-            "day": "15",
-            "month": "November",
-            "title": "Masterclass: Keamanan Bitcoin",
-            "description": "Pelajari praktik terbaik mengamankan Bitcoin Anda. Sesi langsung dengan pemateri ahli.",
-            "subscribeMessage": "Daftar dan kami beri kabar saat tersedia."
-          },
-          {
-            "day": "22",
-            "month": "November",
-            "title": "Meetup virtual: Komunitas BTC",
-            "description": "Terhubung dengan bitcoiner di wilayah Anda. Networking dan tanya jawab langsung.",
-            "subscribeMessage": "Daftar dan kami beri kabar saat tersedia."
-          },
-          {
-            "day": "30",
-            "month": "November",
-            "title": "Lokakarya: Strategi investasi",
-            "description": "Bangun strategi investasi Bitcoin Anda. Sesi interaktif dengan analisis langsung.",
-            "subscribeMessage": "Daftar dan kami beri kabar saat tersedia."
-          }
-        ]
-      },
       "pricing": {
         "eyebrow": "Harga",
         "title": "Paket yang dirancang untuk Anda",
@@ -341,7 +313,6 @@
               "Akses penuh ke pustaka kursus",
               "Komunitas Nostr tanpa batas",
               "Akses toko",
-              "1 konsultasi profesional per bulan",
               "Program referral aktif",
               "Akses ke acara dan masterclass"
             ],
@@ -357,7 +328,6 @@
               "Akses penuh ke pustaka kursus",
               "Komunitas Nostr tanpa batas",
               "Akses toko",
-              "Konsultasi tanpa batas",
               "Program referral premium",
               "Akses awal ke pasar P2P",
               "Acara VIP dan networking eksklusif"

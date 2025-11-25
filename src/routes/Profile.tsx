@@ -1,10 +1,8 @@
 import React, { useMemo } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
-import { Copy, MessageCircle, RefreshCw } from "lucide-react";
-import { COMMUNITY_MESSAGES_PATH } from "../utils/routes";
+import { MessageCircle } from "lucide-react";
 
 import {
-  formatMemberSince,
   PROFILE_FALLBACK_MESSAGE,
   PROFILE_STALE_MESSAGE,
   PROFILE_UNAVAILABLE_MESSAGE,
@@ -17,8 +15,6 @@ const Profile: React.FC = () => {
   const { pubkey } = useParams<{ pubkey: string }>();
   const {
     resolveProfileSummary,
-    toggleFollow,
-    isFollowing,
     startDirectMessage,
     shortenPubkey,
   } = useProfileIdentity();
@@ -35,9 +31,6 @@ const Profile: React.FC = () => {
     return <Navigate to="/" replace />;
   }
 
-  const following = isFollowing(pubkey);
-  const memberSince = formatMemberSince(profile?.joined);
-  const totalPosts = profile?.totalPosts != null ? profile.totalPosts.toLocaleString() : "—";
   const isUnavailable = status === "error" || status === "unavailable";
   const unavailableMessage = stale
     ? "Showing the last saved version of this profile. Some details may be out of date."
@@ -71,26 +64,8 @@ const Profile: React.FC = () => {
               </Link>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={() => toggleFollow(pubkey)}
-              className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition ${
-                following
-                  ? "border-brand bg-brand/10 text-brand hover:bg-brand/20"
-                  : "border-[var(--border-subtle)] text-[var(--fg-default)] hover:border-brand hover:text-brand"
-              }`}
-            >
-              {following ? "Following" : "Follow"}
-            </button>
-            {isViewerProfile ? (
-              <Link
-                to={COMMUNITY_MESSAGES_PATH}
-                className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--fg-default)] transition hover:border-brand hover:text-brand"
-              >
-                <MessageCircle className="h-4 w-4" /> Inbox
-              </Link>
-            ) : (
+          {!isViewerProfile && (
+            <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
                 onClick={() => startDirectMessage(pubkey)}
@@ -98,15 +73,8 @@ const Profile: React.FC = () => {
               >
                 <MessageCircle className="h-4 w-4" /> Message
               </button>
-            )}
-            <button
-              type="button"
-              onClick={() => refresh().catch(() => undefined)}
-              className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--fg-default)] transition hover:border-brand hover:text-brand"
-            >
-              <RefreshCw className="h-4 w-4" /> Refresh
-            </button>
-          </div>
+            </div>
+          )}
         </header>
 
         <section className="space-y-5 rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-sm">
@@ -128,42 +96,10 @@ const Profile: React.FC = () => {
             </div>
           )}
 
-          <dl className="grid gap-4 sm:grid-cols-2">
-            <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-4">
-              <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">Member since</dt>
-              <dd className="mt-2 text-sm font-medium" title={profile?.joined ?? undefined}>
-                {memberSince}
-              </dd>
-            </div>
-            <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-4">
-              <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">Total posts</dt>
-              <dd className="mt-2 text-sm font-medium">{totalPosts}</dd>
-            </div>
-          </dl>
-
-          {profile?.lightningAddress && (
-            <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-4 text-sm text-[var(--fg-default)]">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">Lightning address</span>
-                <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => navigator.clipboard.writeText(profile.lightningAddress || "").catch(() => undefined)}
-                    className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] px-3 py-1 font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand"
-                  >
-                    <Copy className="h-3.5 w-3.5" /> Copy
-                  </button>
-                  <a
-                    href={`lightning:${profile.lightningAddress}`}
-                    className="inline-flex items-center gap-2 rounded-full border border-brand/40 px-3 py-1 font-semibold uppercase tracking-[0.18em] text-brand transition hover:border-brand"
-                  >
-                    Send sats
-                  </a>
-                </div>
-              </div>
-              <code className="mt-3 block break-all rounded-xl bg-[var(--bg-card)]/60 px-3 py-2 text-xs">{profile.lightningAddress}</code>
-            </div>
-          )}
+          <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-4 text-sm text-[var(--fg-default)]">
+            <p className="text-xs uppercase tracking-[0.18em] text-[var(--fg-muted)]">Profile details</p>
+            <p className="mt-2 text-sm text-[var(--fg-muted)]">Some profile details are not displayed.</p>
+          </div>
         </section>
       </div>
     </div>

@@ -21,9 +21,6 @@ export default function Dashboard() {
   const defaultScreenName = useMemo(() => generateScreenName(profileSeed), [profileSeed]);
   const defaultAvatar = useMemo(() => normalizeAvatarUrl(user?.avatarUrl, profileSeed), [profileSeed, user?.avatarUrl]);
 
-  const [lightningAddress, setLightningAddress] = useState(() => user?.lnWalletAddress ?? '');
-  const [lightningStatus, setLightningStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
-  const [lightningError, setLightningError] = useState<string | null>(null);
   const [screenName, setScreenName] = useState(() => user?.screenName ?? defaultScreenName);
   const [avatarUrl, setAvatarUrl] = useState(() => defaultAvatar);
   const [profileStatus, setProfileStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
@@ -31,10 +28,6 @@ export default function Dashboard() {
   const [avatarUploadStatus, setAvatarUploadStatus] = useState<'idle' | 'uploading' | 'error' | 'success'>('idle');
   const [avatarUploadError, setAvatarUploadError] = useState<string | null>(null);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
-
-  useEffect(() => {
-    setLightningAddress(user?.lnWalletAddress ?? '');
-  }, [user?.lnWalletAddress]);
 
   useEffect(() => {
     setScreenName(user?.screenName ?? defaultScreenName);
@@ -67,33 +60,6 @@ export default function Dashboard() {
     logout();
     nav('/');
   }
-
-  const handleLightningSubmit = useCallback(
-    async (event: React.FormEvent<HTMLFormElement>) => {
-      event.preventDefault();
-      if (!user || !token) return;
-
-      const trimmed = lightningAddress.trim();
-      setLightningStatus('saving');
-      setLightningError(null);
-
-      try {
-        const response = await updateProfileSettings(user.id, token, {
-          lnWalletAddress: trimmed.length > 0 ? trimmed : null,
-        });
-        const nextValue = response.lnWalletAddress ?? response.lightningAddress ?? (trimmed.length > 0 ? trimmed : null);
-        updateUser((prev) => (prev ? { ...prev, lnWalletAddress: nextValue ?? null } : prev));
-        setLightningStatus('success');
-        setLightningAddress(nextValue ?? '');
-      } catch (error) {
-        setLightningStatus('error');
-        setLightningError(
-          error instanceof Error ? error.message : t('dashboard.lightning.errors.generic'),
-        );
-      }
-    },
-    [lightningAddress, token, updateUser, user],
-  );
 
   const handleAvatarFileChange = useCallback(
     async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -208,7 +174,6 @@ export default function Dashboard() {
 
   const showAvatarAdvancedOptions = false;
 
-  const isLightningSaving = lightningStatus === 'saving';
   const isProfileSaving = profileStatus === 'saving';
 
   const handleScreenNameChange = useCallback(
@@ -428,48 +393,6 @@ export default function Dashboard() {
                 </button>
               </div>
             </form>
-
-            <form onSubmit={handleLightningSubmit} className="mt-6 space-y-3 rounded-2xl border border-neutral-200 bg-neutral-50 p-4 transition-colors dark:border-neutral-800 dark:bg-neutral-950/40">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <label htmlFor="lightning-address" className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">
-                  {t('dashboard.lightning.label')}
-                </label>
-                {lightningStatus === 'success' && (
-                  <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-500">
-                    {t('dashboard.common.saved')}
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-neutral-600 dark:text-neutral-300">
-                {t('dashboard.lightning.helper', { example: 'name@provider.com' })}
-              </p>
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <input
-                  id="lightning-address"
-                  name="lightning-address"
-                  value={lightningAddress}
-                  onChange={(event) => {
-                    setLightningAddress(event.target.value);
-                    if (lightningStatus === 'success') {
-                      setLightningStatus('idle');
-                    }
-                  }}
-                  placeholder={t('dashboard.lightning.placeholder')}
-                  className="w-full flex-1 rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 transition focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
-                  autoComplete="off"
-                />
-                <button
-                  type="submit"
-                  disabled={isLightningSaving || !token}
-                  className="inline-flex items-center justify-center rounded-full bg-brand px-5 py-2 text-sm font-semibold uppercase tracking-[0.3em] text-white transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:bg-brand/40"
-                >
-                  {isLightningSaving ? t('dashboard.common.saving') : t('dashboard.lightning.save')}
-                </button>
-              </div>
-            {lightningError && (
-              <p className="text-xs text-red-500">{lightningError}</p>
-            )}
-          </form>
 
           <div className="flex flex-col gap-4 rounded-3xl border border-neutral-200 bg-white p-8 shadow-sm transition-colors dark:border-neutral-800 dark:bg-neutral-900">
             <div className="flex flex-wrap items-center justify-between gap-3">

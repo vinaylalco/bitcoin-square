@@ -299,34 +299,6 @@
           }
         ]
       },
-      "events": {
-        "eyebrow": "Events",
-        "title": "Upcoming Events",
-        "cta": "Register",
-        "items": [
-          {
-            "day": "15",
-            "month": "November",
-            "title": "Masterclass: Bitcoin Security",
-            "description": "Learn best practices to secure your Bitcoin. Live session with expert speakers.",
-            "subscribeMessage": "Sign up and we’ll let you know when this becomes available."
-          },
-          {
-            "day": "22",
-            "month": "November",
-            "title": "Virtual Meetup: BTC Community",
-            "description": "Connect with bitcoiners from your region. Networking, Q&A in real time.",
-            "subscribeMessage": "Sign up and we’ll let you know when this becomes available."
-          },
-          {
-            "day": "30",
-            "month": "November",
-            "title": "Workshop: Investment Strategies",
-            "description": "Build your Bitcoin investment strategy. Interactive session with live analysis.",
-            "subscribeMessage": "Sign up and we’ll let you know when this becomes available."
-          }
-        ]
-      },
       "pricing": {
         "eyebrow": "Pricing",
         "title": "Plans Designed for You",
@@ -342,7 +314,6 @@
               "Complete course library access",
               "Unlimited Nostr community",
               "Store access",
-              "1 professional consultation per month",
               "Active referral program",
               "Access to events and masterclasses"
             ],
@@ -358,7 +329,6 @@
               "Complete course library access",
               "Unlimited Nostr community",
               "Store access",
-              "Unlimited consultations",
               "Premium referral program",
               "Early access to P2P market",
               "VIP events and exclusive networking"

@@ -32,14 +32,6 @@ type RoadmapEntry = {
   description: string;
 };
 
-type EventCard = {
-  day: string;
-  month: string;
-  title: string;
-  description: string;
-  subscribeMessage: string;
-};
-
 type PricingPlan = {
   name: string;
   price: string;
@@ -122,11 +114,6 @@ export default function HomePage() {
 
   const roadmap = useMemo(
     () => t("home.sections.roadmap.items", { returnObjects: true }) as RoadmapEntry[],
-    [t],
-  );
-
-  const events = useMemo(
-    () => t("home.sections.events.items", { returnObjects: true }) as EventCard[],
     [t],
   );
 
@@ -336,47 +323,6 @@ export default function HomePage() {
                 </div>
               )}
             </Fragment>
-          ))}
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-6xl space-y-10">
-        <div className="text-center">
-          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-brand/80">
-            {t("home.sections.events.eyebrow")}
-          </p>
-          <h2 className="mt-3 text-3xl font-bold text-neutral-900 transition-colors duration-300 dark:text-white sm:text-4xl">
-            {t("home.sections.events.title")}
-          </h2>
-        </div>
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-          {events.map((event) => (
-            <article
-              key={event.title}
-              className="flex h-full flex-col overflow-hidden rounded-3xl border border-neutral-200/70 bg-white/80 shadow-[0_20px_80px_rgba(15,23,42,0.12)] transition duration-500 hover:-translate-y-1 hover:shadow-[0_30px_110px_rgba(169,21,255,0.28)] dark:border-neutral-800/70 dark:bg-neutral-900/70"
-            >
-              <div className="bg-gradient-to-r from-brand via-brand/80 to-[#FFF582] px-6 py-5 text-left text-white">
-                <div className="text-4xl font-black leading-none">{event.day}</div>
-                <div className="text-sm uppercase tracking-[0.32em]">{event.month}</div>
-              </div>
-              <div className="flex flex-1 flex-col gap-4 p-6">
-                <h3 className="text-xl font-semibold text-neutral-900 transition-colors duration-300 dark:text-white">
-                  {event.title}
-                </h3>
-                <p className="flex-1 text-sm leading-relaxed text-neutral-600 transition-colors duration-300 dark:text-neutral-300">
-                  {event.description}
-                </p>
-                <a
-                  href={`/subscribe?msg=${encodeURIComponent(event.subscribeMessage)}`}
-                  className="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.32em] text-brand transition hover:text-brand/80"
-                >
-                  {t("home.sections.events.cta")}
-                  <span aria-hidden="true" className="text-base">
-                    →
-                  </span>
-                </a>
-              </div>
-            </article>
           ))}
         </div>
       </section>

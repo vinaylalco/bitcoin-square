@@ -6,7 +6,6 @@ import {
   PROFILE_FALLBACK_MESSAGE,
   PROFILE_STALE_MESSAGE,
   PROFILE_UNAVAILABLE_MESSAGE,
-  formatMemberSince,
   useProfileIdentity,
   useUserProfile,
 } from "../../context/ProfileIdentityContext";
@@ -70,28 +69,6 @@ const ProfileModalBody: React.FC<ProfileModalBodyProps> = ({
   stale,
   following,
 }) => {
-  const memberSince = formatMemberSince(profile?.joined);
-  const totalPosts = profile?.totalPosts != null ? profile.totalPosts.toLocaleString() : "—";
-  const followerCount = Array.isArray(profile?.followers)
-    ? profile?.followers?.length ?? 0
-    : null;
-  const followingCount = Array.isArray(profile?.following)
-    ? profile?.following?.length ?? 0
-    : null;
-  const followerLabel = followerCount != null ? followerCount.toLocaleString() : "—";
-  const followingLabel = followingCount != null ? followingCount.toLocaleString() : "—";
-
-  const badges = useMemo(() => {
-    if (!profile) return [] as string[];
-    if (Array.isArray(profile.badges) && profile.badges.length > 0) {
-      return profile.badges;
-    }
-    if (Array.isArray(profile.achievements) && profile.achievements.length > 0) {
-      return profile.achievements;
-    }
-    return [] as string[];
-  }, [profile]);
-
   const isUnavailable = status === "error" || status === "unavailable";
   const fallbackMessage = stale
     ? "Showing the last saved version of this profile. Some details may be out of date."
@@ -164,30 +141,6 @@ const ProfileModalBody: React.FC<ProfileModalBodyProps> = ({
             </div>
           )}
 
-          <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-3">
-              <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">Member since</dt>
-              <dd
-                className="mt-1 text-sm font-medium text-[var(--fg-default)]"
-                title={profile?.joined ?? undefined}
-              >
-                {memberSince}
-              </dd>
-            </div>
-            <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-3">
-              <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">Total posts</dt>
-              <dd className="mt-1 text-sm font-medium text-[var(--fg-default)]">{totalPosts}</dd>
-            </div>
-            <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-3">
-              <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">Followers</dt>
-              <dd className="mt-1 text-sm font-medium text-[var(--fg-default)]">{followerLabel}</dd>
-            </div>
-            <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-3">
-              <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">Following</dt>
-              <dd className="mt-1 text-sm font-medium text-[var(--fg-default)]">{followingLabel}</dd>
-            </div>
-          </dl>
-
           <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
@@ -217,55 +170,10 @@ const ProfileModalBody: React.FC<ProfileModalBodyProps> = ({
             </button>
           </div>
 
-          <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/70 p-4">
-            <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--fg-muted)]">Badges & Achievements</h3>
-            {badges.length > 0 ? (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {badges.map((badge) => (
-                  <span
-                    key={badge}
-                    className="inline-flex items-center rounded-full bg-brand/10 px-3 py-1 text-xs font-medium text-brand"
-                  >
-                    {badge}
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <p className="mt-3 text-xs text-[var(--fg-muted)]">No badges yet.</p>
-            )}
+          <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/70 p-4 text-sm text-[var(--fg-default)]">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--fg-muted)]">Profile details</p>
+            <p className="mt-2 text-sm text-[var(--fg-muted)]">Some profile details are not displayed.</p>
           </div>
-
-          {profile?.lightningAddress ? (
-            <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-4 text-sm text-[var(--fg-default)]">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)]">
-                  Lightning address
-                </span>
-                <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => navigator.clipboard.writeText(profile.lightningAddress || "").catch(() => undefined)}
-                    className="rounded-full border border-[var(--border-subtle)] px-3 py-1 font-semibold uppercase tracking-[0.18em] text-[var(--fg-muted)] transition hover:border-brand hover:text-brand"
-                  >
-                    Copy
-                  </button>
-                  <a
-                    href={`lightning:${profile.lightningAddress}`}
-                    className="rounded-full border border-brand/40 px-3 py-1 font-semibold uppercase tracking-[0.18em] text-brand transition hover:border-brand"
-                  >
-                    Open wallet
-                  </a>
-                </div>
-              </div>
-              <code className="mt-3 block break-all rounded-xl bg-[var(--bg-card)]/60 px-3 py-2 text-xs text-[var(--fg-default)]">
-                {profile.lightningAddress}
-              </code>
-            </div>
-          ) : (
-            <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-4 text-xs text-[var(--fg-muted)]">
-              Lightning address not shared.
-            </div>
-          )}
 
           <p className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-3 text-xs text-[var(--fg-muted)]">
             Profiles are provided by BitcoinSquare.io. Data reflects the latest information available for this Nostr public key.
