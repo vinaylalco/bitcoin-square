@@ -436,14 +436,28 @@ export default function Slider({
       return -1;
     };
 
+    const findNextIncompleteIndex = (startIndex = 0) => {
+      for (let i = startIndex; i < displayCards.length; i++) {
+        const cardKey = toCardKey(displayCards[i].id);
+        if (!completedCardIds.has(cardKey)) {
+          return i;
+        }
+      }
+      return -1;
+    };
+
     const lastCompletedIndex = findLastCompletedIndex();
     if (lastCompletedIndex >= 0) {
-      targetIndex = lastCompletedIndex;
+      const nextIncompleteIndex = findNextIncompleteIndex(lastCompletedIndex + 1);
+      if (nextIncompleteIndex !== -1) {
+        targetIndex = nextIncompleteIndex;
+      } else if (lastCompletedIndex < displayCards.length - 1) {
+        targetIndex = lastCompletedIndex + 1;
+      } else {
+        targetIndex = lastCompletedIndex;
+      }
     } else {
-      const firstIncompleteIndex = displayCards.findIndex((card) => {
-        const cardKey = toCardKey(card.id);
-        return !completedCardIds.has(cardKey);
-      });
+      const firstIncompleteIndex = findNextIncompleteIndex();
       targetIndex = firstIncompleteIndex === -1 ? 0 : firstIncompleteIndex;
     }
 
@@ -1126,9 +1140,12 @@ export default function Slider({
           const cardKey = toCardKey(c.id);
           const isActive = activeCardId === cardKey;
           const cardIndex = idToIndex.get(cardKey);
-          const isCompleted =
-            completedCardIds.has(cardKey) ||
-            (!c.quiz && cardIndex !== undefined && cardIndex < index);
+          const isAutoCompleted =
+            !c.quiz &&
+            !c.isVideoLesson &&
+            cardIndex !== undefined &&
+            cardIndex < index;
+          const isCompleted = completedCardIds.has(cardKey) || isAutoCompleted;
           return (
             <li key={`${topicId}-${cardKey}`}>
               <button

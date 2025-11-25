@@ -621,63 +621,75 @@ export default function CourseDetail() {
 
   const effectiveLocale = lessonPlan?.locale ?? locale;
   const rawModules = Array.isArray(lessonPlan?.modules) ? lessonPlan.modules : [];
-  const sanitizedModules = rawModules
-    .map((module, moduleIndex) => sanitizeModule(module, moduleIndex))
-    .filter((module): module is Module & UnknownRecord => Boolean(module));
+  const sanitizedModules = useMemo(
+    () =>
+      rawModules
+        .map((module, moduleIndex) => sanitizeModule(module, moduleIndex))
+        .filter((module): module is Module & UnknownRecord => Boolean(module)),
+    [rawModules],
+  );
 
-  const modules = sanitizedModules.map((module, moduleIndex) => {
-    const moduleTopics = Array.isArray(module.topics) ? module.topics : [];
-    const topicCount = moduleTopics.length;
+  const modules = useMemo(() => {
+    return sanitizedModules.map((module, moduleIndex) => {
+      const moduleTopics = Array.isArray(module.topics) ? module.topics : [];
+      const topicCount = moduleTopics.length;
 
-    const normalizedTopics = moduleTopics.map((topic, topicIndex) => {
-      const sanitizedTopic = sanitizeTopic(
-        topic,
-        String(module.id),
-        moduleIndex,
-        topicIndex,
-      );
+      const normalizedTopics = moduleTopics
+        .map((topic, topicIndex) => {
+          const sanitizedTopic = sanitizeTopic(
+            topic,
+            String(module.id),
+            moduleIndex,
+            topicIndex,
+          );
 
-      if (!sanitizedTopic) {
-        return null;
-      }
+          if (!sanitizedTopic) {
+            return null;
+          }
 
-      const { videoCard, lessonCards, videoSourceId } = ensureVideoCard(
-        sanitizedTopic,
-        effectiveLocale,
-      );
-      const topicCardsSource = [videoCard, ...lessonCards];
-      const totalTopicCards = topicCardsSource.length;
+          const { videoCard, lessonCards, videoSourceId } = ensureVideoCard(
+            sanitizedTopic,
+            effectiveLocale,
+          );
+          const topicCardsSource = [videoCard, ...lessonCards];
+          const totalTopicCards = topicCardsSource.length;
 
-      const topicCards = topicCardsSource.map((cardData, cardIndex) =>
-        buildLessonCard({
-          cardData,
-          cardIndex,
-          topic: sanitizedTopic,
-          topicIndex,
-          totalTopicCards,
-          module,
-          moduleIndex,
-          topicCount,
-          modulesLength: rawModules.length,
-          videoSourceId,
-          locale: effectiveLocale,
-        }),
-      );
+          const topicCards = topicCardsSource.map((cardData, cardIndex) =>
+            buildLessonCard({
+              cardData,
+              cardIndex,
+              topic: sanitizedTopic,
+              topicIndex,
+              totalTopicCards,
+              module,
+              moduleIndex,
+              topicCount,
+              modulesLength: rawModules.length,
+              videoSourceId,
+              locale: effectiveLocale,
+            }),
+          );
+
+          return {
+            ...sanitizedTopic,
+            cards: topicCards,
+          };
+        })
+        .filter((topic): topic is Topic & UnknownRecord => Boolean(topic));
 
       return {
-        ...sanitizedTopic,
-        cards: topicCards,
+        ...module,
+        topics: normalizedTopics,
       };
-    }).filter((topic): topic is Topic & UnknownRecord => Boolean(topic));
+    });
+  }, [effectiveLocale, rawModules.length, sanitizedModules]);
 
-    return {
-      ...module,
-      topics: normalizedTopics,
-    };
-  });
-
-  const cards: LessonCard[] = modules.flatMap((module) =>
-    (module.topics ?? []).flatMap((topic) => topic.cards as LessonCard[]),
+  const cards: LessonCard[] = useMemo(
+    () =>
+      modules.flatMap((module) =>
+        (module.topics ?? []).flatMap((topic) => topic.cards as LessonCard[]),
+      ),
+    [modules],
   );
 
   const normalizedSlug = String(data?.slug ?? slug ?? "").toLowerCase();
