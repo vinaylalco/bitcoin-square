@@ -2319,44 +2319,6 @@ const CommunityView: React.FC = () => {
         )}
       </div>
     );
-  const sidebarProfile = useMemo(() => {
-    if (!user && !pubkey) {
-      return null;
-    }
-    const summary = pubkey ? resolveProfileSummary(pubkey) : null;
-    const displayName =
-      summary?.displayName ??
-      user?.screenName ??
-      user?.username ??
-      t("community.sidebar.profileFallbackName", { defaultValue: "Your profile" });
-    let avatarUrl = summary?.avatarUrl ?? user?.avatarUrl ?? null;
-    if (!avatarUrl) {
-      const fallbackSeed =
-        pubkey ??
-        user?.nostrPublicKey ??
-        user?.screenName ??
-        user?.username ??
-        "community-profile";
-      avatarUrl = fallbackProfileAvatar(fallbackSeed);
-    }
-    const status = user?.screenName
-      ? `@${user.screenName}`
-      : user?.username
-        ? `@${user.username}`
-        : t("community.sidebar.profileStatusPlaceholder", { defaultValue: "Community member" });
-    return { displayName, avatarUrl, status };
-  }, [
-    fallbackProfileAvatar,
-    pubkey,
-    resolveProfileSummary,
-    t,
-    user,
-  ]);
-  const handleProfileCardClick = useCallback(() => {
-    if (pubkey) {
-      openProfile(pubkey);
-    }
-  }, [openProfile, pubkey]);
   const handleSelectView = useCallback(
     (view: ActiveView) => {
       const isMessagesLocation = isCommunityMessagesLocation(location.pathname, location.search);
@@ -3135,7 +3097,7 @@ const CommunityView: React.FC = () => {
   const mobileControls =
     typeof document !== "undefined" ? createPortal(mobileControlsContent, document.body) : mobileControlsContent;
 
-  const desktopComposeButton = !isComposerOpen ? (
+  const desktopComposeButton = isCasualView && !isComposerOpen ? (
     <button
       type="button"
       onClick={() => {
@@ -3197,27 +3159,6 @@ const CommunityView: React.FC = () => {
                 {memberListContent}
               </div>
             </div>
-            {sidebarProfile && (
-              <button
-                type="button"
-                onClick={handleProfileCardClick}
-                className="community-sidebar__profile-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
-                disabled={!pubkey}
-              >
-                <img
-                  src={sidebarProfile.avatarUrl}
-                  alt={sidebarProfile.displayName}
-                  className="community-sidebar__profile-avatar"
-                />
-                <div className="community-sidebar__profile-meta">
-                  <span className="community-sidebar__profile-name">{sidebarProfile.displayName}</span>
-                  <span className="community-sidebar__profile-status">{sidebarProfile.status}</span>
-                </div>
-                <span className="sr-only">
-                  {t("community.sidebar.openProfile", { defaultValue: "Open your profile" })}
-                </span>
-              </button>
-            )}
           </aside>
           <div className="community-main relative flex flex-1 min-h-0 flex-col lg:ml-[260px] lg:pl-8">
             <main className="community-feed relative flex flex-1 min-h-0 flex-col sm:pr-24 lg:pr-0">

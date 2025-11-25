@@ -299,34 +299,6 @@
           }
         ]
       },
-      "events": {
-        "eyebrow": "Eventos",
-        "title": "Próximos eventos",
-        "cta": "Regístrate",
-        "items": [
-          {
-            "day": "15",
-            "month": "Noviembre",
-            "title": "Masterclass: Seguridad en Bitcoin",
-            "description": "Aprende las mejores prácticas para proteger tu Bitcoin. Sesión en vivo con expertos.",
-            "subscribeMessage": "Regístrate y te avisaremos cuando esté disponible."
-          },
-          {
-            "day": "22",
-            "month": "Noviembre",
-            "title": "Encuentro virtual: Comunidad BTC",
-            "description": "Conecta con bitcoiners de tu región. Networking y preguntas en vivo.",
-            "subscribeMessage": "Regístrate y te avisaremos cuando esté disponible."
-          },
-          {
-            "day": "30",
-            "month": "Noviembre",
-            "title": "Taller: Estrategias de inversión",
-            "description": "Diseña tu estrategia de inversión en Bitcoin. Sesión interactiva con análisis en vivo.",
-            "subscribeMessage": "Regístrate y te avisaremos cuando esté disponible."
-          }
-        ]
-      },
       "pricing": {
         "eyebrow": "Precios",
         "title": "Planes diseñados para ti",
@@ -342,7 +314,6 @@
               "Acceso completo a la biblioteca de cursos",
               "Comunidad Nostr ilimitada",
               "Acceso a la tienda",
-              "1 consulta profesional al mes",
               "Programa de referidos activo",
               "Acceso a eventos y masterclasses"
             ],
@@ -358,7 +329,6 @@
               "Acceso completo a la biblioteca de cursos",
               "Comunidad Nostr ilimitada",
               "Acceso a la tienda",
-              "Consultas ilimitadas",
               "Programa de referidos premium",
               "Acceso anticipado al mercado P2P",
               "Eventos VIP y networking exclusivo"
