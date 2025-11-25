@@ -151,7 +151,7 @@ export default function CustomizeDialog({
   }, [plan, t, i18n.language]);
 
   return (
-    <div className="fixed inset-0 z-[65] flex items-center justify-center overflow-y-auto touch-momentum px-4 py-8">
+    <div className="fixed inset-0 z-[65] flex items-start justify-center overflow-y-auto touch-momentum px-4 pt-6 pb-8 sm:pt-10">
       <div
         className="absolute inset-0 bg-neutral-900/60 backdrop-blur-sm"
         onClick={onClose}
