@@ -8,6 +8,8 @@ export default [
       origin: [
         "https://bitcoinsquare.io",
         "https://www.bitcoinsquare.io",
+        "https://headless.bitcoinsquare.io",
+        "https://www.headless.bitcoinsquare.io",
       ],
       headers: [
         "Content-Type",
