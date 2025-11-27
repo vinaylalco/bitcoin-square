@@ -67,6 +67,7 @@ const STORAGE_KEY = "community:autoTranslate";
 const MAX_BATCH_SIZE = 20;
 const MAX_CONCURRENT_REQUESTS = 4;
 const QUEUE_FLUSH_DELAY_MS = 25;
+const TRANSLATION_ENDPOINT = "https://headless.bitcoinsquare.io/api/translate/bulk";
 
 const normalizeLanguageCode = (value?: string | null): string | null => normalizeLocale(value) ?? null;
 
@@ -271,7 +272,7 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
         throw new DOMException("Aborted", "AbortError");
       }
 
-      const response = await strapiFetch("/translate/bulk", {
+      const response = await strapiFetch(TRANSLATION_ENDPOINT, {
         method: "POST",
         body: JSON.stringify(body),
         signal,

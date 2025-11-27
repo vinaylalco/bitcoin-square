@@ -258,7 +258,7 @@ function extractMediaUrl(value: unknown): string | undefined {
 }
 
 export async function strapiFetch(path: string, init: RequestInit = {}): Promise<any> {
-  const url = `${API}${path}`;
+  const url = /^(https?:)?\/\//i.test(path) ? path : `${API}${path}`;
   const headers: HeadersInit = {
     "Content-Type": "application/json",
     ...(init.headers || {}),
