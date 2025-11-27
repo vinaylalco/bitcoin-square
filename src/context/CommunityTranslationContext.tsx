@@ -10,9 +10,14 @@ import React, {
 import { useTranslation } from "react-i18next";
 import { getBrowserLanguageTag } from "../utils/browserLanguage";
 import { DEFAULT_LOCALE, normalizeLocale, SUPPORTED_LOCALES } from "../utils/locale";
-import { translateText } from "../utils/translationService";
+import { strapiFetch } from "../lib/strapi";
+import {
+  getCachedTranslation,
+  setCachedTranslation,
+  type CachedTranslation,
+} from "../utils/translationCache";
 
-type TranslationStatus = "idle" | "loading" | "ready" | "error";
+type TranslationStatus = "idle" | "loading" | "ready" | "success" | "error";
 
 export interface TranslationEntry {
   status: TranslationStatus;
@@ -25,12 +30,15 @@ export interface TranslationEntry {
 
 interface RequestOptions {
   force?: boolean;
+  roomId?: string;
 }
 
 interface TranslationJob {
   key: string;
+  roomId: string;
   originalText: string;
   controller: AbortController;
+  retries: number;
 }
 
 export interface CommunityTranslationContextValue {
@@ -56,7 +64,8 @@ const noop = () => undefined;
 const SUPPORTED_LANGUAGES = new Set<string>(SUPPORTED_LOCALES);
 const FALLBACK_LANGUAGE = DEFAULT_LOCALE;
 const STORAGE_KEY = "community:autoTranslate";
-const MAX_CONCURRENT_TRANSLATIONS = 3;
+const MAX_BATCH_SIZE = 20;
+const MAX_CONCURRENT_REQUESTS = 4;
 const QUEUE_FLUSH_DELAY_MS = 25;
 
 const normalizeLanguageCode = (value?: string | null): string | null => normalizeLocale(value) ?? null;
@@ -189,6 +198,7 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
   const controllersRef = useRef(new Map<string, AbortController>());
   const queueRef = useRef<TranslationJob[]>([]);
   const activeCountRef = useRef(0);
+  const processQueueRef = useRef<() => void>(() => {});
   const processTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -217,157 +227,281 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
     });
   }, []);
 
-  const processQueue = useCallback(() => {
-    processTimerRef.current = null;
-
-    while (activeCountRef.current < MAX_CONCURRENT_TRANSLATIONS && queueRef.current.length > 0) {
-      const job = queueRef.current.shift();
-      if (!job) {
-        break;
-      }
-
-      const { key, originalText, controller } = job;
-      activeCountRef.current += 1;
-
-      mutateEntries((map) => {
-        const current = map.get(key);
-        map.set(key, {
-          status: "loading",
-          originalText,
-          translatedText: current?.translatedText,
-          detectedLanguage: current?.detectedLanguage,
-          provider: current?.provider,
-          error: undefined,
-        });
-      });
-
-      translateText({ text: originalText, targetLanguage, signal: controller.signal })
-        .then((result) => {
-          if (controller.signal.aborted) {
-            return;
-          }
-          const detected = normalizeLanguageCode(result.detectedLanguage) ?? undefined;
-          const translatedText = result.text ?? "";
-
-          mutateEntries((map) => {
-            map.set(key, {
-              status: "ready",
-              originalText,
-              translatedText,
-              detectedLanguage: detected,
-              provider: result.provider,
-              error: undefined,
-            });
-          });
-        })
-        .catch((error: unknown) => {
-          if (controller.signal.aborted) {
-            return;
-          }
-          mutateEntries((map) => {
-            map.set(key, {
-              status: "error",
-              originalText,
-              translatedText: undefined,
-              detectedLanguage: undefined,
-              provider: undefined,
-              error: error instanceof Error ? error.message : String(error),
-            });
-          });
-        })
-        .finally(() => {
-          controllersRef.current.delete(key);
-          activeCountRef.current = Math.max(0, activeCountRef.current - 1);
-          processQueue();
-        });
-    }
-  }, [mutateEntries, targetLanguage]);
-
   const scheduleProcessQueue = useCallback(() => {
     if (processTimerRef.current !== null) {
       return;
     }
-    processTimerRef.current = setTimeout(processQueue, QUEUE_FLUSH_DELAY_MS);
+    if (queueRef.current.length === 0) {
+      return;
+    }
+    processTimerRef.current = setTimeout(() => {
+      processTimerRef.current = null;
+      void processQueueRef.current();
+    }, QUEUE_FLUSH_DELAY_MS);
+  }, []);
+
+  const processQueue = useCallback(async () => {
+    if (activeCountRef.current >= MAX_CONCURRENT_REQUESTS) {
+      return;
+    }
+
+    if (queueRef.current.length === 0) {
+      return;
+    }
+
+    const batch = queueRef.current.splice(0, MAX_BATCH_SIZE);
+    if (batch.length === 0) {
+      return;
+    }
+
+    activeCountRef.current += 1;
+
+    const body = {
+      targetLanguage,
+      items: batch.map((job) => ({ key: job.key, text: job.originalText })),
+    };
+
+    const signal = batch[0]?.controller.signal;
+    const jobsByKey = new Map(batch.map((job) => [job.key, job]));
+
+    scheduleProcessQueue();
+
+    try {
+      if (signal?.aborted) {
+        throw new DOMException("Aborted", "AbortError");
+      }
+
+      const response = await strapiFetch("/translate/bulk", {
+        method: "POST",
+        body: JSON.stringify(body),
+        signal,
+      });
+
+      const translations = Array.isArray(response?.translations)
+        ? response.translations
+        : [];
+
+      const translatedKeys = new Set<string>();
+
+      translations.forEach((item) => {
+        if (!item || typeof item !== "object") {
+          return;
+        }
+        const record = item as Record<string, unknown>;
+        const key = typeof record.key === "string" ? record.key : undefined;
+        if (!key) {
+          return;
+        }
+
+        const job = jobsByKey.get(key);
+        if (!job) {
+          return;
+        }
+
+        translatedKeys.add(key);
+
+        const translatedText =
+          (typeof record.translatedText === "string" && record.translatedText) ||
+          (typeof record.translation === "string" && record.translation) ||
+          (typeof record.text === "string" && record.text) ||
+          "";
+
+        const detectedLanguage =
+          normalizeLanguageCode(
+            (typeof record.detectedLanguage === "string" && record.detectedLanguage) ||
+              (typeof record.detected_language === "string" && record.detected_language) ||
+              undefined,
+          ) ?? undefined;
+
+        const provider = typeof record.provider === "string" ? record.provider : undefined;
+
+        mutateEntries((map) => {
+          map.set(key, {
+            status: "success",
+            originalText: job.originalText,
+            translatedText,
+            detectedLanguage,
+            provider,
+            error: undefined,
+          });
+        });
+
+        setCachedTranslation(job.roomId, key, targetLanguage, {
+          translatedText,
+          detectedLanguage,
+          provider,
+        }).catch((cacheError) => {
+          console.warn("Unable to cache translation", cacheError);
+        });
+      });
+
+      if (translatedKeys.size < batch.length) {
+        batch
+          .filter((job) => !translatedKeys.has(job.key))
+          .forEach((job) => {
+            mutateEntries((map) => {
+              map.set(job.key, {
+                status: "error",
+                originalText: job.originalText,
+                translatedText: undefined,
+                detectedLanguage: undefined,
+                provider: undefined,
+                error: "Translation unavailable",
+              });
+            });
+          });
+      }
+    } catch (error: unknown) {
+      if (signal?.aborted) {
+        return;
+      }
+
+      batch.forEach((job) => {
+        if (job.retries < 3) {
+          const retryController = new AbortController();
+          controllersRef.current.set(job.key, retryController);
+          queueRef.current.push({
+            ...job,
+            retries: job.retries + 1,
+            controller: retryController,
+          });
+          return;
+        }
+
+        mutateEntries((map) => {
+          map.set(job.key, {
+            status: "error",
+            originalText: job.originalText,
+            translatedText: undefined,
+            detectedLanguage: undefined,
+            provider: undefined,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        });
+      });
+
+      scheduleProcessQueue();
+    } finally {
+      batch.forEach((job) => {
+        const existing = controllersRef.current.get(job.key);
+        if (existing === job.controller) {
+          controllersRef.current.delete(job.key);
+        }
+      });
+      activeCountRef.current = Math.max(0, activeCountRef.current - 1);
+      scheduleProcessQueue();
+    }
+  }, [mutateEntries, scheduleProcessQueue, targetLanguage]);
+
+  useEffect(() => {
+    processQueueRef.current = processQueue;
   }, [processQueue]);
 
   const ensureTranslation = useCallback(
     (key: string, text: string, options?: RequestOptions) => {
-      if (!isSupported) {
-        return;
-      }
+      void (async () => {
+        const originalText = typeof text === "string" ? text : "";
 
-      const originalText = typeof text === "string" ? text : "";
-      const trimmed = originalText.trim();
-
-      mutateEntries((map) => {
-        const existing = map.get(key);
-        if (!existing || existing.originalText !== originalText) {
-          map.set(key, {
-            status: existing?.status ?? "idle",
-            originalText,
-            translatedText: existing?.translatedText,
-            detectedLanguage: existing?.detectedLanguage,
-            provider: existing?.provider,
-            error: undefined,
-          });
+        if ((!autoTranslateEnabled && !options?.force) || !isSupported) {
+          return;
         }
-      });
 
-      if (!autoTranslateEnabled && !options?.force) {
-        return;
-      }
+        const trimmed = originalText.trim();
+        const roomId = options?.roomId ?? key;
 
-      const existing = entriesRef.current.get(key);
-      const shouldReuseExisting =
-        !options?.force &&
-        existing &&
-        existing.originalText === originalText &&
-        (existing.status === "loading" || existing.status === "ready");
+        let cached: CachedTranslation | null = null;
+        try {
+          cached = await getCachedTranslation(roomId, key, targetLanguage);
+        } catch (cacheError) {
+          console.warn("Unable to read cached translation", cacheError);
+        }
 
-      if (shouldReuseExisting) {
-        return;
-      }
+        if (cached && !options?.force) {
+          mutateEntries((map) => {
+            map.set(key, {
+              status: "success",
+              originalText,
+              translatedText: cached.translatedText,
+              detectedLanguage: cached.detectedLanguage,
+              provider: cached.provider,
+              error: undefined,
+            });
+          });
+          return;
+        }
 
-      if (!trimmed) {
         mutateEntries((map) => {
+          const existing = map.get(key);
+          if (!existing || existing.originalText !== originalText) {
+            map.set(key, {
+              status: existing?.status ?? "idle",
+              originalText,
+              translatedText: existing?.translatedText,
+              detectedLanguage: existing?.detectedLanguage,
+              provider: existing?.provider,
+              error: undefined,
+            });
+          }
+        });
+
+        const existing = entriesRef.current.get(key);
+        const shouldReuseExisting =
+          !options?.force &&
+          existing &&
+          existing.originalText === originalText &&
+          (existing.status === "loading" || existing.status === "ready" || existing.status === "success");
+
+        if (shouldReuseExisting) {
+          return;
+        }
+
+        if (!trimmed) {
+          mutateEntries((map) => {
+            map.set(key, {
+              status: "ready",
+              originalText,
+              translatedText: "",
+              detectedLanguage: undefined,
+              provider: existing?.provider,
+              error: undefined,
+            });
+          });
+          return;
+        }
+
+        const previousController = controllersRef.current.get(key);
+        if (previousController) {
+          previousController.abort();
+        }
+
+        queueRef.current = queueRef.current.filter((job) => job.key !== key);
+
+        const controller = new AbortController();
+        controllersRef.current.set(key, controller);
+
+        mutateEntries((map) => {
+          const current = map.get(key);
           map.set(key, {
-            status: "ready",
+            status: "loading",
             originalText,
-            translatedText: "",
-            detectedLanguage: undefined,
-            provider: existing?.provider,
+            translatedText: current?.translatedText,
+            detectedLanguage: current?.detectedLanguage,
+            provider: current?.provider,
             error: undefined,
           });
         });
-        return;
-      }
 
-      const previousController = controllersRef.current.get(key);
-      if (previousController) {
-        previousController.abort();
-      }
-
-      queueRef.current = queueRef.current.filter((job) => job.key !== key);
-
-      const controller = new AbortController();
-      controllersRef.current.set(key, controller);
-
-      mutateEntries((map) => {
-        const current = map.get(key);
-        map.set(key, {
-          status: "loading",
+        queueRef.current.push({
+          key,
+          roomId,
           originalText,
-          translatedText: current?.translatedText,
-          detectedLanguage: current?.detectedLanguage,
-          provider: current?.provider,
-          error: undefined,
+          controller,
+          retries: 0,
         });
-      });
-
-      queueRef.current.push({ key, originalText, controller });
-      scheduleProcessQueue();
+        scheduleProcessQueue();
+      })();
     },
-    [autoTranslateEnabled, isSupported, mutateEntries, scheduleProcessQueue],
+    [autoTranslateEnabled, isSupported, mutateEntries, scheduleProcessQueue, targetLanguage],
   );
 
   const refreshTranslation = useCallback(

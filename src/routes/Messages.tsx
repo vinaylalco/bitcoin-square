@@ -20,6 +20,7 @@ import {
   CommunityTranslationProvider,
   useCommunityTranslation,
 } from "../context/CommunityTranslationContext";
+import useOnScreen from "../hooks/useOnScreen";
 
 const normalizeSearch = (value: string) => value.trim().toLowerCase();
 
@@ -34,6 +35,212 @@ const createMessageTranslationKey = (
     return `dm:client:${message.clientId}`;
   }
   return `dm:fallback:${message.createdAt}:${index}`;
+};
+
+interface DirectMessageRowProps {
+  message: DirectMessageEntry;
+  index: number;
+  latestMessageIndex: number;
+  summary: ProfileSummary | null;
+  messageLookup: Map<string, DirectMessageEntry>;
+  onSelectReply: (key: string) => void;
+  formatMessageTimestamp: (seconds: number) => string;
+}
+
+const DirectMessageRow: React.FC<DirectMessageRowProps> = ({
+  message,
+  index,
+  latestMessageIndex,
+  summary,
+  messageLookup,
+  onSelectReply,
+  formatMessageTimestamp,
+}) => {
+  const {
+    isSupported: translationSupported,
+    autoTranslateEnabled,
+    ensureTranslation,
+    refreshTranslation,
+    getTranslation,
+    isOriginalVisible,
+    toggleOriginal,
+    formatLanguageName,
+    targetLanguageLabel,
+  } = useCommunityTranslation();
+  const translationContextAvailable = Boolean(translationSupported);
+  const [ref, visible] = useOnScreen<HTMLDivElement>();
+
+  const messageTranslationKey = createMessageTranslationKey(message, index);
+  const translationEntry = translationContextAvailable
+    ? getTranslation(messageTranslationKey)
+    : undefined;
+  const translationStatus = translationEntry?.status ?? "idle";
+  const rawTranslatedText =
+    translationEntry?.translatedText && translationEntry.translatedText.trim().length > 0
+      ? translationEntry.translatedText
+      : undefined;
+  const translationReady =
+    (translationStatus === "ready" || translationStatus === "success") && !!rawTranslatedText;
+  const showOriginal = !translationReady || isOriginalVisible(messageTranslationKey);
+  const detectedLanguageLabel =
+    translationEntry?.detectedLanguage && translationEntry.detectedLanguage.trim().length > 0
+      ? formatLanguageName(translationEntry.detectedLanguage)
+      : null;
+  const isLatestMessage = index === latestMessageIndex;
+  const allowManualTranslation =
+    translationContextAvailable && !isLatestMessage && translationStatus === "idle";
+  const showTranslationControls =
+    translationContextAvailable &&
+    (translationStatus === "loading" || translationStatus === "error" || translationReady || allowManualTranslation);
+  const isOutgoing = message.direction === "outgoing";
+  const translationMetaColor = isOutgoing
+    ? "text-[color:var(--chat-bubble-self-muted)]"
+    : "text-[var(--fg-muted)]";
+  const displayedText = showOriginal || !rawTranslatedText ? message.plaintext : rawTranslatedText;
+
+  const replySource =
+    message.replyToId && messageLookup.has(message.replyToId)
+      ? messageLookup.get(message.replyToId) ?? null
+      : null;
+  const replyLabel = replySource?.direction === "outgoing" ? "You" : summary?.displayName || "Community member";
+  const replyPreviewClass = isOutgoing
+    ? "border-[color:var(--chat-bubble-self-border)] bg-[color:var(--chat-bubble-self-bg)]/90 text-[color:var(--chat-bubble-self-muted)]"
+    : "border-[color:var(--chat-bubble-peer-border)] bg-[var(--chat-bubble-peer-bg)] text-[var(--fg-muted)]";
+  const replyUnavailableClass = isOutgoing
+    ? "border-dashed border-[color:var(--chat-bubble-self-border)] bg-[color:var(--chat-bubble-self-bg)]/70 text-[color:var(--chat-bubble-self-muted)]"
+    : "border-dashed border-[color:var(--chat-bubble-peer-border)] bg-[var(--chat-bubble-peer-bg)] text-[var(--fg-muted)]";
+  const replyButtonTint = isOutgoing
+    ? "border-[color:var(--chat-bubble-self-border)] bg-[color:var(--chat-bubble-self-bg)] text-[color:var(--chat-bubble-self-muted)] hover:bg-[color:var(--chat-bubble-self-bg)]/90 focus-visible:ring-brand/50"
+    : "border-[color:var(--chat-bubble-peer-border)] bg-[var(--chat-bubble-peer-bg)] text-[var(--fg-muted)] hover:border-brand hover:text-brand focus-visible:ring-brand/40";
+  const messageKeyForReply = !message.id.startsWith("pending-") ? message.id : message.clientId ?? message.id;
+
+  useEffect(() => {
+    if (!translationSupported || !autoTranslateEnabled || !visible) {
+      return;
+    }
+    const entry = getTranslation(messageTranslationKey);
+    if (!entry || entry.status === "idle" || entry.status === "error") {
+      ensureTranslation(messageTranslationKey, message.plaintext);
+    }
+  }, [
+    autoTranslateEnabled,
+    ensureTranslation,
+    getTranslation,
+    message.plaintext,
+    messageTranslationKey,
+    translationSupported,
+    visible,
+  ]);
+
+  return (
+    <div
+      ref={ref}
+      className={`group relative flex ${isOutgoing ? "justify-end" : "justify-start"} ${
+        isLatestMessage ? "pb-[calc(7rem+env(safe-area-inset-bottom,0px)+6.5rem)]" : ""
+      }`}
+      style={
+        isLatestMessage
+          ? {
+              paddingBottom: "calc(7rem + env(safe-area-inset-bottom, 0px) + 6.5rem)",
+            }
+          : undefined
+      }
+    >
+      <div
+        className={`relative max-w-[85%] rounded-2xl border px-4 py-3 text-sm lg:max-w-[50%] ${
+          isOutgoing
+            ? "bg-[color:var(--chat-bubble-self-bg)] text-[color:var(--chat-bubble-self-fg)] shadow-xl border-[color:var(--chat-bubble-self-border)]"
+            : "bg-[var(--chat-bubble-peer-bg)] text-[var(--fg-default)] shadow-sm border-[color:var(--chat-bubble-peer-border)]"
+        }`}
+      >
+        <button
+          type="button"
+          onClick={() => onSelectReply(messageKeyForReply)}
+          className={`absolute -top-3 ${isOutgoing ? "right-3" : "left-3"} flex h-8 w-8 items-center justify-center rounded-full border p-1 text-xs transition focus-visible:outline-none focus-visible:ring-2 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 ${replyButtonTint}`}
+          aria-label="Reply to message"
+        >
+          <MessageCircle className="h-4 w-4" />
+        </button>
+        {replySource ? (
+          <div className={`mb-2 rounded-xl border px-3 py-2 text-xs leading-relaxed ${replyPreviewClass}`}>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.24em]">Replying to {replyLabel}</p>
+            <p className="mt-1 max-h-24 overflow-hidden whitespace-pre-wrap break-words text-[0.75rem] leading-relaxed">
+              {replySource.plaintext}
+            </p>
+          </div>
+        ) : message.replyToId ? (
+          <div className={`mb-2 rounded-xl border px-3 py-2 text-[11px] leading-relaxed ${replyUnavailableClass}`}>
+            Original message unavailable.
+          </div>
+        ) : null}
+        <p className="whitespace-pre-wrap break-words leading-relaxed">{displayedText}</p>
+        {showTranslationControls && (
+          <div className="mt-2 space-y-1">
+            {translationStatus === "loading" ? (
+              <p className={`text-[10px] uppercase tracking-[0.2em] ${translationMetaColor}`}>
+                Translating to {targetLanguageLabel}…
+              </p>
+            ) : translationStatus === "error" ? (
+              <div
+                className={`flex flex-wrap items-center justify-between gap-2 text-[10px] uppercase tracking-[0.2em] ${translationMetaColor}`}
+              >
+                <span>Translation failed.</span>
+                <button
+                  type="button"
+                  onClick={() => refreshTranslation(messageTranslationKey, message.plaintext)}
+                  className="font-semibold uppercase tracking-[0.2em] transition hover:opacity-80"
+                >
+                  Retry
+                </button>
+              </div>
+            ) : translationReady ? (
+              <div
+                className={`flex flex-wrap items-center justify-between gap-2 text-[10px] uppercase tracking-[0.2em] ${translationMetaColor}`}
+              >
+                <span className="flex-1">
+                  {detectedLanguageLabel ? `Translated from ${detectedLanguageLabel}` : "Translated"}
+                  {translationEntry?.provider ? ` · ${translationEntry.provider}` : ""}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => toggleOriginal(messageTranslationKey)}
+                  className="font-semibold uppercase tracking-[0.2em] transition hover:opacity-80"
+                >
+                  {showOriginal ? "View translation" : "View original"}
+                </button>
+              </div>
+            ) : null}
+            {allowManualTranslation && (
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => refreshTranslation(messageTranslationKey, message.plaintext)}
+                  className={`text-[10px] font-semibold uppercase tracking-[0.2em] transition hover:opacity-80 ${
+                    message.direction === "outgoing"
+                      ? "text-[color:var(--chat-bubble-self-fg)]"
+                      : "text-[var(--fg-default)]"
+                  }`}
+                >
+                  Translate
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+        <div className="mt-2 flex items-center justify-between gap-3 text-[10px] uppercase tracking-[0.2em] text-[var(--fg-muted)]">
+          <span className="opacity-80">{formatMessageTimestamp(message.createdAt)}</span>
+          {message.direction === "outgoing" && (
+            <span className="opacity-80">
+              {message.status === "pending" ? "Sending…" : message.status === "failed" ? "Failed" : "Sent"}
+            </span>
+          )}
+        </div>
+        {message.error && (
+          <p className="mt-1 text-[10px] uppercase tracking-[0.2em] text-red-500">{message.error}</p>
+        )}
+      </div>
+    </div>
+  );
 };
 
 interface ConversationListEntry {
@@ -87,18 +294,6 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
   const [relationshipsLoading, setRelationshipsLoading] = useState(false);
   const [relationshipsError, setRelationshipsError] = useState<string | null>(null);
 
-  const {
-    isSupported: translationSupported,
-    autoTranslateEnabled,
-    ensureTranslation,
-    refreshTranslation,
-    getTranslation,
-    isOriginalVisible,
-    toggleOriginal,
-    formatLanguageName,
-    targetLanguageLabel,
-  } = useCommunityTranslation();
-
   const viewerPubkey = user?.nostrPublicKey?.trim() ?? "";
   const viewerProfile = viewerPubkey ? profiles[viewerPubkey]?.data ?? null : null;
 
@@ -107,14 +302,6 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
   const conversation = activeConversation ? conversations[activeConversation] : null;
   const draft = activeConversation ? getDraft(activeConversation) : "";
   const summary = activeConversation ? resolveProfileSummary(activeConversation) : null;
-
-  const translationContextAvailable = Boolean(
-    translationSupported &&
-      activeConversation &&
-      conversation &&
-      conversation.messages.length > 0,
-  );
-  const translationEnabled = translationContextAvailable && autoTranslateEnabled;
 
   useEffect(() => {
     markInboxAsViewed();
@@ -415,11 +602,6 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
   const [composerError, setComposerError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const listRef = useRef<HTMLDivElement | null>(null);
-  const messageElementsRef = useRef<
-    Map<string, { element: HTMLDivElement; plaintext: string }>
-  >(new Map());
-  const messageNodesByIdRef = useRef<Map<string, HTMLDivElement>>(new Map());
-  const messageObserverRef = useRef<IntersectionObserver | null>(null);
   const scrollStickToBottomRef = useRef(true);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [replyTargetKey, setReplyTargetKey] = useState<string | null>(null);
@@ -491,6 +673,11 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
     }
     return messageLookup.get(replyTargetKey) ?? null;
   }, [messageLookup, replyTargetKey]);
+
+  const handleSelectReply = useCallback((key: string) => {
+    setReplyTargetKey(key);
+    scrollStickToBottomRef.current = true;
+  }, []);
 
   const updateScrollState = useCallback(() => {
     const container = listRef.current;
@@ -566,83 +753,9 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
     requestAnimationFrame(() => handleScrollToBottom());
   }, [activeConversation, handleScrollToBottom]);
 
-  useEffect(() => {
-    if (!translationEnabled) {
-      messageObserverRef.current?.disconnect();
-      messageObserverRef.current = null;
-      return;
-    }
-
-    const container = listRef.current;
-    if (!container) {
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (!entry.isIntersecting) {
-            return;
-          }
-          const key = (entry.target as HTMLElement).dataset.translationKey;
-          if (!key) {
-            return;
-          }
-          const info = messageElementsRef.current.get(key);
-          if (!info) {
-            return;
-          }
-          const translationEntry = getTranslation(key);
-          if (!translationEntry || translationEntry.status === "idle" || translationEntry.status === "error") {
-            ensureTranslation(key, info.plaintext);
-          }
-        });
-      },
-      { root: container, threshold: 0.1 },
-    );
-
-    messageObserverRef.current = observer;
-
-    messageElementsRef.current.forEach(({ element }) => {
-      observer.observe(element);
-    });
-
-    return () => {
-      observer.disconnect();
-      if (messageObserverRef.current === observer) {
-        messageObserverRef.current = null;
-      }
-    };
-  }, [
-    ensureTranslation,
-    getTranslation,
-    translationEnabled,
-    activeConversation,
-    messageCount,
-  ]);
-
   const latestMessageIndex = conversation ? conversation.messages.length - 1 : -1;
   const latestMessage =
     latestMessageIndex >= 0 ? conversation?.messages[latestMessageIndex] ?? null : null;
-  const latestTranslationKey =
-    latestMessage && latestMessageIndex >= 0
-      ? createMessageTranslationKey(latestMessage, latestMessageIndex)
-      : null;
-
-  useEffect(() => {
-    if (!translationEnabled || !latestMessage || !latestTranslationKey) {
-      return;
-    }
-    ensureTranslation(latestTranslationKey, latestMessage.plaintext);
-  }, [
-    ensureTranslation,
-    latestMessage?.clientId,
-    latestMessage?.createdAt,
-    latestMessage?.id,
-    latestMessage?.plaintext,
-    latestTranslationKey,
-    translationEnabled,
-  ]);
 
   useEffect(() => {
     if (!activeConversation) {
@@ -935,225 +1048,18 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
                         No messages yet. Say hello!
                       </p>
                     ) : (
-                      conversation.messages.map((message, index) => {
-                        const messageTranslationKey = createMessageTranslationKey(message, index);
-                        const translationEntry = translationContextAvailable
-                          ? getTranslation(messageTranslationKey)
-                          : undefined;
-                        const translationStatus = translationEntry?.status ?? "idle";
-                        const rawTranslatedText =
-                          translationEntry?.translatedText &&
-                          translationEntry.translatedText.trim().length > 0
-                            ? translationEntry.translatedText
-                            : undefined;
-                        const translationReady = translationStatus === "ready" && !!rawTranslatedText;
-                        const showOriginal =
-                          !translationReady || isOriginalVisible(messageTranslationKey);
-                        const detectedLanguageLabel =
-                          translationEntry?.detectedLanguage &&
-                          translationEntry.detectedLanguage.trim().length > 0
-                            ? formatLanguageName(translationEntry.detectedLanguage)
-                            : null;
-                        const isLatestMessage = index === latestMessageIndex;
-                        const allowManualTranslation =
-                          translationContextAvailable &&
-                          !isLatestMessage &&
-                          translationStatus === "idle";
-                        const showTranslationControls =
-                          translationContextAvailable &&
-                          (translationStatus === "loading" ||
-                            translationStatus === "error" ||
-                            translationReady ||
-                            allowManualTranslation);
-                        const isOutgoing = message.direction === "outgoing";
-                        const translationMetaColor = isOutgoing
-                          ? "text-[color:var(--chat-bubble-self-muted)]"
-                          : "text-[var(--fg-muted)]";
-                        const displayedText =
-                          showOriginal || !rawTranslatedText ? message.plaintext : rawTranslatedText;
-                        const replySource =
-                          message.replyToId && messageLookup.has(message.replyToId)
-                            ? messageLookup.get(message.replyToId) ?? null
-                            : null;
-                        const replyLabel =
-                          replySource?.direction === "outgoing"
-                            ? "You"
-                            : summary.displayName || "Community member";
-                        const replyPreviewClass = isOutgoing
-                          ? "border-[color:var(--chat-bubble-self-border)] bg-[color:var(--chat-bubble-self-bg)]/90 text-[color:var(--chat-bubble-self-muted)]"
-                          : "border-[color:var(--chat-bubble-peer-border)] bg-[var(--chat-bubble-peer-bg)] text-[var(--fg-muted)]";
-                        const replyUnavailableClass = isOutgoing
-                          ? "border-dashed border-[color:var(--chat-bubble-self-border)] bg-[color:var(--chat-bubble-self-bg)]/70 text-[color:var(--chat-bubble-self-muted)]"
-                          : "border-dashed border-[color:var(--chat-bubble-peer-border)] bg-[var(--chat-bubble-peer-bg)] text-[var(--fg-muted)]";
-                        const replyButtonTint = isOutgoing
-                          ? "border-[color:var(--chat-bubble-self-border)] bg-[color:var(--chat-bubble-self-bg)] text-[color:var(--chat-bubble-self-muted)] hover:bg-[color:var(--chat-bubble-self-bg)]/90 focus-visible:ring-brand/50"
-                          : "border-[color:var(--chat-bubble-peer-border)] bg-[var(--chat-bubble-peer-bg)] text-[var(--fg-muted)] hover:border-brand hover:text-brand focus-visible:ring-brand/40";
-                        const messageKeyForReply = !message.id.startsWith("pending-")
-                          ? message.id
-                          : message.clientId ?? message.id;
-
-                        return (
-                          <div
-                            key={message.id || message.clientId || messageTranslationKey}
-                            className={`group relative flex ${
-                              isOutgoing ? "justify-end" : "justify-start"
-                            } ${
-                              isLatestMessage
-                                ? "pb-[calc(7rem+env(safe-area-inset-bottom,0px)+6.5rem)]"
-                                : ""
-                            }`}
-                            style={
-                              isLatestMessage
-                                ? {
-                                    paddingBottom:
-                                      "calc(7rem + env(safe-area-inset-bottom, 0px) + 6.5rem)",
-                                  }
-                                : undefined
-                            }
-                          >
-                            <div
-                              ref={(node) => {
-                                const currentEntry = messageElementsRef.current.get(messageTranslationKey);
-                                if (node) {
-                                  node.dataset.translationKey = messageTranslationKey;
-                                  messageElementsRef.current.set(messageTranslationKey, {
-                                    element: node,
-                                    plaintext: message.plaintext,
-                                  });
-                                  messageNodesByIdRef.current.set(message.id, node);
-                                  if (message.clientId) {
-                                    messageNodesByIdRef.current.set(message.clientId, node);
-                                  }
-                                  if (messageObserverRef.current && (!currentEntry || currentEntry.element !== node)) {
-                                    messageObserverRef.current.observe(node);
-                                  }
-                                } else {
-                                  if (currentEntry) {
-                                    messageObserverRef.current?.unobserve(currentEntry.element);
-                                    messageElementsRef.current.delete(messageTranslationKey);
-                                  }
-                                  messageNodesByIdRef.current.delete(message.id);
-                                  if (message.clientId) {
-                                    messageNodesByIdRef.current.delete(message.clientId);
-                                  }
-                                }
-                              }}
-                              className={`relative max-w-[85%] rounded-2xl border px-4 py-3 text-sm lg:max-w-[50%] ${
-                                isOutgoing
-                                  ? "bg-[color:var(--chat-bubble-self-bg)] text-[color:var(--chat-bubble-self-fg)] shadow-xl border-[color:var(--chat-bubble-self-border)]"
-                                  : "bg-[var(--chat-bubble-peer-bg)] text-[var(--fg-default)] shadow-sm border-[color:var(--chat-bubble-peer-border)]"
-                              }`}
-                            >
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setReplyTargetKey(messageKeyForReply);
-                                  scrollStickToBottomRef.current = true;
-                                }}
-                                className={`absolute -top-3 ${
-                                  isOutgoing ? "right-3" : "left-3"
-                                } flex h-8 w-8 items-center justify-center rounded-full border p-1 text-xs transition focus-visible:outline-none focus-visible:ring-2 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 ${replyButtonTint}`}
-                                aria-label="Reply to message"
-                              >
-                                <MessageCircle className="h-4 w-4" />
-                              </button>
-                              {replySource ? (
-                                <div
-                                  className={`mb-2 rounded-xl border px-3 py-2 text-xs leading-relaxed ${replyPreviewClass}`}
-                                >
-                                  <p className="text-[10px] font-semibold uppercase tracking-[0.24em]">
-                                    Replying to {replyLabel}
-                                  </p>
-                                  <p className="mt-1 max-h-24 overflow-hidden whitespace-pre-wrap break-words text-[0.75rem] leading-relaxed">
-                                    {replySource.plaintext}
-                                  </p>
-                                </div>
-                              ) : message.replyToId ? (
-                                <div
-                                  className={`mb-2 rounded-xl border px-3 py-2 text-[11px] leading-relaxed ${replyUnavailableClass}`}
-                                >
-                                  Original message unavailable.
-                                </div>
-                              ) : null}
-                              <p className="whitespace-pre-wrap break-words leading-relaxed">{displayedText}</p>
-                            {showTranslationControls && (
-                              <div className="mt-2 space-y-1">
-                                {translationStatus === "loading" ? (
-                                  <p
-                                    className={`text-[10px] uppercase tracking-[0.2em] ${translationMetaColor}`}
-                                  >
-                                    Translating to {targetLanguageLabel}…
-                                  </p>
-                                ) : translationStatus === "error" ? (
-                                  <div
-                                    className={`flex flex-wrap items-center justify-between gap-2 text-[10px] uppercase tracking-[0.2em] ${translationMetaColor}`}
-                                  >
-                                    <span>Translation failed.</span>
-                                    <button
-                                      type="button"
-                                      onClick={() => refreshTranslation(messageTranslationKey, message.plaintext)}
-                                      className="font-semibold uppercase tracking-[0.2em] transition hover:opacity-80"
-                                    >
-                                      Retry
-                                    </button>
-                                  </div>
-                                ) : translationReady ? (
-                                  <div
-                                    className={`flex flex-wrap items-center justify-between gap-2 text-[10px] uppercase tracking-[0.2em] ${translationMetaColor}`}
-                                  >
-                                    <span className="flex-1">
-                                      {detectedLanguageLabel
-                                        ? `Translated from ${detectedLanguageLabel}`
-                                        : "Translated"}
-                                      {translationEntry?.provider
-                                        ? ` · ${translationEntry.provider}`
-                                        : ""}
-                                    </span>
-                                    <button
-                                      type="button"
-                                      onClick={() => toggleOriginal(messageTranslationKey)}
-                                      className="font-semibold uppercase tracking-[0.2em] transition hover:opacity-80"
-                                    >
-                                      {showOriginal ? "View translation" : "View original"}
-                                    </button>
-                                  </div>
-                                ) : null}
-                                {allowManualTranslation && (
-                                  <div className="flex justify-end">
-                                    <button
-                                      type="button"
-                                      onClick={() => refreshTranslation(messageTranslationKey, message.plaintext)}
-                                      className={`text-[10px] font-semibold uppercase tracking-[0.2em] transition hover:opacity-80 ${
-                                        message.direction === "outgoing"
-                                          ? "text-[color:var(--chat-bubble-self-fg)]"
-                                          : "text-[var(--fg-default)]"
-                                      }`}
-                                    >
-                                      Translate
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                            <div className="mt-2 flex items-center justify-between gap-3 text-[10px] uppercase tracking-[0.2em] text-[var(--fg-muted)]">
-                              <span className="opacity-80">{formatMessageTimestamp(message.createdAt)}</span>
-                              {message.direction === "outgoing" && (
-                                <span className="opacity-80">
-                                  {message.status === "pending"
-                                    ? "Sending…"
-                                    : message.status === "failed"
-                                      ? "Failed"
-                                      : "Sent"}
-                                </span>
-                              )}
-                            </div>
-                            {message.error && (
-                              <p className="mt-1 text-[10px] uppercase tracking-[0.2em] text-red-500">{message.error}</p>
-                            )}
-                          </div>
-                          </div>
-                        );
-                      })
+                      conversation.messages.map((message, index) => (
+                        <DirectMessageRow
+                          key={message.id || message.clientId || createMessageTranslationKey(message, index)}
+                          message={message}
+                          index={index}
+                          latestMessageIndex={latestMessageIndex}
+                          summary={summary}
+                          messageLookup={messageLookup}
+                          onSelectReply={handleSelectReply}
+                          formatMessageTimestamp={formatMessageTimestamp}
+                        />
+                      ))
                     )}
                   </div>
 

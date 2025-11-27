@@ -3229,7 +3229,9 @@ const CommunityView: React.FC = () => {
                               ? translationEntry.translatedText
                               : null;
                           const translationReady =
-                            translationEnabled && translationStatus === "ready" && !!rawTranslatedText;
+                            translationEnabled &&
+                            (translationStatus === "ready" || translationStatus === "success") &&
+                            !!rawTranslatedText;
                           const showOriginal =
                             !translationEnabled || !translationReady || isOriginalVisible(translationKey);
                           const translatedHtml =
