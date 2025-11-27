@@ -10,6 +10,8 @@ export default [
         "https://www.bitcoinsquare.io",
         "https://headless.bitcoinsquare.io",
         "https://www.headless.bitcoinsquare.io",
+        "https://headless.bitcoinsquare.io/api/translate/bulk",
+        "https://www.headless.bitcoinsquare.io/api/translate/bulk"
       ],
       headers: [
         "Content-Type",
