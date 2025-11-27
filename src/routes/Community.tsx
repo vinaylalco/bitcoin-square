@@ -3162,6 +3162,7 @@ const CommunityView: React.FC = () => {
           </aside>
           <div className="community-main relative flex flex-1 min-h-0 flex-col lg:ml-[260px] lg:pl-8">
             <main className="community-feed relative flex flex-1 min-h-0 flex-col sm:pr-24 lg:pr-0">
+              <CommunityTranslationProvider>
             {isCasualView ? (
               <section
                 id="community-panel-casual"
@@ -3825,6 +3826,7 @@ const CommunityView: React.FC = () => {
                 </div>
               </section>
             )}
+              </CommunityTranslationProvider>
             </main>
           </div>
         </div>

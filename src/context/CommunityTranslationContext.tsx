@@ -10,7 +10,6 @@ import React, {
 import { useTranslation } from "react-i18next";
 import { getBrowserLanguageTag } from "../utils/browserLanguage";
 import { DEFAULT_LOCALE, normalizeLocale, SUPPORTED_LOCALES } from "../utils/locale";
-import { strapiFetch } from "../lib/strapi";
 import {
   getCachedTranslation,
   setCachedTranslation,
@@ -57,6 +56,7 @@ export interface CommunityTranslationContextValue {
   targetLanguage: string;
   targetLanguageLabel: string;
   formatLanguageName: (code?: string | null) => string;
+  translationMap: Map<string, string>;
 }
 
 const noop = () => undefined;
@@ -108,6 +108,7 @@ const defaultContextValue: CommunityTranslationContextValue = {
   targetLanguage: FALLBACK_LANGUAGE,
   targetLanguageLabel: "English",
   formatLanguageName: (code?: string | null) => (code ? code.toString() : ""),
+  translationMap: new Map(),
 };
 
 const CommunityTranslationContext = createContext<CommunityTranslationContextValue>(
@@ -195,6 +196,9 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
   }, []);
 
   const [entries, setEntries] = useState<Map<string, TranslationEntry>>(() => new Map());
+  const [translationMapState, setTranslationMapState] = useState<Map<string, string>>(
+    () => new Map(),
+  );
   const entriesRef = useRef(entries);
   const controllersRef = useRef(new Map<string, AbortController>());
   const queueRef = useRef<TranslationJob[]>([]);
@@ -210,6 +214,7 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
     controllersRef.current.forEach((controller) => controller.abort());
     controllersRef.current.clear();
     setEntries(new Map());
+    setTranslationMapState(new Map());
     queueRef.current = [];
     activeCountRef.current = 0;
     if (processTimerRef.current) {
@@ -257,6 +262,12 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
 
     activeCountRef.current += 1;
 
+    const browserLang = navigator.language || "en";
+    let targetLanguage = browserLang.toLowerCase();
+    if (targetLanguage.includes("-")) targetLanguage = targetLanguage.split("-")[0];
+    const supported = ["en", "es", "id", "fr", "de"];
+    if (!supported.includes(targetLanguage)) targetLanguage = "en";
+
     const body = {
       targetLanguage,
       items: batch.map((job) => ({ key: job.key, text: job.originalText })),
@@ -272,19 +283,41 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
         throw new DOMException("Aborted", "AbortError");
       }
 
-      const response = await strapiFetch(TRANSLATION_ENDPOINT, {
+      const response = await fetch(TRANSLATION_ENDPOINT, {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify(body),
         signal,
       });
 
-      const translations = Array.isArray(response?.translations)
-        ? response.translations
-        : [];
+      if (!response.ok) {
+        throw new Error(response.statusText || "Translation request failed");
+      }
+
+      const json = await response.json();
+      if (!Array.isArray(json.items)) {
+        console.error("translate bulk: unexpected response shape", json);
+        throw new Error("Bad translation response");
+      }
+
+      const translationMap = new Map<string, string>();
+      json.items.forEach((entry: any) => {
+        if (typeof entry?.key === "string" && typeof entry?.translatedText === "string") {
+          translationMap.set(entry.key, entry.translatedText);
+        }
+      });
+
+      setTranslationMapState((current) => {
+        const next = new Map(current);
+        translationMap.forEach((value, key) => next.set(key, value));
+        return next;
+      });
 
       const translatedKeys = new Set<string>();
 
-      translations.forEach((item) => {
+      json.items.forEach((item: any) => {
         if (!item || typeof item !== "object") {
           return;
         }
@@ -299,13 +332,12 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
           return;
         }
 
-        translatedKeys.add(key);
+        const translatedText = translationMap.get(key);
+        if (!translatedText) {
+          return;
+        }
 
-        const translatedText =
-          (typeof record.translatedText === "string" && record.translatedText) ||
-          (typeof record.translation === "string" && record.translation) ||
-          (typeof record.text === "string" && record.text) ||
-          "";
+        translatedKeys.add(key);
 
         const detectedLanguage =
           normalizeLanguageCode(
@@ -340,6 +372,10 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
         batch
           .filter((job) => !translatedKeys.has(job.key))
           .forEach((job) => {
+            console.error("translate bulk job error", {
+              key: job.key,
+              error: "Translation unavailable",
+            });
             mutateEntries((map) => {
               map.set(job.key, {
                 status: "error",
@@ -370,6 +406,7 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
         }
 
         mutateEntries((map) => {
+          console.error("translate bulk job error", { key: job.key, error });
           map.set(job.key, {
             status: "error",
             originalText: job.originalText,
@@ -558,6 +595,7 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
       targetLanguage,
       targetLanguageLabel,
       formatLanguageName,
+      translationMap: translationMapState,
     }),
     [
       autoTranslateEnabled,
@@ -571,6 +609,7 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
       targetLanguage,
       targetLanguageLabel,
       toggleOriginal,
+      translationMapState,
     ],
   );
 
