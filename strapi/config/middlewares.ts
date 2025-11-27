@@ -1,0 +1,37 @@
+export default [
+  "strapi::errors",
+  "strapi::security",
+  {
+    name: "strapi::cors",
+    config: {
+      enabled: true,
+      origin: [
+        "https://bitcoinsquare.io",
+        "https://www.bitcoinsquare.io",
+      ],
+      headers: [
+        "Content-Type",
+        "Authorization",
+        "Origin",
+        "Accept",
+        "User-Agent",
+        "DNT",
+        "Cache-Control",
+        "Keep-Alive",
+        "If-Modified-Since",
+        "X-Requested-With",
+        "X-Forwarded-For",
+        "X-Real-IP",
+      ],
+      methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+      credentials: true,
+    },
+  },
+  "strapi::poweredBy",
+  "strapi::logger",
+  "strapi::query",
+  "strapi::body",
+  "strapi::session",
+  "strapi::favicon",
+  "strapi::public",
+];
