@@ -155,6 +155,7 @@ describe("createFeedActionHandlers", () => {
     const likePost = vi.fn(likeImpl);
     const updatePending = vi.fn();
     const setPendingLikes = vi.fn();
+    const onLikeSuccess = vi.fn();
     const logger = { warn: vi.fn() };
 
     const handlers = createFeedActionHandlers({
@@ -162,10 +163,19 @@ describe("createFeedActionHandlers", () => {
       likePost,
       updatePending,
       setPendingLikes,
+      onLikeSuccess,
       logger,
     });
 
-    return { handlers, openComposerDialog, likePost, updatePending, setPendingLikes, logger };
+    return {
+      handlers,
+      openComposerDialog,
+      likePost,
+      updatePending,
+      setPendingLikes,
+      onLikeSuccess,
+      logger,
+    };
   };
 
   it("opens the composer for new, reply, quote, and edit actions", () => {
@@ -192,6 +202,7 @@ describe("createFeedActionHandlers", () => {
     expect(controls.updatePending).toHaveBeenNthCalledWith(1, controls.setPendingLikes, post.id, true);
     expect(controls.likePost).toHaveBeenCalledWith(post);
     expect(controls.updatePending).toHaveBeenNthCalledWith(2, controls.setPendingLikes, post.id, false);
+    expect(controls.onLikeSuccess).toHaveBeenCalledWith(post.id);
     expect(controls.logger.warn).not.toHaveBeenCalled();
   });
 
@@ -204,6 +215,7 @@ describe("createFeedActionHandlers", () => {
 
     expect(controls.updatePending).toHaveBeenNthCalledWith(1, controls.setPendingLikes, post.id, true);
     expect(controls.updatePending).toHaveBeenNthCalledWith(2, controls.setPendingLikes, post.id, false);
+    expect(controls.onLikeSuccess).not.toHaveBeenCalled();
     expect(controls.logger.warn).toHaveBeenCalled();
   });
 });

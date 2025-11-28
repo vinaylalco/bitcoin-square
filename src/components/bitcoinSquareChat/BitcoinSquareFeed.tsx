@@ -259,6 +259,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   );
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>(null);
   const [pendingLikes, setPendingLikes] = useState<PendingMap>(() => new Set());
+  const [likedPostIds, setLikedPostIds] = useState<PendingMap>(() => new Set());
   const [pendingPins, setPendingPins] = useState<PendingMap>(() => new Set());
   const [pendingDeletes, setPendingDeletes] = useState<PendingMap>(() => new Set());
   const [expandedPosts, setExpandedPosts] = useState<Set<string>>(() => new Set());
@@ -1315,8 +1316,15 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         likePost,
         updatePending,
         setPendingLikes,
+        onLikeSuccess: (postId: string) => {
+          setLikedPostIds((previous) => {
+            const updated = new Set(previous);
+            updated.add(postId);
+            return updated;
+          });
+        },
       }),
-    [likePost, openComposerDialog, updatePending],
+    [likePost, openComposerDialog, setPendingLikes, setLikedPostIds, updatePending],
   );
 
   const composerTitle =
@@ -1825,7 +1833,8 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     } = {},
   ) => {
     const isPendingLike = pendingLikes.has(post.id);
-    const likeDisabled = !ready || isPendingLike;
+    const isLiked = likedPostIds.has(post.id);
+    const likeDisabled = !ready || isPendingLike || isLiked;
     const isPendingDelete = pendingDeletes.has(post.id);
     const canDelete = canModerate;
     const deleteDisabled = !ready || isPendingDelete;
@@ -2160,11 +2169,21 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
             }}
             disabled={likeDisabled}
             className={`community-card__action-button${
-              isPendingLike ? " community-card__action-button--active" : ""
+              isPendingLike || isLiked ? " community-card__action-button--active" : ""
             }`}
-            title={isPendingLike ? "Sending like…" : "Like this post"}
+            title={
+              isPendingLike
+                ? "Sending like…"
+                : isLiked
+                  ? "You liked this post"
+                  : "Like this post"
+            }
           >
-            {isPendingLike ? <Loader2 className="h-4 w-4 animate-spin" /> : <Heart className="h-4 w-4" />}
+            {isPendingLike ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Heart className="h-4 w-4" fill={isLiked ? "currentColor" : "none"} />
+            )}
             <span>Like</span>
           </button>
           <button

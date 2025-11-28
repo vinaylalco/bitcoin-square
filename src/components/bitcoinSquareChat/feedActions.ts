@@ -88,6 +88,7 @@ export interface FeedActionDependencies {
     add: boolean,
   ) => void;
   setPendingLikes: React.Dispatch<React.SetStateAction<PendingMap>>;
+  onLikeSuccess?: (postId: string) => void;
   logger?: Pick<Console, "warn">;
 }
 
@@ -96,6 +97,7 @@ export const createFeedActionHandlers = ({
   likePost,
   updatePending,
   setPendingLikes,
+  onLikeSuccess,
   logger,
 }: FeedActionDependencies) => {
   const log = logger ?? console;
@@ -116,6 +118,7 @@ export const createFeedActionHandlers = ({
       updatePending(setPendingLikes, post.id, true);
       try {
         await likePost(post);
+        onLikeSuccess?.(post.id);
       } catch (reactionError) {
         log.warn("Unable to react to post", reactionError);
       } finally {
