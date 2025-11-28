@@ -1837,9 +1837,10 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     const translationKey = `feed:${post.id}`;
     const translationEntry = translationEnabled ? getTranslation(translationKey) : undefined;
     const translationStatus = translationEntry?.status ?? "idle";
+    const trimmedTranslatedText = translationEntry?.translatedText?.trim();
     const rawTranslatedText =
-      translationEntry?.translatedText && translationEntry.translatedText.trim().length > 0
-        ? translationEntry.translatedText
+      trimmedTranslatedText && trimmedTranslatedText.length > 0
+        ? trimmedTranslatedText
         : null;
     const translationReady = translationEnabled && translationStatus === "ready" && !!rawTranslatedText;
     const showOriginal = !translationEnabled || !translationReady || isOriginalVisible(translationKey);
