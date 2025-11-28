@@ -67,7 +67,7 @@ const STORAGE_KEY = "community:autoTranslate";
 const MAX_BATCH_SIZE = 20;
 const MAX_CONCURRENT_REQUESTS = 4;
 const QUEUE_FLUSH_DELAY_MS = 25;
-const TRANSLATION_ENDPOINT = "/api/translate/bulk";
+const TRANSLATION_ENDPOINT = "https://headless.bitcoinsquare.io/api/translate/bulk";
 
 const normalizeLanguageCode = (value?: string | null): string | null => normalizeLocale(value) ?? null;
 
