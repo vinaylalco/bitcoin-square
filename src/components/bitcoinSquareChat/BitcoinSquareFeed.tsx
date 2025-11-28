@@ -35,6 +35,7 @@ import {
   persistPinnedEntries,
   type PinnedEntry,
 } from "../../utils/pinnedEntries";
+import { extractLanguageTag, shouldTranslateForTargetLanguage } from "../../utils/nostrLanguage";
 
 interface BitcoinSquareFeedProps {
   posts: FeedPost[];
@@ -317,6 +318,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     isOriginalVisible,
     toggleOriginal,
     formatLanguageName,
+    targetLanguage,
   } = useCommunityTranslation();
   const translationEnabled = translationSupported && autoTranslateEnabled;
   const feedRoom = useMemo<RoomDefinition>(
@@ -546,9 +548,12 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   useEffect(() => {
     if (!translationEnabled) return;
     posts.forEach((post) => {
-      ensureTranslation(`feed:${post.id}`, post.content);
+      const languageTag = extractLanguageTag(post.tags);
+      if (shouldTranslateForTargetLanguage(languageTag, targetLanguage)) {
+        ensureTranslation(`feed:${post.id}`, post.content);
+      }
     });
-  }, [ensureTranslation, posts, translationEnabled]);
+  }, [ensureTranslation, posts, targetLanguage, translationEnabled]);
 
   useEffect(() => {
     if (!openPostMenuId) {

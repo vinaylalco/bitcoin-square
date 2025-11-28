@@ -22,6 +22,7 @@ import {
   useCommunityTranslation,
 } from "../context/CommunityTranslationContext";
 import useOnScreen from "../hooks/useOnScreen";
+import { extractLanguageTag, shouldTranslateForTargetLanguage } from "../utils/nostrLanguage";
 
 const normalizeSearch = (value: string) => value.trim().toLowerCase();
 
@@ -65,6 +66,7 @@ const DirectMessageRow: React.FC<DirectMessageRowProps> = ({
     isOriginalVisible,
     toggleOriginal,
     formatLanguageName,
+    targetLanguage,
     targetLanguageLabel,
   } = useCommunityTranslation();
   const translationContextAvailable = Boolean(translationSupported);
@@ -118,6 +120,9 @@ const DirectMessageRow: React.FC<DirectMessageRowProps> = ({
     if (!translationSupported || !autoTranslateEnabled || !visible) {
       return;
     }
+    if (!shouldTranslateForTargetLanguage(message.language ?? null, targetLanguage)) {
+      return;
+    }
     const entry = getTranslation(messageTranslationKey);
     if (!entry || entry.status === "idle" || entry.status === "error") {
       ensureTranslation(messageTranslationKey, message.plaintext, { roomId: accountPubkey });
@@ -128,7 +133,9 @@ const DirectMessageRow: React.FC<DirectMessageRowProps> = ({
     ensureTranslation,
     getTranslation,
     message.plaintext,
+    message.language,
     messageTranslationKey,
+    targetLanguage,
     translationSupported,
     visible,
   ]);

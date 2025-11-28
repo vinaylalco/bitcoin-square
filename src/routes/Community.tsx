@@ -35,6 +35,7 @@ import {
   COMMUNITY_PATH,
   isCommunityMessagesLocation,
 } from "../utils/routes";
+import { extractLanguageTag, shouldTranslateForTargetLanguage } from "../utils/nostrLanguage";
 import type { LucideIcon } from "lucide-react";
 import {
   ArrowDown,
@@ -1322,6 +1323,7 @@ const CommunityView: React.FC = () => {
     isOriginalVisible,
     toggleOriginal,
     formatLanguageName,
+    targetLanguage,
   } = useCommunityTranslation();
   const translationEnabled = translationSupported && autoTranslateEnabled;
 
@@ -1846,9 +1848,12 @@ const CommunityView: React.FC = () => {
   useEffect(() => {
     if (!translationEnabled) return;
     messages.forEach((message) => {
-      ensureTranslation(`chat:${message.id}`, message.markdown);
+      const languageTag = extractLanguageTag(message.tags);
+      if (shouldTranslateForTargetLanguage(languageTag, targetLanguage)) {
+        ensureTranslation(`chat:${message.id}`, message.markdown);
+      }
     });
-  }, [ensureTranslation, messages, translationEnabled]);
+  }, [ensureTranslation, messages, targetLanguage, translationEnabled]);
 
   const computeScrollState = useCallback(() => {
     const node = listRef.current;
