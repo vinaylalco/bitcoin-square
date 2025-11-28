@@ -12,6 +12,7 @@ import {
   type ProfileSummary,
 } from "../context/ProfileIdentityContext";
 import { useAuth } from "../context/AuthContext";
+import { useNostrAccount } from "../hooks/useNostrAccount";
 import { searchUsersByScreenName, type ScreenNameUser } from "../api/users";
 import type { MentionCandidate } from "../utils/mentions";
 import useMentionAutocomplete from "../hooks/useMentionAutocomplete";
@@ -60,7 +61,6 @@ const DirectMessageRow: React.FC<DirectMessageRowProps> = ({
     isSupported: translationSupported,
     autoTranslateEnabled,
     ensureTranslation,
-    refreshTranslation,
     getTranslation,
     isOriginalVisible,
     toggleOriginal,
@@ -120,10 +120,11 @@ const DirectMessageRow: React.FC<DirectMessageRowProps> = ({
     }
     const entry = getTranslation(messageTranslationKey);
     if (!entry || entry.status === "idle" || entry.status === "error") {
-      ensureTranslation(messageTranslationKey, message.plaintext);
+      ensureTranslation(messageTranslationKey, message.plaintext, { roomId: accountPubkey });
     }
   }, [
     autoTranslateEnabled,
+    accountPubkey,
     ensureTranslation,
     getTranslation,
     message.plaintext,
@@ -187,7 +188,12 @@ const DirectMessageRow: React.FC<DirectMessageRowProps> = ({
                 <span>Translation failed.</span>
                 <button
                   type="button"
-                  onClick={() => refreshTranslation(messageTranslationKey, message.plaintext)}
+                  onClick={() =>
+                    ensureTranslation(messageTranslationKey, message.plaintext, {
+                      roomId: accountPubkey,
+                      force: true,
+                    })
+                  }
                   className="font-semibold uppercase tracking-[0.2em] transition hover:opacity-80"
                 >
                   Retry
@@ -214,7 +220,12 @@ const DirectMessageRow: React.FC<DirectMessageRowProps> = ({
               <div className="flex justify-end">
                 <button
                   type="button"
-                  onClick={() => refreshTranslation(messageTranslationKey, message.plaintext)}
+                  onClick={() =>
+                    ensureTranslation(messageTranslationKey, message.plaintext, {
+                      roomId: accountPubkey,
+                      force: true,
+                    })
+                  }
                   className={`text-[10px] font-semibold uppercase tracking-[0.2em] transition hover:opacity-80 ${
                     message.direction === "outgoing"
                       ? "text-[color:var(--chat-bubble-self-fg)]"
@@ -289,6 +300,7 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
     shortenPubkey,
   } = useProfileIdentity();
   const { user } = useAuth();
+  const { pubkey: accountPubkey } = useNostrAccount();
   const [query, setQuery] = useState("");
   const [relationshipPubkeys, setRelationshipPubkeys] = useState<string[]>([]);
   const [relationshipsLoading, setRelationshipsLoading] = useState(false);

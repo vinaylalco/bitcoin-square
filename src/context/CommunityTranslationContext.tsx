@@ -67,7 +67,7 @@ const STORAGE_KEY = "community:autoTranslate";
 const MAX_BATCH_SIZE = 20;
 const MAX_CONCURRENT_REQUESTS = 4;
 const QUEUE_FLUSH_DELAY_MS = 25;
-const TRANSLATION_ENDPOINT = "https://headless.bitcoinsquare.io/api/translate/bulk";
+const TRANSLATION_ENDPOINT = "/api/translate/bulk";
 
 const normalizeLanguageCode = (value?: string | null): string | null => normalizeLocale(value) ?? null;
 
@@ -121,17 +121,27 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
   const { i18n } = useTranslation();
   const isSupported = typeof fetch === "function" && typeof AbortController === "function";
 
+  const resolveLanguagePreference = useCallback(
+    (language: string): string => {
+      const normalized = normalizeLanguageCode(language);
+      if (normalized && SUPPORTED_LANGUAGES.has(normalized)) {
+        return normalized;
+      }
+      return resolveTargetLanguage();
+    },
+    [],
+  );
+
   const [targetLanguage, setTargetLanguage] = useState<string>(() =>
-    normalizeLanguageCode(i18n.language) ?? resolveTargetLanguage(),
+    resolveLanguagePreference(i18n.language),
   );
   const [formatter, setFormatter] = useState<Intl.DisplayNames | null>(() =>
     createLanguageFormatter(targetLanguage),
   );
 
   useEffect(() => {
-    const normalized = normalizeLanguageCode(i18n.language) ?? resolveTargetLanguage();
-    setTargetLanguage(normalized);
-  }, [i18n.language]);
+    setTargetLanguage(resolveLanguagePreference(i18n.language));
+  }, [i18n.language, resolveLanguagePreference]);
 
   useEffect(() => {
     setFormatter(createLanguageFormatter(targetLanguage));
@@ -261,12 +271,6 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
     }
 
     activeCountRef.current += 1;
-
-    const browserLang = navigator.language || "en";
-    let targetLanguage = browserLang.toLowerCase();
-    if (targetLanguage.includes("-")) targetLanguage = targetLanguage.split("-")[0];
-    const supported = ["en", "es", "id", "fr", "de"];
-    if (!supported.includes(targetLanguage)) targetLanguage = "en";
 
     const body = {
       targetLanguage,
