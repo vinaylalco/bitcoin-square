@@ -1209,10 +1209,7 @@ export const useBitcoinSquareFeed = (): UseBitcoinSquareFeedReturn => {
         ],
       };
       const event = await signEvent(template);
-      await publishWithPool(pool, [FAST_RELAY], event);
-      if (RELAYS.length > 1) {
-        void replicateWithPool(pool, RELAYS.slice(1), event);
-      }
+      await publishWithPool(pool, RELAYS, event);
     },
     [signEvent],
   );
