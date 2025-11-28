@@ -289,7 +289,9 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
 
       const response = await fetch(TRANSLATION_ENDPOINT, {
         method: "POST",
+        mode: "cors",
         headers: {
+          Accept: "application/json",
           "Content-Type": "application/json",
         },
         body: JSON.stringify(body),
@@ -298,6 +300,10 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
 
       if (!response.ok) {
         throw new Error(response.statusText || "Translation request failed");
+      }
+
+      if (response.status === 204) {
+        throw new Error("Translation service returned no content");
       }
 
       const json = await response.json();
