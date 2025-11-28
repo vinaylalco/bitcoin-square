@@ -15,6 +15,7 @@ import {
   setCachedTranslation,
   type CachedTranslation,
 } from "../utils/translationCache";
+import { getStrapiBaseUrl } from "../api/strapi-client";
 
 type TranslationStatus = "idle" | "loading" | "ready" | "success" | "error";
 
@@ -67,7 +68,15 @@ const STORAGE_KEY = "community:autoTranslate";
 const MAX_BATCH_SIZE = 20;
 const MAX_CONCURRENT_REQUESTS = 4;
 const QUEUE_FLUSH_DELAY_MS = 25;
-const TRANSLATION_ENDPOINT = "https://headless.bitcoinsquare.io/api/translate/bulk";
+const DEFAULT_TRANSLATION_ENDPOINT = "https://headless.bitcoinsquare.io/api/translate/bulk";
+
+const resolveTranslationEndpoint = (): string => {
+  const baseUrl = getStrapiBaseUrl();
+  if (baseUrl) {
+    return `${baseUrl.replace(/\/$/, "")}/api/translate/bulk`;
+  }
+  return DEFAULT_TRANSLATION_ENDPOINT;
+};
 
 const normalizeLanguageCode = (value?: string | null): string | null => normalizeLocale(value) ?? null;
 
@@ -287,7 +296,7 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
         throw new DOMException("Aborted", "AbortError");
       }
 
-      const response = await fetch(TRANSLATION_ENDPOINT, {
+      const response = await fetch(resolveTranslationEndpoint(), {
         method: "POST",
         mode: "cors",
         headers: {
