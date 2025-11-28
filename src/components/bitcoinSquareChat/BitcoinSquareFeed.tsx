@@ -320,7 +320,8 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     formatLanguageName,
     targetLanguage,
   } = useCommunityTranslation();
-  const translationEnabled = translationSupported && autoTranslateEnabled;
+  const translationsTemporarilyDisabled = true;
+  const translationEnabled = !translationsTemporarilyDisabled && translationSupported && autoTranslateEnabled;
   const feedRoom = useMemo<RoomDefinition>(
     () => ({
       id: CASUAL_ROOM_ID,

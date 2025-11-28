@@ -69,7 +69,8 @@ const DirectMessageRow: React.FC<DirectMessageRowProps> = ({
     targetLanguage,
     targetLanguageLabel,
   } = useCommunityTranslation();
-  const translationContextAvailable = Boolean(translationSupported);
+  const translationsTemporarilyDisabled = true;
+  const translationContextAvailable = !translationsTemporarilyDisabled && Boolean(translationSupported);
   const [ref, visible] = useOnScreen<HTMLDivElement>();
 
   const messageTranslationKey = createMessageTranslationKey(message, index);
@@ -117,7 +118,7 @@ const DirectMessageRow: React.FC<DirectMessageRowProps> = ({
   const messageKeyForReply = !message.id.startsWith("pending-") ? message.id : message.clientId ?? message.id;
 
   useEffect(() => {
-    if (!translationSupported || !autoTranslateEnabled || !visible) {
+    if (!translationContextAvailable || !autoTranslateEnabled || !visible) {
       return;
     }
     if (!shouldTranslateForTargetLanguage(message.language ?? null, targetLanguage)) {
@@ -136,7 +137,7 @@ const DirectMessageRow: React.FC<DirectMessageRowProps> = ({
     message.language,
     messageTranslationKey,
     targetLanguage,
-    translationSupported,
+    translationContextAvailable,
     visible,
   ]);
 
