@@ -17,10 +17,15 @@ import { SimplePool, type Event, type EventTemplate } from "../lib/nostrToolsShi
 import { useProfileIdentity } from "./ProfileIdentityContext";
 import { decryptDirectMessage, encryptDirectMessage } from "../utils/directMessageEncryption";
 import { isCommunityMessagesLocation } from "../utils/routes";
+import { getBrowserLanguageTag } from "../utils/browserLanguage";
+import { normalizeLocale } from "../utils/locale";
+import { extractLanguageTag } from "../utils/nostrLanguage";
 import { strapiFetch } from "../api/strapi-client";
 
 const DM_RELAYS = ["wss://relay.damus.io", "wss://relay.primal.net", "wss://nos.lol"];
 const PORTAL_ELEMENT_ID = "direct-message-root";
+const BROWSER_LANGUAGE_TAG = getBrowserLanguageTag();
+const DEFAULT_LANGUAGE_TAG = normalizeLocale(BROWSER_LANGUAGE_TAG) ?? BROWSER_LANGUAGE_TAG;
 
 export type DirectMessageStatus = "pending" | "sent" | "received" | "failed";
 
@@ -29,6 +34,7 @@ export interface DirectMessageEntry {
   clientId?: string;
   createdAt: number;
   plaintext: string;
+  language?: string | null;
   direction: "incoming" | "outgoing";
   status: DirectMessageStatus;
   error?: string | null;
@@ -454,6 +460,7 @@ export const DirectMessageProvider: React.FC<React.PropsWithChildren> = ({ child
                     status: event.pubkey === accountPubkey ? "sent" : "received",
                     error: errorMessage,
                     replyToId: message.replyToId ?? replyToId,
+                    language: message.language ?? extractLanguageTag(event.tags),
                   }
                 : message,
             );
@@ -466,15 +473,16 @@ export const DirectMessageProvider: React.FC<React.PropsWithChildren> = ({ child
               },
             };
           }
-          const message: DirectMessageEntry = {
-            id: event.id,
-            createdAt: event.created_at,
-            plaintext,
-            direction,
-            status: direction === "outgoing" ? "sent" : "received",
-            error: errorMessage,
-            replyToId,
-          };
+        const message: DirectMessageEntry = {
+          id: event.id,
+          createdAt: event.created_at,
+          plaintext,
+          language: extractLanguageTag(event.tags),
+          direction,
+          status: direction === "outgoing" ? "sent" : "received",
+          error: errorMessage,
+          replyToId,
+        };
           const isActiveConversation = activeConversationRef.current === peerPubkey;
           if (direction === "incoming" && isActiveConversation) {
             inboxReferenceUpdate = normalizeInboxReference({
@@ -584,6 +592,7 @@ export const DirectMessageProvider: React.FC<React.PropsWithChildren> = ({ child
           clientId,
           createdAt,
           plaintext: trimmed,
+          language: DEFAULT_LANGUAGE_TAG,
           direction: "outgoing",
           status: "pending",
           replyToId: normalizedReplyToId,
@@ -602,6 +611,9 @@ export const DirectMessageProvider: React.FC<React.PropsWithChildren> = ({ child
       try {
         const content = await encryptWithPeer(pubkey, trimmed);
         const tags: string[][] = [["p", pubkey]];
+        if (DEFAULT_LANGUAGE_TAG) {
+          tags.push(["lang", DEFAULT_LANGUAGE_TAG]);
+        }
         if (normalizedReplyToId) {
           tags.push(["e", normalizedReplyToId, "", "reply"]);
         }

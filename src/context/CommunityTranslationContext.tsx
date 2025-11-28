@@ -67,7 +67,7 @@ const STORAGE_KEY = "community:autoTranslate";
 const MAX_BATCH_SIZE = 20;
 const MAX_CONCURRENT_REQUESTS = 4;
 const QUEUE_FLUSH_DELAY_MS = 25;
-const TRANSLATION_ENDPOINT = "/api/translate/bulk";
+const TRANSLATION_ENDPOINT = "https://headless.bitcoinsquare.io/api/translate/bulk";
 
 const normalizeLanguageCode = (value?: string | null): string | null => normalizeLocale(value) ?? null;
 
@@ -289,7 +289,9 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
 
       const response = await fetch(TRANSLATION_ENDPOINT, {
         method: "POST",
+        mode: "cors",
         headers: {
+          Accept: "application/json",
           "Content-Type": "application/json",
         },
         body: JSON.stringify(body),
@@ -298,6 +300,10 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
 
       if (!response.ok) {
         throw new Error(response.statusText || "Translation request failed");
+      }
+
+      if (response.status === 204) {
+        throw new Error("Translation service returned no content");
       }
 
       const json = await response.json();
