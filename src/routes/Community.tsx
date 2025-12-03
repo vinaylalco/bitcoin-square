@@ -1325,8 +1325,7 @@ const CommunityView: React.FC = () => {
     formatLanguageName,
     targetLanguage,
   } = useCommunityTranslation();
-  const translationsTemporarilyDisabled = true;
-  const translationEnabled = !translationsTemporarilyDisabled && translationSupported && autoTranslateEnabled;
+  const translationEnabled = translationSupported && autoTranslateEnabled;
 
   const { markInboxAsViewed, hasUnreadMessages } = useDirectMessages();
   const [activeView, setActiveView] = useState<ActiveView>(() => {
