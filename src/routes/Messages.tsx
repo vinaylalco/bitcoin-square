@@ -69,8 +69,7 @@ const DirectMessageRow: React.FC<DirectMessageRowProps> = ({
     targetLanguage,
     targetLanguageLabel,
   } = useCommunityTranslation();
-  const translationsTemporarilyDisabled = true;
-  const translationContextAvailable = !translationsTemporarilyDisabled && Boolean(translationSupported);
+  const translationContextAvailable = Boolean(translationSupported);
   const [ref, visible] = useOnScreen<HTMLDivElement>();
 
   const messageTranslationKey = createMessageTranslationKey(message, index);
