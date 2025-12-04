@@ -8,15 +8,12 @@ import React, {
   useState,
 } from "react";
 import { useTranslation } from "react-i18next";
-import { useToast } from "../context/ToastContext";
 import { getBrowserLanguageTag } from "../utils/browserLanguage";
 import { DEFAULT_LOCALE, normalizeLocale, SUPPORTED_LOCALES } from "../utils/locale";
 import {
   getCachedTranslation,
-  setCachedTranslation,
   type CachedTranslation,
 } from "../utils/translationCache";
-import { getStrapiBaseUrl } from "../api/strapi-client";
 
 type TranslationStatus = "idle" | "loading" | "ready" | "success" | "error";
 
@@ -32,14 +29,23 @@ export interface TranslationEntry {
 interface RequestOptions {
   force?: boolean;
   roomId?: string;
+  eventId?: string;
 }
 
 interface TranslationJob {
   key: string;
   roomId: string;
+  eventId: string;
   originalText: string;
   controller: AbortController;
   retries: number;
+}
+
+interface TranslationQueueJob {
+  eventId: string;
+  text: string;
+  sourceLang?: string;
+  targetLang: string;
 }
 
 export interface CommunityTranslationContextValue {
@@ -59,6 +65,7 @@ export interface CommunityTranslationContextValue {
   targetLanguageLabel: string;
   formatLanguageName: (code?: string | null) => string;
   translationMap: Map<string, string>;
+  readRoomTranslations: (roomId: string) => Promise<void>;
 }
 
 const noop = () => undefined;
@@ -70,14 +77,41 @@ const MAX_BATCH_SIZE = 2;
 const MAX_CONCURRENT_REQUESTS = 2;
 const MAX_MESSAGES_PER_ROOM = 30; // only auto-translate most recent messages
 const QUEUE_FLUSH_DELAY_MS = 25;
-const DEFAULT_TRANSLATION_ENDPOINT = "https://headless.bitcoinsquare.io/api/translate/bulk";
+const TRANSLATION_QUEUE_ENDPOINT =
+  "https://headless.bitcoinsquare.io/api/community/translations/queue";
+const TRANSLATION_READ_ENDPOINT =
+  "https://headless.bitcoinsquare.io/api/community/translations";
 
-const resolveTranslationEndpoint = (): string => {
-  const baseUrl = getStrapiBaseUrl();
-  if (baseUrl) {
-    return `${baseUrl.replace(/\/$/, "")}/api/translate/bulk`;
+const enqueueTranslationJobs = async (
+  jobs: TranslationQueueJob[],
+  signal?: AbortSignal,
+): Promise<void> => {
+  if (jobs.length === 0) {
+    return;
   }
-  return DEFAULT_TRANSLATION_ENDPOINT;
+
+  try {
+    const response = await fetch(TRANSLATION_QUEUE_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jobs }),
+      signal,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "");
+      console.error("translation queue request failed", {
+        status: response.status,
+        statusText: response.statusText,
+        errorText,
+      });
+    }
+  } catch (error) {
+    if (signal?.aborted) {
+      return;
+    }
+    console.error("translation queue request failed", error);
+  }
 };
 
 const normalizeLanguageCode = (value?: string | null): string | null => normalizeLocale(value) ?? null;
@@ -120,6 +154,7 @@ const defaultContextValue: CommunityTranslationContextValue = {
   targetLanguageLabel: "English",
   formatLanguageName: (code?: string | null) => (code ? code.toString() : ""),
   translationMap: new Map(),
+  readRoomTranslations: async () => {},
 };
 
 const CommunityTranslationContext = createContext<CommunityTranslationContextValue>(
@@ -131,7 +166,6 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
 }) => {
   const { i18n } = useTranslation();
   const isSupported = typeof fetch === "function" && typeof AbortController === "function";
-  const { showToast } = useToast();
 
   const resolveLanguagePreference = useCallback(
     (language: string): string => {
@@ -270,6 +304,18 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
     }, QUEUE_FLUSH_DELAY_MS);
   }, []);
 
+  const mapTranslationKeyToEventId = useCallback((key: string, eventId: string) => {
+    setTranslationMapState((current) => {
+      const existing = current.get(key);
+      if (existing === eventId) {
+        return current;
+      }
+      const next = new Map(current);
+      next.set(key, eventId);
+      return next;
+    });
+  }, []);
+
   const processQueue = useCallback(async () => {
     if (activeCountRef.current >= MAX_CONCURRENT_REQUESTS) {
       return;
@@ -286,16 +332,13 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
 
     activeCountRef.current += 1;
 
-    const body = {
-      targetLanguage,
-      items: batch.map((job) => ({ key: job.key, text: job.originalText })),
-    };
-
-    const endpoint = resolveTranslationEndpoint();
-    const items = body.items;
-
     const signal = batch[0]?.controller.signal;
-    const jobsByKey = new Map(batch.map((job) => [job.key, job]));
+    const queueJobs: TranslationQueueJob[] = batch.map((job) => ({
+      eventId: job.eventId,
+      text: job.originalText,
+      sourceLang: normalizeLanguageCode(i18n.language) ?? undefined,
+      targetLang: targetLanguage,
+    }));
 
     scheduleProcessQueue();
 
@@ -304,138 +347,7 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
         throw new DOMException("Aborted", "AbortError");
       }
 
-      const response = await fetch(endpoint, {
-        method: "POST",
-        mode: "cors",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-        signal,
-      });
-
-      if (!response.ok) {
-        let serverError: unknown = null;
-        try {
-          serverError = await response.json();
-        } catch {
-          serverError = null;
-        }
-
-        console.error("translate bulk request failed", {
-          endpoint,
-          status: response.status,
-          statusText: response.statusText,
-          itemCount: items.length,
-          serverError,
-        });
-
-        const message =
-          typeof (serverError as any)?.error?.message === "string"
-            ? `Translation error: ${(serverError as any).error.message}`
-            : "Automatic translation is temporarily unavailable. We’ll keep retrying in the background.";
-        showToast(message, { tone: "warning" });
-
-        throw new Error(response.statusText || "Translation request failed");
-      }
-
-      if (response.status === 204) {
-        throw new Error("Translation service returned no content");
-      }
-
-      const json = await response.json();
-      if (!Array.isArray(json.items)) {
-        console.error("translate bulk: unexpected response shape", json);
-        throw new Error("Bad translation response");
-      }
-
-      const translationMap = new Map<string, string>();
-      json.items.forEach((entry: any) => {
-        if (typeof entry?.key === "string" && typeof entry?.translatedText === "string") {
-          translationMap.set(entry.key, entry.translatedText);
-        }
-      });
-
-      setTranslationMapState((current) => {
-        const next = new Map(current);
-        translationMap.forEach((value, key) => next.set(key, value));
-        return next;
-      });
-
-      const translatedKeys = new Set<string>();
-
-      json.items.forEach((item: any) => {
-        if (!item || typeof item !== "object") {
-          return;
-        }
-        const record = item as Record<string, unknown>;
-        const key = typeof record.key === "string" ? record.key : undefined;
-        if (!key) {
-          return;
-        }
-
-        const job = jobsByKey.get(key);
-        if (!job) {
-          return;
-        }
-
-        const translatedText = translationMap.get(key);
-        if (!translatedText) {
-          return;
-        }
-
-        translatedKeys.add(key);
-
-        const detectedLanguage =
-          normalizeLanguageCode(
-            (typeof record.detectedLanguage === "string" && record.detectedLanguage) ||
-              (typeof record.detected_language === "string" && record.detected_language) ||
-              undefined,
-          ) ?? undefined;
-
-        const provider = typeof record.provider === "string" ? record.provider : undefined;
-
-        mutateEntries((map) => {
-          map.set(key, {
-            status: "success",
-            originalText: job.originalText,
-            translatedText,
-            detectedLanguage,
-            provider,
-            error: undefined,
-          });
-        });
-
-        setCachedTranslation(job.roomId, key, targetLanguage, {
-          translatedText,
-          detectedLanguage,
-          provider,
-        }).catch((cacheError) => {
-          console.warn("Unable to cache translation", cacheError);
-        });
-      });
-
-      if (translatedKeys.size < batch.length) {
-        batch
-          .filter((job) => !translatedKeys.has(job.key))
-          .forEach((job) => {
-            console.error("translate bulk job error", {
-              key: job.key,
-              error: "Translation unavailable",
-            });
-            mutateEntries((map) => {
-              map.set(job.key, {
-                status: "error",
-                originalText: job.originalText,
-                translatedText: undefined,
-                detectedLanguage: undefined,
-                provider: undefined,
-                error: "Translation unavailable",
-              });
-            });
-          });
-      }
+      await enqueueTranslationJobs(queueJobs, signal);
     } catch (error: unknown) {
       if (signal?.aborted) {
         return;
@@ -453,30 +365,12 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
           return;
         }
 
-        console.error("translate bulk job error", {
+        console.error("translation queue job error", {
           key: job.key,
           roomId: job.roomId,
           retries: job.retries,
           targetLanguage,
-          endpoint,
           errorMessage: error instanceof Error ? error.message : String(error),
-        });
-
-        const errorMessage =
-          error instanceof Error
-            ? error.message
-            : "Translation request failed. Please try again later.";
-        showToast(`Translation failed: ${errorMessage}`, { tone: "warning" });
-
-        mutateEntries((map) => {
-          map.set(job.key, {
-            status: "error",
-            originalText: job.originalText,
-            translatedText: undefined,
-            detectedLanguage: undefined,
-            provider: undefined,
-            error: error instanceof Error ? error.message : String(error),
-          });
         });
       });
 
@@ -491,11 +385,102 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
       activeCountRef.current = Math.max(0, activeCountRef.current - 1);
       scheduleProcessQueue();
     }
-  }, [mutateEntries, scheduleProcessQueue, showToast, targetLanguage]);
+  }, [
+    i18n.language,
+    mutateEntries,
+    scheduleProcessQueue,
+    targetLanguage,
+  ]);
 
   useEffect(() => {
     processQueueRef.current = processQueue;
   }, [processQueue]);
+
+  const readRoomTranslations = useCallback(
+    async (roomId: string) => {
+      const roomKeys = roomQueueRef.current.get(roomId);
+      if (!roomKeys || roomKeys.length === 0) {
+        return;
+      }
+
+      const eventIdToKey = new Map<string, string>();
+      roomKeys.forEach((key) => {
+        const eventId = translationMapState.get(key) ?? key;
+        if (eventId) {
+          eventIdToKey.set(eventId, key);
+        }
+      });
+
+      if (eventIdToKey.size === 0) {
+        return;
+      }
+
+      const params = new URLSearchParams();
+      params.set("lang", targetLanguage);
+      eventIdToKey.forEach((_key, eventId) => {
+        params.append("eventIds[]", eventId);
+      });
+
+      try {
+        const res = await fetch(`${TRANSLATION_READ_ENDPOINT}?${params.toString()}`);
+        if (!res.ok) {
+          console.error("translation read request failed", {
+            status: res.status,
+            statusText: res.statusText,
+          });
+          return;
+        }
+
+        const json = await res.json();
+        const payload = Array.isArray(json?.data)
+          ? json.data
+          : Array.isArray(json)
+            ? json
+            : [];
+
+        if (!Array.isArray(payload)) {
+          return;
+        }
+
+        payload.forEach((item: { eventId?: string; translatedText?: string; attributes?: unknown }) => {
+          const candidate =
+            item && typeof item === "object" && "attributes" in item && item.attributes
+              ? (item as { attributes: { eventId?: string; translatedText?: string } }).attributes
+              : item;
+          const eventId = (candidate as { eventId?: string }).eventId;
+          const translatedText = (candidate as { translatedText?: string }).translatedText;
+
+          if (!eventId || typeof translatedText !== "string") {
+            return;
+          }
+
+          const translationKey = eventIdToKey.get(eventId);
+          if (!translationKey) {
+            return;
+          }
+
+          mutateEntries((map) => {
+            const existing = map.get(translationKey);
+            if (!existing) {
+              return;
+            }
+
+            map.set(translationKey, {
+              status: "success",
+              originalText: existing.originalText,
+              translatedText,
+              detectedLanguage: existing.detectedLanguage,
+              provider: existing.provider,
+              error: undefined,
+            });
+          });
+        });
+      } catch (error) {
+        console.error("translation read request failed", error);
+      }
+    },
+    [mutateEntries, targetLanguage, translationMapState],
+  );
 
   const ensureTranslation = useCallback(
     (key: string, text: string, options?: RequestOptions) => {
@@ -507,6 +492,8 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
         }
 
         const trimmed = originalText.trim();
+        const eventId = options?.eventId ?? key;
+        mapTranslationKeyToEventId(key, eventId);
         const roomId = options?.roomId ?? key;
 
         let cached: CachedTranslation | null = null;
@@ -604,6 +591,17 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
                 map.delete(removedKey);
               });
             });
+
+            setTranslationMapState((current) => {
+              let changed = false;
+              const next = new Map(current);
+              removedKeys.forEach((removedKey) => {
+                if (next.delete(removedKey)) {
+                  changed = true;
+                }
+              });
+              return changed ? next : current;
+            });
           }
 
           return pruned.includes(currentKey);
@@ -638,6 +636,7 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
         queueRef.current.push({
           key,
           roomId,
+          eventId,
           originalText,
           controller,
           retries: 0,
@@ -645,7 +644,14 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
         scheduleProcessQueue();
       })();
     },
-    [autoTranslateEnabled, isSupported, mutateEntries, scheduleProcessQueue, targetLanguage],
+    [
+      autoTranslateEnabled,
+      isSupported,
+      mapTranslationKeyToEventId,
+      mutateEntries,
+      scheduleProcessQueue,
+      targetLanguage,
+    ],
   );
 
   const refreshTranslation = useCallback(
@@ -702,6 +708,7 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
       targetLanguageLabel,
       formatLanguageName,
       translationMap: translationMapState,
+      readRoomTranslations,
     }),
     [
       autoTranslateEnabled,
@@ -710,6 +717,7 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
       getTranslation,
       isOriginalVisible,
       isSupported,
+      readRoomTranslations,
       refreshTranslation,
       setAutoTranslateEnabled,
       targetLanguage,

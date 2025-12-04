@@ -1324,6 +1324,7 @@ const CommunityView: React.FC = () => {
     toggleOriginal,
     formatLanguageName,
     targetLanguage,
+    readRoomTranslations,
   } = useCommunityTranslation();
   const translationEnabled = translationSupported && autoTranslateEnabled;
 
@@ -1850,10 +1851,33 @@ const CommunityView: React.FC = () => {
     messages.forEach((message) => {
       const languageTag = extractLanguageTag(message.tags);
       if (shouldTranslateForTargetLanguage(languageTag, targetLanguage)) {
-        ensureTranslation(`chat:${message.id}`, message.markdown);
+        ensureTranslation(`chat:${message.id}`, message.markdown, {
+          roomId,
+          eventId: message.id,
+        });
       }
     });
-  }, [ensureTranslation, messages, targetLanguage, translationEnabled]);
+  }, [ensureTranslation, messages, roomId, targetLanguage, translationEnabled]);
+
+  useEffect(() => {
+    if (!translationEnabled || !roomId) {
+      return;
+    }
+
+    void readRoomTranslations(roomId);
+
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      void readRoomTranslations(roomId);
+    }, 7000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [readRoomTranslations, roomId, targetLanguage, translationEnabled]);
 
   const computeScrollState = useCallback(() => {
     const node = listRef.current;
