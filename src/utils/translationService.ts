@@ -205,10 +205,8 @@ export const translateTextBulk = async (
   }
 
   const body = {
-    q: jobs.map((job) => job.text),
-    source: jobs[0]?.sourceLanguage ?? "auto",
-    target: jobs[0]?.targetLanguage,
-    format: "text",
+    targetLanguage: jobs[0]?.targetLanguage,
+    items: jobs.map((job) => ({ key: job.id, text: job.text })),
   };
 
   const response = await fetch(endpoint, {
@@ -263,8 +261,19 @@ export const translateTextBulk = async (
     pickTranslationsArray((payload as Record<string, unknown>)?.response) ||
     [];
 
+  const jobMap = new Map(jobs.map((job) => [job.id, job]));
+
   translations.forEach((entry, index) => {
-    const job = jobs[index];
+    const job = (() => {
+      if (entry && typeof entry === "object" && "key" in (entry as Record<string, unknown>)) {
+        const key = (entry as Record<string, unknown>).key;
+        if (typeof key === "string" && jobMap.has(key)) {
+          return jobMap.get(key);
+        }
+      }
+      return jobs[index];
+    })();
+
     if (!job) {
       return;
     }
@@ -283,9 +292,19 @@ export const translateTextBulk = async (
     if (entry && typeof entry === "object") {
       const record = entry as Record<string, unknown>;
       const text =
-        record.translatedText ?? record.translation ?? record.text ?? record.value ?? record.result;
+        record.translatedText ??
+        record.translation ??
+        record.text ??
+        record.value ??
+        record.result ??
+        record.errorMessage;
       if (typeof text === "string") {
         resultMap.set(job.id, { text });
+        return;
+      }
+
+      if ("error" in record || "errorMessage" in record) {
+        resultMap.set(job.id, { text: "" });
       }
     }
   });
