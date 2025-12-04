@@ -66,8 +66,9 @@ const noop = () => undefined;
 const SUPPORTED_LANGUAGES = new Set<string>(SUPPORTED_LOCALES);
 const FALLBACK_LANGUAGE = DEFAULT_LOCALE;
 const STORAGE_KEY = "community:autoTranslate";
-const MAX_BATCH_SIZE = 5;
+const MAX_BATCH_SIZE = 2;
 const MAX_CONCURRENT_REQUESTS = 2;
+const MAX_MESSAGES_PER_ROOM = 30; // only auto-translate most recent messages
 const QUEUE_FLUSH_DELAY_MS = 25;
 const DEFAULT_TRANSLATION_ENDPOINT = "https://headless.bitcoinsquare.io/api/translate/bulk";
 
@@ -223,6 +224,7 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
   const entriesRef = useRef(entries);
   const controllersRef = useRef(new Map<string, AbortController>());
   const queueRef = useRef<TranslationJob[]>([]);
+  const roomQueueRef = useRef<Map<string, string[]>>(new Map());
   const activeCountRef = useRef(0);
   const processQueueRef = useRef<() => void>(() => {});
   const processTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -237,6 +239,7 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
     setEntries(new Map());
     setTranslationMapState(new Map());
     queueRef.current = [];
+    roomQueueRef.current = new Map();
     activeCountRef.current = 0;
     if (processTimerRef.current) {
       clearTimeout(processTimerRef.current);
@@ -563,6 +566,50 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
               error: undefined,
             });
           });
+          return;
+        }
+
+        const pruneRoomQueue = (roomIdToTrim: string, currentKey: string): boolean => {
+          const existing = roomQueueRef.current.get(roomIdToTrim) ?? [];
+          const deduped = existing.filter((value) => value !== currentKey);
+          deduped.push(currentKey);
+
+          const pruned = deduped.slice(-MAX_MESSAGES_PER_ROOM);
+          const removedKeys = deduped.slice(0, Math.max(0, deduped.length - pruned.length));
+
+          roomQueueRef.current.set(roomIdToTrim, pruned);
+
+          if (removedKeys.length > 0) {
+            const allowedKeys = new Set(pruned);
+
+            queueRef.current = queueRef.current.filter((job) => {
+              if (job.roomId !== roomIdToTrim) {
+                return true;
+              }
+              if (allowedKeys.has(job.key)) {
+                return true;
+              }
+
+              const controller = controllersRef.current.get(job.key);
+              if (controller) {
+                controller.abort();
+                controllersRef.current.delete(job.key);
+              }
+
+              return false;
+            });
+
+            mutateEntries((map) => {
+              removedKeys.forEach((removedKey) => {
+                map.delete(removedKey);
+              });
+            });
+          }
+
+          return pruned.includes(currentKey);
+        };
+
+        if (!pruneRoomQueue(roomId, key)) {
           return;
         }
 
