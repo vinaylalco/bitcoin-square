@@ -19,6 +19,8 @@ export interface TranslateTextResult {
 }
 
 const DEFAULT_ENDPOINT = "/api/translate";
+const DEFAULT_BULK_TRANSLATE_ENDPOINT =
+  "https://headless.bitcoinsquare.io/api/translate/bulk";
 
 const resolveEndpoint = () =>
   (typeof import.meta !== "undefined" &&
@@ -26,6 +28,20 @@ const resolveEndpoint = () =>
   DEFAULT_ENDPOINT;
 
 const resolveBulkEndpoint = (endpoint: string) => {
+  const bulkEndpoint =
+    typeof import.meta !== "undefined"
+      ? import.meta.env?.VITE_BULK_TRANSLATE_API_URL ??
+        import.meta.env?.VITE_COMMUNITY_TRANSLATE_API_URL
+      : undefined;
+
+  if (bulkEndpoint && typeof bulkEndpoint === "string" && bulkEndpoint.trim().length > 0) {
+    return bulkEndpoint.trim();
+  }
+
+  if (DEFAULT_BULK_TRANSLATE_ENDPOINT) {
+    return DEFAULT_BULK_TRANSLATE_ENDPOINT;
+  }
+
   if (endpoint.endsWith("/bulk")) {
     return endpoint;
   }
