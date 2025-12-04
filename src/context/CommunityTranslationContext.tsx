@@ -8,6 +8,7 @@ import React, {
   useState,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { useToast } from "../context/ToastContext";
 import { getBrowserLanguageTag } from "../utils/browserLanguage";
 import { DEFAULT_LOCALE, normalizeLocale, SUPPORTED_LOCALES } from "../utils/locale";
 import {
@@ -129,6 +130,7 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
 }) => {
   const { i18n } = useTranslation();
   const isSupported = typeof fetch === "function" && typeof AbortController === "function";
+  const { showToast } = useToast();
 
   const resolveLanguagePreference = useCallback(
     (language: string): string => {
@@ -286,6 +288,9 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
       items: batch.map((job) => ({ key: job.key, text: job.originalText })),
     };
 
+    const endpoint = resolveTranslationEndpoint();
+    const items = body.items;
+
     const signal = batch[0]?.controller.signal;
     const jobsByKey = new Map(batch.map((job) => [job.key, job]));
 
@@ -296,7 +301,7 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
         throw new DOMException("Aborted", "AbortError");
       }
 
-      const response = await fetch(resolveTranslationEndpoint(), {
+      const response = await fetch(endpoint, {
         method: "POST",
         mode: "cors",
         headers: {
@@ -308,6 +313,27 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
       });
 
       if (!response.ok) {
+        let serverError: unknown = null;
+        try {
+          serverError = await response.json();
+        } catch {
+          serverError = null;
+        }
+
+        console.error("translate bulk request failed", {
+          endpoint,
+          status: response.status,
+          statusText: response.statusText,
+          itemCount: items.length,
+          serverError,
+        });
+
+        const message =
+          typeof (serverError as any)?.error?.message === "string"
+            ? `Translation error: ${(serverError as any).error.message}`
+            : "Automatic translation is temporarily unavailable. We’ll keep retrying in the background.";
+        showToast(message, { tone: "warning" });
+
         throw new Error(response.statusText || "Translation request failed");
       }
 
@@ -424,8 +450,22 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
           return;
         }
 
+        console.error("translate bulk job error", {
+          key: job.key,
+          roomId: job.roomId,
+          retries: job.retries,
+          targetLanguage,
+          endpoint,
+          errorMessage: error instanceof Error ? error.message : String(error),
+        });
+
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : "Translation request failed. Please try again later.";
+        showToast(`Translation failed: ${errorMessage}`, { tone: "warning" });
+
         mutateEntries((map) => {
-          console.error("translate bulk job error", { key: job.key, error });
           map.set(job.key, {
             status: "error",
             originalText: job.originalText,
@@ -448,7 +488,7 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
       activeCountRef.current = Math.max(0, activeCountRef.current - 1);
       scheduleProcessQueue();
     }
-  }, [mutateEntries, scheduleProcessQueue, targetLanguage]);
+  }, [mutateEntries, scheduleProcessQueue, showToast, targetLanguage]);
 
   useEffect(() => {
     processQueueRef.current = processQueue;
