@@ -66,8 +66,8 @@ const noop = () => undefined;
 const SUPPORTED_LANGUAGES = new Set<string>(SUPPORTED_LOCALES);
 const FALLBACK_LANGUAGE = DEFAULT_LOCALE;
 const STORAGE_KEY = "community:autoTranslate";
-const MAX_BATCH_SIZE = 20;
-const MAX_CONCURRENT_REQUESTS = 4;
+const MAX_BATCH_SIZE = 5;
+const MAX_CONCURRENT_REQUESTS = 2;
 const QUEUE_FLUSH_DELAY_MS = 25;
 const DEFAULT_TRANSLATION_ENDPOINT = "https://headless.bitcoinsquare.io/api/translate/bulk";
 
