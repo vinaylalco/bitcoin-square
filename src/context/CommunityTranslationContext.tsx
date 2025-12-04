@@ -12,8 +12,10 @@ import { getBrowserLanguageTag } from "../utils/browserLanguage";
 import { DEFAULT_LOCALE, normalizeLocale, SUPPORTED_LOCALES } from "../utils/locale";
 import {
   getCachedTranslation,
+  setCachedTranslation,
   type CachedTranslation,
 } from "../utils/translationCache";
+import { translateTextBulk } from "../utils/translationService";
 
 type TranslationStatus = "idle" | "loading" | "ready" | "success" | "error";
 
@@ -39,13 +41,6 @@ interface TranslationJob {
   originalText: string;
   controller: AbortController;
   retries: number;
-}
-
-interface TranslationQueueJob {
-  eventId: string;
-  text: string;
-  sourceLang?: string;
-  targetLang: string;
 }
 
 export interface CommunityTranslationContextValue {
@@ -77,42 +72,8 @@ const MAX_BATCH_SIZE = 2;
 const MAX_CONCURRENT_REQUESTS = 2;
 const MAX_MESSAGES_PER_ROOM = 30; // only auto-translate most recent messages
 const QUEUE_FLUSH_DELAY_MS = 25;
-const TRANSLATION_QUEUE_ENDPOINT =
-  "https://headless.bitcoinsquare.io/api/community/translations/queue";
 const TRANSLATION_READ_ENDPOINT =
   "https://headless.bitcoinsquare.io/api/community/translations";
-
-const enqueueTranslationJobs = async (
-  jobs: TranslationQueueJob[],
-  signal?: AbortSignal,
-): Promise<void> => {
-  if (jobs.length === 0) {
-    return;
-  }
-
-  try {
-    const response = await fetch(TRANSLATION_QUEUE_ENDPOINT, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jobs }),
-      signal,
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => "");
-      console.error("translation queue request failed", {
-        status: response.status,
-        statusText: response.statusText,
-        errorText,
-      });
-    }
-  } catch (error) {
-    if (signal?.aborted) {
-      return;
-    }
-    console.error("translation queue request failed", error);
-  }
-};
 
 const normalizeLanguageCode = (value?: string | null): string | null => normalizeLocale(value) ?? null;
 
@@ -333,11 +294,12 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
     activeCountRef.current += 1;
 
     const signal = batch[0]?.controller.signal;
-    const queueJobs: TranslationQueueJob[] = batch.map((job) => ({
-      eventId: job.eventId,
+    const bulkJobs = batch.map((job) => ({
+      id: job.key,
       text: job.originalText,
-      sourceLang: normalizeLanguageCode(i18n.language) ?? undefined,
-      targetLang: targetLanguage,
+      sourceLanguage: normalizeLanguageCode(i18n.language) ?? undefined,
+      targetLanguage,
+      signal,
     }));
 
     scheduleProcessQueue();
@@ -347,7 +309,62 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
         throw new DOMException("Aborted", "AbortError");
       }
 
-      await enqueueTranslationJobs(queueJobs, signal);
+      const translations = await translateTextBulk(bulkJobs);
+
+      const handledKeys = new Set<string>();
+
+      batch.forEach((job) => {
+        const result = translations.get(job.key);
+        if (!result) {
+          return;
+        }
+
+        handledKeys.add(job.key);
+
+        mutateEntries((map) => {
+          map.set(job.key, {
+            status: "success",
+            originalText: job.originalText,
+            translatedText: result.text,
+            detectedLanguage: result.detectedLanguage,
+            provider: result.provider,
+            error: undefined,
+          });
+        });
+
+        void setCachedTranslation(job.roomId, job.key, targetLanguage, {
+          translatedText: result.text,
+          detectedLanguage: result.detectedLanguage,
+          provider: result.provider,
+        }).catch((cacheError) => {
+          console.warn("Unable to cache translation", cacheError);
+        });
+      });
+
+      batch.forEach((job) => {
+        if (handledKeys.has(job.key)) {
+          return;
+        }
+
+        if (job.retries < 3) {
+          const retryController = new AbortController();
+          controllersRef.current.set(job.key, retryController);
+          queueRef.current.push({
+            ...job,
+            retries: job.retries + 1,
+            controller: retryController,
+          });
+          return;
+        }
+
+        console.error("translation bulk job error", {
+          key: job.key,
+          roomId: job.roomId,
+          retries: job.retries,
+          targetLanguage,
+          errorMessage: "Missing translation result from bulk request",
+        });
+      });
     } catch (error: unknown) {
       if (signal?.aborted) {
         return;
@@ -365,7 +382,7 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
           return;
         }
 
-        console.error("translation queue job error", {
+        console.error("translation bulk job error", {
           key: job.key,
           roomId: job.roomId,
           retries: job.retries,
