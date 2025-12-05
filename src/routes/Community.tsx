@@ -2280,12 +2280,12 @@ const CommunityView: React.FC = () => {
     [typingPubkeys, pubkey, resolveProfileSummary],
   );
   const membersHeading = isCasualView
-    ? "Chat members"
+    ? t("community.sidebar.membersHeading.chat", { defaultValue: "Chat members" })
     : isPublicFeedView
-      ? "Forum members"
+      ? t("community.sidebar.membersHeading.forum", { defaultValue: "Forum members" })
       : isPersonalFeedView
-        ? "Your Feed members"
-        : "Community members";
+        ? t("community.sidebar.membersHeading.personal", { defaultValue: "Your Feed members" })
+        : t("community.sidebar.membersHeading.default", { defaultValue: "Community members" });
   const hasFollowingMembers = followingMemberEntries.length > 0;
   const hasOtherOnlineMembers = otherOnlineMemberEntries.length > 0;
   const visibleFollowingCount = displayedFollowingMembers.length;
@@ -2294,20 +2294,24 @@ const CommunityView: React.FC = () => {
   const memberListContent =
     !currentMemberEntry && !hasFollowingMembers && !hasOtherOnlineMembers ? (
       <p className="rounded-2xl bg-[var(--bg-card)]/70 p-4 text-xs text-[var(--fg-muted)] shadow-sm">
-        We&apos;ll show members here as soon as there&apos;s activity.
+        {t("community.sidebar.membersEmpty", {
+          defaultValue: "We\'ll show members here as soon as there\'s activity.",
+        })}
       </p>
     ) : (
       <div className="space-y-6">
         {currentMemberEntry && (
           <div>
-            <h3 className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[var(--fg-muted)]">You</h3>
+            <h3 className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[var(--fg-muted)]">
+              {t("community.sidebar.currentUserLabel", { defaultValue: "You" })}
+            </h3>
             <div className="mt-3 space-y-3">{renderMemberRow(currentMemberEntry)}</div>
           </div>
         )}
         <div>
           <div className="flex items-center justify-between gap-3">
             <h3 className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[var(--fg-muted)]">
-              People you follow
+              {t("community.sidebar.followingHeading", { defaultValue: "People you follow" })}
             </h3>
             {hasFollowingMembers && (
               <span className="text-[9px] uppercase tracking-[0.24em] text-[var(--fg-muted)]">
@@ -2319,14 +2323,16 @@ const CommunityView: React.FC = () => {
             <div className="mt-3 space-y-3">{displayedFollowingMembers.map((member) => renderMemberRow(member))}</div>
           ) : (
             <p className="mt-3 rounded-2xl bg-[var(--bg-card)]/70 p-4 text-xs text-[var(--fg-muted)] shadow-sm">
-              Follow community members to see them here.
+              {t("community.sidebar.followingEmpty", {
+                defaultValue: "Follow community members to see them here.",
+              })}
             </p>
           )}
         </div>
         <div>
           <div className="flex items-center justify-between gap-3">
             <h3 className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[var(--fg-muted)]">
-              Other online users
+              {t("community.sidebar.otherOnlineHeading", { defaultValue: "Other online users" })}
             </h3>
             {hasOtherOnlineMembers && (
               <span className="text-[9px] uppercase tracking-[0.24em] text-[var(--fg-muted)]">
@@ -2338,13 +2344,15 @@ const CommunityView: React.FC = () => {
             <div className="mt-3 space-y-3">{displayedOtherOnlineMembers.map((member) => renderMemberRow(member))}</div>
           ) : (
             <p className="mt-3 rounded-2xl bg-[var(--bg-card)]/70 p-4 text-xs text-[var(--fg-muted)] shadow-sm">
-              No one else is online right now.
+              {t("community.sidebar.otherOnlineEmpty", {
+                defaultValue: "No one else is online right now.",
+              })}
             </p>
           )}
         </div>
         {hasMoreMembers && (
           <div className="text-center text-[9px] uppercase tracking-[0.3em] text-[var(--fg-muted)]">
-            Scroll to load more people
+            {t("community.sidebar.loadMore", { defaultValue: "Scroll to load more people" })}
           </div>
         )}
       </div>

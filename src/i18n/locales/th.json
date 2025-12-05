@@ -25,7 +25,20 @@
   "community": {
     "sidebar": {
       "primaryNavigation": "เรียกดู",
-      "messagesNavigation": "ข้อความ"
+      "messagesNavigation": "ข้อความ",
+      "membersHeading": {
+        "chat": "สมาชิกห้องแชท",
+        "forum": "สมาชิกฟอรัม",
+        "personal": "สมาชิกในฟีดของคุณ",
+        "default": "สมาชิกชุมชน"
+      },
+      "membersEmpty": "จะแสดงรายชื่อสมาชิกที่นี่ทันทีที่มีความเคลื่อนไหว",
+      "currentUserLabel": "คุณ",
+      "followingHeading": "คนที่คุณติดตาม",
+      "followingEmpty": "ติดตามสมาชิกชุมชนเพื่อดูรายชื่อที่นี่",
+      "otherOnlineHeading": "ผู้ใช้ออนไลน์คนอื่น",
+      "otherOnlineEmpty": "ขณะนี้ไม่มีใครออนไลน์",
+      "loadMore": "เลื่อนเพื่อโหลดผู้ใช้เพิ่มเติม"
     },
     "tabs": {
       "chat": "Chat",

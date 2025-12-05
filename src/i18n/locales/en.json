@@ -26,7 +26,20 @@
   "community": {
     "sidebar": {
       "primaryNavigation": "Browse",
-      "messagesNavigation": "Messages"
+      "messagesNavigation": "Messages",
+      "membersHeading": {
+        "chat": "Chat members",
+        "forum": "Forum members",
+        "personal": "Your Feed members",
+        "default": "Community members"
+      },
+      "membersEmpty": "We'll show members here as soon as there's activity.",
+      "currentUserLabel": "You",
+      "followingHeading": "People you follow",
+      "followingEmpty": "Follow community members to see them here.",
+      "otherOnlineHeading": "Other online users",
+      "otherOnlineEmpty": "No one else is online right now.",
+      "loadMore": "Scroll to load more people"
     },
     "tabs": {
       "chat": "Chat",
