@@ -1854,6 +1854,7 @@ const CommunityView: React.FC = () => {
         ensureTranslation(`chat:${message.id}`, message.markdown, {
           roomId,
           eventId: message.id,
+          sourceLanguage: languageTag,
         });
       }
     });
