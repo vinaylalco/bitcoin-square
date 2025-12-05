@@ -72,9 +72,6 @@ const MAX_BATCH_SIZE = 2;
 const MAX_CONCURRENT_REQUESTS = 2;
 const MAX_MESSAGES_PER_ROOM = 30; // only auto-translate most recent messages
 const QUEUE_FLUSH_DELAY_MS = 25;
-const TRANSLATION_READ_ENDPOINT =
-  "https://headless.bitcoinsquare.io/api/community/translations";
-
 const normalizeLanguageCode = (value?: string | null): string | null => normalizeLocale(value) ?? null;
 
 const resolveTargetLanguage = (): string => {
@@ -299,6 +296,8 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
       text: job.originalText,
       sourceLanguage: normalizeLanguageCode(i18n.language) ?? undefined,
       targetLanguage,
+      roomId: job.roomId,
+      eventId: job.eventId,
       signal,
     }));
 
@@ -437,91 +436,11 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
     processQueueRef.current = processQueue;
   }, [processQueue]);
 
-  const readRoomTranslations = useCallback(
-    async (roomId: string) => {
-      const roomKeys = roomQueueRef.current.get(roomId);
-      if (!roomKeys || roomKeys.length === 0) {
-        return;
-      }
-
-      const eventIdToKey = new Map<string, string>();
-      roomKeys.forEach((key) => {
-        const eventId = translationMapState.get(key) ?? key;
-        if (eventId) {
-          eventIdToKey.set(eventId, key);
-        }
-      });
-
-      if (eventIdToKey.size === 0) {
-        return;
-      }
-
-      const params = new URLSearchParams();
-      params.set("lang", targetLanguage);
-      eventIdToKey.forEach((_key, eventId) => {
-        params.append("eventIds[]", eventId);
-      });
-
-      try {
-        const res = await fetch(`${TRANSLATION_READ_ENDPOINT}?${params.toString()}`);
-        if (!res.ok) {
-          console.error("translation read request failed", {
-            status: res.status,
-            statusText: res.statusText,
-          });
-          return;
-        }
-
-        const json = await res.json();
-        const payload = Array.isArray(json?.data)
-          ? json.data
-          : Array.isArray(json)
-            ? json
-            : [];
-
-        if (!Array.isArray(payload)) {
-          return;
-        }
-
-        payload.forEach((item: { eventId?: string; translatedText?: string; attributes?: unknown }) => {
-          const candidate =
-            item && typeof item === "object" && "attributes" in item && item.attributes
-              ? (item as { attributes: { eventId?: string; translatedText?: string } }).attributes
-              : item;
-          const eventId = (candidate as { eventId?: string }).eventId;
-          const translatedText = (candidate as { translatedText?: string }).translatedText;
-
-          if (!eventId || typeof translatedText !== "string") {
-            return;
-          }
-
-          const translationKey = eventIdToKey.get(eventId);
-          if (!translationKey) {
-            return;
-          }
-
-          mutateEntries((map) => {
-            const existing = map.get(translationKey);
-            if (!existing) {
-              return;
-            }
-
-            map.set(translationKey, {
-              status: "success",
-              originalText: existing.originalText,
-              translatedText,
-              detectedLanguage: existing.detectedLanguage,
-              provider: existing.provider,
-              error: undefined,
-            });
-          });
-        });
-      } catch (error) {
-        console.error("translation read request failed", error);
-      }
-    },
-    [mutateEntries, targetLanguage, translationMapState],
-  );
+  const readRoomTranslations = useCallback(async (_roomId: string) => {
+    // The community translation read endpoint is currently disabled.
+    // This placeholder keeps the public API stable without issuing read requests.
+    return Promise.resolve();
+  }, []);
 
   const ensureTranslation = useCallback(
     (key: string, text: string, options?: RequestOptions) => {
