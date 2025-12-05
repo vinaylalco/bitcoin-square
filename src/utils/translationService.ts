@@ -9,6 +9,8 @@ interface TranslateTextBulkParams {
   text: string;
   targetLanguage: string;
   sourceLanguage?: string;
+  roomId?: string;
+  eventId?: string;
   signal?: AbortSignal;
 }
 
@@ -138,44 +140,18 @@ export const translateText = async ({
     return { text: "" };
   }
 
-  const endpoint = resolveEndpoint();
-  const apiKey =
-    typeof import.meta !== "undefined" ? import.meta.env?.VITE_TRANSLATION_API_KEY : undefined;
+  const jobs = [
+    {
+      id: "single",
+      text: trimmed,
+      targetLanguage,
+      signal,
+    },
+  ];
 
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
+  const resultMap = await translateTextBulk(jobs);
+  const result = resultMap.get("single");
 
-  if (typeof apiKey === "string" && apiKey.trim().length > 0) {
-    headers.Authorization = `Bearer ${apiKey}`;
-  }
-
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      q: trimmed,
-      source: "auto",
-      target: targetLanguage,
-      format: "text",
-    }),
-    signal,
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => "");
-    throw new Error(
-      errorText && errorText.trim().length > 0
-        ? errorText
-        : `Translation request failed with status ${response.status}`,
-    );
-  }
-
-  const payload = await response.json().catch((error: unknown) => {
-    throw new Error(`Unable to parse translation response: ${String(error)}`);
-  });
-
-  const result = extractTranslation(payload);
   if (!result) {
     throw new Error("Translation service returned an unexpected response structure.");
   }
@@ -206,7 +182,13 @@ export const translateTextBulk = async (
 
   const body = {
     targetLanguage: jobs[0]?.targetLanguage,
-    items: jobs.map((job) => ({ key: job.id, text: job.text })),
+    items: jobs.map((job) => ({
+      key: job.id,
+      text: job.text,
+      sourceLanguage: job.sourceLanguage,
+      roomId: job.roomId,
+      eventId: job.eventId,
+    })),
   };
 
   const response = await fetch(endpoint, {
