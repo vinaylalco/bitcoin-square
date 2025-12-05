@@ -24,6 +24,10 @@
     "minerQuotation": "Cotización minera"
   },
   "community": {
+    "sidebar": {
+      "primaryNavigation": "Explorar",
+      "messagesNavigation": "Mensajes"
+    },
     "tabs": {
       "chat": "Chat",
       "forum": "Foro",

@@ -1,4 +1,18 @@
-import { normalizeLocale } from "./locale";
+const sanitizeLanguageTag = (value?: string | null): string | null => {
+  if (!value || typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim().toLowerCase().replace(/_/g, "-");
+  if (!normalized) return null;
+
+  const [base] = normalized.split("-");
+  if (!base || base.trim().length === 0) {
+    return null;
+  }
+
+  return base;
+};
 
 export const extractLanguageTag = (tags?: string[][] | null): string | null => {
   if (!Array.isArray(tags)) {
@@ -10,42 +24,19 @@ export const extractLanguageTag = (tags?: string[][] | null): string | null => {
     return null;
   }
 
-  return normalizeLocale(entry[1]) ?? null;
+  return sanitizeLanguageTag(entry[1]);
 };
 
 const TRANSLATABLE_LANGUAGES = new Set(["en", "es", "ru", "id", "th"]);
-
-const normalizeTranslatableLanguage = (value?: string | null): string | undefined => {
-  if (!value || typeof value !== "string") {
-    return undefined;
-  }
-
-  const normalized = normalizeLocale(value);
-  if (normalized) {
-    return normalized;
-  }
-
-  const lower = value.trim().toLowerCase();
-  if (lower.startsWith("es")) return "es";
-  if (lower.startsWith("ru")) return "ru";
-  if (lower.startsWith("id")) return "id";
-  if (lower.startsWith("th")) return "th";
-  if (lower.startsWith("en")) return "en";
-  return undefined;
-};
 
 export const shouldTranslateForTargetLanguage = (
   originalLanguage: string | null | undefined,
   targetLanguage: string | null,
 ): boolean => {
-  const normalizedTarget = normalizeTranslatableLanguage(targetLanguage);
-  const normalizedOriginal = normalizeTranslatableLanguage(originalLanguage);
+  const normalizedTarget = sanitizeLanguageTag(targetLanguage);
+  const normalizedOriginal = sanitizeLanguageTag(originalLanguage);
 
   if (!normalizedTarget || !TRANSLATABLE_LANGUAGES.has(normalizedTarget)) {
-    return false;
-  }
-
-  if (!normalizedOriginal || !TRANSLATABLE_LANGUAGES.has(normalizedOriginal)) {
     return false;
   }
 

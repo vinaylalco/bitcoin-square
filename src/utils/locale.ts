@@ -7,7 +7,9 @@ export type AppLocale = (typeof SUPPORTED_LOCALES)[number];
 export const DEFAULT_LOCALE: AppLocale = "en";
 
 function sanitizeLocale(value: string): string {
-  return value.trim().toLowerCase().replace(/_/g, "-");
+  const normalized = value.trim().toLowerCase().replace(/_/g, "-");
+  const [base] = normalized.split("-");
+  return base ?? normalized;
 }
 
 export function normalizeLocale(value?: string | null): AppLocale | undefined {

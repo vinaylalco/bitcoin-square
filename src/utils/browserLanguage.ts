@@ -3,7 +3,14 @@ const UNKNOWN_LANGUAGE = "und";
 const normalizeLanguageTag = (value: string): string => {
   const trimmed = value.trim();
   if (!trimmed) return UNKNOWN_LANGUAGE;
-  return trimmed.toLowerCase();
+
+  const lowered = trimmed.toLowerCase();
+  const [base] = lowered.split("-");
+  if (!base || base.trim().length === 0) {
+    return UNKNOWN_LANGUAGE;
+  }
+
+  return base;
 };
 
 export const getBrowserLanguageTag = (): string => {

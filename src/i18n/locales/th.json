@@ -23,6 +23,10 @@
     "logout": "ออกจากระบบ"
   },
   "community": {
+    "sidebar": {
+      "primaryNavigation": "เรียกดู",
+      "messagesNavigation": "ข้อความ"
+    },
     "tabs": {
       "chat": "Chat",
       "forum": "Forum",
