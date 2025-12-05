@@ -8,7 +8,6 @@ import React, {
   useState,
 } from "react";
 import { useTranslation } from "react-i18next";
-import { getBrowserLanguageTag } from "../utils/browserLanguage";
 import { DEFAULT_LOCALE, normalizeLocale, SUPPORTED_LOCALES } from "../utils/locale";
 import {
   getCachedTranslation,
@@ -123,12 +122,6 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
   children,
 }) => {
   const { i18n } = useTranslation();
-  const browserLanguage = normalizeLanguageCode(getBrowserLanguageTag());
-  const isBrowserLanguageSupported =
-    browserLanguage !== null && SUPPORTED_LANGUAGES.has(browserLanguage);
-  const isSupported =
-    typeof fetch === "function" && typeof AbortController === "function" && isBrowserLanguageSupported;
-
   const resolveLanguagePreference = useCallback((): string | null => resolveTargetLanguage(), []);
 
   const [targetLanguage, setTargetLanguage] = useState<string | null>(() =>
@@ -141,6 +134,15 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
   useEffect(() => {
     setTargetLanguage(resolveLanguagePreference());
   }, [i18n.language, resolveLanguagePreference]);
+
+  const isSupported = useMemo(
+    () =>
+      typeof fetch === "function" &&
+      typeof AbortController === "function" &&
+      targetLanguage !== null &&
+      SUPPORTED_LANGUAGES.has(targetLanguage),
+    [targetLanguage],
+  );
 
   useEffect(() => {
     setFormatter(targetLanguage ? createLanguageFormatter(targetLanguage) : null);
