@@ -23,6 +23,10 @@
     "logout": "Keluar"
   },
   "community": {
+    "sidebar": {
+      "primaryNavigation": "Jelajahi",
+      "messagesNavigation": "Pesan"
+    },
     "tabs": {
       "chat": "Chat",
       "forum": "Forum",

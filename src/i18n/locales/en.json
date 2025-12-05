@@ -24,6 +24,10 @@
     "minerQuotation": "Miner Quote"
   },
   "community": {
+    "sidebar": {
+      "primaryNavigation": "Browse",
+      "messagesNavigation": "Messages"
+    },
     "tabs": {
       "chat": "Chat",
       "forum": "Forum",
