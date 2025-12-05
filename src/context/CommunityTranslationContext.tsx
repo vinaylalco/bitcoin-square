@@ -364,6 +364,18 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
           targetLanguage,
           errorMessage: "Missing translation result from bulk request",
         });
+
+        mutateEntries((map) => {
+          const existing = map.get(job.key);
+          map.set(job.key, {
+            status: "error",
+            originalText: job.originalText,
+            translatedText: existing?.translatedText,
+            detectedLanguage: existing?.detectedLanguage,
+            provider: existing?.provider,
+            error: "Missing translation result from bulk request",
+          });
+        });
       });
     } catch (error: unknown) {
       if (signal?.aborted) {
@@ -388,6 +400,18 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
           retries: job.retries,
           targetLanguage,
           errorMessage: error instanceof Error ? error.message : String(error),
+        });
+
+        mutateEntries((map) => {
+          const existing = map.get(job.key);
+          map.set(job.key, {
+            status: "error",
+            originalText: job.originalText,
+            translatedText: existing?.translatedText,
+            detectedLanguage: existing?.detectedLanguage,
+            provider: existing?.provider,
+            error: error instanceof Error ? error.message : String(error),
+          });
         });
       });
 

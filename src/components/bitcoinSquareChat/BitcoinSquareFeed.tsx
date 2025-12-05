@@ -320,8 +320,10 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     toggleOriginal,
     formatLanguageName,
     targetLanguage,
+    readRoomTranslations,
   } = useCommunityTranslation();
   const translationEnabled = translationSupported && autoTranslateEnabled;
+  const forumRoomId = "forum";
   const feedRoom = useMemo<RoomDefinition>(
     () => ({
       id: CASUAL_ROOM_ID,
@@ -551,10 +553,33 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     posts.forEach((post) => {
       const languageTag = extractLanguageTag(post.tags);
       if (shouldTranslateForTargetLanguage(languageTag, targetLanguage)) {
-        ensureTranslation(`feed:${post.id}`, post.content);
+        ensureTranslation(`feed:${post.id}`, post.content, {
+          roomId: forumRoomId,
+          eventId: post.id,
+        });
       }
     });
-  }, [ensureTranslation, posts, targetLanguage, translationEnabled]);
+  }, [ensureTranslation, forumRoomId, posts, targetLanguage, translationEnabled]);
+
+  useEffect(() => {
+    if (!translationEnabled) {
+      return;
+    }
+
+    void readRoomTranslations(forumRoomId);
+
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      void readRoomTranslations(forumRoomId);
+    }, 7000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [forumRoomId, readRoomTranslations, targetLanguage, translationEnabled]);
 
   useEffect(() => {
     if (!openPostMenuId) {
