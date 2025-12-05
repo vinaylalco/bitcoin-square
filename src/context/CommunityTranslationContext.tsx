@@ -15,6 +15,7 @@ import {
   type CachedTranslation,
 } from "../utils/translationCache";
 import { translateTextBulk } from "../utils/translationService";
+import { getBrowserLanguageTag } from "../utils/browserLanguage";
 
 type TranslationStatus = "idle" | "loading" | "ready" | "success" | "error";
 
