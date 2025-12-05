@@ -8,7 +8,6 @@ import React, {
   useState,
 } from "react";
 import { useTranslation } from "react-i18next";
-import { getBrowserLanguageTag } from "../utils/browserLanguage";
 import { DEFAULT_LOCALE, normalizeLocale, SUPPORTED_LOCALES } from "../utils/locale";
 import {
   getCachedTranslation,
@@ -56,7 +55,7 @@ export interface CommunityTranslationContextValue {
   getTranslation: (key: string) => TranslationEntry | undefined;
   isOriginalVisible: (key: string) => boolean;
   toggleOriginal: (key: string) => void;
-  targetLanguage: string;
+  targetLanguage: string | null;
   targetLanguageLabel: string;
   formatLanguageName: (code?: string | null) => string;
   translationMap: Map<string, string>;
@@ -74,13 +73,13 @@ const MAX_MESSAGES_PER_ROOM = 30; // only auto-translate most recent messages
 const QUEUE_FLUSH_DELAY_MS = 25;
 const normalizeLanguageCode = (value?: string | null): string | null => normalizeLocale(value) ?? null;
 
-const resolveTargetLanguage = (): string => {
+const resolveTargetLanguage = (): string | null => {
   const browserTag = getBrowserLanguageTag();
   const normalized = normalizeLanguageCode(browserTag);
   if (normalized && SUPPORTED_LANGUAGES.has(normalized)) {
     return normalized;
   }
-  return FALLBACK_LANGUAGE;
+  return null;
 };
 
 const createLanguageFormatter = (locale: string): Intl.DisplayNames | null => {
@@ -108,8 +107,8 @@ const defaultContextValue: CommunityTranslationContextValue = {
   getTranslation: () => undefined,
   isOriginalVisible: () => true,
   toggleOriginal: noop,
-  targetLanguage: FALLBACK_LANGUAGE,
-  targetLanguageLabel: "English",
+  targetLanguage: null,
+  targetLanguageLabel: "Original",
   formatLanguageName: (code?: string | null) => (code ? code.toString() : ""),
   translationMap: new Map(),
   readRoomTranslations: async () => {},
@@ -123,32 +122,30 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
   children,
 }) => {
   const { i18n } = useTranslation();
-  const isSupported = typeof fetch === "function" && typeof AbortController === "function";
+  const resolveLanguagePreference = useCallback((): string | null => resolveTargetLanguage(), []);
 
-  const resolveLanguagePreference = useCallback(
-    (language: string): string => {
-      const normalized = normalizeLanguageCode(language);
-      if (normalized && SUPPORTED_LANGUAGES.has(normalized)) {
-        return normalized;
-      }
-      return resolveTargetLanguage();
-    },
-    [],
-  );
-
-  const [targetLanguage, setTargetLanguage] = useState<string>(() =>
-    resolveLanguagePreference(i18n.language),
+  const [targetLanguage, setTargetLanguage] = useState<string | null>(() =>
+    resolveLanguagePreference(),
   );
   const [formatter, setFormatter] = useState<Intl.DisplayNames | null>(() =>
-    createLanguageFormatter(targetLanguage),
+    targetLanguage ? createLanguageFormatter(targetLanguage) : null,
   );
 
   useEffect(() => {
-    setTargetLanguage(resolveLanguagePreference(i18n.language));
+    setTargetLanguage(resolveLanguagePreference());
   }, [i18n.language, resolveLanguagePreference]);
 
+  const isSupported = useMemo(
+    () =>
+      typeof fetch === "function" &&
+      typeof AbortController === "function" &&
+      targetLanguage !== null &&
+      SUPPORTED_LANGUAGES.has(targetLanguage),
+    [targetLanguage],
+  );
+
   useEffect(() => {
-    setFormatter(createLanguageFormatter(targetLanguage));
+    setFormatter(targetLanguage ? createLanguageFormatter(targetLanguage) : null);
   }, [targetLanguage]);
 
   const formatLanguageName = useCallback(
@@ -173,6 +170,9 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
   );
 
   const targetLanguageLabel = useMemo(() => {
+    if (!targetLanguage) {
+      return "Original";
+    }
     const formatted = formatLanguageName(targetLanguage);
     if (formatted && formatted.trim().length > 0) {
       return formatted;
@@ -275,6 +275,10 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
   }, []);
 
   const processQueue = useCallback(async () => {
+    if (!targetLanguage) {
+      return;
+    }
+
     if (activeCountRef.current >= MAX_CONCURRENT_REQUESTS) {
       return;
     }
@@ -447,7 +451,7 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
       void (async () => {
         const originalText = typeof text === "string" ? text : "";
 
-        if ((!autoTranslateEnabled && !options?.force) || !isSupported) {
+        if (!targetLanguage || ((!autoTranslateEnabled && !options?.force) || !isSupported)) {
           return;
         }
 
