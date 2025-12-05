@@ -13,15 +13,21 @@ export const extractLanguageTag = (tags?: string[][] | null): string | null => {
   return normalizeLocale(entry[1]) ?? null;
 };
 
+const TRANSLATABLE_LANGUAGES = new Set(["en", "es", "ru", "id", "th"]);
+
 export const shouldTranslateForTargetLanguage = (
   originalLanguage: string | null | undefined,
-  targetLanguage: string,
+  targetLanguage: string | null,
 ): boolean => {
-  const normalizedTarget = normalizeLocale(targetLanguage) ?? targetLanguage;
+  const normalizedTarget = targetLanguage ? normalizeLocale(targetLanguage) : undefined;
   const normalizedOriginal = originalLanguage ? normalizeLocale(originalLanguage) : null;
 
-  if (!normalizedOriginal) {
-    return true;
+  if (!normalizedTarget || !TRANSLATABLE_LANGUAGES.has(normalizedTarget)) {
+    return false;
+  }
+
+  if (!normalizedOriginal || !TRANSLATABLE_LANGUAGES.has(normalizedOriginal)) {
+    return false;
   }
 
   return normalizedOriginal !== normalizedTarget;
