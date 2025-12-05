@@ -25,7 +25,20 @@
   "community": {
     "sidebar": {
       "primaryNavigation": "Обзор",
-      "messagesNavigation": "Сообщения"
+      "messagesNavigation": "Сообщения",
+      "membersHeading": {
+        "chat": "Участники чата",
+        "forum": "Участники форума",
+        "personal": "Участники вашей ленты",
+        "default": "Участники сообщества"
+      },
+      "membersEmpty": "Мы покажем участников здесь, как только появится активность.",
+      "currentUserLabel": "Вы",
+      "followingHeading": "Люди, которых вы читаете",
+      "followingEmpty": "Подпишитесь на участников сообщества, чтобы видеть их здесь.",
+      "otherOnlineHeading": "Другие пользователи онлайн",
+      "otherOnlineEmpty": "Сейчас никто больше не в сети.",
+      "loadMore": "Прокрутите, чтобы загрузить больше людей"
     },
     "tabs": {
       "chat": "Chat",

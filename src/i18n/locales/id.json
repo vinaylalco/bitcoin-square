@@ -25,15 +25,28 @@
   "community": {
     "sidebar": {
       "primaryNavigation": "Jelajahi",
-      "messagesNavigation": "Pesan"
+      "messagesNavigation": "Pesan",
+      "membersHeading": {
+        "chat": "Anggota obrolan",
+        "forum": "Anggota forum",
+        "personal": "Anggota feed Anda",
+        "default": "Anggota komunitas"
+      },
+      "membersEmpty": "Kami akan menampilkan anggota di sini begitu ada aktivitas.",
+      "currentUserLabel": "Anda",
+      "followingHeading": "Orang yang Anda ikuti",
+      "followingEmpty": "Ikuti anggota komunitas untuk melihat mereka di sini.",
+      "otherOnlineHeading": "Pengguna online lainnya",
+      "otherOnlineEmpty": "Tidak ada orang lain yang online saat ini.",
+      "loadMore": "Gulir untuk memuat lebih banyak orang"
     },
     "tabs": {
       "chat": "Chat",
       "forum": "Forum",
-      "personal": "Your Feed",
-      "notifications": "Notifications",
-      "messages": "Messages",
-      "members": "Members"
+      "personal": "Feed Anda",
+      "notifications": "Notifikasi",
+      "messages": "Pesan",
+      "members": "Anggota"
     }
   },
   "app": {

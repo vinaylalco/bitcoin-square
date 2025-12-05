@@ -6,7 +6,6 @@ import { searchUsersByScreenName, type ScreenNameUser } from "../../api/users";
 import { fallbackProfileAvatar, useProfileIdentity, shortenPubkey } from "../../context/ProfileIdentityContext";
 import type { ProfileSummary } from "../../context/ProfileIdentityContext";
 import { CASUAL_ROOM_ID, CASUAL_ROOM_NAME } from "../../hooks/useBitcoinSquareCasualChat";
-import { useCommunityTranslation } from "../../context/CommunityTranslationContext";
 import { useToast } from "../../context/ToastContext";
 import { useAuth } from "../../context/AuthContext";
 import ProfileCard from "../profile/ProfileCard";
@@ -35,7 +34,6 @@ import {
   persistPinnedEntries,
   type PinnedEntry,
 } from "../../utils/pinnedEntries";
-import { extractLanguageTag, shouldTranslateForTargetLanguage } from "../../utils/nostrLanguage";
 
 interface BitcoinSquareFeedProps {
   posts: FeedPost[];
@@ -310,20 +308,6 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
   const { showToast } = useToast();
   const { user } = useAuth();
   const canModerate = user?.isAdmin === true;
-  const {
-    isSupported: translationSupported,
-    autoTranslateEnabled,
-    ensureTranslation,
-    refreshTranslation,
-    getTranslation,
-    isOriginalVisible,
-    toggleOriginal,
-    formatLanguageName,
-    targetLanguage,
-    readRoomTranslations,
-  } = useCommunityTranslation();
-  const translationEnabled = translationSupported && autoTranslateEnabled;
-  const forumRoomId = "forum";
   const feedRoom = useMemo<RoomDefinition>(
     () => ({
       id: CASUAL_ROOM_ID,
@@ -547,40 +531,6 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
       requestProfile(pubkey).catch(() => undefined);
     });
   }, [posts, requestProfile]);
-
-  useEffect(() => {
-    if (!translationEnabled) return;
-    posts.forEach((post) => {
-      const languageTag = extractLanguageTag(post.tags);
-      if (shouldTranslateForTargetLanguage(languageTag, targetLanguage)) {
-        ensureTranslation(`feed:${post.id}`, post.content, {
-          roomId: forumRoomId,
-          eventId: post.id,
-          sourceLanguage: languageTag,
-        });
-      }
-    });
-  }, [ensureTranslation, forumRoomId, posts, targetLanguage, translationEnabled]);
-
-  useEffect(() => {
-    if (!translationEnabled) {
-      return;
-    }
-
-    void readRoomTranslations(forumRoomId);
-
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    const intervalId = window.setInterval(() => {
-      void readRoomTranslations(forumRoomId);
-    }, 7000);
-
-    return () => {
-      window.clearInterval(intervalId);
-    };
-  }, [forumRoomId, readRoomTranslations, targetLanguage, translationEnabled]);
 
   useEffect(() => {
     if (!openPostMenuId) {
@@ -1874,25 +1824,11 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         : post.status === "failed"
           ? post.error ?? "Delivery failed."
           : null;
-    const translationKey = `feed:${post.id}`;
-    const translationEntry = translationEnabled ? getTranslation(translationKey) : undefined;
-    const translationStatus = translationEntry?.status ?? "idle";
-    const trimmedTranslatedText = translationEntry?.translatedText?.trim();
-    const rawTranslatedText =
-      trimmedTranslatedText && trimmedTranslatedText.length > 0
-        ? trimmedTranslatedText
-        : null;
-    const translationReady = translationEnabled && translationStatus === "ready" && !!rawTranslatedText;
-    const showOriginal = !translationEnabled || !translationReady || isOriginalVisible(translationKey);
-    const contentSource = !showOriginal && rawTranslatedText ? rawTranslatedText : post.content;
+    const contentSource = post.content;
     const longPost = isLongPost(contentSource);
     const isThreadVariant = variant === "thread";
     const isExpanded = isThreadVariant || expandedPosts.has(post.id);
     const displayContent = isExpanded || !longPost ? contentSource : getCollapsedContent(contentSource);
-    const detectedLanguageLabel =
-      translationEntry?.detectedLanguage && translationEntry.detectedLanguage.trim().length > 0
-        ? formatLanguageName(translationEntry.detectedLanguage)
-        : null;
     const reference = extractPostReference(post.tags);
     const referencedId = reference?.id ?? null;
     const referencedPost = referencedId ? postsById.get(referencedId) : undefined;
@@ -1932,51 +1868,6 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
     const canEditPost = pubkey ? post.pubkey.toLowerCase() === pubkey.toLowerCase() : false;
     const relativeTimestampLabel = formatRelativeTime(post.created_at);
     const metaLeftItems: { key: string; content: React.ReactNode }[] = [];
-
-    if (translationEnabled) {
-      if (translationStatus === "loading") {
-        metaLeftItems.push({ key: "translation-status", content: "Translating…" });
-      } else if (translationStatus === "error") {
-        metaLeftItems.push({ key: "translation-status", content: "Translation unavailable" });
-        metaLeftItems.push({
-          key: "translation-retry",
-          content: (
-            <button
-              type="button"
-              className="community-card__meta-action"
-              onClick={(event) => {
-                event.stopPropagation();
-                refreshTranslation(translationKey, post.content);
-              }}
-            >
-              Retry
-            </button>
-          ),
-        });
-      } else if (translationReady) {
-        metaLeftItems.push({
-          key: "translation-status",
-          content: showOriginal
-            ? `Showing original${detectedLanguageLabel ? ` (${detectedLanguageLabel})` : ""}`
-            : `Translated from ${detectedLanguageLabel ?? "original language"}`,
-        });
-        metaLeftItems.push({
-          key: "translation-toggle",
-          content: (
-            <button
-              type="button"
-              className="community-card__meta-action"
-              onClick={(event) => {
-                event.stopPropagation();
-                toggleOriginal(translationKey);
-              }}
-            >
-              {showOriginal ? "View translation" : "View original"}
-            </button>
-          ),
-        });
-      }
-    }
 
     metaLeftItems.push({ key: "timestamp", content: relativeTimestampLabel });
 

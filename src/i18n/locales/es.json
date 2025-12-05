@@ -26,7 +26,20 @@
   "community": {
     "sidebar": {
       "primaryNavigation": "Explorar",
-      "messagesNavigation": "Mensajes"
+      "messagesNavigation": "Mensajes",
+      "membersHeading": {
+        "chat": "Miembros del chat",
+        "forum": "Miembros del foro",
+        "personal": "Miembros de tu feed",
+        "default": "Miembros de la comunidad"
+      },
+      "membersEmpty": "Mostraremos miembros aquí en cuanto haya actividad.",
+      "currentUserLabel": "Tú",
+      "followingHeading": "Personas que sigues",
+      "followingEmpty": "Sigue a miembros de la comunidad para verlos aquí.",
+      "otherOnlineHeading": "Otros usuarios en línea",
+      "otherOnlineEmpty": "Nadie más está en línea en este momento.",
+      "loadMore": "Desplázate para cargar más personas"
     },
     "tabs": {
       "chat": "Chat",
