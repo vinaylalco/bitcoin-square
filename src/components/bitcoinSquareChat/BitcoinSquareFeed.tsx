@@ -556,6 +556,7 @@ const BitcoinSquareFeed: React.FC<BitcoinSquareFeedProps> = ({
         ensureTranslation(`feed:${post.id}`, post.content, {
           roomId: forumRoomId,
           eventId: post.id,
+          sourceLanguage: languageTag,
         });
       }
     });

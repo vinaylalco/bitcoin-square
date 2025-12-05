@@ -23,6 +23,10 @@
     "logout": "Выход"
   },
   "community": {
+    "sidebar": {
+      "primaryNavigation": "Обзор",
+      "messagesNavigation": "Сообщения"
+    },
     "tabs": {
       "chat": "Chat",
       "forum": "Forum",

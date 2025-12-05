@@ -32,6 +32,7 @@ interface RequestOptions {
   force?: boolean;
   roomId?: string;
   eventId?: string;
+  sourceLanguage?: string | null;
 }
 
 interface TranslationJob {
@@ -39,6 +40,7 @@ interface TranslationJob {
   roomId: string;
   eventId: string;
   originalText: string;
+  sourceLanguage?: string | null;
   controller: AbortController;
   retries: number;
 }
@@ -52,7 +54,7 @@ export interface CommunityTranslationContextValue {
   autoTranslateEnabled: boolean;
   setAutoTranslateEnabled: (value: boolean) => void;
   ensureTranslation: (key: string, text: string, options?: RequestOptions) => void;
-  refreshTranslation: (key: string, text: string) => void;
+  refreshTranslation: (key: string, text: string, options?: RequestOptions) => void;
   getTranslation: (key: string) => TranslationEntry | undefined;
   isOriginalVisible: (key: string) => boolean;
   toggleOriginal: (key: string) => void;
@@ -299,7 +301,7 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
     const bulkJobs = batch.map((job) => ({
       id: job.key,
       text: job.originalText,
-      sourceLanguage: normalizeLanguageCode(i18n.language) ?? undefined,
+      sourceLanguage: normalizeLanguageCode(job.sourceLanguage ?? null) ?? undefined,
       targetLanguage,
       roomId: job.roomId,
       eventId: job.eventId,
@@ -451,6 +453,7 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
     (key: string, text: string, options?: RequestOptions) => {
       void (async () => {
         const originalText = typeof text === "string" ? text : "";
+        const sourceLanguage = normalizeLanguageCode(options?.sourceLanguage ?? null);
 
         if (!targetLanguage || ((!autoTranslateEnabled && !options?.force) || !isSupported)) {
           return;
@@ -603,6 +606,7 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
           roomId,
           eventId,
           originalText,
+          sourceLanguage,
           controller,
           retries: 0,
         });
@@ -620,7 +624,8 @@ export const CommunityTranslationProvider: React.FC<React.PropsWithChildren> = (
   );
 
   const refreshTranslation = useCallback(
-    (key: string, text: string) => ensureTranslation(key, text, { force: true }),
+    (key: string, text: string, options?: RequestOptions) =>
+      ensureTranslation(key, text, { ...options, force: true }),
     [ensureTranslation],
   );
 

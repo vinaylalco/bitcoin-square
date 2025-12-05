@@ -125,7 +125,10 @@ const DirectMessageRow: React.FC<DirectMessageRowProps> = ({
     }
     const entry = getTranslation(messageTranslationKey);
     if (!entry || entry.status === "idle" || entry.status === "error") {
-      ensureTranslation(messageTranslationKey, message.plaintext, { roomId: accountPubkey });
+      ensureTranslation(messageTranslationKey, message.plaintext, {
+        roomId: accountPubkey,
+        sourceLanguage: message.language ?? null,
+      });
     }
   }, [
     autoTranslateEnabled,
@@ -198,6 +201,7 @@ const DirectMessageRow: React.FC<DirectMessageRowProps> = ({
                   onClick={() =>
                     ensureTranslation(messageTranslationKey, message.plaintext, {
                       roomId: accountPubkey,
+                      sourceLanguage: message.language ?? null,
                       force: true,
                     })
                   }
@@ -230,6 +234,7 @@ const DirectMessageRow: React.FC<DirectMessageRowProps> = ({
                   onClick={() =>
                     ensureTranslation(messageTranslationKey, message.plaintext, {
                       roomId: accountPubkey,
+                      sourceLanguage: message.language ?? null,
                       force: true,
                     })
                   }
