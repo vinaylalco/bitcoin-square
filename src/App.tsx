@@ -93,6 +93,15 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get("ref");
+
+    if (ref) {
+      localStorage.setItem("tsq_ref", ref);
+    }
+  }, []);
+
+  useEffect(() => {
     setOpen(false);
     setMobileEducationOpen(false);
     setDesktopEducationOpen(false);

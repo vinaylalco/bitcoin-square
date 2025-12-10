@@ -34,6 +34,8 @@ import Messages from "./routes/Messages";
 import Membership from "./routes/Membership";
 import MembershipSuccess from "./routes/MembershipSuccess";
 import MembershipCancel from "./routes/MembershipCancel";
+import Affiliate from "./routes/Affiliate";
+import Admin from "./routes/Admin";
 import { ProfileIdentityProvider } from "./context/ProfileIdentityContext";
 import { DirectMessageProvider } from "./context/DirectMessageContext";
 import { ToastProvider } from "./context/ToastContext";
@@ -70,6 +72,8 @@ const router = createBrowserRouter([
       { path: "subscribe", element: <NewsletterSubscribe /> },
       { path: "membership", element: <Membership /> },
       { path: "memberships", element: <Membership /> },
+      { path: "affiliate", element: <Affiliate /> },
+      { path: "admin", element: <Admin /> },
       { path: "login", element: <Navigate to="/membership" replace /> },
       { path: "membership/success", element: <MembershipSuccess /> },
       { path: "membership/cancel", element: <MembershipCancel /> },
