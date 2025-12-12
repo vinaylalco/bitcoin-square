@@ -280,33 +280,7 @@ export default function App() {
                   </NavLink>
                 );
               })}
-              {isAdmin ? (
-                <>
-                  <NavLink
-                    to="/affiliate"
-                    className={({ isActive }) =>
-                      cn(
-                        "inline-flex items-center gap-2 py-2 transition text-[var(--fg-muted)] hover:text-brand",
-                        isActive && "text-brand",
-                      )
-                    }
-                  >
-                    Affiliate Program
-                  </NavLink>
-                  <NavLink
-                    to="/admin"
-                    className={({ isActive }) =>
-                      cn(
-                        "inline-flex items-center gap-2 py-2 transition text-[var(--fg-muted)] hover:text-brand",
-                        isActive && "text-brand",
-                      )
-                    }
-                  >
-                    Affiliate Admin
-                  </NavLink>
-                </>
-              ) : null}
-            </nav>
+          </nav>
 
             <div className="hidden items-center gap-3 lg:flex">
               {user ? (
