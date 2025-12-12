@@ -10,6 +10,8 @@ export default function Footer() {
   const location = useLocation();
   const { user } = useAuth();
 
+  const isAdmin = Boolean(user?.isAdmin);
+
   const isCommunityRoute = /^\/community(?:\/|$)/i.test(location.pathname);
 
   if (isCommunityRoute) {
@@ -42,6 +44,16 @@ export default function Footer() {
             <NavLink to="/miner-quotation" className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }>
               {t("nav.minerQuotation")}
             </NavLink>
+          ) : null}
+          {isAdmin ? (
+            <>
+              <NavLink to="/affiliate" className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }>
+                Affiliate Program
+              </NavLink>
+              <NavLink to="/admin" className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }>
+                Affiliate Admin
+              </NavLink>
+            </>
           ) : null}
         </nav>
         <LanguageSwitcher size="sm" />

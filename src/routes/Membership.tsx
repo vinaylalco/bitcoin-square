@@ -12,6 +12,7 @@ import {
 } from "../utils/pendingMembershipAuth";
 import { cn } from "../utils/cn";
 import { StrapiNetworkError } from "../api/strapi-client";
+import { createReferral } from "../api/referrals";
 import { resolveStrapiAuthError } from "../utils/strapiErrors";
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -188,6 +189,19 @@ export default function Membership() {
         : undefined;
 
       const authResponse = await register(trimmedEmail, signupPassword);
+
+      const ref = localStorage.getItem('tsq_ref');
+      if (ref) {
+        try {
+          await createReferral({
+            referrerId: ref,
+            referredUserId: authResponse.user.id,
+            createdAt: new Date().toISOString(),
+          });
+        } catch (error) {
+          console.warn('Failed to record referral', error);
+        }
+      }
       const checkout = await startCheckout({
         email: trimmedEmail,
         membershipType: signupPlan,

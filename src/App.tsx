@@ -40,6 +40,8 @@ export default function App() {
   const { theme } = useTheme(); // ensures theme context is mounted
   const { user, logout } = useAuth();
 
+  const isAdmin = Boolean(user?.isAdmin);
+
   const isCommunityRoute = loc.pathname.startsWith("/community");
   const hideFooterOnPage = /^\/education\/[\w-]+/.test(loc.pathname) || isCommunityRoute;
 
@@ -90,6 +92,15 @@ export default function App() {
 
   useEffect(() => {
     setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get("ref");
+
+    if (ref) {
+      localStorage.setItem("tsq_ref", ref);
+    }
   }, []);
 
   useEffect(() => {
@@ -269,7 +280,7 @@ export default function App() {
                   </NavLink>
                 );
               })}
-            </nav>
+          </nav>
 
             <div className="hidden items-center gap-3 lg:flex">
               {user ? (
@@ -470,6 +481,34 @@ export default function App() {
               >
                 <Users className="h-5 w-5" /> {t("nav.community")}
               </NavLink>
+              {isAdmin ? (
+                <>
+                  <NavLink
+                    to="/affiliate"
+                    onClick={() => setOpen(false)}
+                    className={({ isActive }) =>
+                      cn(
+                        "inline-flex items-center gap-3 rounded-2xl border border-transparent px-4 py-3 transition hover:border-brand/40 hover:bg-brand/5",
+                        isActive && "border-brand bg-brand/10 text-brand",
+                      )
+                    }
+                  >
+                    <LayoutDashboard className="h-5 w-5" /> Affiliate Program
+                  </NavLink>
+                  <NavLink
+                    to="/admin"
+                    onClick={() => setOpen(false)}
+                    className={({ isActive }) =>
+                      cn(
+                        "inline-flex items-center gap-3 rounded-2xl border border-transparent px-4 py-3 transition hover:border-brand/40 hover:bg-brand/5",
+                        isActive && "border-brand bg-brand/10 text-brand",
+                      )
+                    }
+                  >
+                    <LayoutDashboard className="h-5 w-5" /> Affiliate Admin
+                  </NavLink>
+                </>
+              ) : null}
               {user ? (
                 <NavLink
                   to="/miner-quotation"

@@ -39,6 +39,8 @@ export default function Dashboard() {
 
   if (!user) return <Navigate to="/membership?view=login" replace />;
 
+  const referralLink = `https://bitcoinsquare.io/?ref=${user.id}`;
+
   const formattedPoints = useMemo(() => (user.points ?? 0).toLocaleString(), [user.points]);
   const normalizedStreak = useMemo(
     () => Math.max(0, Math.floor(user.studyStreak ?? 0)),
@@ -278,6 +280,11 @@ export default function Dashboard() {
               <div className="flex flex-col gap-1 rounded-2xl border border-neutral-200 bg-neutral-50 p-4 transition-colors dark:border-neutral-800 dark:bg-neutral-950/40">
                 <dt className="text-xs uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">{t('dashboard.account.userId')}</dt>
                 <dd className="break-words text-base font-medium text-neutral-900 dark:text-neutral-100">{user.id}</dd>
+              </div>
+              <div className="flex flex-col gap-2 rounded-2xl border border-neutral-200 bg-neutral-50 p-4 transition-colors dark:border-neutral-800 dark:bg-neutral-950/40">
+                <dt className="text-xs uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">Your Referral Code</dt>
+                <dd className="break-words text-base font-medium text-neutral-900 dark:text-neutral-100">{user.id}</dd>
+                <dd className="break-words text-sm font-medium text-neutral-700 dark:text-neutral-200">{referralLink}</dd>
               </div>
             </dl>
 
