@@ -22,7 +22,7 @@ function formatDate(value: string | null | undefined): string {
 export default function Affiliate() {
   const { user } = useAuth();
 
-  const referralLink = user ? `https://your-site.com/?ref=${user.id}` : "";
+  const referralLink = user ? `https://bitcoinsquare.io/?ref=${user.id}` : "";
 
   const { data, isLoading, isError, error } = useQuery<Commission[]>({
     queryKey: ["commissions", user?.id],

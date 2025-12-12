@@ -39,7 +39,7 @@ export default function Dashboard() {
 
   if (!user) return <Navigate to="/membership?view=login" replace />;
 
-  const referralLink = `https://your-site.com/?ref=${user.id}`;
+  const referralLink = `https://bitcoinsquare.io/?ref=${user.id}`;
 
   const formattedPoints = useMemo(() => (user.points ?? 0).toLocaleString(), [user.points]);
   const normalizedStreak = useMemo(
