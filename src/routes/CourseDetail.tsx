@@ -408,7 +408,7 @@ function cloneCard(raw: unknown): RichCard {
 }
 
 function ensureVideoCard(topic: Topic, locale?: string): {
-  videoCard: RichCard;
+  videoCard?: RichCard;
   lessonCards: RichCard[];
   videoSourceId?: string;
 } {
@@ -421,7 +421,6 @@ function ensureVideoCard(topic: Topic, locale?: string): {
 
   if (clonedCards.length > 0) {
     const [first, ...rest] = clonedCards;
-    const title = typeof first.title === "string" ? first.title : "";
     const normalizedLocale = normalizeLocale(locale);
     const localizedVideoUrl = extractLocaleSpecificVideoUrl(
       first,
@@ -437,19 +436,18 @@ function ensureVideoCard(topic: Topic, locale?: string): {
     const alternateVideoUrl = alternateLocale
       ? extractLocaleSpecificVideoUrl(first, alternateLocale)
       : undefined;
-    const anyVideoUrl =
+    const fallbackVideoUrl = extractVideoUrl(first, normalizedLocale);
+    const resolvedVideoUrl =
       localizedVideoUrl ??
       neutralVideoUrl ??
       alternateVideoUrl ??
-      extractVideoUrl(first);
-    const videoHint =
-      Boolean(anyVideoUrl) || title.toLowerCase().includes("video");
+      fallbackVideoUrl;
 
-    if (videoHint) {
+    if (resolvedVideoUrl) {
       videoCard = { ...first };
       lessonCards = rest;
       const preferredVideoUrl = localizedVideoUrl ?? neutralVideoUrl;
-      videoCard.youtube = preferredVideoUrl;
+      videoCard.youtube = preferredVideoUrl ?? resolvedVideoUrl;
       if (first.id != null) {
         videoSourceId = String(first.id);
       }
@@ -474,6 +472,15 @@ function ensureVideoCard(topic: Topic, locale?: string): {
             ? cloneCard(candidateRecord.card)
             : candidateRecord;
 
+        const candidateVideoUrl =
+          extractLocaleSpecificVideoUrl(inner, locale) ??
+          extractNeutralVideoUrl(inner) ??
+          extractVideoUrl(inner, locale);
+
+        if (!candidateVideoUrl) {
+          continue;
+        }
+
         videoCard = inner;
         const rawId =
           (candidateRecord.card && (candidateRecord.card as UnknownRecord).id) ??
@@ -482,26 +489,22 @@ function ensureVideoCard(topic: Topic, locale?: string): {
         if (rawId != null) {
           videoSourceId = String(rawId);
         }
+        videoCard.youtube = candidateVideoUrl;
         break;
       }
     }
   }
 
-  if (!videoCard) {
-    videoCard = {
-      id: `${topic.id}-video`,
-      title: topic.name ? `Video overview: ${topic.name}` : "Video overview",
-    } as RichCard;
-  }
+  if (videoCard) {
+    if (videoCard.id == null || videoCard.id === "") {
+      videoCard.id = `${topic.id}-video`;
+    } else {
+      videoCard.id = String(videoCard.id);
+    }
 
-  if (videoCard.id == null || videoCard.id === "") {
-    videoCard.id = `${topic.id}-video`;
-  } else {
-    videoCard.id = String(videoCard.id);
-  }
-
-  if (!isNonEmptyString(videoCard.title)) {
-    videoCard.title = topic.name ? `Video overview: ${topic.name}` : "Video overview";
+    if (!isNonEmptyString(videoCard.title)) {
+      videoCard.title = topic.name ? `Video overview: ${topic.name}` : "Video overview";
+    }
   }
 
   return { videoCard, lessonCards, videoSourceId };
@@ -519,6 +522,7 @@ interface LessonCardContext {
   modulesLength: number;
   videoSourceId?: string;
   locale?: string;
+  hasVideoLesson: boolean;
 }
 
 function buildLessonCard({
@@ -533,10 +537,11 @@ function buildLessonCard({
   modulesLength,
   videoSourceId,
   locale,
+  hasVideoLesson,
 }: LessonCardContext): LessonCard {
   const topicId = String(topic.id);
   const moduleId = String(module.id);
-  const isVideoLesson = cardIndex === 0;
+  const isVideoLesson = hasVideoLesson && cardIndex === 0;
   const rawSourceId = cardData.id != null ? String(cardData.id) : undefined;
   const cardId = rawSourceId ?? `${topicId}-card-${cardIndex + 1}`;
   const title = isNonEmptyString(cardData.title)
@@ -651,7 +656,9 @@ export default function CourseDetail() {
             sanitizedTopic,
             effectiveLocale,
           );
-          const topicCardsSource = [videoCard, ...lessonCards];
+          const hasVideoLesson = Boolean(videoCard);
+          const topicCardsSource: RichCard[] =
+            hasVideoLesson && videoCard ? [videoCard, ...lessonCards] : lessonCards;
           const totalTopicCards = topicCardsSource.length;
 
           const topicCards = topicCardsSource.map((cardData, cardIndex) =>
@@ -667,6 +674,7 @@ export default function CourseDetail() {
               modulesLength: rawModules.length,
               videoSourceId,
               locale: effectiveLocale,
+              hasVideoLesson,
             }),
           );
 
