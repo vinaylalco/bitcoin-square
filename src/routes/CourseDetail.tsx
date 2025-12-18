@@ -443,6 +443,9 @@ function ensureVideoCard(topic: Topic, locale?: string): {
       alternateVideoUrl ??
       fallbackVideoUrl;
 
+    const isPlaceholderVideoCard =
+      hasVideoIntent(first) && !hasMeaningfulLessonContent(first);
+
     if (resolvedVideoUrl) {
       videoCard = { ...first };
       lessonCards = rest;
@@ -451,6 +454,8 @@ function ensureVideoCard(topic: Topic, locale?: string): {
       if (first.id != null) {
         videoSourceId = String(first.id);
       }
+    } else if (isPlaceholderVideoCard) {
+      lessonCards = rest;
     }
   }
 
@@ -508,6 +513,35 @@ function ensureVideoCard(topic: Topic, locale?: string): {
   }
 
   return { videoCard, lessonCards, videoSourceId };
+}
+
+function hasMeaningfulLessonContent(card: UnknownRecord): boolean {
+  const content = card.content;
+  if (typeof content === "string" && content.trim().length > 0) {
+    return true;
+  }
+
+  const objectives = card.objectives;
+  if (Array.isArray(objectives) && objectives.length > 0) {
+    return true;
+  }
+
+  if (card.quiz) {
+    return true;
+  }
+
+  return false;
+}
+
+function hasVideoIntent(card: UnknownRecord): boolean {
+  return Object.keys(card).some((key) => {
+    const lower = key.toLowerCase();
+    return (
+      lower.includes("video") ||
+      lower.includes("youtube") ||
+      lower.includes("yt")
+    );
+  });
 }
 
 interface LessonCardContext {
