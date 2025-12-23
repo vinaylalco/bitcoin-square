@@ -35,9 +35,6 @@ export function register(email: string, password: string, _options: RegisterOpti
 
   return strapiFetch<AuthResponse>('/api/auth/local/register', {
     method: 'POST',
-    headers: {
-      'X-Membership-Flow': '1',
-    },
     body: JSON.stringify(payload),
   });
 }
