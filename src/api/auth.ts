@@ -30,7 +30,6 @@ export function register(email: string, password: string, _options: RegisterOpti
     email: trimmedEmail,
     username: trimmedEmail,
     password,
-    membershipFlow: true,
     // flow: 'membership',
   };
 
