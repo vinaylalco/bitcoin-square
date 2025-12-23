@@ -196,7 +196,6 @@ export default function Membership() {
           await createReferral({
             referrerId: ref,
             referredUserId: authResponse.user.id,
-            createdAt: new Date().toISOString(),
           });
         } catch (error) {
           console.warn('Failed to record referral', error);
