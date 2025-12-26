@@ -71,10 +71,11 @@ export default function Admin() {
   }, [commissions]);
 
   const handleExport = () => {
-    if (groupedTotals.length === 0) return;
+    const exportableTotals = groupedTotals.filter((row) => row.totalBtc > 0);
+    if (exportableTotals.length === 0) return;
 
     const header = "referrerId,totalBtc";
-    const rows = groupedTotals.map((row) => `${JSON.stringify(row.referrerId)},${row.totalBtc}`);
+    const rows = exportableTotals.map((row) => `${JSON.stringify(row.referrerId)},${row.totalBtc}`);
     const csv = [header, ...rows].join("\n");
 
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
