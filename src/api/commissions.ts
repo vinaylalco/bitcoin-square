@@ -24,10 +24,10 @@ export interface Commission {
   referrerId?: number | string | null;
 }
 
-interface StrapiCommissionEntity {
+type StrapiCommissionEntity = CommissionAttributes & {
   id: number;
   attributes?: CommissionAttributes | null;
-}
+};
 
 interface CommissionListResponse {
   data?: StrapiCommissionEntity[];
@@ -49,7 +49,7 @@ function normalizeAmount(value: unknown): number {
 }
 
 function normalizeCommission(entry: StrapiCommissionEntity): Commission {
-  const attributes = entry.attributes ?? {};
+  const attributes = entry.attributes ?? entry;
   return {
     id: entry.id,
     orderId: attributes.orderId ?? null,
