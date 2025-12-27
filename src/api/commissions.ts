@@ -198,6 +198,18 @@ export async function fetchCommissionsByReferrer(
   return (response.data ?? []).map(normalizeCommission);
 }
 
+export async function fetchMyCommissions(): Promise<Commission[]> {
+  const searchParams = new URLSearchParams();
+  searchParams.set("pagination[pageSize]", "100");
+  searchParams.set("sort[0]", "createdAt:desc");
+
+  const response = await fetchCommissionList(
+    `/api/commissions/me?${searchParams.toString()}`,
+  );
+
+  return (response.data ?? []).map(normalizeCommission);
+}
+
 export async function fetchAllCommissions(): Promise<Commission[]> {
   const searchParams = new URLSearchParams();
   searchParams.set("pagination[pageSize]", "200");

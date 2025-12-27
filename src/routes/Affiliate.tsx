@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Navigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
-import { fetchCommissionsByReferrer, type Commission } from "../api/commissions";
+import { fetchMyCommissions, type Commission } from "../api/commissions";
 import { useAuth } from "../context/AuthContext";
 
 function formatBtc(value: number): string {
@@ -25,11 +25,11 @@ export default function Affiliate() {
   const referralLink = user ? `https://bitcoinsquare.io/?ref=${user.id}` : "";
 
   const { data, isLoading, isError, error } = useQuery<Commission[]>({
-    queryKey: ["commissions", user?.id],
-    enabled: Boolean(user?.id),
+    queryKey: ["commissions", "me"],
+    enabled: Boolean(user),
     queryFn: () => {
       if (!user) return Promise.resolve([]);
-      return fetchCommissionsByReferrer(user.id);
+      return fetchMyCommissions();
     },
   });
 
