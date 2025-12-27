@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
@@ -45,14 +45,10 @@ export default function Membership() {
 
   const { mutateAsync: startCheckout } = useMembershipCheckout();
 
-  const discountCode = useMemo(() => {
+  const [signupDiscountCode, setSignupDiscountCode] = useState(() => {
     const code = searchParams.get("discount");
-    if (!code) {
-      return undefined;
-    }
-    const trimmed = code.trim();
-    return trimmed.length > 0 ? trimmed : undefined;
-  }, [searchParams]);
+    return code ? code.trim() : "";
+  });
 
   const viewParam = searchParams.get("view");
   const [activeView, setActiveView] = useState<PortalView>(
@@ -182,10 +178,13 @@ export default function Membership() {
     }
 
     setSignupSubmitting(true);
+    const trimmedDiscountCode = signupDiscountCode.trim();
+    const resolvedDiscountCode =
+      trimmedDiscountCode.length > 0 ? trimmedDiscountCode : undefined;
     let pendingStored = false;
     try {
-      const discountTxHash = discountCode
-        ? formatDiscountTxHash(discountCode, trimmedEmail)
+      const discountTxHash = resolvedDiscountCode
+        ? formatDiscountTxHash(resolvedDiscountCode, trimmedEmail)
         : undefined;
 
       const authResponse = await register(trimmedEmail, signupPassword);
@@ -204,7 +203,7 @@ export default function Membership() {
       const checkout = await startCheckout({
         email: trimmedEmail,
         membershipType: signupPlan,
-        discountCode,
+        discountCode: resolvedDiscountCode,
         userId: authResponse.user.id,
         txHash: discountTxHash,
       });
@@ -505,6 +504,28 @@ export default function Membership() {
                       </button>
                     ))}
                   </div>
+                </div>
+
+                <div className="space-y-2 text-left">
+                  <label
+                    htmlFor="membership-signup-discount"
+                    className="text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]"
+                  >
+                    {t("membership.portal.inputs.discountCode")}
+                  </label>
+                  <input
+                    id="membership-signup-discount"
+                    type="text"
+                    value={signupDiscountCode}
+                    onChange={(event) => {
+                      setSignupDiscountCode(event.target.value);
+                      if (signupError) {
+                        setSignupError(null);
+                      }
+                    }}
+                    autoComplete="off"
+                    className="w-full rounded-2xl border border-brand/20 bg-transparent px-4 py-3 text-sm text-[var(--fg-default)] shadow-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/60"
+                  />
                 </div>
 
                 {signupError && (

@@ -3,7 +3,7 @@ import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { Copy, Flame, Layers, LogOut, MessageCircle, Sparkles, Trophy } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
-import { updateProfileSettings } from '../api/account';
+import { updateCurrentUser, updateProfileSettings } from '../api/account';
 import { uploadProfileAvatar } from '../api/media';
 import { validateImageFile } from '../utils/imageUpload';
 import { generateScreenName, normalizeAvatarUrl, normalizeScreenName } from '../utils/profileDefaults';
@@ -27,6 +27,9 @@ export default function Dashboard() {
   const [profileError, setProfileError] = useState<string | null>(null);
   const [avatarUploadStatus, setAvatarUploadStatus] = useState<'idle' | 'uploading' | 'error' | 'success'>('idle');
   const [avatarUploadError, setAvatarUploadError] = useState<string | null>(null);
+  const [commissionAddress, setCommissionAddress] = useState(() => user?.commissionBtcAddress ?? '');
+  const [commissionStatus, setCommissionStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+  const [commissionError, setCommissionError] = useState<string | null>(null);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -36,6 +39,12 @@ export default function Dashboard() {
   useEffect(() => {
     setAvatarUrl(normalizeAvatarUrl(user?.avatarUrl, profileSeed));
   }, [profileSeed, user?.avatarUrl]);
+
+  useEffect(() => {
+    setCommissionAddress(user?.commissionBtcAddress ?? '');
+    setCommissionStatus('idle');
+    setCommissionError(null);
+  }, [user?.commissionBtcAddress]);
 
   if (!user) return <Navigate to="/membership?view=login" replace />;
 
@@ -198,6 +207,41 @@ export default function Dashboard() {
       }
     },
     [avatarUploadStatus],
+  );
+
+  const handleCommissionSubmit = useCallback(
+    async (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      if (!token) {
+        setCommissionStatus('error');
+        setCommissionError(t('dashboard.commission.errors.authRequired'));
+        return;
+      }
+
+      setCommissionStatus('saving');
+      setCommissionError(null);
+
+      const trimmedAddress = commissionAddress.trim();
+      const payloadAddress = trimmedAddress.length > 0 ? trimmedAddress : null;
+
+      try {
+        const response = await updateCurrentUser(token, {
+          commissionBtcAddress: payloadAddress,
+        });
+        const nextAddress = response.commissionBtcAddress ?? payloadAddress ?? '';
+        setCommissionAddress(nextAddress);
+        updateUser((prev) =>
+          prev ? { ...prev, commissionBtcAddress: nextAddress || null } : prev,
+        );
+        setCommissionStatus('success');
+      } catch (error) {
+        setCommissionStatus('error');
+        setCommissionError(
+          error instanceof Error ? error.message : t('dashboard.commission.errors.save'),
+        );
+      }
+    },
+    [commissionAddress, t, token, updateUser],
   );
 
   return (
@@ -401,6 +445,61 @@ export default function Dashboard() {
               </div>
             </form>
 
+            <div className="mt-6 rounded-2xl border border-neutral-200 bg-neutral-50 p-4 transition-colors dark:border-neutral-800 dark:bg-neutral-950/40">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h4 className="text-sm font-semibold uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">
+                    {t('dashboard.commission.title')}
+                  </h4>
+                  <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
+                    {t('dashboard.commission.description')}
+                  </p>
+                </div>
+                {commissionStatus === 'success' && (
+                  <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-500">
+                    {t('dashboard.commission.success')}
+                  </span>
+                )}
+              </div>
+              <form onSubmit={handleCommissionSubmit} className="mt-4 space-y-3">
+                <label
+                  htmlFor="commission-btc-address"
+                  className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400"
+                >
+                  {t('dashboard.commission.label')}
+                </label>
+                <input
+                  id="commission-btc-address"
+                  value={commissionAddress}
+                  onChange={(event) => {
+                    setCommissionAddress(event.target.value);
+                    if (commissionStatus === 'success') {
+                      setCommissionStatus('idle');
+                    }
+                    if (commissionError) {
+                      setCommissionError(null);
+                    }
+                  }}
+                  className="w-full rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 transition focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+                  placeholder={t('dashboard.commission.placeholder')}
+                  autoComplete="off"
+                />
+                {commissionError && (
+                  <p className="text-xs text-red-500">{commissionError}</p>
+                )}
+                <button
+                  type="submit"
+                  disabled={commissionStatus === 'saving'}
+                  className="inline-flex items-center justify-center rounded-full bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-white transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:bg-brand/40"
+                >
+                  {commissionStatus === 'saving'
+                    ? t('dashboard.commission.saving')
+                    : t('dashboard.commission.save')}
+                </button>
+              </form>
+            </div>
+          </div>
+
           <div className="flex flex-col gap-4 rounded-3xl border border-neutral-200 bg-white p-8 shadow-sm transition-colors dark:border-neutral-800 dark:bg-neutral-900">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h3 className="text-xl font-semibold">{t('dashboard.messages.title')}</h3>
@@ -425,9 +524,9 @@ export default function Dashboard() {
               </div>
             )}
           </div>
-        </div>
+        </section>
 
-        <div className="flex flex-col gap-4 rounded-3xl border border-neutral-200 bg-white p-8 shadow-sm transition-colors dark:border-neutral-800 dark:bg-neutral-900">
+        <section className="flex flex-col gap-4 rounded-3xl border border-neutral-200 bg-white p-8 shadow-sm transition-colors dark:border-neutral-800 dark:bg-neutral-900">
           <h3 className="text-xl font-semibold">{t('dashboard.nostr.title')}</h3>
             <p className="text-sm text-neutral-600 dark:text-neutral-300">
               {t('dashboard.nostr.description')}
@@ -477,7 +576,6 @@ export default function Dashboard() {
                 </span>
               </div>
             )}
-          </div>
         </section>
       </div>
     </div>
