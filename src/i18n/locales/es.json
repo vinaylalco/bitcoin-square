@@ -21,7 +21,9 @@
     "dashboard": "Panel",
     "login": "Iniciar sesión",
     "logout": "Cerrar sesión",
-    "minerQuotation": "Cotización minera"
+    "minerQuotation": "Cotización minera",
+    "affiliateProgram": "Programa de afiliados",
+    "affiliateAdmin": "Administración de afiliados"
   },
   "community": {
     "sidebar": {

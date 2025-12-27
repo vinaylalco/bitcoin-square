@@ -48,10 +48,10 @@ export default function Footer() {
           {isAdmin ? (
             <>
               <NavLink to="/affiliate" className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }>
-                Affiliate Program
+                {t("nav.affiliateProgram")}
               </NavLink>
               <NavLink to="/admin" className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }>
-                Affiliate Admin
+                {t("nav.affiliateAdmin")}
               </NavLink>
             </>
           ) : null}

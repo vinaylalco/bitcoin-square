@@ -20,7 +20,9 @@
     "settings": "การตั้งค่า",
     "dashboard": "แดชบอร์ด",
     "login": "เข้าสู่ระบบ",
-    "logout": "ออกจากระบบ"
+    "logout": "ออกจากระบบ",
+    "affiliateProgram": "โปรแกรมพันธมิตร",
+    "affiliateAdmin": "ผู้ดูแลพันธมิตร"
   },
   "community": {
     "sidebar": {

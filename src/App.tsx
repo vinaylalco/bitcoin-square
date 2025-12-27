@@ -493,7 +493,7 @@ export default function App() {
                       )
                     }
                   >
-                    <LayoutDashboard className="h-5 w-5" /> Affiliate Program
+                    <LayoutDashboard className="h-5 w-5" /> {t("nav.affiliateProgram")}
                   </NavLink>
                   <NavLink
                     to="/admin"
@@ -505,7 +505,7 @@ export default function App() {
                       )
                     }
                   >
-                    <LayoutDashboard className="h-5 w-5" /> Affiliate Admin
+                    <LayoutDashboard className="h-5 w-5" /> {t("nav.affiliateAdmin")}
                   </NavLink>
                 </>
               ) : null}
