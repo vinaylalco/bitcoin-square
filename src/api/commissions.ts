@@ -118,15 +118,25 @@ function getStoredJwt(): string | null {
   return local;
 }
 
+function getCommissionAuthHeaders(): HeadersInit | null {
+  const jwt = getStoredJwt();
+  if (!jwt) {
+    console.warn("Missing Strapi JWT for commissions request.");
+    return null;
+  }
+  return {
+    Authorization: `Bearer ${jwt}`,
+  };
+}
+
 async function fetchCommissionList(path: string): Promise<CommissionListResponse> {
   const base = getStrapiBaseUrl();
   if (!base) {
     throw new StrapiConfigError();
   }
 
-  const jwt = getStoredJwt();
-  if (!jwt) {
-    console.warn("Missing Strapi JWT for commissions request.");
+  const headers = getCommissionAuthHeaders();
+  if (!headers) {
     return { data: [] };
   }
 
@@ -137,9 +147,7 @@ async function fetchCommissionList(path: string): Promise<CommissionListResponse
   let response: Response;
   try {
     response = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${jwt}`,
-      },
+      headers,
     });
   } catch (error) {
     throw new StrapiNetworkError(
@@ -181,6 +189,35 @@ async function fetchCommissionList(path: string): Promise<CommissionListResponse
   }
 
   return response.json() as Promise<CommissionListResponse>;
+}
+
+export async function exportCommissionReport(params: {
+  status: string;
+  format: string;
+}): Promise<Response> {
+  const base = getStrapiBaseUrl();
+  if (!base) {
+    throw new StrapiConfigError();
+  }
+
+  const headers = getCommissionAuthHeaders();
+  if (!headers) {
+    return new Response(null, { status: 401 });
+  }
+
+  const exportUrl = new URL("/api/commissions/export", base);
+  exportUrl.searchParams.set("status", params.status);
+  exportUrl.searchParams.set("format", params.format);
+
+  try {
+    return await fetch(exportUrl.toString(), {
+      headers,
+    });
+  } catch (error) {
+    throw new StrapiNetworkError(
+      error instanceof Error ? error.message : "Unknown Strapi fetch error",
+    );
+  }
 }
 
 export async function fetchCommissionsByReferrer(
