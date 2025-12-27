@@ -20,7 +20,9 @@
     "settings": "Pengaturan",
     "dashboard": "Dasbor",
     "login": "Masuk",
-    "logout": "Keluar"
+    "logout": "Keluar",
+    "affiliateProgram": "Program Afiliasi",
+    "affiliateAdmin": "Admin Afiliasi"
   },
   "community": {
     "sidebar": {

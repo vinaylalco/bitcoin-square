@@ -21,7 +21,9 @@
     "dashboard": "Dashboard",
     "login": "Login",
     "logout": "Logout",
-    "minerQuotation": "Miner Quote"
+    "minerQuotation": "Miner Quote",
+    "affiliateProgram": "Affiliate Program",
+    "affiliateAdmin": "Affiliate Admin"
   },
   "community": {
     "sidebar": {

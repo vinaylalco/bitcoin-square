@@ -20,7 +20,9 @@
     "settings": "Настройки",
     "dashboard": "Панель",
     "login": "Вход",
-    "logout": "Выход"
+    "logout": "Выход",
+    "affiliateProgram": "Партнёрская программа",
+    "affiliateAdmin": "Администрирование партнёров"
   },
   "community": {
     "sidebar": {
