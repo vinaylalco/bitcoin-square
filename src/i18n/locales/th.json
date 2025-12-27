@@ -157,7 +157,8 @@
       },
       "inputs": {
         "email": "Email",
-        "password": "Password"
+        "password": "Password",
+        "discountCode": "Discount code"
       },
       "planLabels": {
         "annual": "Annual membership",
@@ -631,6 +632,19 @@
         "authRequired": "ต้องเข้าสู่ระบบก่อนจึงจะอัปเดตรูปโปรไฟล์ได้.",
         "upload": "เราไม่สามารถอัปโหลดรูปนี้ได้ โปรดลองอีกครั้ง.",
         "profile": "ไม่สามารถอัปเดตรายละเอียดโปรไฟล์ได้ในขณะนี้."
+      }
+    },
+    "commission": {
+      "title": "Commission payouts",
+      "description": "Add a BTC address for commission payouts tied to your referrals.",
+      "label": "Commission BTC address",
+      "placeholder": "Enter a BTC address",
+      "save": "Save",
+      "saving": "Saving…",
+      "success": "Commission address updated.",
+      "errors": {
+        "save": "Unable to save commission address.",
+        "authRequired": "Sign in to update your commission address."
       }
     },
     "lightning": {

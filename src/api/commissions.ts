@@ -12,6 +12,13 @@ export interface CommissionAttributes {
   status?: string | null;
   createdAt?: string | null;
   referrerId?: number | string | null;
+  paidAmount?: number | string | null;
+  paidCurrency?: string | null;
+  commissionRate?: number | string | null;
+  commissionAmount?: number | string | null;
+  commissionCurrency?: string | null;
+  commissionLevel?: number | string | null;
+  commissionTierAtCreation?: string | null;
 }
 
 export interface Commission {
@@ -22,6 +29,13 @@ export interface Commission {
   status?: string | null;
   createdAt?: string | null;
   referrerId?: number | string | null;
+  paidAmount?: number | null;
+  paidCurrency?: string | null;
+  commissionRate?: number | null;
+  commissionAmount?: number | null;
+  commissionCurrency?: string | null;
+  commissionLevel?: number | null;
+  commissionTierAtCreation?: string | null;
 }
 
 type StrapiCommissionEntity = CommissionAttributes & {
@@ -48,6 +62,21 @@ function normalizeAmount(value: unknown): number {
   return 0;
 }
 
+function normalizeOptionalNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string" && value.trim().length > 0) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+
+  return null;
+}
+
 function normalizeCommission(entry: StrapiCommissionEntity): Commission {
   const attributes = entry.attributes ?? entry;
   return {
@@ -58,6 +87,13 @@ function normalizeCommission(entry: StrapiCommissionEntity): Commission {
     status: attributes.status ?? null,
     createdAt: attributes.createdAt ?? null,
     referrerId: attributes.referrerId ?? null,
+    paidAmount: normalizeOptionalNumber(attributes.paidAmount),
+    paidCurrency: attributes.paidCurrency ?? null,
+    commissionRate: normalizeOptionalNumber(attributes.commissionRate),
+    commissionAmount: normalizeOptionalNumber(attributes.commissionAmount),
+    commissionCurrency: attributes.commissionCurrency ?? null,
+    commissionLevel: normalizeOptionalNumber(attributes.commissionLevel),
+    commissionTierAtCreation: attributes.commissionTierAtCreation ?? null,
   };
 }
 

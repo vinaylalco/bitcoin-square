@@ -46,6 +46,7 @@ export interface User {
   nostrPublicKey?: string;
   nostrEncryptedKey?: string;
   lnWalletAddress?: string | null;
+  commissionBtcAddress?: string | null;
   points: number;
   lessonCompletions: LessonCompletionMap;
   studyStreak: number;
@@ -295,6 +296,8 @@ function normalizeUser(raw: any | null | undefined): User | null {
     lastStudyDate: normalizeLastStudyDate(raw.lastStudyDate),
     preferences: normalizePreferences(raw.preferences),
     lnWalletAddress: normalizeLightningAddress(raw.lnWalletAddress ?? raw.lightningAddress),
+    commissionBtcAddress:
+      coerceString(raw, 'commissionBtcAddress', 'commission_btc_address') ?? null,
     screenName: normalizeScreenName(raw.screenName ?? raw.displayName ?? raw.username, seedSource),
     avatarUrl: normalizeAvatarUrl(
       raw.avatarUrl ?? raw.profileImage ?? raw.image ?? raw.picture,
@@ -713,4 +716,3 @@ export function useAuth() {
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
   return ctx;
 }
-

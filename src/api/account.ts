@@ -8,6 +8,7 @@ export interface UpdateLightningAddressResponse {
   lightningAddress?: string | null;
   screenName?: string | null;
   avatarUrl?: string | null;
+  commissionBtcAddress?: string | null;
 }
 
 export interface UpdateProfileSettingsPayload {
@@ -16,12 +17,29 @@ export interface UpdateProfileSettingsPayload {
   avatarUrl?: string | null;
 }
 
+export interface UpdateMePayload {
+  commissionBtcAddress?: string | null;
+}
+
 export async function updateProfileSettings(
   userId: number,
   jwt: string,
   payload: UpdateProfileSettingsPayload,
 ): Promise<UpdateLightningAddressResponse> {
   return strapiFetch<UpdateLightningAddressResponse>(`/api/users/${userId}`, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${jwt}`,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateCurrentUser(
+  jwt: string,
+  payload: UpdateMePayload,
+): Promise<UpdateLightningAddressResponse> {
+  return strapiFetch<UpdateLightningAddressResponse>('/api/users/update-me', {
     method: 'PUT',
     headers: {
       Authorization: `Bearer ${jwt}`,

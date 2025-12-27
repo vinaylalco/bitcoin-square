@@ -1,15 +1,33 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
 import { fetchAllCommissions, type Commission } from "../api/commissions";
 import { useAuth } from "../context/AuthContext";
+import { getStrapiBaseUrl, StrapiConfigError } from "../api/strapi-client";
 
 function formatBtc(value: number): string {
   return value.toLocaleString(undefined, {
     minimumFractionDigits: 0,
     maximumFractionDigits: 8,
   });
+}
+
+function formatOptionalNumber(value?: number | null): string {
+  if (value == null || Number.isNaN(value)) {
+    return "--";
+  }
+  return value.toLocaleString();
+}
+
+function formatCurrencyAmount(amount?: number | null, currency?: string | null): string {
+  if (amount == null || Number.isNaN(amount)) {
+    return "--";
+  }
+  if (currency && currency.trim()) {
+    return `${amount.toLocaleString()} ${currency.trim()}`;
+  }
+  return amount.toLocaleString();
 }
 
 function formatDate(value: string | null | undefined): string {
@@ -25,7 +43,11 @@ interface GroupedTotal {
 }
 
 export default function Admin() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [missingAddressReport, setMissingAddressReport] = useState<string | null>(
+    null,
+  );
 
   const { data, isLoading, isError, error } = useQuery<Commission[]>({
     queryKey: ["admin-commissions"],
@@ -70,23 +92,90 @@ export default function Admin() {
     }));
   }, [commissions]);
 
-  const handleExport = () => {
-    const exportableTotals = groupedTotals.filter((row) => row.totalBtc > 0);
-    if (exportableTotals.length === 0) return;
+  const handleExport = async () => {
+    setExportError(null);
+    if (!token) {
+      setExportError("Missing authentication token.");
+      return;
+    }
+    const base = getStrapiBaseUrl();
+    if (!base) {
+      setExportError(new StrapiConfigError().message);
+      return;
+    }
 
-    const header = "referrerId,totalBtc";
-    const rows = exportableTotals.map((row) => `${JSON.stringify(row.referrerId)},${row.totalBtc}`);
-    const csv = [header, ...rows].join("\n");
+    const exportUrl = new URL("/api/admin/commissions/export", base);
+    exportUrl.searchParams.set("status", "pending");
+    exportUrl.searchParams.set("format", "nowpayments");
 
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "referral-commissions.csv";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    try {
+      const response = await fetch(exportUrl.toString(), {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        let message = `Export failed with status ${response.status}`;
+        try {
+          const payload = await response.json();
+          if (payload && typeof payload === "object") {
+            const payloadMessage =
+              (payload as { message?: string; error?: { message?: string } }).message ??
+              (payload as { error?: { message?: string } }).error?.message;
+            if (payloadMessage) {
+              message = payloadMessage;
+            }
+          }
+        } catch {
+          try {
+            const text = await response.text();
+            if (text.trim()) {
+              message = text.trim();
+            }
+          } catch {
+            // ignore secondary parsing errors
+          }
+        }
+        throw new Error(message);
+      }
+
+      const missingHeader =
+        response.headers.get("x-missing-address-report") ??
+        response.headers.get("x-missing-addresses");
+      if (missingHeader) {
+        try {
+          const parsed = JSON.parse(missingHeader);
+          if (Array.isArray(parsed)) {
+            setMissingAddressReport(parsed.join(", "));
+          } else if (typeof parsed === "string") {
+            setMissingAddressReport(parsed);
+          } else {
+            setMissingAddressReport(missingHeader);
+          }
+        } catch {
+          setMissingAddressReport(missingHeader);
+        }
+      } else {
+        setMissingAddressReport(null);
+      }
+
+      const blob = await response.blob();
+      const contentDisposition = response.headers.get("content-disposition");
+      const filenameMatch = contentDisposition?.match(/filename="?([^"]+)"?/i);
+      const filename = filenameMatch?.[1] ?? "commissions.csv";
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : "Export failed.");
+    }
   };
 
   return (
@@ -106,6 +195,16 @@ export default function Admin() {
             Export CSV
           </button>
         </header>
+        {exportError && (
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-200">
+            {exportError}
+          </div>
+        )}
+        {missingAddressReport && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
+            Missing payout address report: {missingAddressReport}
+          </div>
+        )}
 
         <section className="rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm transition-colors dark:border-neutral-800 dark:bg-neutral-900">
           <div className="flex items-center justify-between gap-3">
@@ -164,15 +263,21 @@ export default function Admin() {
                   <th className="px-3 py-2">Order ID</th>
                   <th className="px-3 py-2">Type</th>
                   <th className="px-3 py-2">Amount (BTC)</th>
+                  <th className="px-3 py-2">Paid</th>
+                  <th className="px-3 py-2">Commission Rate</th>
+                  <th className="px-3 py-2">Commission Amount</th>
+                  <th className="px-3 py-2">Level</th>
+                  <th className="px-3 py-2">Tier</th>
                   <th className="px-3 py-2">Status</th>
                   <th className="px-3 py-2">Referrer ID</th>
                   <th className="px-3 py-2">Created</th>
+                  <th className="px-3 py-2">Details</th>
                 </tr>
               </thead>
               <tbody>
                 {commissions.length === 0 && !isLoading ? (
                   <tr>
-                    <td className="px-3 py-4 text-center text-sm text-neutral-600 dark:text-neutral-300" colSpan={6}>
+                    <td className="px-3 py-4 text-center text-sm text-neutral-600 dark:text-neutral-300" colSpan={12}>
                       No commission records available.
                     </td>
                   </tr>
@@ -183,12 +288,53 @@ export default function Admin() {
                       <td className="px-3 py-3">{commission.type || "--"}</td>
                       <td className="px-3 py-3">{formatBtc(commission.amountBtc ?? 0)}</td>
                       <td className="px-3 py-3">
+                        {formatCurrencyAmount(commission.paidAmount, commission.paidCurrency)}
+                      </td>
+                      <td className="px-3 py-3">{formatOptionalNumber(commission.commissionRate)}</td>
+                      <td className="px-3 py-3">
+                        {formatCurrencyAmount(
+                          commission.commissionAmount,
+                          commission.commissionCurrency,
+                        )}
+                      </td>
+                      <td className="px-3 py-3">{formatOptionalNumber(commission.commissionLevel)}</td>
+                      <td className="px-3 py-3">{commission.commissionTierAtCreation || "--"}</td>
+                      <td className="px-3 py-3">
                         <span className="inline-flex rounded-full bg-neutral-200 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">
                           {commission.status ?? "--"}
                         </span>
                       </td>
                       <td className="px-3 py-3">{commission.referrerId != null ? commission.referrerId : "--"}</td>
                       <td className="px-3 py-3">{formatDate(commission.createdAt)}</td>
+                      <td className="px-3 py-3">
+                        <details className="text-xs text-neutral-600 dark:text-neutral-300">
+                          <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.2em] text-brand">
+                            View
+                          </summary>
+                          <dl className="mt-2 space-y-1">
+                            <div>
+                              <dt className="uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">Paid</dt>
+                              <dd>{formatCurrencyAmount(commission.paidAmount, commission.paidCurrency)}</dd>
+                            </div>
+                            <div>
+                              <dt className="uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">Commission Rate</dt>
+                              <dd>{formatOptionalNumber(commission.commissionRate)}</dd>
+                            </div>
+                            <div>
+                              <dt className="uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">Commission Amount</dt>
+                              <dd>{formatCurrencyAmount(commission.commissionAmount, commission.commissionCurrency)}</dd>
+                            </div>
+                            <div>
+                              <dt className="uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">Level</dt>
+                              <dd>{formatOptionalNumber(commission.commissionLevel)}</dd>
+                            </div>
+                            <div>
+                              <dt className="uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">Tier</dt>
+                              <dd>{commission.commissionTierAtCreation || "--"}</dd>
+                            </div>
+                          </dl>
+                        </details>
+                      </td>
                     </tr>
                   ))
                 )}

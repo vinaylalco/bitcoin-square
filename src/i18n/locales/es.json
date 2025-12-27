@@ -158,7 +158,8 @@
       },
       "inputs": {
         "email": "Correo electrónico",
-        "password": "Contraseña"
+        "password": "Contraseña",
+        "discountCode": "Código de descuento"
       },
       "planLabels": {
         "annual": "Membresía anual",
@@ -632,6 +633,19 @@
         "authRequired": "Debes iniciar sesión para actualizar tu foto de perfil.",
         "upload": "No pudimos subir esa foto. Inténtalo de nuevo.",
         "profile": "No se pudo actualizar tu perfil en este momento."
+      }
+    },
+    "commission": {
+      "title": "Pagos de comisiones",
+      "description": "Agrega una dirección BTC para los pagos de comisiones por referidos.",
+      "label": "Dirección BTC de comisión",
+      "placeholder": "Introduce una dirección BTC",
+      "save": "Guardar",
+      "saving": "Guardando…",
+      "success": "Dirección de comisión actualizada.",
+      "errors": {
+        "save": "No se pudo guardar la dirección de comisión.",
+        "authRequired": "Inicia sesión para actualizar tu dirección de comisión."
       }
     },
     "lightning": {
