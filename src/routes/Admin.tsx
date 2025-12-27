@@ -2,9 +2,13 @@ import { useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
-import { fetchAllCommissions, type Commission } from "../api/commissions";
+import {
+  exportCommissionReport,
+  fetchAllCommissions,
+  type Commission,
+} from "../api/commissions";
 import { useAuth } from "../context/AuthContext";
-import { getStrapiBaseUrl, StrapiConfigError } from "../api/strapi-client";
+import { StrapiConfigError } from "../api/strapi-client";
 
 function formatBtc(value: number): string {
   return value.toLocaleString(undefined, {
@@ -43,7 +47,7 @@ interface GroupedTotal {
 }
 
 export default function Admin() {
-  const { user, token } = useAuth();
+  const { user } = useAuth();
   const [exportError, setExportError] = useState<string | null>(null);
   const [missingAddressReport, setMissingAddressReport] = useState<string | null>(
     null,
@@ -94,26 +98,22 @@ export default function Admin() {
 
   const handleExport = async () => {
     setExportError(null);
-    if (!token) {
-      setExportError("Missing authentication token.");
-      return;
-    }
-    const base = getStrapiBaseUrl();
-    if (!base) {
-      setExportError(new StrapiConfigError().message);
-      return;
-    }
-
-    const exportUrl = new URL("/api/admin/commissions/export", base);
-    exportUrl.searchParams.set("status", "pending");
-    exportUrl.searchParams.set("format", "nowpayments");
 
     try {
-      const response = await fetch(exportUrl.toString(), {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      const response = await exportCommissionReport({
+        status: "pending",
+        format: "nowpayments",
       });
+
+      if (response.status === 401) {
+        setExportError("Please log in again.");
+        return;
+      }
+
+      if (response.status === 403) {
+        setExportError("You must be an admin to export commissions.");
+        return;
+      }
 
       if (!response.ok) {
         let message = `Export failed with status ${response.status}`;
@@ -163,7 +163,9 @@ export default function Admin() {
       const blob = await response.blob();
       const contentDisposition = response.headers.get("content-disposition");
       const filenameMatch = contentDisposition?.match(/filename="?([^"]+)"?/i);
-      const filename = filenameMatch?.[1] ?? "commissions.csv";
+      const fallbackDate = new Date().toISOString().split("T")[0];
+      const filename =
+        filenameMatch?.[1] ?? `commissions_nowpayments_${fallbackDate}.csv`;
 
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -174,6 +176,10 @@ export default function Admin() {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     } catch (error) {
+      if (error instanceof StrapiConfigError) {
+        setExportError(error.message);
+        return;
+      }
       setExportError(error instanceof Error ? error.message : "Export failed.");
     }
   };
