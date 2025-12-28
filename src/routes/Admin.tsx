@@ -41,6 +41,33 @@ function formatDate(value: string | null | undefined): string {
   return date.toLocaleString();
 }
 
+function parseContentDispositionFilename(header: string | null): string | null {
+  if (!header) return null;
+
+  const encodedMatch = header.match(/filename\*=(?:UTF-8'')?([^;]+)/i);
+  if (encodedMatch?.[1]) {
+    try {
+      return decodeURIComponent(encodedMatch[1].trim().replace(/^"|"$/g, ""));
+    } catch {
+      return encodedMatch[1].trim().replace(/^"|"$/g, "");
+    }
+  }
+
+  const plainMatch = header.match(/filename="?([^";]+)"?/i);
+  return plainMatch?.[1] ?? null;
+}
+
+function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
 interface GroupedTotal {
   referrerId: string;
   totalBtc: number;
@@ -49,9 +76,14 @@ interface GroupedTotal {
 export default function Admin() {
   const { user } = useAuth();
   const [exportError, setExportError] = useState<string | null>(null);
-  const [missingAddressReport, setMissingAddressReport] = useState<string | null>(
-    null,
-  );
+  const [exportSummary, setExportSummary] = useState<{
+    exported: number;
+    missingAddress: number;
+    zeroAmount: number;
+    skippedStatus: number;
+    hasDiagnostics: boolean;
+  } | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   const { data, isLoading, isError, error } = useQuery<Commission[]>({
     queryKey: ["admin-commissions"],
@@ -98,6 +130,8 @@ export default function Admin() {
 
   const handleExport = async () => {
     setExportError(null);
+    setExportSummary(null);
+    setIsExporting(true);
 
     try {
       const response = await exportCommissionReport({
@@ -106,7 +140,7 @@ export default function Admin() {
       });
 
       if (response.status === 401) {
-        setExportError("Please log in again.");
+        setExportError("Your session expired. Please log in again.");
         return;
       }
 
@@ -116,71 +150,46 @@ export default function Admin() {
       }
 
       if (!response.ok) {
-        let message = `Export failed with status ${response.status}`;
-        try {
-          const payload = await response.json();
-          if (payload && typeof payload === "object") {
-            const payloadMessage =
-              (payload as { message?: string; error?: { message?: string } }).message ??
-              (payload as { error?: { message?: string } }).error?.message;
-            if (payloadMessage) {
-              message = payloadMessage;
-            }
-          }
-        } catch {
-          try {
-            const text = await response.text();
-            if (text.trim()) {
-              message = text.trim();
-            }
-          } catch {
-            // ignore secondary parsing errors
-          }
-        }
-        throw new Error(message);
+        setExportError(`Export failed with status ${response.status}.`);
+        return;
       }
 
-      const missingHeader =
-        response.headers.get("x-missing-address-report") ??
-        response.headers.get("x-missing-addresses");
-      if (missingHeader) {
-        try {
-          const parsed = JSON.parse(missingHeader);
-          if (Array.isArray(parsed)) {
-            setMissingAddressReport(parsed.join(", "));
-          } else if (typeof parsed === "string") {
-            setMissingAddressReport(parsed);
-          } else {
-            setMissingAddressReport(missingHeader);
-          }
-        } catch {
-          setMissingAddressReport(missingHeader);
-        }
-      } else {
-        setMissingAddressReport(null);
-      }
+      const exportedHeader = response.headers.get("X-Exported-Rows");
+      const missingAddressHeader = response.headers.get("X-Skipped-Missing-Address");
+      const zeroAmountHeader = response.headers.get("X-Skipped-Zero-Amount");
+      const skippedStatusHeader = response.headers.get("X-Skipped-Status");
+      const exported = Number(exportedHeader ?? "0");
+      const missingAddress = Number(missingAddressHeader ?? "0");
+      const zeroAmount = Number(zeroAmountHeader ?? "0");
+      const skippedStatus = Number(skippedStatusHeader ?? "0");
+      const hasDiagnostics =
+        exportedHeader !== null ||
+        missingAddressHeader !== null ||
+        zeroAmountHeader !== null ||
+        skippedStatusHeader !== null;
+      setExportSummary({
+        exported,
+        missingAddress,
+        zeroAmount,
+        skippedStatus,
+        hasDiagnostics,
+      });
 
       const blob = await response.blob();
-      const contentDisposition = response.headers.get("content-disposition");
-      const filenameMatch = contentDisposition?.match(/filename="?([^"]+)"?/i);
       const fallbackDate = new Date().toISOString().split("T")[0];
       const filename =
-        filenameMatch?.[1] ?? `commissions_nowpayments_${fallbackDate}.csv`;
+        parseContentDispositionFilename(response.headers.get("content-disposition")) ??
+        `nowpayments_payouts_${fallbackDate}.csv`;
 
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      downloadBlob(blob, filename);
     } catch (error) {
       if (error instanceof StrapiConfigError) {
         setExportError(error.message);
         return;
       }
       setExportError(error instanceof Error ? error.message : "Export failed.");
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -196,9 +205,10 @@ export default function Admin() {
           <button
             type="button"
             onClick={handleExport}
-            className="inline-flex items-center gap-2 rounded-full bg-brand px-4 py-2 text-sm font-semibold uppercase tracking-[0.2em] text-white shadow-sm transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/70"
+            disabled={isExporting}
+            className="inline-flex items-center gap-2 rounded-full bg-brand px-4 py-2 text-sm font-semibold uppercase tracking-[0.2em] text-white shadow-sm transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/70 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Export CSV
+            {isExporting ? "Exporting…" : "Export CSV"}
           </button>
         </header>
         {exportError && (
@@ -206,9 +216,54 @@ export default function Admin() {
             {exportError}
           </div>
         )}
-        {missingAddressReport && (
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
-            Missing payout address report: {missingAddressReport}
+        {exportSummary && (
+          <div
+            className={`rounded-2xl border px-4 py-3 text-sm ${
+              exportSummary.exported === 0 &&
+              (exportSummary.missingAddress +
+                exportSummary.zeroAmount +
+                exportSummary.skippedStatus >
+                0 ||
+                !exportSummary.hasDiagnostics)
+                ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200"
+                : "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-200"
+            }`}
+          >
+            <p className="font-semibold">
+              Exported {exportSummary.exported} payouts.
+            </p>
+            {exportSummary.missingAddress +
+              exportSummary.zeroAmount +
+              exportSummary.skippedStatus >
+              0 && (
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
+                {exportSummary.missingAddress > 0 && (
+                  <li>
+                    Skipped {exportSummary.missingAddress} payout
+                    {exportSummary.missingAddress === 1 ? "" : "s"} missing an
+                    address.
+                  </li>
+                )}
+                {exportSummary.zeroAmount > 0 && (
+                  <li>
+                    Skipped {exportSummary.zeroAmount} payout
+                    {exportSummary.zeroAmount === 1 ? "" : "s"} with zero amount.
+                  </li>
+                )}
+                {exportSummary.skippedStatus > 0 && (
+                  <li>
+                    Skipped {exportSummary.skippedStatus} payout
+                    {exportSummary.skippedStatus === 1 ? "" : "s"} due to status.
+                  </li>
+                )}
+              </ul>
+            )}
+            {exportSummary.exported === 0 && !exportSummary.hasDiagnostics && (
+              <p className="mt-2 text-sm">
+                No export diagnostics were returned. Check the selected status or
+                filters and try again.
+              </p>
+            )}
           </div>
         )}
 
