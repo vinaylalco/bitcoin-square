@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { updateCurrentUser, updateProfileSettings } from '../api/account';
 import { uploadProfileAvatar } from '../api/media';
+import { useToast } from '../context/ToastContext';
 import { validateImageFile } from '../utils/imageUpload';
 import { generateScreenName, normalizeAvatarUrl, normalizeScreenName } from '../utils/profileDefaults';
 import { COMMUNITY_MESSAGES_PATH } from '../utils/routes';
@@ -12,6 +13,7 @@ import { COMMUNITY_MESSAGES_PATH } from '../utils/routes';
 export default function Dashboard() {
   const { t } = useTranslation();
   const { user, logout, nostrPrivKey, token, updateUser } = useAuth();
+  const { showToast } = useToast();
   const nav = useNavigate();
 
   const profileSeed = useMemo(
@@ -186,6 +188,15 @@ export default function Dashboard() {
   const showAvatarAdvancedOptions = false;
 
   const isProfileSaving = profileStatus === 'saving';
+  const isCommissionSaving = commissionStatus === 'saving';
+
+  const isValidBtcAddress = useCallback((address: string) => {
+    const normalized = address.trim();
+    if (!normalized) return true;
+    if (/\s/.test(normalized)) return false;
+    if (normalized.startsWith('bc1')) return true;
+    return normalized.length >= 26 && normalized.length <= 62;
+  }, []);
 
   const handleScreenNameChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -218,30 +229,58 @@ export default function Dashboard() {
         return;
       }
 
-      setCommissionStatus('saving');
-      setCommissionError(null);
-
       const trimmedAddress = commissionAddress.trim();
       const payloadAddress = trimmedAddress.length > 0 ? trimmedAddress : null;
+
+      if (!isValidBtcAddress(trimmedAddress)) {
+        setCommissionStatus('error');
+        setCommissionError('Enter a valid BTC address.');
+        return;
+      }
+
+      setCommissionStatus('saving');
+      setCommissionError(null);
 
       try {
         const response = await updateCurrentUser(token, {
           commissionBtcAddress: payloadAddress,
         });
-        const nextAddress = response.commissionBtcAddress ?? payloadAddress ?? '';
+        const body = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          const message =
+            response.status === 400
+              ? body?.error?.message ?? body?.message ?? 'Invalid address'
+              : response.status === 401
+                ? 'Session expired, please log in again'
+                : response.status === 403
+                  ? "You don't have permission to do that"
+                  : 'Save failed. Please try again.';
+          console.error('Failed to update commission address', {
+            status: response.status,
+            body,
+          });
+          setCommissionStatus('error');
+          setCommissionError(message);
+          return;
+        }
+
+        const nextAddress = body?.commissionBtcAddress ?? payloadAddress ?? '';
         setCommissionAddress(nextAddress);
         updateUser((prev) =>
           prev ? { ...prev, commissionBtcAddress: nextAddress || null } : prev,
         );
         setCommissionStatus('success');
+        showToast('Commission address saved.', { tone: 'success' });
       } catch (error) {
+        console.error('Failed to update commission address', error);
         setCommissionStatus('error');
         setCommissionError(
           error instanceof Error ? error.message : t('dashboard.commission.errors.save'),
         );
       }
     },
-    [commissionAddress, t, token, updateUser],
+    [commissionAddress, isValidBtcAddress, showToast, t, token, updateUser],
   );
 
   return (
@@ -489,10 +528,10 @@ export default function Dashboard() {
                 )}
                 <button
                   type="submit"
-                  disabled={commissionStatus === 'saving'}
+                  disabled={isCommissionSaving}
                   className="inline-flex items-center justify-center rounded-full bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-white transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:bg-brand/40"
                 >
-                  {commissionStatus === 'saving'
+                  {isCommissionSaving
                     ? t('dashboard.commission.saving')
                     : t('dashboard.commission.save')}
                 </button>

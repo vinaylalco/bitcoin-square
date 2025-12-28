@@ -211,6 +211,20 @@ export default function Admin() {
             {isExporting ? "Exporting…" : "Export CSV"}
           </button>
         </header>
+        <section className="rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-700 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200">
+          <p className="font-semibold text-neutral-900 dark:text-white">
+            Export requirements (now documented for admins)
+          </p>
+          <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
+            The CSV export includes pending/approved commissions only, and each row requires:
+          </p>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-neutral-600 dark:text-neutral-300">
+            <li>A referrer BTC address (commissionBtcAddress).</li>
+            <li>A valid commission amount (commissionAmount or amountBtc).</li>
+            <li>Missing address/amount entries are skipped.</li>
+            <li>Zero amounts are still exported.</li>
+          </ul>
+        </section>
         {exportError && (
           <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-200">
             {exportError}

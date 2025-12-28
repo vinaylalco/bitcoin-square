@@ -1,4 +1,9 @@
-import { strapiFetch } from './strapi-client';
+import {
+  getStrapiBaseUrl,
+  StrapiConfigError,
+  StrapiNetworkError,
+  strapiFetch,
+} from './strapi-client';
 
 export interface UpdateLightningAddressResponse {
   id: number;
@@ -38,12 +43,26 @@ export async function updateProfileSettings(
 export async function updateCurrentUser(
   jwt: string,
   payload: UpdateMePayload,
-): Promise<UpdateLightningAddressResponse> {
-  return strapiFetch<UpdateLightningAddressResponse>('/api/users/update-me', {
-    method: 'PUT',
-    headers: {
-      Authorization: `Bearer ${jwt}`,
-    },
-    body: JSON.stringify(payload),
-  });
+): Promise<Response> {
+  const base = getStrapiBaseUrl();
+  if (!base) {
+    throw new StrapiConfigError();
+  }
+
+  const url = `${base}/api/users/update-me`;
+
+  try {
+    return await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${jwt}`,
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch (error) {
+    throw new StrapiNetworkError(
+      error instanceof Error ? error.message : 'Unknown Strapi fetch error',
+    );
+  }
 }
