@@ -4,6 +4,7 @@ import { Copy, Flame, Layers, LogOut, MessageCircle, Sparkles, Trophy } from 'lu
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { updateCurrentUser, updateProfileSettings } from '../api/account';
+import { StrapiRequestError } from '../api/strapi-client';
 import { uploadProfileAvatar } from '../api/media';
 import { useToast } from '../context/ToastContext';
 import { validateImageFile } from '../utils/imageUpload';
@@ -245,27 +246,7 @@ export default function Dashboard() {
         const response = await updateCurrentUser(token, {
           commissionBtcAddress: payloadAddress,
         });
-        const body = await response.json().catch(() => null);
-
-        if (!response.ok) {
-          const message =
-            response.status === 400
-              ? body?.error?.message ?? body?.message ?? 'Invalid address'
-              : response.status === 401
-                ? 'Session expired, please log in again'
-                : response.status === 403
-                  ? "You don't have permission to do that"
-                  : 'Save failed. Please try again.';
-          console.error('Failed to update commission address', {
-            status: response.status,
-            body,
-          });
-          setCommissionStatus('error');
-          setCommissionError(message);
-          return;
-        }
-
-        const nextAddress = body?.commissionBtcAddress ?? payloadAddress ?? '';
+        const nextAddress = response?.commissionBtcAddress ?? payloadAddress ?? '';
         setCommissionAddress(nextAddress);
         updateUser((prev) =>
           prev ? { ...prev, commissionBtcAddress: nextAddress || null } : prev,
@@ -275,9 +256,19 @@ export default function Dashboard() {
       } catch (error) {
         console.error('Failed to update commission address', error);
         setCommissionStatus('error');
-        setCommissionError(
-          error instanceof Error ? error.message : t('dashboard.commission.errors.save'),
-        );
+        if (error instanceof StrapiRequestError) {
+          const message =
+            error.status === 400
+              ? error.message
+              : error.status === 401
+                ? 'Session expired, please log in again'
+                : error.status === 403
+                  ? 'Forbidden'
+                  : 'Save failed';
+          setCommissionError(message);
+          return;
+        }
+        setCommissionError('Save failed');
       }
     },
     [commissionAddress, isValidBtcAddress, showToast, t, token, updateUser],
