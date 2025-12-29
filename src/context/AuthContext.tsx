@@ -11,12 +11,7 @@ import {
   register as apiRegister,
   resetPassword as apiReset,
 } from '../api/auth';
-import {
-  StrapiConfigError,
-  StrapiNetworkError,
-  StrapiRequestError,
-  strapiFetch,
-} from '../api/strapi-client';
+import { StrapiNetworkError, StrapiRequestError, strapiFetch } from '../api/strapi-client';
 import { normalizeLessonCompletionList } from '../utils/localProgress';
 import {
   decryptPrivateKey,
@@ -25,6 +20,7 @@ import {
 } from '../utils/nostr';
 import { fetchAccountNostrKeys, type AccountNostrKeyResponse } from '../api/nostrAccount';
 import { normalizeAvatarUrl, normalizeScreenName } from '../utils/profileDefaults';
+import { useMe } from '../features/auth/useMe';
 
 interface LessonCompletionMap {
   [slug: string]: string[];
@@ -633,62 +629,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     refreshNostrKeys().catch(() => undefined);
   }, [nostrPrivKey, nostrKeyLoading, refreshNostrKeys, token, user]);
 
-  useEffect(() => {
-    if (!user || !token) {
-      return;
-    }
-    if (profileHydrated) {
-      return;
-    }
-
-    let cancelled = false;
-
-    const hydrateProfile = async () => {
-      try {
-        const me = await strapiFetch<any>(
-          '/api/users/me?populate=role',
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          },
-        );
-        if (cancelled) {
-          return;
-        }
-        if (me && typeof me === 'object') {
-          updateUser((prev) => {
-            if (!prev) {
-              return me;
-            }
-            const merged: Record<string, unknown> = { ...prev };
-            Object.entries(me as Record<string, unknown>).forEach(([key, value]) => {
-              if (value !== undefined) {
-                merged[key] = value;
-              }
-            });
-            return merged;
-          });
-        }
-      } catch (error) {
-        if (error instanceof StrapiConfigError) {
-          console.info('Skipping user hydration: Strapi base URL is not configured.');
-        } else if (error instanceof StrapiNetworkError) {
-          console.info('Skipping user hydration: Strapi API is unreachable.');
-        } else {
-          console.warn('Failed to hydrate authenticated user', error);
-        }
-      } finally {
-        if (!cancelled) {
-          setProfileHydrated(true);
-        }
+  const { data: me } = useMe<User>(token, {
+    enabled: Boolean(token) && !profileHydrated,
+    onUnauthorized: () => {
+      logout();
+    },
+    onError: (error) => {
+      if (error instanceof StrapiNetworkError) {
+        console.info('Skipping user hydration: Strapi API is unreachable.');
+        return;
       }
-    };
+      console.warn('Failed to hydrate authenticated user', error);
+    },
+    onSettled: () => {
+      setProfileHydrated(true);
+    },
+  });
 
-    hydrateProfile().catch(() => undefined);
+  useEffect(() => {
+    if (!me || !token) {
+      return;
+    }
 
-    return () => {
-      cancelled = true;
-    };
-  }, [profileHydrated, token, updateUser, user]);
+    if (me && typeof me === 'object') {
+      updateUser((prev) => {
+        if (!prev) {
+          return me;
+        }
+        const merged: Record<string, unknown> = { ...prev };
+        Object.entries(me as Record<string, unknown>).forEach(([key, value]) => {
+          if (value !== undefined) {
+            merged[key] = value;
+          }
+        });
+        return merged as User;
+      });
+    }
+  }, [me, token, updateUser]);
 
   return (
     <AuthCtx.Provider
