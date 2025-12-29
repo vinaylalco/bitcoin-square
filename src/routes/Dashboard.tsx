@@ -261,10 +261,12 @@ export default function Dashboard() {
             error.status === 400
               ? error.message
               : error.status === 401
-                ? 'Session expired, please log in again'
+                ? 'Session expired'
                 : error.status === 403
                   ? 'Forbidden'
-                  : 'Save failed';
+                  : error.status >= 500
+                    ? 'Save failed'
+                    : 'Save failed';
           setCommissionError(message);
           return;
         }
