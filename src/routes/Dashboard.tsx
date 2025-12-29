@@ -261,16 +261,16 @@ export default function Dashboard() {
             error.status === 400
               ? error.message
               : error.status === 401
-                ? 'Session expired'
+                ? 'Session expired, please log in again'
                 : error.status === 403
                   ? 'Forbidden'
                   : error.status >= 500
-                    ? 'Save failed'
-                    : 'Save failed';
+                    ? 'Save failed, please try again'
+                    : 'Save failed, please try again';
           setCommissionError(message);
           return;
         }
-        setCommissionError('Save failed');
+        setCommissionError('Save failed, please try again');
       }
     },
     [commissionAddress, isValidBtcAddress, showToast, t, token, updateUser],

@@ -39,7 +39,7 @@ export async function updateCurrentUser(
   jwt: string,
   payload: UpdateMePayload,
 ): Promise<UpdateLightningAddressResponse> {
-  return strapiFetch<UpdateLightningAddressResponse>('/api/users/me', {
+  return strapiFetch<UpdateLightningAddressResponse>('/api/profile', {
     method: 'PUT',
     headers: {
       Authorization: `Bearer ${jwt}`,
