@@ -41,9 +41,9 @@ export async function fetchAccountNostrKeys(
 
   const attempts: Array<{ path: string; includeFields: boolean }> = [
     { path: `/api/users/${userId}`, includeFields: true },
-    { path: `/api/users/me`, includeFields: true },
+    { path: `/api/profile`, includeFields: true },
     { path: `/api/users/${userId}`, includeFields: false },
-    { path: `/api/users/me`, includeFields: false },
+    { path: `/api/profile`, includeFields: false },
   ];
 
   const response = await (async () => {

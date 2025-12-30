@@ -43,7 +43,7 @@ export function useCurrentUserMembership(
         throw new Error("Missing authentication token");
       }
       return strapiFetch<Record<string, unknown>>(
-        "/api/users/me?populate[0]=membership",
+        "/api/profile?populate[0]=membership",
         {
           method: "GET",
           headers: { Authorization: `Bearer ${token}` },
