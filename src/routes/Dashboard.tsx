@@ -275,7 +275,7 @@ export default function Dashboard() {
         const response = await updateMyProfile(token, {
           commissionBtcAddress: payloadAddress,
         });
-        const nextAddress = response?.commissionBtcAddress ?? payloadAddress ?? '';
+        const nextAddress = response?.data?.commissionBtcAddress ?? payloadAddress ?? '';
         setCommissionAddress(nextAddress);
         updateUser((prev) =>
           prev ? { ...prev, commissionBtcAddress: nextAddress || null } : prev,

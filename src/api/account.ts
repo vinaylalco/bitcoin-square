@@ -1,4 +1,4 @@
-import { strapiFetch } from './strapi-client';
+import { StrapiResponse, strapiFetch } from './strapi-client';
 
 export interface UpdateLightningAddressResponse {
   id: number;
@@ -48,12 +48,13 @@ export async function getMyProfile(
 export async function updateMyProfile(
   jwt: string,
   payload: UpdateMyProfilePayload,
-): Promise<UpdateLightningAddressResponse> {
-  return strapiFetch<UpdateLightningAddressResponse>('/api/profile', {
+): Promise<StrapiResponse<UpdateLightningAddressResponse>> {
+  return strapiFetch<StrapiResponse<UpdateLightningAddressResponse>>('/api/profile', {
     method: 'PUT',
     headers: {
       Authorization: `Bearer ${jwt}`,
+      'Content-Type': 'application/json',
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ data: payload }),
   });
 }
