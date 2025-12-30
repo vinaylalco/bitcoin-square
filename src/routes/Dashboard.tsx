@@ -83,7 +83,7 @@ export default function Dashboard() {
   const [profileError, setProfileError] = useState<string | null>(null);
   const [avatarUploadStatus, setAvatarUploadStatus] = useState<'idle' | 'uploading' | 'error' | 'success'>('idle');
   const [avatarUploadError, setAvatarUploadError] = useState<string | null>(null);
-  const [commissionAddress, setCommissionAddress] = useState(() => user?.commissionBtcAddress ?? '');
+  const [commissionBtcAddress, setCommissionBtcAddress] = useState('');
   const [commissionStatus, setCommissionStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const [commissionError, setCommissionError] = useState<string | null>(null);
   const [commissionWarning, setCommissionWarning] = useState<string | null>(null);
@@ -98,7 +98,7 @@ export default function Dashboard() {
   }, [profileSeed, user?.avatarUrl]);
 
   useEffect(() => {
-    setCommissionAddress(user?.commissionBtcAddress ?? '');
+    setCommissionBtcAddress(user?.commissionBtcAddress ?? '');
     setCommissionStatus('idle');
     setCommissionError(null);
     setCommissionWarning(null);
@@ -294,7 +294,7 @@ export default function Dashboard() {
         const response = await getMyProfile(token);
         if (!active) return;
         const nextAddress = response?.commissionBtcAddress ?? '';
-        setCommissionAddress(nextAddress);
+        setCommissionBtcAddress(nextAddress);
         updateUser((prev) =>
           prev ? { ...prev, commissionBtcAddress: nextAddress || null } : prev,
         );
@@ -323,7 +323,7 @@ export default function Dashboard() {
         return;
       }
 
-      const trimmedAddress = commissionAddress.trim();
+      const trimmedAddress = commissionBtcAddress.trim();
       const payloadAddress = trimmedAddress.length > 0 ? trimmedAddress : null;
 
       if (!isValidBtcAddress(trimmedAddress)) {
@@ -343,7 +343,7 @@ export default function Dashboard() {
         const resolvedProfile = resolveProfileResponse(response);
         const responseAddress = resolvedProfile?.commissionBtcAddress ?? null;
         const nextAddress = responseAddress ?? payloadAddress ?? '';
-        setCommissionAddress(nextAddress);
+        setCommissionBtcAddress(nextAddress);
         updateUser((prev) =>
           prev ? { ...prev, commissionBtcAddress: nextAddress || null } : prev,
         );
@@ -369,7 +369,7 @@ export default function Dashboard() {
         showToast(fallbackMessage, { tone: 'error' });
       }
     },
-    [buildProfileErrorMessage, commissionAddress, isValidBtcAddress, resolveProfileResponse, showToast, t, token, updateUser],
+    [buildProfileErrorMessage, commissionBtcAddress, isValidBtcAddress, resolveProfileResponse, showToast, t, token, updateUser],
   );
 
   return (
@@ -598,9 +598,9 @@ export default function Dashboard() {
                 </label>
                 <input
                   id="commission-btc-address"
-                  value={commissionAddress}
+                  value={commissionBtcAddress}
                   onChange={(event) => {
-                    setCommissionAddress(event.target.value);
+                    setCommissionBtcAddress(event.target.value);
                     if (commissionStatus === 'success') {
                       setCommissionStatus('idle');
                     }
