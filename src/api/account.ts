@@ -24,13 +24,13 @@ export interface UpdateMyProfilePayload {
 export async function updateProfileSettings(
   jwt: string,
   payload: UpdateProfileSettingsPayload,
-): Promise<UpdateLightningAddressResponse> {
-  return strapiFetch<UpdateLightningAddressResponse>('/api/profile', {
+): Promise<StrapiResponse<UpdateLightningAddressResponse>> {
+  return strapiFetch<StrapiResponse<UpdateLightningAddressResponse>>('/api/profile', {
     method: 'PUT',
     headers: {
       Authorization: `Bearer ${jwt}`,
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ data: payload }),
   });
 }
 
