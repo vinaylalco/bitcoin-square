@@ -42,11 +42,11 @@ export default function Affiliate() {
   const { pendingTotal, paidTotal } = useMemo(() => {
     return commissions.reduce(
       (totals, commission) => {
-        const amount = commission.amountBtc ?? 0;
-        if (commission.status === "pending") {
+        const amount = commission.commissionAmount ?? 0;
+        if (commission.commissionStatus === "pending") {
           totals.pendingTotal += amount;
         }
-        if (commission.status === "paid") {
+        if (commission.commissionStatus === "paid") {
           totals.paidTotal += amount;
         }
         return totals;
@@ -127,10 +127,10 @@ export default function Affiliate() {
                         {commission.orderId || "--"}
                       </td>
                       <td className="px-3 py-3">{commission.type || "--"}</td>
-                      <td className="px-3 py-3">{formatBtc(commission.amountBtc ?? 0)}</td>
+                      <td className="px-3 py-3">{formatBtc(commission.commissionAmount ?? 0)}</td>
                       <td className="px-3 py-3">
                         <span className="inline-flex rounded-full bg-neutral-200 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">
-                          {commission.status ?? "--"}
+                          {commission.commissionStatus ?? "--"}
                         </span>
                       </td>
                       <td className="px-3 py-3">{formatDate(commission.createdAt)}</td>

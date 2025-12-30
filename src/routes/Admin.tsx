@@ -118,7 +118,7 @@ export default function Admin() {
 
     commissions.forEach((commission) => {
       const key = commission.referrerId != null ? String(commission.referrerId) : "unknown";
-      const amount = commission.amountBtc ?? 0;
+      const amount = commission.commissionAmount ?? 0;
       accumulator.set(key, (accumulator.get(key) ?? 0) + amount);
     });
 
@@ -135,7 +135,7 @@ export default function Admin() {
 
     try {
       const response = await exportCommissionReport({
-        status: "pending",
+        commissionStatus: "pending",
         format: "nowpayments",
       });
 
@@ -220,7 +220,7 @@ export default function Admin() {
           </p>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-neutral-600 dark:text-neutral-300">
             <li>A referrer BTC address (commissionBtcAddress).</li>
-            <li>A valid commission amount (commissionAmount or amountBtc).</li>
+            <li>A valid commission amount (commissionAmount).</li>
             <li>Missing address/amount entries are skipped.</li>
             <li>Zero amounts are still exported.</li>
           </ul>
@@ -337,7 +337,7 @@ export default function Admin() {
                 <tr className="border-b border-neutral-200 text-xs uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
                   <th className="px-3 py-2">Order ID</th>
                   <th className="px-3 py-2">Type</th>
-                  <th className="px-3 py-2">Amount (BTC)</th>
+                  <th className="px-3 py-2">Commission Amount</th>
                   <th className="px-3 py-2">Paid</th>
                   <th className="px-3 py-2">Commission Rate</th>
                   <th className="px-3 py-2">Commission Amount</th>
@@ -361,7 +361,7 @@ export default function Admin() {
                     <tr key={commission.id} className="border-b border-neutral-100 last:border-0 dark:border-neutral-800">
                       <td className="px-3 py-3 font-medium text-neutral-900 dark:text-white">{commission.orderId || "--"}</td>
                       <td className="px-3 py-3">{commission.type || "--"}</td>
-                      <td className="px-3 py-3">{formatBtc(commission.amountBtc ?? 0)}</td>
+                      <td className="px-3 py-3">{formatBtc(commission.commissionAmount ?? 0)}</td>
                       <td className="px-3 py-3">
                         {formatCurrencyAmount(commission.paidAmount, commission.paidCurrency)}
                       </td>
@@ -376,7 +376,7 @@ export default function Admin() {
                       <td className="px-3 py-3">{commission.commissionTierAtCreation || "--"}</td>
                       <td className="px-3 py-3">
                         <span className="inline-flex rounded-full bg-neutral-200 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">
-                          {commission.status ?? "--"}
+                          {commission.commissionStatus ?? "--"}
                         </span>
                       </td>
                       <td className="px-3 py-3">{commission.referrerId != null ? commission.referrerId : "--"}</td>

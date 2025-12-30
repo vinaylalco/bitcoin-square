@@ -8,8 +8,9 @@ import {
 export interface CommissionAttributes {
   orderId?: string | null;
   type?: string | null;
+  /** @deprecated legacy field removed from Strapi schema */
   amountBtc?: number | string | null;
-  status?: string | null;
+  commissionStatus?: string | null;
   createdAt?: string | null;
   referrerId?: number | string | null;
   paidAmount?: number | string | null;
@@ -25,8 +26,9 @@ export interface Commission {
   id: number;
   orderId?: string | null;
   type?: string | null;
-  amountBtc?: number;
-  status?: string | null;
+  /** @deprecated legacy field removed from Strapi schema */
+  amountBtc?: number | null;
+  commissionStatus?: string | null;
   createdAt?: string | null;
   referrerId?: number | string | null;
   paidAmount?: number | null;
@@ -45,6 +47,83 @@ type StrapiCommissionEntity = CommissionAttributes & {
 
 interface CommissionListResponse {
   data?: StrapiCommissionEntity[];
+}
+
+const COMMISSION_PUBLICATION_STATUSES = new Set(["draft", "published"]);
+
+function shouldRenameWorkflowStatus(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  return normalized.length > 0 && !COMMISSION_PUBLICATION_STATUSES.has(normalized);
+}
+
+function getRenamedStatusKey(key: string): string | null {
+  if (key === "status" || key.startsWith("status[")) {
+    return key.replace(/^status/, "commissionStatus");
+  }
+  if (key.startsWith("filters[status]")) {
+    return key.replace("filters[status]", "filters[commissionStatus]");
+  }
+  if (key.startsWith("filters.status")) {
+    return key.replace("filters.status", "filters.commissionStatus");
+  }
+  return null;
+}
+
+function renameCommissionSearchParams(searchParams: URLSearchParams): void {
+  const entries = Array.from(searchParams.entries());
+  entries.forEach(([key, value]) => {
+    const renamedKey = getRenamedStatusKey(key);
+    if (!renamedKey) {
+      return;
+    }
+    if (!shouldRenameWorkflowStatus(value)) {
+      return;
+    }
+    searchParams.delete(key);
+    searchParams.append(renamedKey, value);
+  });
+}
+
+function isCommissionEndpoint(url: URL): boolean {
+  return url.pathname.includes("/commissions") || url.pathname.includes("commission");
+}
+
+function normalizeCommissionRequest(
+  url: URL,
+  init?: RequestInit,
+): { url: URL; init?: RequestInit } {
+  if (!isCommissionEndpoint(url)) {
+    return { url, init };
+  }
+
+  renameCommissionSearchParams(url.searchParams);
+
+  if (init?.body && typeof init.body === "string") {
+    try {
+      const parsed = JSON.parse(init.body) as {
+        status?: unknown;
+        commissionStatus?: unknown;
+      };
+      if (
+        parsed &&
+        typeof parsed === "object" &&
+        parsed.status !== undefined &&
+        parsed.commissionStatus === undefined &&
+        shouldRenameWorkflowStatus(String(parsed.status))
+      ) {
+        const { status, ...rest } = parsed;
+        const normalizedBody = JSON.stringify({
+          ...rest,
+          commissionStatus: status,
+        });
+        return { url, init: { ...init, body: normalizedBody } };
+      }
+    } catch {
+      return { url, init };
+    }
+  }
+
+  return { url, init };
 }
 
 function normalizeAmount(value: unknown): number {
@@ -79,18 +158,22 @@ function normalizeOptionalNumber(value: unknown): number | null {
 
 function normalizeCommission(entry: StrapiCommissionEntity): Commission {
   const attributes = entry.attributes ?? entry;
+  const legacyStatus = (attributes as { status?: string | null }).status ?? null;
+  const legacyAmount = normalizeOptionalNumber(attributes.amountBtc);
+  const commissionAmount =
+    normalizeOptionalNumber(attributes.commissionAmount) ?? legacyAmount;
   return {
     id: entry.id,
     orderId: attributes.orderId ?? null,
     type: attributes.type ?? null,
-    amountBtc: normalizeAmount(attributes.amountBtc),
-    status: attributes.status ?? null,
+    amountBtc: legacyAmount,
+    commissionAmount,
+    commissionStatus: attributes.commissionStatus ?? legacyStatus,
     createdAt: attributes.createdAt ?? null,
     referrerId: attributes.referrerId ?? null,
     paidAmount: normalizeOptionalNumber(attributes.paidAmount),
     paidCurrency: attributes.paidCurrency ?? null,
     commissionRate: normalizeOptionalNumber(attributes.commissionRate),
-    commissionAmount: normalizeOptionalNumber(attributes.commissionAmount),
     commissionCurrency: attributes.commissionCurrency ?? null,
     commissionLevel: normalizeOptionalNumber(attributes.commissionLevel),
     commissionTierAtCreation: attributes.commissionTierAtCreation ?? null,
@@ -141,13 +224,15 @@ async function fetchCommissionList(path: string): Promise<CommissionListResponse
   }
 
   const url = path.startsWith("http")
-    ? path
-    : `${base}${path.startsWith("/") ? path : `/${path}`}`;
+    ? new URL(path)
+    : new URL(path.startsWith("/") ? path : `/${path}`, base);
+  const normalized = normalizeCommissionRequest(url);
 
   let response: Response;
   try {
-    response = await fetch(url, {
+    response = await fetch(normalized.url.toString(), {
       headers,
+      ...normalized.init,
     });
   } catch (error) {
     throw new StrapiNetworkError(
@@ -192,7 +277,8 @@ async function fetchCommissionList(path: string): Promise<CommissionListResponse
 }
 
 export async function exportCommissionReport(params: {
-  status: string;
+  commissionStatus?: string;
+  status?: string;
   format: string;
 }): Promise<Response> {
   const base = getStrapiBaseUrl();
@@ -206,11 +292,19 @@ export async function exportCommissionReport(params: {
   }
 
   const exportUrl = new URL("/api/commissions/export", base);
-  exportUrl.searchParams.set("status", params.status);
+  const statusValue = params.commissionStatus ?? params.status;
+  if (statusValue) {
+    if (shouldRenameWorkflowStatus(statusValue)) {
+      exportUrl.searchParams.set("commissionStatus", statusValue);
+    } else {
+      exportUrl.searchParams.set("status", statusValue);
+    }
+  }
   exportUrl.searchParams.set("format", params.format);
+  const normalized = normalizeCommissionRequest(exportUrl);
 
   try {
-    return await fetch(exportUrl.toString(), {
+    return await fetch(normalized.url.toString(), {
       headers,
     });
   } catch (error) {
