@@ -21,6 +21,10 @@ export interface UpdateMyProfilePayload {
   commissionBtcAddress?: string | null;
 }
 
+export type UpdateMyProfileResponse =
+  | UpdateLightningAddressResponse
+  | StrapiResponse<UpdateLightningAddressResponse>;
+
 export async function updateProfileSettings(
   jwt: string,
   payload: UpdateProfileSettingsPayload,
@@ -48,13 +52,13 @@ export async function getMyProfile(
 export async function updateMyProfile(
   jwt: string,
   payload: UpdateMyProfilePayload,
-): Promise<StrapiResponse<UpdateLightningAddressResponse>> {
-  return strapiFetch<StrapiResponse<UpdateLightningAddressResponse>>('/api/profile', {
+): Promise<UpdateMyProfileResponse> {
+  return strapiFetch<UpdateMyProfileResponse>('/api/profile', {
     method: 'PUT',
     headers: {
       Authorization: `Bearer ${jwt}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ data: payload }),
+    body: JSON.stringify(payload),
   });
 }
