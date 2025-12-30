@@ -94,5 +94,5 @@ export async function strapiRequest<T>(
 }
 
 export function getMe<T>(token: string): Promise<T> {
-  return strapiRequest<T>('/api/users/me', { token });
+  return strapiRequest<T>('/api/profile', { token });
 }

@@ -3,7 +3,12 @@ import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { Copy, Flame, Layers, LogOut, MessageCircle, Sparkles, Trophy } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
-import { getMyProfile, updateMyProfile, updateProfileSettings } from '../api/account';
+import {
+  getMyProfile,
+  updateMyProfile,
+  updateProfileSettings,
+  type UpdateMyProfileResponse,
+} from '../api/account';
 import { StrapiRequestError } from '../api/strapi-client';
 import { uploadProfileAvatar } from '../api/media';
 import { useToast } from '../context/ToastContext';
@@ -16,6 +21,54 @@ export default function Dashboard() {
   const { user, logout, nostrPrivKey, token, updateUser } = useAuth();
   const { showToast } = useToast();
   const nav = useNavigate();
+
+  const extractProfileErrorDetails = useCallback((payload: unknown): string | null => {
+    if (!payload || typeof payload !== 'object') return null;
+    const record = payload as Record<string, unknown>;
+    const nested = record.error && typeof record.error === 'object' ? record.error : null;
+    const details = (nested as Record<string, unknown> | null)?.details ?? record.details;
+    if (!details) return null;
+    if (typeof details === 'string') return details.trim() || null;
+    if (Array.isArray(details)) {
+      const list = details
+        .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
+        .filter(Boolean);
+      return list.length > 0 ? list.join(', ') : null;
+    }
+    try {
+      const serialized = JSON.stringify(details);
+      return serialized ? serialized : null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const buildProfileErrorMessage = useCallback(
+    (error: StrapiRequestError) => {
+      const details = extractProfileErrorDetails(error.payload);
+      let message = error.message;
+      if (error.status === 401) {
+        message = `${message}. Please sign in again.`;
+      } else if (error.status === 403) {
+        message = `${message}. You do not have permission to update your profile.`;
+      } else if (error.status >= 500) {
+        message = `${message}. Please try again later.`;
+      }
+      return details ? `${message} ${details}` : message;
+    },
+    [extractProfileErrorDetails],
+  );
+
+  const resolveProfileResponse = useCallback(
+    (response: UpdateMyProfileResponse | null | undefined) => {
+      if (!response || typeof response !== 'object') return null;
+      if ('data' in response) {
+        return response.data ?? null;
+      }
+      return response;
+    },
+    [],
+  );
 
   const profileSeed = useMemo(
     () => user?.nostrPublicKey ?? user?.email ?? String(user?.id ?? ''),
@@ -30,7 +83,7 @@ export default function Dashboard() {
   const [profileError, setProfileError] = useState<string | null>(null);
   const [avatarUploadStatus, setAvatarUploadStatus] = useState<'idle' | 'uploading' | 'error' | 'success'>('idle');
   const [avatarUploadError, setAvatarUploadError] = useState<string | null>(null);
-  const [commissionAddress, setCommissionAddress] = useState(() => user?.commissionBtcAddress ?? '');
+  const [commissionBtcAddress, setCommissionBtcAddress] = useState('');
   const [commissionStatus, setCommissionStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const [commissionError, setCommissionError] = useState<string | null>(null);
   const [commissionWarning, setCommissionWarning] = useState<string | null>(null);
@@ -45,7 +98,7 @@ export default function Dashboard() {
   }, [profileSeed, user?.avatarUrl]);
 
   useEffect(() => {
-    setCommissionAddress(user?.commissionBtcAddress ?? '');
+    setCommissionBtcAddress(user?.commissionBtcAddress ?? '');
     setCommissionStatus('idle');
     setCommissionError(null);
     setCommissionWarning(null);
@@ -171,14 +224,20 @@ export default function Dashboard() {
         setScreenName(nextName);
         setAvatarUrl(nextAvatar);
         setProfileStatus('success');
+        showToast(t('dashboard.common.saved'), { tone: 'success' });
       } catch (error) {
+        const message =
+          error instanceof StrapiRequestError
+            ? buildProfileErrorMessage(error)
+            : error instanceof Error
+              ? error.message
+              : t('dashboard.account.errors.profile');
         setProfileStatus('error');
-        setProfileError(
-          error instanceof Error ? error.message : t('dashboard.account.errors.profile'),
-        );
+        setProfileError(message);
+        showToast(message, { tone: 'error' });
       }
     },
-    [avatarUrl, profileSeed, screenName, token, updateUser, user],
+    [avatarUrl, buildProfileErrorMessage, profileSeed, screenName, showToast, t, token, updateUser, user],
   );
 
   const handleRandomizeName = useCallback(() => {
@@ -235,7 +294,7 @@ export default function Dashboard() {
         const response = await getMyProfile(token);
         if (!active) return;
         const nextAddress = response?.commissionBtcAddress ?? '';
-        setCommissionAddress(nextAddress);
+        setCommissionBtcAddress(nextAddress);
         updateUser((prev) =>
           prev ? { ...prev, commissionBtcAddress: nextAddress || null } : prev,
         );
@@ -264,7 +323,7 @@ export default function Dashboard() {
         return;
       }
 
-      const trimmedAddress = commissionAddress.trim();
+      const trimmedAddress = commissionBtcAddress.trim();
       const payloadAddress = trimmedAddress.length > 0 ? trimmedAddress : null;
 
       if (!isValidBtcAddress(trimmedAddress)) {
@@ -281,9 +340,10 @@ export default function Dashboard() {
         const response = await updateMyProfile(token, {
           commissionBtcAddress: payloadAddress,
         });
-        const responseAddress = response?.data?.commissionBtcAddress ?? null;
+        const resolvedProfile = resolveProfileResponse(response);
+        const responseAddress = resolvedProfile?.commissionBtcAddress ?? null;
         const nextAddress = responseAddress ?? payloadAddress ?? '';
-        setCommissionAddress(nextAddress);
+        setCommissionBtcAddress(nextAddress);
         updateUser((prev) =>
           prev ? { ...prev, commissionBtcAddress: nextAddress || null } : prev,
         );
@@ -296,25 +356,20 @@ export default function Dashboard() {
         console.error('Failed to update commission address', error);
         setCommissionStatus('error');
         if (error instanceof StrapiRequestError) {
-          if (import.meta.env.DEV) {
-            console.error('Profile update error payload', error.payload);
-          }
-          const message =
-            error.status === 400
-              ? error.message
-              : error.status === 401
-                ? 'Session expired'
-                : 'Save failed';
+          const message = buildProfileErrorMessage(error);
           setCommissionError(message);
+          showToast(message, { tone: 'error' });
           return;
         }
         if (import.meta.env.DEV) {
           console.error('Profile update error payload', error);
         }
-        setCommissionError('Save failed');
+        const fallbackMessage = 'Save failed';
+        setCommissionError(fallbackMessage);
+        showToast(fallbackMessage, { tone: 'error' });
       }
     },
-    [commissionAddress, isValidBtcAddress, showToast, t, token, updateUser],
+    [buildProfileErrorMessage, commissionBtcAddress, isValidBtcAddress, resolveProfileResponse, showToast, t, token, updateUser],
   );
 
   return (
@@ -543,9 +598,9 @@ export default function Dashboard() {
                 </label>
                 <input
                   id="commission-btc-address"
-                  value={commissionAddress}
+                  value={commissionBtcAddress}
                   onChange={(event) => {
-                    setCommissionAddress(event.target.value);
+                    setCommissionBtcAddress(event.target.value);
                     if (commissionStatus === 'success') {
                       setCommissionStatus('idle');
                     }
