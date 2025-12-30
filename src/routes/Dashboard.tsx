@@ -33,6 +33,7 @@ export default function Dashboard() {
   const [commissionAddress, setCommissionAddress] = useState(() => user?.commissionBtcAddress ?? '');
   const [commissionStatus, setCommissionStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const [commissionError, setCommissionError] = useState<string | null>(null);
+  const [commissionWarning, setCommissionWarning] = useState<string | null>(null);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -47,6 +48,7 @@ export default function Dashboard() {
     setCommissionAddress(user?.commissionBtcAddress ?? '');
     setCommissionStatus('idle');
     setCommissionError(null);
+    setCommissionWarning(null);
   }, [user?.commissionBtcAddress]);
 
   if (!user) return <Navigate to="/membership?view=login" replace />;
@@ -111,7 +113,10 @@ export default function Dashboard() {
           avatarUrl: normalizedUrl,
         });
 
-        const nextAvatar = normalizeAvatarUrl(response.avatarUrl ?? normalizedUrl, profileSeed);
+        const nextAvatar = normalizeAvatarUrl(
+          response.data?.avatarUrl ?? normalizedUrl,
+          profileSeed,
+        );
 
         setAvatarUrl(nextAvatar);
         updateUser((prev) => (prev ? { ...prev, avatarUrl: nextAvatar } : prev));
@@ -152,8 +157,8 @@ export default function Dashboard() {
           screenName: trimmedName,
           avatarUrl: trimmedAvatar,
         });
-        const nextName = response.screenName ?? trimmedName;
-        const nextAvatar = response.avatarUrl ?? trimmedAvatar;
+        const nextName = response.data?.screenName ?? trimmedName;
+        const nextAvatar = response.data?.avatarUrl ?? trimmedAvatar;
         updateUser((prev) =>
           prev
             ? {
@@ -270,16 +275,21 @@ export default function Dashboard() {
 
       setCommissionStatus('saving');
       setCommissionError(null);
+      setCommissionWarning(null);
 
       try {
         const response = await updateMyProfile(token, {
           commissionBtcAddress: payloadAddress,
         });
-        const nextAddress = response?.data?.commissionBtcAddress ?? payloadAddress ?? '';
+        const responseAddress = response?.data?.commissionBtcAddress ?? null;
+        const nextAddress = responseAddress ?? payloadAddress ?? '';
         setCommissionAddress(nextAddress);
         updateUser((prev) =>
           prev ? { ...prev, commissionBtcAddress: nextAddress || null } : prev,
         );
+        if (payloadAddress && responseAddress === null) {
+          setCommissionWarning('Profile update did not persist');
+        }
         setCommissionStatus('success');
         showToast('Commission address saved.', { tone: 'success' });
       } catch (error) {
@@ -542,6 +552,9 @@ export default function Dashboard() {
                     if (commissionError) {
                       setCommissionError(null);
                     }
+                    if (commissionWarning) {
+                      setCommissionWarning(null);
+                    }
                   }}
                   className="w-full rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 transition focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
                   placeholder={t('dashboard.commission.placeholder')}
@@ -549,6 +562,9 @@ export default function Dashboard() {
                 />
                 {commissionError && (
                   <p className="text-xs text-red-500">{commissionError}</p>
+                )}
+                {commissionWarning && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400">{commissionWarning}</p>
                 )}
                 <button
                   type="submit"
