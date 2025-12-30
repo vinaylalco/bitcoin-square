@@ -17,16 +17,15 @@ export interface UpdateProfileSettingsPayload {
   avatarUrl?: string | null;
 }
 
-export interface UpdateMePayload {
+export interface UpdateMyProfilePayload {
   commissionBtcAddress?: string | null;
 }
 
 export async function updateProfileSettings(
-  userId: number,
   jwt: string,
   payload: UpdateProfileSettingsPayload,
 ): Promise<UpdateLightningAddressResponse> {
-  return strapiFetch<UpdateLightningAddressResponse>(`/api/users/${userId}`, {
+  return strapiFetch<UpdateLightningAddressResponse>('/api/profile', {
     method: 'PUT',
     headers: {
       Authorization: `Bearer ${jwt}`,
@@ -35,11 +34,22 @@ export async function updateProfileSettings(
   });
 }
 
-export async function updateCurrentUser(
+export async function getMyProfile(
   jwt: string,
-  payload: UpdateMePayload,
 ): Promise<UpdateLightningAddressResponse> {
-  return strapiFetch<UpdateLightningAddressResponse>('/api/users/me', {
+  return strapiFetch<UpdateLightningAddressResponse>('/api/profile', {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${jwt}`,
+    },
+  });
+}
+
+export async function updateMyProfile(
+  jwt: string,
+  payload: UpdateMyProfilePayload,
+): Promise<UpdateLightningAddressResponse> {
+  return strapiFetch<UpdateLightningAddressResponse>('/api/profile', {
     method: 'PUT',
     headers: {
       Authorization: `Bearer ${jwt}`,

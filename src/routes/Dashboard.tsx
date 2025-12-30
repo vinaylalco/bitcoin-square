@@ -3,7 +3,7 @@ import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { Copy, Flame, Layers, LogOut, MessageCircle, Sparkles, Trophy } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
-import { updateCurrentUser, updateProfileSettings } from '../api/account';
+import { getMyProfile, updateMyProfile, updateProfileSettings } from '../api/account';
 import { StrapiRequestError } from '../api/strapi-client';
 import { uploadProfileAvatar } from '../api/media';
 import { useToast } from '../context/ToastContext';
@@ -107,7 +107,7 @@ export default function Dashboard() {
         const normalizedUrl = normalizeAvatarUrl(uploadedUrl, profileSeed);
         setAvatarUrl(normalizedUrl);
 
-        const response = await updateProfileSettings(user.id, token, {
+        const response = await updateProfileSettings(token, {
           avatarUrl: normalizedUrl,
         });
 
@@ -148,7 +148,7 @@ export default function Dashboard() {
       setProfileError(null);
 
       try {
-        const response = await updateProfileSettings(user.id, token, {
+        const response = await updateProfileSettings(token, {
           screenName: trimmedName,
           avatarUrl: trimmedAvatar,
         });
@@ -221,6 +221,35 @@ export default function Dashboard() {
     [avatarUploadStatus],
   );
 
+  useEffect(() => {
+    if (!token) return;
+    let active = true;
+
+    const loadProfile = async () => {
+      try {
+        const response = await getMyProfile(token);
+        if (!active) return;
+        const nextAddress = response?.commissionBtcAddress ?? '';
+        setCommissionAddress(nextAddress);
+        updateUser((prev) =>
+          prev ? { ...prev, commissionBtcAddress: nextAddress || null } : prev,
+        );
+        setCommissionStatus('idle');
+        setCommissionError(null);
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          console.error('Failed to load profile', error);
+        }
+      }
+    };
+
+    void loadProfile();
+
+    return () => {
+      active = false;
+    };
+  }, [token, updateUser]);
+
   const handleCommissionSubmit = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
@@ -243,7 +272,7 @@ export default function Dashboard() {
       setCommissionError(null);
 
       try {
-        const response = await updateCurrentUser(token, {
+        const response = await updateMyProfile(token, {
           commissionBtcAddress: payloadAddress,
         });
         const nextAddress = response?.commissionBtcAddress ?? payloadAddress ?? '';
@@ -257,18 +286,20 @@ export default function Dashboard() {
         console.error('Failed to update commission address', error);
         setCommissionStatus('error');
         if (error instanceof StrapiRequestError) {
+          if (import.meta.env.DEV) {
+            console.error('Profile update error payload', error.payload);
+          }
           const message =
             error.status === 400
               ? error.message
               : error.status === 401
                 ? 'Session expired'
-                : error.status === 403
-                  ? 'Forbidden'
-                  : error.status >= 500
-                    ? 'Save failed'
-                    : 'Save failed';
+                : 'Save failed';
           setCommissionError(message);
           return;
+        }
+        if (import.meta.env.DEV) {
+          console.error('Profile update error payload', error);
         }
         setCommissionError('Save failed');
       }
