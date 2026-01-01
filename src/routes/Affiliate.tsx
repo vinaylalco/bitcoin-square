@@ -4,13 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { fetchMyCommissions, type Commission } from "../api/commissions";
 import { useAuth } from "../context/AuthContext";
-
-function formatBtc(value: number): string {
-  return value.toLocaleString(undefined, {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 8,
-  });
-}
+import { formatCurrencyAmount } from "../utils/formatCurrency";
 
 function formatDate(value: string | null | undefined): string {
   if (!value) return "--";
@@ -39,20 +33,30 @@ export default function Affiliate() {
 
   const commissions = data ?? [];
 
-  const { pendingTotal, paidTotal } = useMemo(() => {
-    return commissions.reduce(
-      (totals, commission) => {
-        const amount = commission.commissionAmount ?? 0;
-        if (commission.commissionStatus === "pending") {
-          totals.pendingTotal += amount;
-        }
-        if (commission.commissionStatus === "paid") {
-          totals.paidTotal += amount;
-        }
-        return totals;
-      },
-      { pendingTotal: 0, paidTotal: 0 },
-    );
+  const pendingTotals = useMemo(() => {
+    const totals = new Map<string, number>();
+
+    commissions.forEach((commission) => {
+      if (commission.commissionStatus !== "pending") return;
+      const currency = commission.commissionCurrency?.trim() || "Unknown";
+      const amount = commission.commissionAmount ?? 0;
+      totals.set(currency, (totals.get(currency) ?? 0) + amount);
+    });
+
+    return Array.from(totals.entries());
+  }, [commissions]);
+
+  const paidTotals = useMemo(() => {
+    const totals = new Map<string, number>();
+
+    commissions.forEach((commission) => {
+      if (commission.commissionStatus !== "paid") return;
+      const currency = commission.commissionCurrency?.trim() || "Unknown";
+      const amount = commission.commissionAmount ?? 0;
+      totals.set(currency, (totals.get(currency) ?? 0) + amount);
+    });
+
+    return Array.from(totals.entries());
   }, [commissions]);
 
   return (
@@ -77,11 +81,31 @@ export default function Affiliate() {
         <section className="grid gap-4 sm:grid-cols-2">
           <div className="rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm transition-colors dark:border-neutral-800 dark:bg-neutral-900">
             <p className="text-xs uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">Pending Total</p>
-            <p className="mt-2 text-3xl font-semibold text-neutral-900 dark:text-white">{formatBtc(pendingTotal)} BTC</p>
+            <div className="mt-2 space-y-1">
+              {pendingTotals.length === 0 ? (
+                <p className="text-3xl font-semibold text-neutral-900 dark:text-white">--</p>
+              ) : (
+                pendingTotals.map(([currency, total]) => (
+                  <p key={currency} className="text-3xl font-semibold text-neutral-900 dark:text-white">
+                    {formatCurrencyAmount(total, currency)}
+                  </p>
+                ))
+              )}
+            </div>
           </div>
           <div className="rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm transition-colors dark:border-neutral-800 dark:bg-neutral-900">
             <p className="text-xs uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">Paid Total</p>
-            <p className="mt-2 text-3xl font-semibold text-neutral-900 dark:text-white">{formatBtc(paidTotal)} BTC</p>
+            <div className="mt-2 space-y-1">
+              {paidTotals.length === 0 ? (
+                <p className="text-3xl font-semibold text-neutral-900 dark:text-white">--</p>
+              ) : (
+                paidTotals.map(([currency, total]) => (
+                  <p key={currency} className="text-3xl font-semibold text-neutral-900 dark:text-white">
+                    {formatCurrencyAmount(total, currency)}
+                  </p>
+                ))
+              )}
+            </div>
           </div>
         </section>
 
@@ -102,7 +126,7 @@ export default function Affiliate() {
                 <tr className="border-b border-neutral-200 text-xs uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
                   <th className="px-3 py-2">Order ID</th>
                   <th className="px-3 py-2">Type</th>
-                  <th className="px-3 py-2">Amount (BTC)</th>
+                  <th className="px-3 py-2">Commission Amount</th>
                   <th className="px-3 py-2">Status</th>
                   <th className="px-3 py-2">Created</th>
                 </tr>
@@ -127,7 +151,9 @@ export default function Affiliate() {
                         {commission.orderId || "--"}
                       </td>
                       <td className="px-3 py-3">{commission.type || "--"}</td>
-                      <td className="px-3 py-3">{formatBtc(commission.commissionAmount ?? 0)}</td>
+                      <td className="px-3 py-3">
+                        {formatCurrencyAmount(commission.commissionAmount, commission.commissionCurrency)}
+                      </td>
                       <td className="px-3 py-3">
                         <span className="inline-flex rounded-full bg-neutral-200 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">
                           {commission.commissionStatus ?? "--"}
