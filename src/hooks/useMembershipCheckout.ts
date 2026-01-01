@@ -10,6 +10,8 @@ interface MembershipCheckoutPayload {
   membershipType: MembershipType;
   discountCode?: string;
   userId?: number;
+  referrerId?: string;
+  authToken?: string;
   txHash?: string;
 }
 
@@ -19,12 +21,22 @@ export function useMembershipCheckout() {
     Error,
     MembershipCheckoutPayload
   >({
-    mutationFn: ({ email, membershipType, discountCode, userId, txHash }) =>
+    mutationFn: ({
+      email,
+      membershipType,
+      discountCode,
+      userId,
+      referrerId,
+      authToken,
+      txHash,
+    }) =>
       createMembershipCheckout({
         membershipType,
         userEmail: email,
         discountCode,
         userId,
+        referrerId,
+        authToken,
         txHash,
       }),
   });

@@ -49,6 +49,10 @@ export default function Membership() {
     const code = searchParams.get("discount");
     return code ? code.trim() : "";
   });
+  const [signupReferrerId] = useState(() => {
+    const ref = searchParams.get("ref");
+    return ref ? ref.trim() : "";
+  });
 
   const viewParam = searchParams.get("view");
   const [activeView, setActiveView] = useState<PortalView>(
@@ -181,6 +185,9 @@ export default function Membership() {
     const trimmedDiscountCode = signupDiscountCode.trim();
     const resolvedDiscountCode =
       trimmedDiscountCode.length > 0 ? trimmedDiscountCode : undefined;
+    const trimmedReferrerId = signupReferrerId.trim();
+    const resolvedReferrerId =
+      trimmedReferrerId.length > 0 ? trimmedReferrerId : undefined;
     let pendingStored = false;
     try {
       const discountTxHash = resolvedDiscountCode
@@ -205,6 +212,8 @@ export default function Membership() {
         membershipType: signupPlan,
         discountCode: resolvedDiscountCode,
         userId: authResponse.user.id,
+        referrerId: resolvedReferrerId,
+        authToken: authResponse.jwt,
         txHash: discountTxHash,
       });
 
