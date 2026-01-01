@@ -9,29 +9,13 @@ import {
 } from "../api/commissions";
 import { useAuth } from "../context/AuthContext";
 import { StrapiConfigError } from "../api/strapi-client";
-
-function formatBtc(value: number): string {
-  return value.toLocaleString(undefined, {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 8,
-  });
-}
+import { formatCurrencyAmount } from "../utils/formatCurrency";
 
 function formatOptionalNumber(value?: number | null): string {
   if (value == null || Number.isNaN(value)) {
     return "--";
   }
   return value.toLocaleString();
-}
-
-function formatCurrencyAmount(amount?: number | null, currency?: string | null): string {
-  if (amount == null || Number.isNaN(amount)) {
-    return "--";
-  }
-  if (currency && currency.trim()) {
-    return `${amount.toLocaleString()} ${currency.trim()}`;
-  }
-  return amount.toLocaleString();
 }
 
 function formatDate(value: string | null | undefined): string {
@@ -70,7 +54,7 @@ function downloadBlob(blob: Blob, filename: string): void {
 
 interface GroupedTotal {
   referrerId: string;
-  totalBtc: number;
+  totals: Array<[string, number]>;
 }
 
 export default function Admin() {
@@ -114,17 +98,20 @@ export default function Admin() {
   const commissions = data ?? [];
 
   const groupedTotals = useMemo(() => {
-    const accumulator = new Map<string, number>();
+    const accumulator = new Map<string, Map<string, number>>();
 
     commissions.forEach((commission) => {
       const key = commission.referrerId != null ? String(commission.referrerId) : "unknown";
+      const currency = commission.commissionCurrency?.trim() || "Unknown";
       const amount = commission.commissionAmount ?? 0;
-      accumulator.set(key, (accumulator.get(key) ?? 0) + amount);
+      const totalsByCurrency = accumulator.get(key) ?? new Map<string, number>();
+      totalsByCurrency.set(currency, (totalsByCurrency.get(currency) ?? 0) + amount);
+      accumulator.set(key, totalsByCurrency);
     });
 
-    return Array.from(accumulator.entries()).map(([referrerId, totalBtc]) => ({
+    return Array.from(accumulator.entries()).map(([referrerId, totals]) => ({
       referrerId,
-      totalBtc,
+      totals: Array.from(totals.entries()),
     }));
   }, [commissions]);
 
@@ -297,7 +284,7 @@ export default function Admin() {
               <thead>
                 <tr className="border-b border-neutral-200 text-xs uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
                   <th className="px-3 py-2">Referrer ID</th>
-                  <th className="px-3 py-2">Total BTC</th>
+                  <th className="px-3 py-2">Total Commissions</th>
                 </tr>
               </thead>
               <tbody>
@@ -311,7 +298,13 @@ export default function Admin() {
                   groupedTotals.map((group: GroupedTotal) => (
                     <tr key={group.referrerId} className="border-b border-neutral-100 last:border-0 dark:border-neutral-800">
                       <td className="px-3 py-3 font-medium text-neutral-900 dark:text-white">{group.referrerId}</td>
-                      <td className="px-3 py-3">{formatBtc(group.totalBtc)}</td>
+                      <td className="px-3 py-3">
+                        <div className="flex flex-col gap-1">
+                          {group.totals.map(([currency, total]) => (
+                            <span key={currency}>{formatCurrencyAmount(total, currency)}</span>
+                          ))}
+                        </div>
+                      </td>
                     </tr>
                   ))
                 )}
@@ -361,7 +354,9 @@ export default function Admin() {
                     <tr key={commission.id} className="border-b border-neutral-100 last:border-0 dark:border-neutral-800">
                       <td className="px-3 py-3 font-medium text-neutral-900 dark:text-white">{commission.orderId || "--"}</td>
                       <td className="px-3 py-3">{commission.type || "--"}</td>
-                      <td className="px-3 py-3">{formatBtc(commission.commissionAmount ?? 0)}</td>
+                      <td className="px-3 py-3">
+                        {formatCurrencyAmount(commission.commissionAmount, commission.commissionCurrency)}
+                      </td>
                       <td className="px-3 py-3">
                         {formatCurrencyAmount(commission.paidAmount, commission.paidCurrency)}
                       </td>
