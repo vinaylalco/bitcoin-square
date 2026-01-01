@@ -263,7 +263,10 @@ export async function strapiFetch(path: string, init: RequestInit = {}): Promise
     "Content-Type": "application/json",
     ...(init.headers || {}),
   };
-  if (TOKEN) headers["Authorization"] = `Bearer ${TOKEN}`;
+  const hasAuthHeader = Object.keys(headers).some(
+    (key) => key.toLowerCase() === "authorization",
+  );
+  if (!hasAuthHeader && TOKEN) headers["Authorization"] = `Bearer ${TOKEN}`;
 
   const res = await fetch(url, { ...init, headers });
   if (!res.ok) {
@@ -469,6 +472,8 @@ export interface CreateMembershipCheckoutOptions {
   userEmail: string;
   discountCode?: string;
   userId?: number;
+  referrerId?: string;
+  authToken?: string;
   txHash?: string;
 }
 
@@ -482,6 +487,8 @@ export async function createMembershipCheckout({
   userEmail,
   discountCode,
   userId,
+  referrerId,
+  authToken,
   txHash,
 }: CreateMembershipCheckoutOptions): Promise<CreateMembershipCheckoutResponse> {
   if (!isNonEmptyString(userEmail)) {
@@ -492,9 +499,10 @@ export async function createMembershipCheckout({
     throw new Error("Invalid membership type");
   }
 
+  const normalizedEmail = userEmail.trim().toLowerCase();
   const payload: Record<string, unknown> = {
     membershipType,
-    userEmail: userEmail.trim(),
+    userEmail: normalizedEmail,
   };
 
   const normalizedUserId = parseNumber(userId);
@@ -510,12 +518,22 @@ export async function createMembershipCheckout({
     payload.discountCode = discountCode.trim();
   }
 
+  if (isNonEmptyString(referrerId)) {
+    payload.referrerId = referrerId.trim();
+  }
+
   if (isNonEmptyString(txHash)) {
     payload.txHash = txHash.trim();
   }
 
+  const headers: HeadersInit = {};
+  if (isNonEmptyString(authToken)) {
+    headers.Authorization = `Bearer ${authToken.trim()}`;
+  }
+
   const response = await strapiFetch("/api/payments/create-session", {
     method: "POST",
+    headers,
     body: JSON.stringify(payload),
   });
 
