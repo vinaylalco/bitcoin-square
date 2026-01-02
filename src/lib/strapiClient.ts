@@ -93,6 +93,10 @@ export async function strapiRequest<T>(
   return (await response.text()) as unknown as T;
 }
 
-export function getMe<T>(token: string): Promise<T> {
-  return strapiRequest<T>('/api/profile', { token });
+export async function getMe<T>(token: string): Promise<T> {
+  const response = await strapiRequest<unknown>('/api/profile', { token });
+  if (response && typeof response === 'object' && 'data' in response) {
+    return (response as { data: T }).data;
+  }
+  return response as T;
 }
