@@ -41,6 +41,7 @@ type StrategyPoint = {
   price: number;
   risk: number | null;
   extraDeployPct: number;
+  tierLabel: string | null;
   buy: number;
   fee: number;
   contributed: number;
@@ -84,12 +85,17 @@ type SettingsCache = {
   schedule: Schedule;
   amountPerPeriod: number;
   feeRate: number;
-  riskPreset: "balanced" | "aggressive" | "conservative" | "strong-pause" | "custom";
-  pauseRiskThreshold: number;
-  deployStartRisk: number;
-  maxExtraDeployPct: number;
-  curvePower: number;
+  strategyMode: "normal" | "threshold";
+  thresholdPreset: "balanced" | "conservative" | "aggressive" | "custom";
+  buyThreshold: number;
+  deepDeployTiers: Array<{ threshold: number; deployPct: number }>;
+  maxBuyCap: number | null;
   baseBuyMode: "deposit" | "0";
+};
+
+type DeployTier = {
+  threshold: number;
+  deployPct: number;
 };
 
 function formatPercent(value: number | null | undefined, digits = 2) {
@@ -274,14 +280,18 @@ export default function DcaBacktesterPage() {
   const [schedule, setSchedule] = useState<Schedule>("weekly");
   const [amountPerPeriod, setAmountPerPeriod] = useState(100);
   const [feeRate, setFeeRate] = useState(0.25);
-  const [riskPreset, setRiskPreset] = useState<
-    "balanced" | "aggressive" | "conservative" | "strong-pause" | "custom"
+  const [strategyMode, setStrategyMode] = useState<"normal" | "threshold">("threshold");
+  const [thresholdPreset, setThresholdPreset] = useState<
+    "balanced" | "conservative" | "aggressive" | "custom"
   >("balanced");
-  const [pauseRiskThreshold, setPauseRiskThreshold] = useState(0.5);
-  const [deployStartRisk, setDeployStartRisk] = useState(0.5);
-  const [maxExtraDeployPct, setMaxExtraDeployPct] = useState(0.2);
-  const [curvePower, setCurvePower] = useState(2);
-  const [baseBuyMode, setBaseBuyMode] = useState<"deposit" | "0">("deposit");
+  const [buyThreshold, setBuyThreshold] = useState(0.55);
+  const [deepDeployTiers, setDeepDeployTiers] = useState<DeployTier[]>([
+    { threshold: 0.35, deployPct: 0.15 },
+    { threshold: 0.25, deployPct: 0.35 },
+    { threshold: 0.15, deployPct: 0.8 },
+  ]);
+  const [maxBuyCap, setMaxBuyCap] = useState<number | null>(null);
+  const [baseBuyMode, setBaseBuyMode] = useState<"deposit" | "0">("0");
   const [activeTab, setActiveTab] = useState("strategy");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showResultsCharts, setShowResultsCharts] = useState(false);
@@ -290,10 +300,9 @@ export default function DcaBacktesterPage() {
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [optimizerResult, setOptimizerResult] = useState<{
     params: {
-      pauseRiskThreshold: number;
-      deployStartRisk: number;
-      maxExtraDeployPct: number;
-      curvePower: number;
+      buyThreshold: number;
+      deepDeployTiers: DeployTier[];
+      tierLabel: string;
     };
     finalValue: number;
   } | null>(null);
@@ -341,11 +350,24 @@ export default function DcaBacktesterPage() {
       if (parsed.schedule) setSchedule(parsed.schedule);
       if (parsed.amountPerPeriod != null) setAmountPerPeriod(parsed.amountPerPeriod);
       if (parsed.feeRate != null) setFeeRate(parsed.feeRate);
-      if (parsed.riskPreset) setRiskPreset(parsed.riskPreset);
-      if (parsed.pauseRiskThreshold != null) setPauseRiskThreshold(parsed.pauseRiskThreshold);
-      if (parsed.deployStartRisk != null) setDeployStartRisk(parsed.deployStartRisk);
-      if (parsed.maxExtraDeployPct != null) setMaxExtraDeployPct(parsed.maxExtraDeployPct);
-      if (parsed.curvePower != null) setCurvePower(parsed.curvePower);
+      if (parsed.strategyMode) setStrategyMode(parsed.strategyMode);
+      if (parsed.thresholdPreset) setThresholdPreset(parsed.thresholdPreset);
+      if (parsed.buyThreshold != null) setBuyThreshold(parsed.buyThreshold);
+      if (Array.isArray(parsed.deepDeployTiers)) {
+        const parsedTiers = parsed.deepDeployTiers
+          .map((tier) => ({
+            threshold: typeof tier.threshold === "number" ? tier.threshold : null,
+            deployPct: typeof tier.deployPct === "number" ? tier.deployPct : null,
+          }))
+          .filter(
+            (tier): tier is { threshold: number; deployPct: number } =>
+              tier.threshold != null && tier.deployPct != null,
+          );
+        if (parsedTiers.length) {
+          setDeepDeployTiers(parsedTiers);
+        }
+      }
+      if (parsed.maxBuyCap != null) setMaxBuyCap(parsed.maxBuyCap);
       if (parsed.baseBuyMode) setBaseBuyMode(parsed.baseBuyMode);
     } catch {
       // Ignore settings hydration failures.
@@ -368,11 +390,11 @@ export default function DcaBacktesterPage() {
       schedule,
       amountPerPeriod,
       feeRate,
-      riskPreset,
-      pauseRiskThreshold,
-      deployStartRisk,
-      maxExtraDeployPct,
-      curvePower,
+      strategyMode,
+      thresholdPreset,
+      buyThreshold,
+      deepDeployTiers,
+      maxBuyCap,
       baseBuyMode,
     };
     try {
@@ -395,11 +417,11 @@ export default function DcaBacktesterPage() {
     schedule,
     amountPerPeriod,
     feeRate,
-    riskPreset,
-    pauseRiskThreshold,
-    deployStartRisk,
-    maxExtraDeployPct,
-    curvePower,
+    strategyMode,
+    thresholdPreset,
+    buyThreshold,
+    deepDeployTiers,
+    maxBuyCap,
     baseBuyMode,
   ]);
 
@@ -411,58 +433,79 @@ export default function DcaBacktesterPage() {
       }
     };
 
-  const handleDynamicNumberChange =
+  const handleMaxBuyCapChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const value = event.target.value;
+    if (!value) {
+      setMaxBuyCap(null);
+      setThresholdPreset("custom");
+      return;
+    }
+    const next = Number(value);
+    if (Number.isFinite(next)) {
+      setMaxBuyCap(next);
+      setThresholdPreset("custom");
+    }
+  };
+
+  const handleTierChange =
+    (index: number, field: keyof DeployTier) => (event: ChangeEvent<HTMLInputElement>) => {
+      const next = Number(event.target.value);
+      if (!Number.isFinite(next)) return;
+      setDeepDeployTiers((prev) =>
+        prev.map((tier, tierIndex) =>
+          tierIndex === index ? { ...tier, [field]: next } : tier,
+        ),
+      );
+      setThresholdPreset("custom");
+    };
+
+  const handleThresholdNumberChange =
     (setter: (value: number) => void) => (event: ChangeEvent<HTMLInputElement>) => {
       const next = Number(event.target.value);
       if (Number.isFinite(next)) {
         setter(next);
-        setRiskPreset("custom");
+        setThresholdPreset("custom");
       }
     };
 
-  const riskPresets = useMemo(
+  const thresholdPresets = useMemo(
     () => ({
+      conservative: {
+        buyThreshold: 0.5,
+        deepDeployTiers: [
+          { threshold: 0.35, deployPct: 0.1 },
+          { threshold: 0.25, deployPct: 0.25 },
+          { threshold: 0.15, deployPct: 0.6 },
+        ],
+        baseBuyMode: "0" as const,
+      },
       balanced: {
-        pauseRiskThreshold: 0.5,
-        deployStartRisk: 0.5,
-        maxExtraDeployPct: 0.2,
-        curvePower: 2,
-        baseBuyMode: "deposit" as const,
+        buyThreshold: 0.55,
+        deepDeployTiers: [
+          { threshold: 0.35, deployPct: 0.15 },
+          { threshold: 0.25, deployPct: 0.35 },
+          { threshold: 0.15, deployPct: 0.8 },
+        ],
+        baseBuyMode: "0" as const,
       },
       aggressive: {
-        pauseRiskThreshold: 0.5,
-        deployStartRisk: 0.45,
-        maxExtraDeployPct: 0.35,
-        curvePower: 2.5,
-        baseBuyMode: "deposit" as const,
-      },
-      conservative: {
-        pauseRiskThreshold: 0.5,
-        deployStartRisk: 0.4,
-        maxExtraDeployPct: 0.15,
-        curvePower: 1.8,
-        baseBuyMode: "deposit" as const,
-      },
-      "strong-pause": {
-        pauseRiskThreshold: 0.5,
-        deployStartRisk: 0.5,
-        maxExtraDeployPct: 0.4,
-        curvePower: 3,
-        baseBuyMode: "deposit" as const,
+        buyThreshold: 0.6,
+        deepDeployTiers: [
+          { threshold: 0.4, deployPct: 0.2 },
+          { threshold: 0.3, deployPct: 0.45 },
+          { threshold: 0.2, deployPct: 0.9 },
+        ],
+        baseBuyMode: "0" as const,
       },
     }),
     [],
   );
 
-  const applyPreset = (
-    preset: "balanced" | "aggressive" | "conservative" | "strong-pause",
-  ) => {
-    const values = riskPresets[preset];
-    setRiskPreset(preset);
-    setPauseRiskThreshold(values.pauseRiskThreshold);
-    setDeployStartRisk(values.deployStartRisk);
-    setMaxExtraDeployPct(values.maxExtraDeployPct);
-    setCurvePower(values.curvePower);
+  const applyThresholdPreset = (preset: "balanced" | "conservative" | "aggressive") => {
+    const values = thresholdPresets[preset];
+    setThresholdPreset(preset);
+    setBuyThreshold(values.buyThreshold);
+    setDeepDeployTiers(values.deepDeployTiers);
     setBaseBuyMode(values.baseBuyMode);
   };
 
@@ -691,28 +734,27 @@ export default function DcaBacktesterPage() {
     const safeFeeRate = feeRate > 0 ? feeRate / 100 : 0;
     const start = riskRows[0].date;
 
-    const runStrategy = (
-      mode: "normal" | "dynamic",
-      overrides?: Partial<{
-        pauseRiskThreshold: number;
-        deployStartRisk: number;
-        maxExtraDeployPct: number;
-        curvePower: number;
-        baseBuyMode: "deposit" | "0";
-      }>,
-    ): StrategyResult => {
-      const resolvedPauseRiskThreshold = Math.min(
-        overrides?.pauseRiskThreshold ?? pauseRiskThreshold,
-        0.5,
-      );
-      const resolvedDeployStartRisk = Math.min(
-        overrides?.deployStartRisk ?? deployStartRisk,
-        0.5,
-      );
-      const resolvedMaxExtraDeployPct =
-        overrides?.maxExtraDeployPct ?? maxExtraDeployPct;
-      const resolvedCurvePower = overrides?.curvePower ?? curvePower;
-      const resolvedBaseBuyMode = overrides?.baseBuyMode ?? baseBuyMode;
+    const resolvedTiers = [...deepDeployTiers].sort((a, b) => a.threshold - b.threshold);
+
+    const resolveTier = (riskValue: number | null) => {
+      if (riskValue == null) {
+        return { deployPct: 0, label: null };
+      }
+      for (let i = 0; i < resolvedTiers.length; i += 1) {
+        const tier = resolvedTiers[i];
+        if (riskValue <= tier.threshold) {
+          return {
+            deployPct: Math.max(0, tier.deployPct),
+            label: `≤${tier.threshold.toFixed(2)}`,
+          };
+        }
+      }
+      return { deployPct: 0, label: null };
+    };
+
+    const resolvedMaxBuyCap = maxBuyCap != null && maxBuyCap > 0 ? maxBuyCap : null;
+
+    const runStrategy = (mode: "normal" | "threshold"): StrategyResult => {
       let cash = 0;
       let btc = 0;
       let contributed = 0;
@@ -723,6 +765,7 @@ export default function DcaBacktesterPage() {
       riskRows.forEach((row) => {
         const scheduleHit = isScheduleHit(row.date, start, schedule);
         let extraDeployPct = 0;
+        let tierLabel: string | null = null;
         let buy = 0;
         let fee = 0;
 
@@ -731,25 +774,26 @@ export default function DcaBacktesterPage() {
           contributed += safeAmount;
           cashflows.push({ date: row.date, amount: -safeAmount });
 
-          if (mode === "dynamic") {
+          if (mode === "threshold") {
             const riskValue = row.risk ?? 1;
-            if (riskValue >= resolvedPauseRiskThreshold) {
+            if (riskValue > buyThreshold) {
               buy = 0;
               extraDeployPct = 0;
+              tierLabel = null;
             } else {
-              const baseBuy = resolvedBaseBuyMode === "deposit" ? safeAmount : 0;
-              const t = clamp(
-                (resolvedDeployStartRisk - riskValue) /
-                  Math.max(resolvedDeployStartRisk, 0.0001),
-                0,
-                1,
-              );
-              extraDeployPct = Math.max(0, resolvedMaxExtraDeployPct) * t ** resolvedCurvePower;
+              const baseBuy = baseBuyMode === "deposit" ? safeAmount : 0;
+              const tier = resolveTier(riskValue);
+              extraDeployPct = tier.deployPct;
+              tierLabel = tier.label;
               const extra = cash * extraDeployPct;
               buy = Math.min(cash, Math.max(0, baseBuy + extra));
             }
           } else {
             buy = Math.min(cash, Math.max(0, safeAmount));
+          }
+
+          if (resolvedMaxBuyCap != null) {
+            buy = Math.min(buy, resolvedMaxBuyCap);
           }
 
           fee = buy * safeFeeRate;
@@ -768,6 +812,7 @@ export default function DcaBacktesterPage() {
           price: row.price,
           risk: row.risk ?? null,
           extraDeployPct,
+          tierLabel,
           buy,
           fee,
           contributed,
@@ -801,26 +846,25 @@ export default function DcaBacktesterPage() {
 
     return {
       normal: runStrategy("normal"),
-      dynamic: runStrategy("dynamic"),
+      dynamic: runStrategy(strategyMode === "threshold" ? "threshold" : "normal"),
     };
   }, [
     amountPerPeriod,
     baseBuyMode,
-    curvePower,
-    deployStartRisk,
+    buyThreshold,
+    deepDeployTiers,
     feeRate,
-    maxExtraDeployPct,
-    pauseRiskThreshold,
+    maxBuyCap,
     riskRows,
     schedule,
+    strategyMode,
   ]);
 
   const runDynamicSimulation = useCallback(
     (params: {
-      pauseRiskThreshold: number;
-      deployStartRisk: number;
-      maxExtraDeployPct: number;
-      curvePower: number;
+      buyThreshold: number;
+      deepDeployTiers: DeployTier[];
+      maxBuyCap: number | null;
       baseBuyMode: "deposit" | "0";
     }) => {
       if (!riskRows.length) {
@@ -837,9 +881,32 @@ export default function DcaBacktesterPage() {
       const history: StrategyPoint[] = [];
       const cashflows: Array<{ date: Date; amount: number }> = [];
 
+      const resolvedTiers = [...params.deepDeployTiers].sort(
+        (a, b) => a.threshold - b.threshold,
+      );
+      const resolvedMaxBuyCap =
+        params.maxBuyCap != null && params.maxBuyCap > 0 ? params.maxBuyCap : null;
+
+      const resolveTier = (riskValue: number | null) => {
+        if (riskValue == null) {
+          return { deployPct: 0, label: null };
+        }
+        for (let i = 0; i < resolvedTiers.length; i += 1) {
+          const tier = resolvedTiers[i];
+          if (riskValue <= tier.threshold) {
+            return {
+              deployPct: Math.max(0, tier.deployPct),
+              label: `≤${tier.threshold.toFixed(2)}`,
+            };
+          }
+        }
+        return { deployPct: 0, label: null };
+      };
+
       riskRows.forEach((row) => {
         const scheduleHit = isScheduleHit(row.date, start, schedule);
         let extraDeployPct = 0;
+        let tierLabel: string | null = null;
         let buy = 0;
         let fee = 0;
 
@@ -849,20 +916,21 @@ export default function DcaBacktesterPage() {
           cashflows.push({ date: row.date, amount: -safeAmount });
 
           const riskValue = row.risk ?? 1;
-          if (riskValue >= resolvedPauseRiskThreshold) {
+          if (riskValue > params.buyThreshold) {
             buy = 0;
             extraDeployPct = 0;
+            tierLabel = null;
           } else {
             const baseBuy = params.baseBuyMode === "deposit" ? safeAmount : 0;
-            const t = clamp(
-              (resolvedDeployStartRisk - riskValue) /
-                Math.max(resolvedDeployStartRisk, 0.0001),
-              0,
-              1,
-            );
-            extraDeployPct = Math.max(0, params.maxExtraDeployPct) * t ** params.curvePower;
+            const tier = resolveTier(riskValue);
+            extraDeployPct = tier.deployPct;
+            tierLabel = tier.label;
             const extra = cash * extraDeployPct;
             buy = Math.min(cash, Math.max(0, baseBuy + extra));
+          }
+
+          if (resolvedMaxBuyCap != null) {
+            buy = Math.min(buy, resolvedMaxBuyCap);
           }
 
           fee = buy * safeFeeRate;
@@ -881,6 +949,7 @@ export default function DcaBacktesterPage() {
           price: row.price,
           risk: row.risk ?? null,
           extraDeployPct,
+          tierLabel,
           buy,
           fee,
           contributed,
@@ -948,6 +1017,19 @@ export default function DcaBacktesterPage() {
     });
   }, [backtestResults]);
 
+  const dateRangeYears = useMemo(() => {
+    if (!riskRows.length) return null;
+    const start = riskRows[0].date;
+    const end = riskRows[riskRows.length - 1].date;
+    const years = (end.getTime() - start.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+    return years > 0 ? years : null;
+  }, [riskRows]);
+
+  const computeCagrApprox = (finalValue: number, contributed: number) => {
+    if (!dateRangeYears || contributed <= 0 || finalValue <= 0) return null;
+    return (finalValue / contributed) ** (1 / dateRangeYears) - 1;
+  };
+
   const handleExportCsv = () => {
     if (!backtestResults) return;
     const escapeCsv = (value: unknown) => {
@@ -963,6 +1045,7 @@ export default function DcaBacktesterPage() {
       "price",
       "risk",
       "extra_deploy_pct",
+      "tier",
       "deposit",
       "buy_normal",
       "buy_risk",
@@ -982,6 +1065,7 @@ export default function DcaBacktesterPage() {
         normalPoint.price,
         normalPoint.risk ?? "",
         dynamicPoint?.extraDeployPct ?? "",
+        dynamicPoint?.tierLabel ?? "",
         deposit,
         normalPoint.buy,
         dynamicPoint?.buy ?? "",
@@ -1013,6 +1097,17 @@ export default function DcaBacktesterPage() {
   ];
 
   const isAdmin = user?.isAdmin === true;
+  const xirrDiff =
+    backtestResults?.dynamic.xirr != null && backtestResults.normal.xirr != null
+      ? backtestResults.dynamic.xirr - backtestResults.normal.xirr
+      : null;
+  const xirrDiffLabel =
+    xirrDiff != null ? `${xirrDiff >= 0 ? "+" : ""}${(xirrDiff * 100).toFixed(2)}%` : "—";
+  const outperformance =
+    backtestResults && backtestResults.normal.finalValue > 0
+      ? (backtestResults.dynamic.finalValue - backtestResults.normal.finalValue) /
+        backtestResults.normal.finalValue
+      : null;
 
   const handleOptimizer = () => {
     if (!isAdmin) return;
@@ -1023,33 +1118,55 @@ export default function DcaBacktesterPage() {
     setIsOptimizing(true);
     setOptimizerResult(null);
 
-    const pauseGrid = [0.35, 0.4, 0.45, 0.5];
-    const deployGrid = [0.35, 0.4, 0.45, 0.5];
-    const extraGrid = [0.15, 0.2, 0.3, 0.4];
-    const curveGrid = [1.5, 2, 2.5, 3];
+    const buyThresholdGrid = [0.45, 0.5, 0.55, 0.6];
+    const tierPresets = [
+      {
+        label: "Conservative",
+        deepDeployTiers: [
+          { threshold: 0.35, deployPct: 0.1 },
+          { threshold: 0.25, deployPct: 0.25 },
+          { threshold: 0.15, deployPct: 0.6 },
+        ],
+      },
+      {
+        label: "Balanced",
+        deepDeployTiers: [
+          { threshold: 0.35, deployPct: 0.15 },
+          { threshold: 0.25, deployPct: 0.35 },
+          { threshold: 0.15, deployPct: 0.8 },
+        ],
+      },
+      {
+        label: "Aggressive lows",
+        deepDeployTiers: [
+          { threshold: 0.4, deployPct: 0.2 },
+          { threshold: 0.3, deployPct: 0.45 },
+          { threshold: 0.2, deployPct: 0.9 },
+        ],
+      },
+    ];
 
     let best: typeof optimizerResult = null;
 
-    pauseGrid.forEach((pauseRiskThreshold) => {
-      deployGrid.forEach((deployStartRisk) => {
-        extraGrid.forEach((maxExtraDeployPct) => {
-          curveGrid.forEach((curvePower) => {
-            const result = runDynamicSimulation({
-              pauseRiskThreshold,
-              deployStartRisk,
-              maxExtraDeployPct,
-              curvePower,
-              baseBuyMode,
-            });
-            if (!result) return;
-            if (!best || result.finalValue > best.finalValue) {
-              best = {
-                params: { pauseRiskThreshold, deployStartRisk, maxExtraDeployPct, curvePower },
-                finalValue: result.finalValue,
-              };
-            }
-          });
+    buyThresholdGrid.forEach((candidateThreshold) => {
+      tierPresets.forEach((tierPreset) => {
+        const result = runDynamicSimulation({
+          buyThreshold: candidateThreshold,
+          deepDeployTiers: tierPreset.deepDeployTiers,
+          maxBuyCap,
+          baseBuyMode,
         });
+        if (!result) return;
+        if (!best || result.finalValue > best.finalValue) {
+          best = {
+            params: {
+              buyThreshold: candidateThreshold,
+              deepDeployTiers: tierPreset.deepDeployTiers,
+              tierLabel: tierPreset.label,
+            },
+            finalValue: result.finalValue,
+          };
+        }
       });
     });
 
@@ -1157,6 +1274,18 @@ export default function DcaBacktesterPage() {
                   >
                     Fetch
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const todayDate = formatDateInput(new Date());
+                      setStartDate("2021-01-04");
+                      setEndDate(todayDate);
+                      void fetchHistorical("2021-01-04", todayDate);
+                    }}
+                    className="rounded-full border border-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-brand transition hover:bg-brand/10"
+                  >
+                    Set dates: Jan 4 2021 → Today
+                  </button>
                 </div>
                 {error ? (
                   <p className="mt-3 text-sm text-rose-600 dark:text-rose-300">{error}</p>
@@ -1166,6 +1295,50 @@ export default function DcaBacktesterPage() {
                 </p>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400">
                   If CoinDesk is blocked by CORS, use a server proxy.
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-app)]/60 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-neutral-500 dark:text-neutral-400">
+                  Strategy Mode
+                </p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
+                    Strategy
+                    <select
+                      value={strategyMode}
+                      onChange={(event) => setStrategyMode(event.target.value as "normal" | "threshold")}
+                      className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm font-medium text-neutral-900 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:text-white"
+                    >
+                      <option value="normal">Normal DCA</option>
+                      <option value="threshold">Threshold Accumulator</option>
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
+                    Threshold Preset
+                    <select
+                      value={thresholdPreset}
+                      onChange={(event) => {
+                        const value = event.target.value as typeof thresholdPreset;
+                        if (value === "custom") {
+                          setThresholdPreset("custom");
+                          return;
+                        }
+                        applyThresholdPreset(value);
+                      }}
+                      disabled={strategyMode !== "threshold"}
+                      className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm font-medium text-neutral-900 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-60 dark:text-white"
+                    >
+                      <option value="balanced">Balanced</option>
+                      <option value="conservative">Conservative</option>
+                      <option value="aggressive">Aggressive lows</option>
+                      <option value="custom">Custom</option>
+                    </select>
+                  </label>
+                </div>
+                <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+                  Threshold Accumulator only deploys when risk is at or below your chosen
+                  threshold.
                 </p>
               </div>
 
@@ -1183,35 +1356,6 @@ export default function DcaBacktesterPage() {
                       <Line type="monotone" dataKey="price" stroke="#f59e0b" dot={false} />
                     </LineChart>
                   </ResponsiveContainer>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-app)]/60 p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-neutral-500 dark:text-neutral-400">
-                  Risk-Adjusted Preset
-                </p>
-                <div className="mt-3 flex flex-col gap-2">
-                  <select
-                    value={riskPreset}
-                    onChange={(event) => {
-                      const value = event.target.value as typeof riskPreset;
-                      if (value === "custom") {
-                        setRiskPreset("custom");
-                        return;
-                      }
-                      applyPreset(value);
-                    }}
-                    className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm font-medium text-neutral-900 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:text-white"
-                  >
-                    <option value="balanced">Balanced (default)</option>
-                    <option value="aggressive">Aggressive lows</option>
-                    <option value="conservative">Conservative</option>
-                    <option value="strong-pause">Strong pause / strong deploy</option>
-                    <option value="custom">Custom (manual)</option>
-                  </select>
-                  <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                    Presets apply suggested pause and deploy curve values for the dynamic strategy.
-                  </p>
                 </div>
               </div>
 
@@ -1389,75 +1533,125 @@ export default function DcaBacktesterPage() {
                     </div>
 
                     <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-app)]/60 p-4">
-                      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-neutral-500 dark:text-neutral-400">
-                        Dynamic Cash Deployment
-                      </p>
-                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                        <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
-                          Pause Risk Threshold
-                          <input
-                            type="number"
-                            step="0.01"
-                            min={0}
-                            max={0.5}
-                            value={pauseRiskThreshold}
-                            onChange={handleDynamicNumberChange(setPauseRiskThreshold)}
-                            className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm font-medium text-neutral-900 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:text-white"
-                          />
-                        </label>
-                        <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
-                          Deploy Start Risk
-                          <input
-                            type="number"
-                            step="0.01"
-                            min={0}
-                            max={0.5}
-                            value={deployStartRisk}
-                            onChange={handleDynamicNumberChange(setDeployStartRisk)}
-                            className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm font-medium text-neutral-900 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:text-white"
-                          />
-                        </label>
-                        <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
-                          Max Extra Deploy (% of cash)
-                          <input
-                            type="number"
-                            step="0.01"
-                            min={0}
-                            value={maxExtraDeployPct}
-                            onChange={handleDynamicNumberChange(setMaxExtraDeployPct)}
-                            className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm font-medium text-neutral-900 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:text-white"
-                          />
-                        </label>
-                        <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
-                          Curve Power
-                          <input
-                            type="number"
-                            step="0.5"
-                            min={0.5}
-                            value={curvePower}
-                            onChange={handleDynamicNumberChange(setCurvePower)}
-                            className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm font-medium text-neutral-900 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:text-white"
-                          />
-                        </label>
-                        <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
-                          Base Buy Mode
-                          <select
-                            value={baseBuyMode}
-                            onChange={(event) => {
-                              setBaseBuyMode(event.target.value as "deposit" | "0");
-                              setRiskPreset("custom");
-                            }}
-                            className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm font-medium text-neutral-900 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:text-white"
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-neutral-500 dark:text-neutral-400">
+                          Threshold Accumulator Settings
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => applyThresholdPreset("conservative")}
+                            className="rounded-full border border-brand px-3 py-1 text-[0.6rem] font-semibold uppercase tracking-[0.22em] text-brand transition hover:bg-brand/10"
                           >
-                            <option value="deposit">Use deposit as base buy</option>
-                            <option value="0">Pause base buy</option>
-                          </select>
-                        </label>
+                            Conservative
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => applyThresholdPreset("balanced")}
+                            className="rounded-full border border-brand px-3 py-1 text-[0.6rem] font-semibold uppercase tracking-[0.22em] text-brand transition hover:bg-brand/10"
+                          >
+                            Balanced
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => applyThresholdPreset("aggressive")}
+                            className="rounded-full border border-brand px-3 py-1 text-[0.6rem] font-semibold uppercase tracking-[0.22em] text-brand transition hover:bg-brand/10"
+                          >
+                            Aggressive lows
+                          </button>
+                        </div>
                       </div>
-                      <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
-                        Extra deploy scales with available cash as risk drops below the deploy start
-                        level.
-                      </p>
+                      <div className="mt-4 grid gap-4">
+                        <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
+                          Buy Threshold (risk ≤)
+                          <input
+                            type="range"
+                            min={0}
+                            max={1}
+                            step={0.01}
+                            value={buyThreshold}
+                            onChange={handleThresholdNumberChange(setBuyThreshold)}
+                            className="accent-brand"
+                          />
+                          <span className="text-sm font-semibold text-neutral-900 dark:text-white">
+                            {buyThreshold.toFixed(2)}
+                          </span>
+                        </label>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
+                            Base Buy Mode
+                            <select
+                              value={baseBuyMode}
+                              onChange={(event) => {
+                                setBaseBuyMode(event.target.value as "deposit" | "0");
+                                setThresholdPreset("custom");
+                              }}
+                              className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm font-medium text-neutral-900 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:text-white"
+                            >
+                              <option value="0">Only deploy extra cash</option>
+                              <option value="deposit">Include deposit as base buy</option>
+                            </select>
+                          </label>
+                          <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
+                            Max Buy Cap (USD, optional)
+                            <input
+                              type="number"
+                              min={0}
+                              step="1"
+                              value={maxBuyCap ?? ""}
+                              onChange={handleMaxBuyCapChange}
+                              className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm font-medium text-neutral-900 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:text-white"
+                            />
+                          </label>
+                        </div>
+                        <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4">
+                          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-neutral-500 dark:text-neutral-400">
+                            Deep Deploy Tiers
+                          </p>
+                          <div className="mt-3 overflow-x-auto">
+                            <table className="min-w-[420px] w-full text-left text-xs">
+                              <thead className="text-[0.6rem] uppercase tracking-[0.24em] text-neutral-500 dark:text-neutral-400">
+                                <tr>
+                                  <th className="px-2 py-1">Risk ≤</th>
+                                  <th className="px-2 py-1">Deploy % of Cash</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {deepDeployTiers.map((tier, index) => (
+                                  <tr key={`${tier.threshold}-${index}`} className="border-t border-[var(--border-subtle)]">
+                                    <td className="px-2 py-2">
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        max={1}
+                                        step="0.01"
+                                        value={tier.threshold}
+                                        onChange={handleTierChange(index, "threshold")}
+                                        className="w-24 rounded-lg border border-[var(--border-subtle)] bg-transparent px-2 py-1 text-xs font-semibold text-neutral-900 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:text-white"
+                                      />
+                                    </td>
+                                    <td className="px-2 py-2">
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        max={1}
+                                        step="0.01"
+                                        value={tier.deployPct}
+                                        onChange={handleTierChange(index, "deployPct")}
+                                        className="w-28 rounded-lg border border-[var(--border-subtle)] bg-transparent px-2 py-1 text-xs font-semibold text-neutral-900 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:text-white"
+                                      />
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                          <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+                            The lowest risk tier that matches the day will trigger its deploy
+                            percentage.
+                          </p>
+                        </div>
+                      </div>
                     </div>
                     {isAdmin ? (
                       <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-app)]/60 p-4">
@@ -1465,7 +1659,7 @@ export default function DcaBacktesterPage() {
                           Find better parameters
                         </p>
                         <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
-                          Runs a coarse grid search over the dynamic curve to maximize final value.
+                          Runs a coarse grid search over threshold settings to maximize final value.
                         </p>
                         <div className="mt-3 flex flex-wrap items-center gap-3">
                           <button
@@ -1490,27 +1684,15 @@ export default function DcaBacktesterPage() {
                             <div className="mt-3 grid gap-2 text-sm text-neutral-700 dark:text-neutral-300 sm:grid-cols-2">
                               <div>
                                 <span className="font-semibold text-neutral-900 dark:text-white">
-                                  Pause Threshold:
+                                  Buy Threshold:
                                 </span>{" "}
-                                {optimizerResult.params.pauseRiskThreshold.toFixed(2)}
+                                {optimizerResult.params.buyThreshold.toFixed(2)}
                               </div>
                               <div>
                                 <span className="font-semibold text-neutral-900 dark:text-white">
-                                  Deploy Start:
+                                  Tier Preset:
                                 </span>{" "}
-                                {optimizerResult.params.deployStartRisk.toFixed(2)}
-                              </div>
-                              <div>
-                                <span className="font-semibold text-neutral-900 dark:text-white">
-                                  Max Extra Deploy:
-                                </span>{" "}
-                                {formatPercent(optimizerResult.params.maxExtraDeployPct, 1)}
-                              </div>
-                              <div>
-                                <span className="font-semibold text-neutral-900 dark:text-white">
-                                  Curve Power:
-                                </span>{" "}
-                                {optimizerResult.params.curvePower.toFixed(1)}
+                                {optimizerResult.params.tierLabel}
                               </div>
                               <div>
                                 <span className="font-semibold text-neutral-900 dark:text-white">
@@ -1582,7 +1764,7 @@ export default function DcaBacktesterPage() {
                 ) : (
                   <p className="mt-3 text-sm text-neutral-600 dark:text-neutral-300">
                     Open advanced settings to tune the risk metric, contribution schedule, and
-                    dynamic cash deployment curve.
+                    threshold accumulator behavior.
                   </p>
                 )}
               </div>
@@ -1592,16 +1774,16 @@ export default function DcaBacktesterPage() {
           {activeTab === "results" ? (
             <div className="flex flex-col gap-4">
               <p className="text-sm text-neutral-600 dark:text-neutral-300">
-                Results summarize portfolio growth for the normal and dynamic DCA strategies.
+                Results summarize portfolio growth for normal DCA versus the Threshold Accumulator.
               </p>
               <div className="grid gap-4 md:grid-cols-2">
                 {backtestResults ? (
                   <>
-                    <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-app)]/60 p-4">
-                      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-neutral-500 dark:text-neutral-400">
-                        Normal DCA Summary
-                      </p>
-                      <div className="mt-3 grid gap-2 text-sm text-neutral-700 dark:text-neutral-300">
+                  <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-app)]/60 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-neutral-500 dark:text-neutral-400">
+                      Normal DCA Summary
+                    </p>
+                    <div className="mt-3 grid gap-2 text-sm text-neutral-700 dark:text-neutral-300">
                         <div>
                           <span className="font-semibold text-neutral-900 dark:text-white">Contributed:</span>{" "}
                           {formatCurrency(backtestResults.normal.contributed)}
@@ -1627,8 +1809,21 @@ export default function DcaBacktesterPage() {
                           {formatPercent(backtestResults.normal.roi)}
                         </div>
                         <div>
-                          <span className="font-semibold text-neutral-900 dark:text-white">XIRR:</span>{" "}
+                          <span className="font-semibold text-neutral-900 dark:text-white">
+                            XIRR (money-weighted):
+                          </span>{" "}
                           {formatPercent(backtestResults.normal.xirr)}
+                        </div>
+                        <div>
+                          <span className="font-semibold text-neutral-900 dark:text-white">
+                            CAGR (approx):
+                          </span>{" "}
+                          {formatPercent(
+                            computeCagrApprox(
+                              backtestResults.normal.finalValue,
+                              backtestResults.normal.contributed,
+                            ),
+                          )}
                         </div>
                         <div>
                           <span className="font-semibold text-neutral-900 dark:text-white">Max Drawdown:</span>{" "}
@@ -1638,7 +1833,7 @@ export default function DcaBacktesterPage() {
                     </div>
                     <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-app)]/60 p-4">
                       <p className="text-xs font-semibold uppercase tracking-[0.24em] text-neutral-500 dark:text-neutral-400">
-                        Dynamic DCA Summary
+                        Threshold Accumulator Summary
                       </p>
                       <div className="mt-3 grid gap-2 text-sm text-neutral-700 dark:text-neutral-300">
                         <div>
@@ -1666,8 +1861,27 @@ export default function DcaBacktesterPage() {
                           {formatPercent(backtestResults.dynamic.roi)}
                         </div>
                         <div>
-                          <span className="font-semibold text-neutral-900 dark:text-white">XIRR:</span>{" "}
+                          <span className="font-semibold text-neutral-900 dark:text-white">
+                            XIRR (money-weighted):
+                          </span>{" "}
                           {formatPercent(backtestResults.dynamic.xirr)}
+                        </div>
+                        <div>
+                          <span className="font-semibold text-neutral-900 dark:text-white">
+                            CAGR (approx):
+                          </span>{" "}
+                          {formatPercent(
+                            computeCagrApprox(
+                              backtestResults.dynamic.finalValue,
+                              backtestResults.dynamic.contributed,
+                            ),
+                          )}
+                        </div>
+                        <div>
+                          <span className="font-semibold text-neutral-900 dark:text-white">
+                            Outperformance vs DCA:
+                          </span>{" "}
+                          {formatPercent(outperformance)}
                         </div>
                         <div>
                           <span className="font-semibold text-neutral-900 dark:text-white">Max Drawdown:</span>{" "}
@@ -1717,6 +1931,15 @@ export default function DcaBacktesterPage() {
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
+              </div>
+
+              <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-app)]/60 p-4 text-sm text-neutral-600 dark:text-neutral-300">
+                <p className="font-semibold text-neutral-900 dark:text-white">
+                  Risk-Adjusted XIRR minus Normal XIRR = {xirrDiffLabel}
+                </p>
+                <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+                  Tuning thresholds to maximize a specific historical window may overfit.
+                </p>
               </div>
 
               <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-app)]/60 p-4">
@@ -1882,6 +2105,7 @@ export default function DcaBacktesterPage() {
                             <th className="px-3 py-2">Price</th>
                             <th className="px-3 py-2">Risk</th>
                             <th className="px-3 py-2">Extra Deploy %</th>
+                            <th className="px-3 py-2">Tier</th>
                             <th className="px-3 py-2">Deposit</th>
                             <th className="px-3 py-2">Buy Normal</th>
                             <th className="px-3 py-2">Buy Risk</th>
@@ -1916,6 +2140,7 @@ export default function DcaBacktesterPage() {
                                     ? formatPercent(dynamicPoint.extraDeployPct, 1)
                                     : "—"}
                                 </td>
+                                <td className="px-3 py-2">{dynamicPoint?.tierLabel ?? "—"}</td>
                                 <td className="px-3 py-2">{formatCurrency(deposit)}</td>
                                 <td className="px-3 py-2">{formatCurrency(normalPoint.buy)}</td>
                                 <td className="px-3 py-2">
@@ -1993,12 +2218,12 @@ export default function DcaBacktesterPage() {
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-neutral-500 dark:text-neutral-400">
-                  Pause + deploy cash curve
+                  Threshold Accumulator behavior
                 </p>
                 <p className="mt-2">
-                  When risk is above the pause threshold, the dynamic strategy saves the deposit
-                  as cash. As risk falls below the deploy start level, it deploys an increasing
-                  share of available cash, up to the max extra deploy percentage.
+                  When risk is above the buy threshold, the strategy saves deposits as cash. When
+                  risk drops below the threshold, it deploys cash according to the deepest matching
+                  tier, allowing more aggressive buys in very low-risk regimes.
                 </p>
               </div>
               <div>
