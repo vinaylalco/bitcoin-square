@@ -300,8 +300,8 @@ export default function HomePage() {
             DCA Tools
           </p>
           <p className="mt-2 text-sm text-neutral-600 transition-colors duration-300 dark:text-neutral-300">
-            Compare dollar-cost averaging, lump-sum, and blended entry approaches. Log in to run
-            the calculator.
+            Compare dollar-cost averaging, lump-sum, and blended entry approaches with live
+            backtesting tools.
           </p>
           <Link
             to="/admin/dca-backtester"

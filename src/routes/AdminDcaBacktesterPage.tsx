@@ -9,8 +9,6 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Link } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
 
 const COINDESK_CURRENT_URL = "https://api.coindesk.com/v1/bpi/currentprice/USD.json";
 const COINDESK_HISTORICAL_URL = "https://api.coindesk.com/v1/bpi/historical/close.json";
@@ -234,8 +232,6 @@ function calculateXirr(
 }
 
 export default function AdminDcaBacktesterPage() {
-  const { user } = useAuth();
-  const isLoggedIn = Boolean(user);
   const today = useMemo(() => new Date(), []);
   const defaultEnd = formatDateInput(today);
   const defaultStart = formatDateInput(
@@ -272,12 +268,11 @@ export default function AdminDcaBacktesterPage() {
     ["0.2,0.5", "0.4,0.8", "0.6,1", "0.8,1.2", "1,1.5"].join("\n"),
   );
   const [activeTab, setActiveTab] = useState("data");
-  const inputsDisabled = !isLoggedIn;
 
   useEffect(() => {
     const title = "BTC DCA Backtester | Compare DCA vs Lump Sum vs Hybrid Strategies";
     const description =
-      "Compare Bitcoin dollar-cost averaging, lump-sum, and blended strategies with a risk-weighted DCA calculator. Log in to run simulations.";
+      "Compare Bitcoin dollar-cost averaging, lump-sum, and blended strategies with a risk-weighted DCA calculator.";
     document.title = title;
     const ensureMeta = (name: string, content: string, attr: "name" | "property" = "name") => {
       const selector = `meta[${attr}="${name}"]`;
@@ -434,11 +429,6 @@ export default function AdminDcaBacktesterPage() {
   }, []);
 
   const fetchHistorical = async (start: string, end: string) => {
-    if (!isLoggedIn) {
-      setError("Log in to use the calculator.");
-      setRows([]);
-      return;
-    }
     setError(null);
     setLoading(true);
     const cached = loadCachedHistorical(start, end);
@@ -466,13 +456,8 @@ export default function AdminDcaBacktesterPage() {
   };
 
   useEffect(() => {
-    if (!isLoggedIn) {
-      setRows([]);
-      setLoading(false);
-      return;
-    }
     void fetchHistorical(startDate, endDate);
-  }, [startDate, endDate, isLoggedIn]);
+  }, [startDate, endDate]);
 
   const riskRows = useMemo(() => {
     if (!rows.length) return [];
@@ -600,10 +585,9 @@ export default function AdminDcaBacktesterPage() {
   const rowsSummary = rows.length
     ? `${rows.length} daily closes loaded from ${rows[0].dateStr} to ${rows[rows.length - 1].dateStr}.`
     : "No historical data loaded yet.";
-  const errorTitle = error?.includes("Log in") ? "Log in required." : "Unable to load CoinDesk data.";
 
   const backtestResults = useMemo(() => {
-    if (!isLoggedIn || !riskRows.length) {
+    if (!riskRows.length) {
       return null;
     }
 
@@ -699,7 +683,7 @@ export default function AdminDcaBacktesterPage() {
       normal: runStrategy("normal"),
       dynamic: runStrategy("dynamic"),
     };
-  }, [amountPerPeriod, feeRate, isLoggedIn, riskBands, riskRows, schedule]);
+  }, [amountPerPeriod, feeRate, riskBands, riskRows, schedule]);
 
   const chartRiskData = useMemo(
     () =>
@@ -745,10 +729,6 @@ export default function AdminDcaBacktesterPage() {
   });
 
   const handleExportCsv = () => {
-    if (!isLoggedIn) {
-      setError("Log in to use the calculator.");
-      return;
-    }
     if (!backtestResults) return;
     const escapeCsv = (value: unknown) => {
       if (value == null) return "";
@@ -836,23 +816,6 @@ export default function AdminDcaBacktesterPage() {
               site admins have verified the data.
             </p>
           </div>
-          {!isLoggedIn ? (
-            <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 text-sm text-neutral-600 dark:text-neutral-300">
-              <p className="font-semibold text-neutral-900 dark:text-white">
-                Log in required to run the calculator.
-              </p>
-              <p className="mt-2">
-                You can browse the methodology and charts, but simulations and exports require an
-                authenticated session.
-              </p>
-              <Link
-                to="/membership?view=login"
-                className="mt-3 inline-flex items-center gap-2 rounded-full border border-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-brand transition hover:bg-brand/10"
-              >
-                Log in to use the calculator <span aria-hidden="true">→</span>
-              </Link>
-            </div>
-          ) : null}
           <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 text-sm text-neutral-600 dark:text-neutral-300">
             <p className="font-semibold text-neutral-900 dark:text-white">
               Use this DCA calculator to compare:
@@ -904,7 +867,6 @@ export default function AdminDcaBacktesterPage() {
                     type="date"
                     value={startDate}
                     onChange={(event) => setStartDate(event.target.value)}
-                    disabled={inputsDisabled}
                     className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm font-medium text-neutral-900 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:text-white"
                   />
                 </label>
@@ -914,7 +876,6 @@ export default function AdminDcaBacktesterPage() {
                     type="date"
                     value={endDate}
                     onChange={(event) => setEndDate(event.target.value)}
-                    disabled={inputsDisabled}
                     className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm font-medium text-neutral-900 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:text-white"
                   />
                 </label>
@@ -929,7 +890,7 @@ export default function AdminDcaBacktesterPage() {
 
               {error ? (
                 <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
-                  <p className="font-semibold">{errorTitle}</p>
+                  <p className="font-semibold">Unable to load CoinDesk data.</p>
                   <p className="mt-1 text-xs uppercase tracking-[0.24em]">{error}</p>
                 </div>
               ) : null}
@@ -980,7 +941,6 @@ export default function AdminDcaBacktesterPage() {
                         min={1}
                         value={maWindowDays}
                         onChange={handleNumberChange(setMaWindowDays)}
-                        disabled={inputsDisabled}
                         className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm font-medium text-neutral-900 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:text-white"
                       />
                     </label>
@@ -991,7 +951,6 @@ export default function AdminDcaBacktesterPage() {
                         min={1}
                         value={drawdownWindowDays}
                         onChange={handleNumberChange(setDrawdownWindowDays)}
-                        disabled={inputsDisabled}
                         className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm font-medium text-neutral-900 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:text-white"
                       />
                     </label>
@@ -1002,7 +961,6 @@ export default function AdminDcaBacktesterPage() {
                         min={1}
                         value={volWindowDays}
                         onChange={handleNumberChange(setVolWindowDays)}
-                        disabled={inputsDisabled}
                         className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm font-medium text-neutral-900 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:text-white"
                       />
                     </label>
@@ -1014,7 +972,6 @@ export default function AdminDcaBacktesterPage() {
                         min={0.01}
                         value={maLogRange}
                         onChange={handleNumberChange(setMaLogRange)}
-                        disabled={inputsDisabled}
                         className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm font-medium text-neutral-900 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:text-white"
                       />
                     </label>
@@ -1026,7 +983,6 @@ export default function AdminDcaBacktesterPage() {
                         min={0.05}
                         value={maxDrawdownForZeroRisk}
                         onChange={handleNumberChange(setMaxDrawdownForZeroRisk)}
-                        disabled={inputsDisabled}
                         className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm font-medium text-neutral-900 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:text-white"
                       />
                     </label>
@@ -1038,7 +994,6 @@ export default function AdminDcaBacktesterPage() {
                         min={0.01}
                         value={volTarget}
                         onChange={handleNumberChange(setVolTarget)}
-                        disabled={inputsDisabled}
                         className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm font-medium text-neutral-900 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:text-white"
                       />
                     </label>
@@ -1058,7 +1013,6 @@ export default function AdminDcaBacktesterPage() {
                         min={0}
                         value={weightMA}
                         onChange={handleNumberChange(setWeightMA)}
-                        disabled={inputsDisabled}
                         className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm font-medium text-neutral-900 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:text-white"
                       />
                     </label>
@@ -1070,7 +1024,6 @@ export default function AdminDcaBacktesterPage() {
                         min={0}
                         value={weightDD}
                         onChange={handleNumberChange(setWeightDD)}
-                        disabled={inputsDisabled}
                         className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm font-medium text-neutral-900 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:text-white"
                       />
                     </label>
@@ -1082,7 +1035,6 @@ export default function AdminDcaBacktesterPage() {
                         min={0}
                         value={weightVOL}
                         onChange={handleNumberChange(setWeightVOL)}
-                        disabled={inputsDisabled}
                         className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm font-medium text-neutral-900 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:text-white"
                       />
                     </label>
@@ -1158,7 +1110,6 @@ export default function AdminDcaBacktesterPage() {
                     <select
                       value={schedule}
                       onChange={(event) => setSchedule(event.target.value as Schedule)}
-                      disabled={inputsDisabled}
                       className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm font-medium text-neutral-900 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:text-white"
                     >
                       <option value="daily">Daily</option>
@@ -1175,7 +1126,6 @@ export default function AdminDcaBacktesterPage() {
                       step="1"
                       value={amountPerPeriod}
                       onChange={handleNumberChange(setAmountPerPeriod)}
-                      disabled={inputsDisabled}
                       className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm font-medium text-neutral-900 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:text-white"
                     />
                   </label>
@@ -1187,7 +1137,6 @@ export default function AdminDcaBacktesterPage() {
                       step="0.01"
                       value={feeRate}
                       onChange={handleNumberChange(setFeeRate)}
-                      disabled={inputsDisabled}
                       className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm font-medium text-neutral-900 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:text-white"
                     />
                   </label>
@@ -1202,7 +1151,6 @@ export default function AdminDcaBacktesterPage() {
                   value={riskBandInput}
                   onChange={(event) => setRiskBandInput(event.target.value)}
                   rows={6}
-                  disabled={inputsDisabled}
                   className="mt-3 w-full rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm font-medium text-neutral-900 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:text-white"
                 />
                 <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
