@@ -214,7 +214,7 @@ export default function App() {
                   return (
                     <div
                       key={item.to}
-                      className="relative"
+                      className="relative group"
                       onMouseEnter={() =>
                         isEducationMenu
                           ? setDesktopEducationOpen(true)
@@ -276,7 +276,7 @@ export default function App() {
                       </NavLink>
                       <div
                         className={cn(
-                          "absolute left-1/2 top-full z-20 mt-3 hidden w-60 -translate-x-1/2 rounded-2xl border border-brand/30 bg-[var(--bg-card)] p-3 text-[0.6rem] font-semibold shadow-[0_24px_60px_rgba(169,21,255,0.25)]",
+                          "absolute left-1/2 top-full z-20 mt-3 hidden w-60 -translate-x-1/2 rounded-2xl border border-brand/30 bg-[var(--bg-card)] p-3 text-[0.6rem] font-semibold shadow-[0_24px_60px_rgba(169,21,255,0.25)] group-hover:block",
                           isEducationMenu && desktopEducationOpen && "block",
                           isToolsMenu && desktopToolsOpen && "block",
                         )}

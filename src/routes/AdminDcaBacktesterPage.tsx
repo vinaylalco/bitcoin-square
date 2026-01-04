@@ -935,12 +935,7 @@ export default function AdminDcaBacktesterPage() {
                 </button>
               </div>
 
-              {error ? (
-                <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
-                  <p className="font-semibold">Unable to load CoinDesk data.</p>
-                  <p className="mt-1 text-xs uppercase tracking-[0.24em]">{error}</p>
-                </div>
-              ) : null}
+              {error ? null : null}
 
               <p className="text-sm text-neutral-600 dark:text-neutral-300">
                 {loading ? "Loading historical prices…" : rowsSummary}
