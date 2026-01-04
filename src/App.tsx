@@ -48,8 +48,12 @@ export default function App() {
 
   const lessonPlanLocale = locale === "es" || locale === "id" ? locale : "en";
 
-  const { data: lessonPlans } = useLessonPlans(lessonPlanLocale);
-  const educationChildren = (() => {
+  const {
+    data: lessonPlans,
+    isLoading: lessonPlansLoading,
+    isError: lessonPlansError,
+  } = useLessonPlans(lessonPlanLocale);
+  const educationMenu = (() => {
     const normalized = (lessonPlans ?? [])
       .map((course) => {
         const rawSlug =
@@ -67,15 +71,29 @@ export default function App() {
       .filter((item): item is { label: string; to: string } => Boolean(item));
 
     if (normalized.length > 0) {
-      return normalized;
+      return {
+        items: normalized,
+        status: "ready" as const,
+      };
     }
 
-    return [
-      {
-        label: t("app.btcFullCourse"),
-        to: "/education/full-btc-course",
-      },
-    ];
+    if (lessonPlansLoading) {
+      return { items: [], status: "loading" as const };
+    }
+
+    if (lessonPlansError) {
+      return { items: [], status: "empty" as const };
+    }
+
+    return {
+      items: [
+        {
+          label: t("app.btcFullCourse"),
+          to: "/education/full-btc-course",
+        },
+      ],
+      status: "ready" as const,
+    };
   })();
 
   const toolsChildren = [
@@ -84,7 +102,12 @@ export default function App() {
   ];
 
   const desktopNav = [
-    { id: "education", label: t("nav.education"), to: "/education", dropdown: educationChildren },
+    {
+      id: "education",
+      label: t("nav.education"),
+      to: "/education",
+      dropdown: educationMenu.items,
+    },
     {
       id: "tools",
       label: t("nav.tools"),
@@ -139,6 +162,8 @@ export default function App() {
     variant,
     onNavigate,
     icon,
+    loadingLabel,
+    emptyLabel,
   }: {
     id: string;
     label: string;
@@ -148,6 +173,8 @@ export default function App() {
     variant: "desktop" | "mobile";
     onNavigate: () => void;
     icon?: React.ReactNode;
+    loadingLabel?: string;
+    emptyLabel?: string;
   }) => {
     const [menuOpen, setMenuOpen] = useState(false);
     const wrapperRef = useRef<HTMLDivElement | null>(null);
@@ -257,33 +284,44 @@ export default function App() {
           )}
         >
           <div className={cn(variant === "desktop" ? "flex flex-col gap-2" : "")}>
-            {items.map((child) => (
-              <NavLink
-                key={child.to}
-                to={child.to}
-                role="menuitem"
-                className={({ isActive: childActive }) =>
-                  cn(
-                    variant === "desktop" &&
-                      cn(
-                        "block rounded-xl border border-transparent px-4 py-2 tracking-[0.32em] text-[var(--fg-muted)] transition hover:border-brand/40 hover:bg-brand/5 hover:text-brand",
-                        childActive && "border-brand bg-brand/10 text-brand",
-                      ),
-                    variant === "mobile" &&
-                      cn(
-                        "block rounded-2xl border border-transparent px-6 py-2 tracking-[0.4em] text-[var(--fg-muted)] transition hover:border-brand/40 hover:bg-brand/5 hover:text-brand dark:text-white dark:hover:text-brand",
-                        childActive && "border-brand bg-brand/10 text-brand",
-                      ),
-                  )
-                }
-                onClick={() => {
-                  setMenuOpen(false);
-                  onNavigate();
-                }}
+            {items.length === 0 ? (
+              <span
+                className={cn(
+                  "block rounded-xl px-4 py-2 text-[var(--fg-muted)]",
+                  variant === "mobile" && "px-6 tracking-[0.4em]",
+                )}
               >
-                {child.label}
-              </NavLink>
-            ))}
+                {loadingLabel ?? emptyLabel ?? t("app.loading")}
+              </span>
+            ) : (
+              items.map((child) => (
+                <NavLink
+                  key={child.to}
+                  to={child.to}
+                  role="menuitem"
+                  className={({ isActive: childActive }) =>
+                    cn(
+                      variant === "desktop" &&
+                        cn(
+                          "block rounded-xl border border-transparent px-4 py-2 tracking-[0.32em] text-[var(--fg-muted)] transition hover:border-brand/40 hover:bg-brand/5 hover:text-brand",
+                          childActive && "border-brand bg-brand/10 text-brand",
+                        ),
+                      variant === "mobile" &&
+                        cn(
+                          "block rounded-2xl border border-transparent px-6 py-2 tracking-[0.4em] text-[var(--fg-muted)] transition hover:border-brand/40 hover:bg-brand/5 hover:text-brand dark:text-white dark:hover:text-brand",
+                          childActive && "border-brand bg-brand/10 text-brand",
+                        ),
+                    )
+                  }
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onNavigate();
+                  }}
+                >
+                  {child.label}
+                </NavLink>
+              ))
+            )}
           </div>
         </div>
       </div>
@@ -390,6 +428,16 @@ export default function App() {
                       isActive={isEducationMenu ? isEducationActive : isToolsActive}
                       variant="desktop"
                       onNavigate={() => undefined}
+                      loadingLabel={
+                        isEducationMenu && educationMenu.status === "loading"
+                          ? "Loading..."
+                          : undefined
+                      }
+                      emptyLabel={
+                        isEducationMenu && educationMenu.status === "empty"
+                          ? "No lessons available"
+                          : undefined
+                      }
                     />
                   );
                 }
@@ -506,11 +554,17 @@ export default function App() {
                 id="mobile-education"
                 label={t("nav.education")}
                 to="/education"
-                items={educationChildren}
+                items={educationMenu.items}
                 isActive={isEducationActive}
                 variant="mobile"
                 icon={<BookOpen className="h-5 w-5" />}
                 onNavigate={() => setOpen(false)}
+                loadingLabel={
+                  educationMenu.status === "loading" ? "Loading..." : undefined
+                }
+                emptyLabel={
+                  educationMenu.status === "empty" ? "No lessons available" : undefined
+                }
               />
               <MenuItem
                 id="mobile-tools"
