@@ -12,7 +12,8 @@ import {
 import { useTranslation } from "react-i18next";
 
 const COINDESK_CURRENT_URL = "https://api.coindesk.com/v1/bpi/currentprice/USD.json";
-const COINDESK_HISTORICAL_URL = "https://api.coindesk.com/v1/bpi/historical/close.json";
+const COINDESK_HISTORICAL_URL = "https://data-api.coindesk.com/spot/v1/historical/days";
+const COINDESK_API_KEY = import.meta.env.VITE_COINDESK_API_KEY ?? "";
 const HISTORICAL_CACHE_KEY = "admin-dca-backtester-historical-cache";
 const SETTINGS_CACHE_KEY = "admin-dca-backtester-settings";
 
@@ -108,14 +109,22 @@ function formatDateInput(value: Date): string {
   return value.toISOString().slice(0, 10);
 }
 
-function parseHistoricalRows(payload: { bpi?: Record<string, number> }): HistoricalRow[] {
-  const entries = Object.entries(payload.bpi ?? {});
+function parseHistoricalRows(payload: {
+  Data?: Array<{ TIMESTAMP?: number; CLOSE?: number }>;
+}): HistoricalRow[] {
+  const entries = payload.Data ?? [];
   return entries
-    .map(([dateStr, price]) => ({
-      dateStr,
-      date: new Date(`${dateStr}T00:00:00Z`),
-      price,
-    }))
+    .map((row) => {
+      const timestamp = typeof row.TIMESTAMP === "number" ? row.TIMESTAMP : null;
+      const price = typeof row.CLOSE === "number" ? row.CLOSE : null;
+      if (!timestamp || price == null) {
+        return null;
+      }
+      const date = new Date(timestamp * 1000);
+      const dateStr = date.toISOString().slice(0, 10);
+      return { dateStr, date, price };
+    })
+    .filter((row): row is HistoricalRow => row !== null)
     .sort((a, b) => a.date.getTime() - b.date.getTime());
 }
 
@@ -404,7 +413,11 @@ export default function AdminDcaBacktesterPage() {
     let isMounted = true;
     const loadCurrent = async () => {
       try {
-        const response = await fetch(COINDESK_CURRENT_URL);
+        const url = new URL(COINDESK_CURRENT_URL);
+        if (COINDESK_API_KEY) {
+          url.searchParams.set("api_key", COINDESK_API_KEY);
+        }
+        const response = await fetch(url.toString());
         if (!response.ok) {
           throw new Error(`CoinDesk current price failed (${response.status}).`);
         }
@@ -440,12 +453,36 @@ export default function AdminDcaBacktesterPage() {
       return;
     }
     try {
-      const url = `${COINDESK_HISTORICAL_URL}?start=${start}&end=${end}`;
-      const response = await fetch(url);
+      const startDate = new Date(`${start}T00:00:00Z`);
+      const endDate = new Date(`${end}T00:00:00Z`);
+      if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+        throw new Error("Invalid start or end date.");
+      }
+      const msPerDay = 24 * 60 * 60 * 1000;
+      const diffDays = Math.floor((endDate.getTime() - startDate.getTime()) / msPerDay);
+      if (diffDays < 0) {
+        throw new Error("End date must be on or after start date.");
+      }
+      const limit = diffDays + 1;
+      const url = new URL(COINDESK_HISTORICAL_URL);
+      url.searchParams.set("market", "kraken");
+      url.searchParams.set("instrument", "BTC-USD");
+      url.searchParams.set("limit", String(limit));
+      url.searchParams.set("aggregate", "1");
+      url.searchParams.set("fill", "true");
+      url.searchParams.set("apply_mapping", "true");
+      url.searchParams.set("response_format", "JSON");
+      url.searchParams.set("to_ts", String(Math.floor(endDate.getTime() / 1000)));
+      if (COINDESK_API_KEY) {
+        url.searchParams.set("api_key", COINDESK_API_KEY);
+      }
+      const response = await fetch(url.toString());
       if (!response.ok) {
         throw new Error(`CoinDesk historical data failed (${response.status}).`);
       }
-      const data = (await response.json()) as { bpi?: Record<string, number> };
+      const data = (await response.json()) as {
+        Data?: Array<{ TIMESTAMP?: number; CLOSE?: number }>;
+      };
       const parsed = parseHistoricalRows(data);
       setRows(parsed);
       saveCachedHistorical(start, end, parsed);
