@@ -79,7 +79,6 @@ export default function App() {
   })();
 
   const toolsChildren = [
-    { label: t("nav.dcaBacktester"), to: "/tools/dca-backtester" },
     { label: t("nav.btcBuyingStrategies"), to: "/tools/btc-buying-strategies" },
     { label: t("nav.minerQuotation"), to: "/tools/miner-quote" },
   ];
@@ -101,7 +100,6 @@ export default function App() {
   const educationDetailMatch = useMatch("/education/:slug");
   const isEducationActive = Boolean(educationRootMatch || educationDetailMatch);
   const toolsDetailMatch =
-    useMatch("/tools/dca-backtester") ||
     useMatch("/tools/btc-buying-strategies") ||
     useMatch("/tools/miner-quote");
   const isToolsActive = Boolean(toolsDetailMatch);

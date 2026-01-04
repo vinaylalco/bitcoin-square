@@ -36,7 +36,6 @@ import MembershipSuccess from "./routes/MembershipSuccess";
 import MembershipCancel from "./routes/MembershipCancel";
 import Affiliate from "./routes/Affiliate";
 import Admin from "./routes/Admin";
-import AdminDcaBacktesterPage from "./routes/AdminDcaBacktesterPage";
 import BtcBuyingStrategiesPage from "./routes/BtcBuyingStrategiesPage";
 import { ProfileIdentityProvider } from "./context/ProfileIdentityContext";
 import { DirectMessageProvider } from "./context/DirectMessageContext";
@@ -76,10 +75,6 @@ const router = createBrowserRouter([
       { path: "memberships", element: <Membership /> },
       { path: "affiliate", element: <Affiliate /> },
       { path: "admin", element: <Admin /> },
-      {
-        path: "tools/dca-backtester",
-        element: <AdminDcaBacktesterPage />,
-      },
       {
         path: "tools/btc-buying-strategies",
         element: <BtcBuyingStrategiesPage />,
