@@ -220,11 +220,17 @@ export default function App() {
                           ? setDesktopEducationOpen(true)
                           : setDesktopToolsOpen(true)
                       }
-                      onMouseLeave={() =>
-                        isEducationMenu
-                          ? setDesktopEducationOpen(false)
-                          : setDesktopToolsOpen(false)
-                      }
+                      onMouseLeave={(event) => {
+                        const nextTarget = event.relatedTarget as Node | null;
+                        if (nextTarget && event.currentTarget.contains(nextTarget)) {
+                          return;
+                        }
+                        if (isEducationMenu) {
+                          setDesktopEducationOpen(false);
+                        } else {
+                          setDesktopToolsOpen(false);
+                        }
+                      }}
                       onFocusCapture={() =>
                         isEducationMenu
                           ? setDesktopEducationOpen(true)

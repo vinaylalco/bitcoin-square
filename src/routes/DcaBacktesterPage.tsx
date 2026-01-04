@@ -277,8 +277,8 @@ export default function DcaBacktesterPage() {
   const [riskPreset, setRiskPreset] = useState<
     "balanced" | "aggressive" | "conservative" | "strong-pause" | "custom"
   >("balanced");
-  const [pauseRiskThreshold, setPauseRiskThreshold] = useState(0.75);
-  const [deployStartRisk, setDeployStartRisk] = useState(0.55);
+  const [pauseRiskThreshold, setPauseRiskThreshold] = useState(0.5);
+  const [deployStartRisk, setDeployStartRisk] = useState(0.5);
   const [maxExtraDeployPct, setMaxExtraDeployPct] = useState(0.2);
   const [curvePower, setCurvePower] = useState(2);
   const [baseBuyMode, setBaseBuyMode] = useState<"deposit" | "0">("deposit");
@@ -423,29 +423,29 @@ export default function DcaBacktesterPage() {
   const riskPresets = useMemo(
     () => ({
       balanced: {
-        pauseRiskThreshold: 0.75,
-        deployStartRisk: 0.55,
+        pauseRiskThreshold: 0.5,
+        deployStartRisk: 0.5,
         maxExtraDeployPct: 0.2,
         curvePower: 2,
         baseBuyMode: "deposit" as const,
       },
       aggressive: {
-        pauseRiskThreshold: 0.7,
-        deployStartRisk: 0.6,
+        pauseRiskThreshold: 0.5,
+        deployStartRisk: 0.45,
         maxExtraDeployPct: 0.35,
         curvePower: 2.5,
         baseBuyMode: "deposit" as const,
       },
       conservative: {
-        pauseRiskThreshold: 0.8,
-        deployStartRisk: 0.5,
+        pauseRiskThreshold: 0.5,
+        deployStartRisk: 0.4,
         maxExtraDeployPct: 0.15,
         curvePower: 1.8,
         baseBuyMode: "deposit" as const,
       },
       "strong-pause": {
-        pauseRiskThreshold: 0.65,
-        deployStartRisk: 0.55,
+        pauseRiskThreshold: 0.5,
+        deployStartRisk: 0.5,
         maxExtraDeployPct: 0.4,
         curvePower: 3,
         baseBuyMode: "deposit" as const,
@@ -701,9 +701,14 @@ export default function DcaBacktesterPage() {
         baseBuyMode: "deposit" | "0";
       }>,
     ): StrategyResult => {
-      const resolvedPauseRiskThreshold =
-        overrides?.pauseRiskThreshold ?? pauseRiskThreshold;
-      const resolvedDeployStartRisk = overrides?.deployStartRisk ?? deployStartRisk;
+      const resolvedPauseRiskThreshold = Math.min(
+        overrides?.pauseRiskThreshold ?? pauseRiskThreshold,
+        0.5,
+      );
+      const resolvedDeployStartRisk = Math.min(
+        overrides?.deployStartRisk ?? deployStartRisk,
+        0.5,
+      );
       const resolvedMaxExtraDeployPct =
         overrides?.maxExtraDeployPct ?? maxExtraDeployPct;
       const resolvedCurvePower = overrides?.curvePower ?? curvePower;
@@ -844,14 +849,14 @@ export default function DcaBacktesterPage() {
           cashflows.push({ date: row.date, amount: -safeAmount });
 
           const riskValue = row.risk ?? 1;
-          if (riskValue >= params.pauseRiskThreshold) {
+          if (riskValue >= resolvedPauseRiskThreshold) {
             buy = 0;
             extraDeployPct = 0;
           } else {
             const baseBuy = params.baseBuyMode === "deposit" ? safeAmount : 0;
             const t = clamp(
-              (params.deployStartRisk - riskValue) /
-                Math.max(params.deployStartRisk, 0.0001),
+              (resolvedDeployStartRisk - riskValue) /
+                Math.max(resolvedDeployStartRisk, 0.0001),
               0,
               1,
             );
@@ -1018,8 +1023,8 @@ export default function DcaBacktesterPage() {
     setIsOptimizing(true);
     setOptimizerResult(null);
 
-    const pauseGrid = [0.65, 0.7, 0.75, 0.8];
-    const deployGrid = [0.5, 0.55, 0.6];
+    const pauseGrid = [0.35, 0.4, 0.45, 0.5];
+    const deployGrid = [0.35, 0.4, 0.45, 0.5];
     const extraGrid = [0.15, 0.2, 0.3, 0.4];
     const curveGrid = [1.5, 2, 2.5, 3];
 
@@ -1394,7 +1399,7 @@ export default function DcaBacktesterPage() {
                             type="number"
                             step="0.01"
                             min={0}
-                            max={1}
+                            max={0.5}
                             value={pauseRiskThreshold}
                             onChange={handleDynamicNumberChange(setPauseRiskThreshold)}
                             className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm font-medium text-neutral-900 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:text-white"
@@ -1406,7 +1411,7 @@ export default function DcaBacktesterPage() {
                             type="number"
                             step="0.01"
                             min={0}
-                            max={1}
+                            max={0.5}
                             value={deployStartRisk}
                             onChange={handleDynamicNumberChange(setDeployStartRisk)}
                             className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm font-medium text-neutral-900 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:text-white"
