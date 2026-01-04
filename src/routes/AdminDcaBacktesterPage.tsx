@@ -379,7 +379,8 @@ export default function AdminDcaBacktesterPage() {
     };
 
   const riskBands = useMemo<RiskBand[]>(() => {
-    const lines = riskBandInput
+    const safeRiskBandInput = typeof riskBandInput === "string" ? riskBandInput : "";
+    const lines = safeRiskBandInput
       .split("\n")
       .map((line) => line.trim())
       .filter(Boolean);
