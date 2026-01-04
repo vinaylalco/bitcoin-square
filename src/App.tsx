@@ -172,7 +172,7 @@ export default function App() {
     const buttonRef = useRef<HTMLButtonElement | null>(null);
     const closeTimeoutRef = useRef<number | null>(null);
     const menuId = `${id}-submenu`;
-    const closeDelayMs = 300;
+    const closeDelayMs = 500;
 
     const clearCloseTimeout = () => {
       if (closeTimeoutRef.current) {
