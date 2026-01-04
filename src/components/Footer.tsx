@@ -17,8 +17,12 @@ export default function Footer() {
   const isCommunityRoute = /^\/community(?:\/|$)/i.test(location.pathname);
   const locale = resolveLocale(i18n.language);
   const lessonPlanLocale = locale === "es" || locale === "id" ? locale : "en";
-  const { data: lessonPlans } = useLessonPlans(lessonPlanLocale);
-  const educationChildren = useMemo(() => {
+  const {
+    data: lessonPlans,
+    isLoading: lessonPlansLoading,
+    isError: lessonPlansError,
+  } = useLessonPlans(lessonPlanLocale);
+  const educationMenu = useMemo(() => {
     const normalized = (lessonPlans ?? [])
       .map((course) => {
         const rawSlug =
@@ -36,16 +40,22 @@ export default function Footer() {
       .filter((item): item is { label: string; to: string } => Boolean(item));
 
     if (normalized.length > 0) {
-      return normalized;
+      return {
+        items: normalized,
+        status: "ready" as const,
+      };
     }
 
-    return [
-      {
-        label: t("app.btcFullCourse"),
-        to: "/education/full-btc-course",
-      },
-    ];
-  }, [lessonPlans, t]);
+    if (lessonPlansLoading) {
+      return { items: [], status: "loading" as const };
+    }
+
+    if (lessonPlansError) {
+      return { items: [], status: "empty" as const };
+    }
+
+    return { items: [], status: "empty" as const };
+  }, [lessonPlans, lessonPlansError, lessonPlansLoading]);
 
   if (isCommunityRoute) {
     return null;
@@ -61,15 +71,21 @@ export default function Footer() {
           <NavLink to="/education" className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }>
             {t("nav.education")}
           </NavLink>
-          {educationChildren.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }
-            >
-              {item.label}
-            </NavLink>
-          ))}
+          {educationMenu.items.length > 0 ? (
+            educationMenu.items.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }
+              >
+                {item.label}
+              </NavLink>
+            ))
+          ) : (
+            <span className="text-[var(--fg-muted)]">
+              {educationMenu.status === "loading" ? "Loading..." : "No lessons available"}
+            </span>
+          )}
           <NavLink to="/newsletter" className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }>
             {t("nav.newsletter")}
           </NavLink>
@@ -84,12 +100,6 @@ export default function Footer() {
           </NavLink>
           <NavLink to="/tools/miner-quote" className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }>
             {t("nav.minerQuotation")}
-          </NavLink>
-          <NavLink
-            to="/tools/dca-backtester"
-            className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }
-          >
-            {t("nav.dcaBacktester")}
           </NavLink>
           {isAdmin ? (
             <>
