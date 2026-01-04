@@ -24,6 +24,7 @@
     "logout": "Keluar",
     "minerQuotation": "Kutipan Penambangan",
     "dcaBacktester": "Penguji DCA",
+    "normalDcaBacktester": "Penguji DCA Normal",
     "affiliateProgram": "Program Afiliasi",
     "affiliateAdmin": "Admin Afiliasi"
   },

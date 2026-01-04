@@ -24,6 +24,7 @@
     "logout": "Выход",
     "minerQuotation": "Котировка майнинга",
     "dcaBacktester": "Тестер DCA",
+    "normalDcaBacktester": "Обычный DCA-тестер",
     "affiliateProgram": "Партнёрская программа",
     "affiliateAdmin": "Администрирование партнёров"
   },

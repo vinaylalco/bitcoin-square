@@ -83,6 +83,7 @@ export default function App() {
 
   const toolsChildren = [
     { label: t("nav.dcaBacktester"), to: "/tools/dca-backtester" },
+    { label: t("nav.normalDcaBacktester"), to: "/tools/normal-dca-backtester" },
     { label: t("nav.minerQuotation"), to: "/tools/miner-quote" },
   ];
 
@@ -97,7 +98,10 @@ export default function App() {
   const educationRootMatch = useMatch("/education");
   const educationDetailMatch = useMatch("/education/:slug");
   const isEducationActive = Boolean(educationRootMatch || educationDetailMatch);
-  const toolsDetailMatch = useMatch("/tools/dca-backtester") || useMatch("/tools/miner-quote");
+  const toolsDetailMatch =
+    useMatch("/tools/dca-backtester") ||
+    useMatch("/tools/normal-dca-backtester") ||
+    useMatch("/tools/miner-quote");
   const isToolsActive = Boolean(toolsDetailMatch);
 
   useEffect(() => {

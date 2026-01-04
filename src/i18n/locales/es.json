@@ -24,6 +24,7 @@
     "logout": "Cerrar sesión",
     "minerQuotation": "Cotización minera",
     "dcaBacktester": "Probador DCA",
+    "normalDcaBacktester": "Probador DCA normal",
     "affiliateProgram": "Programa de afiliados",
     "affiliateAdmin": "Administración de afiliados"
   },
