@@ -169,6 +169,7 @@ export default function App() {
   }) => {
     const [menuOpen, setMenuOpen] = useState(false);
     const wrapperRef = useRef<HTMLDivElement | null>(null);
+    const buttonRef = useRef<HTMLButtonElement | null>(null);
     const closeTimeoutRef = useRef<number | null>(null);
     const menuId = `${id}-submenu`;
 
@@ -233,14 +234,29 @@ export default function App() {
             scheduleClose();
           }
         }}
+        onKeyDownCapture={(event) => {
+          if (event.key !== "Escape") return;
+          setMenuOpen(false);
+          buttonRef.current?.focus();
+        }}
       >
         <button
           type="button"
           aria-expanded={menuOpen}
           aria-controls={menuId}
-          onClick={() => {
-            if (isHoverable) return;
+          ref={buttonRef}
+          onClick={(event) => {
+            if (isHoverable && event.detail !== 0) return;
             setMenuOpen((prev) => !prev);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              setMenuOpen((prev) => !prev);
+            }
+            if (event.key === "Escape") {
+              setMenuOpen(false);
+            }
           }}
           className={cn(
             variant === "desktop" &&

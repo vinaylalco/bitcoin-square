@@ -97,27 +97,33 @@ function formatDateInput(value: Date): string {
   return value.toISOString().slice(0, 10);
 }
 
-function parseHistoricalRows(payload: {
-  Data?: Array<{
-    TIME?: number;
-    OPEN?: number;
-    HIGH?: number;
-    LOW?: number;
-    CLOSE?: number;
-    VOLUME?: number;
-  }> | { Data?: Array<{
-    TIME?: number;
-    OPEN?: number;
-    HIGH?: number;
-    LOW?: number;
-    CLOSE?: number;
-    VOLUME?: number;
-  }> };
-}): HistoricalRow[] {
-  const rawData = Array.isArray(payload.Data)
-    ? payload.Data
-    : Array.isArray(payload.Data?.Data)
-      ? payload.Data?.Data
+function parseHistoricalRows(
+  payload?: {
+    Data?:
+      | Array<{
+          TIME?: number;
+          OPEN?: number;
+          HIGH?: number;
+          LOW?: number;
+          CLOSE?: number;
+          VOLUME?: number;
+        }>
+      | {
+          Data?: Array<{
+            TIME?: number;
+            OPEN?: number;
+            HIGH?: number;
+            LOW?: number;
+            CLOSE?: number;
+            VOLUME?: number;
+          }>;
+        };
+  } | null,
+): HistoricalRow[] {
+  const rawData = Array.isArray(payload?.Data)
+    ? payload?.Data ?? []
+    : Array.isArray(payload?.Data?.Data)
+      ? payload?.Data?.Data ?? []
       : [];
   return rawData
     .map((row) => {
@@ -193,11 +199,12 @@ function saveCachedHistorical(limit: number, rows: HistoricalRow[]) {
   }
 }
 
-function calculateMaxDrawdown(values: number[]): number | null {
-  if (!values.length) return null;
-  let peak = values[0];
+function calculateMaxDrawdown(values?: number[] | null): number | null {
+  const safeValues = Array.isArray(values) ? values : [];
+  if (!safeValues.length) return null;
+  let peak = safeValues[0];
   let maxDrawdown = 0;
-  values.forEach((value) => {
+  safeValues.forEach((value) => {
     if (value > peak) {
       peak = value;
     }
@@ -210,16 +217,17 @@ function calculateMaxDrawdown(values: number[]): number | null {
 }
 
 function calculateXirr(
-  cashflows: Array<{ date: Date; amount: number }>,
+  cashflows?: Array<{ date: Date; amount: number }> | null,
   maxIterations = 50,
 ): number | null {
-  if (cashflows.length < 2) return null;
-  const hasPositive = cashflows.some((flow) => flow.amount > 0);
-  const hasNegative = cashflows.some((flow) => flow.amount < 0);
+  const safeCashflows = Array.isArray(cashflows) ? cashflows : [];
+  if (safeCashflows.length < 2) return null;
+  const hasPositive = safeCashflows.some((flow) => flow.amount > 0);
+  const hasNegative = safeCashflows.some((flow) => flow.amount < 0);
   if (!hasPositive || !hasNegative) return null;
 
-  const baseDate = cashflows[0].date;
-  const times = cashflows.map((flow) => ({
+  const baseDate = safeCashflows[0].date;
+  const times = safeCashflows.map((flow) => ({
     amount: flow.amount,
     years: (flow.date.getTime() - baseDate.getTime()) / (365 * 24 * 60 * 60 * 1000),
   }));
@@ -361,13 +369,16 @@ export default function BtcBuyingStrategiesPage() {
     }
     try {
       const data = await fetchBtcDailyHistory({ limit: historyLimit });
-      const err = data.Err;
+      if (!data) {
+        throw new Error("CoinDesk returned an empty response.");
+      }
+      const err = data.Err ?? null;
       if (err) {
         const message = err.message ?? err.Message ?? "CoinDesk returned an error.";
         const status = err.status ?? err.Status;
         throw new Error(status ? `${message} (${status})` : message);
       }
-      const parsed = parseHistoricalRows(data);
+      const parsed = parseHistoricalRows(data ?? {});
       setRows(parsed);
       saveCachedHistorical(historyLimit, parsed);
     } catch (err) {
@@ -383,7 +394,10 @@ export default function BtcBuyingStrategiesPage() {
   }, []);
 
   const safeRows = Array.isArray(rows) ? rows : [];
-  const backtestHistory = backtest?.history ?? [];
+  const backtestHistory = Array.isArray(backtest?.history) ? backtest?.history ?? [] : [];
+  const lastBacktestPoint = backtestHistory.at(-1);
+  const startDate = safeRows.at(0)?.dateStr ?? defaultEnd;
+  const endDate = safeRows.at(-1)?.dateStr ?? defaultEnd;
 
   const runBacktest = () => {
     if (!safeRows.length) {
@@ -435,7 +449,7 @@ export default function BtcBuyingStrategiesPage() {
       };
     });
 
-    const lastPoint = history[history.length - 1];
+    const lastPoint = history.at(-1);
     const finalValueUSD = lastPoint ? lastPoint.valueUSD : 0;
     const roi =
       totalContributedUSD > 0
@@ -483,10 +497,11 @@ export default function BtcBuyingStrategiesPage() {
     };
   });
 
-  const auditRows = backtestHistory;
+  const auditRows = backtestHistory ?? [];
 
   const handleExportCsv = () => {
     if (!backtest) return;
+    const exportHistory = Array.isArray(backtest?.history) ? backtest?.history ?? [] : [];
     const escapeCsv = (value: unknown) => {
       if (value == null) return "";
       const text = String(value);
@@ -507,7 +522,7 @@ export default function BtcBuyingStrategiesPage() {
       "contributed_to_date",
       "roi",
     ];
-    const rowsCsv = backtest.history.map((point) => [
+    const rowsCsv = exportHistory.map((point) => [
       point.dateStr,
       point.price,
       point.depositUSD,
@@ -531,6 +546,29 @@ export default function BtcBuyingStrategiesPage() {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   };
+
+  if (error && !loading && !safeRows.length) {
+    return (
+      <div className="bg-[var(--bg-app)] text-[var(--fg-default)]">
+        <main className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-12 text-center sm:px-6 lg:px-8">
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">
+            BTC Buying Strategies
+          </p>
+          <h1 className="text-3xl font-bold text-neutral-900 dark:text-white">
+            We hit an issue loading data.
+          </h1>
+          <p className="text-sm text-neutral-600 dark:text-neutral-300">{error}</p>
+          <button
+            type="button"
+            onClick={() => fetchHistorical()}
+            className="mx-auto rounded-full border border-transparent bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.28em] text-white shadow-sm transition hover:bg-brand/90"
+          >
+            Retry loading data
+          </button>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-[var(--bg-app)] text-[var(--fg-default)]">
@@ -726,7 +764,7 @@ export default function BtcBuyingStrategiesPage() {
                     Cash end
                   </p>
                   <p className="mt-2 text-xl font-semibold text-neutral-900 dark:text-white">
-                    {formatCurrency(backtest.history[backtest.history.length - 1]?.cashUSD ?? 0)}
+                    {formatCurrency(lastBacktestPoint?.cashUSD ?? 0)}
                   </p>
                 </div>
                 <div className="rounded-2xl border border-[var(--border-subtle)] bg-white/60 p-4 dark:bg-white/5">

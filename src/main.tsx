@@ -78,7 +78,23 @@ const router = createBrowserRouter([
       { path: "admin", element: <Admin /> },
       {
         path: "tools/btc-buying-strategies",
-        element: <BtcBuyingStrategiesPage />,
+        element: (
+          <ErrorBoundary
+            fallback={
+              <div className="mx-auto max-w-3xl px-6 py-16 text-center text-[var(--fg-default)]">
+                <p className="text-sm font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">
+                  BTC Buying Strategies
+                </p>
+                <h1 className="mt-4 text-3xl font-bold">We hit a snag.</h1>
+                <p className="mt-3 text-sm text-[var(--fg-muted)]">
+                  Please refresh the page or try again in a moment.
+                </p>
+              </div>
+            }
+          >
+            <BtcBuyingStrategiesPage />
+          </ErrorBoundary>
+        ),
       },
       { path: "login", element: <Navigate to="/membership" replace /> },
       { path: "membership/success", element: <MembershipSuccess /> },
