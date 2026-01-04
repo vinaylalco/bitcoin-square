@@ -391,6 +391,17 @@
       }
     }
   },
+  "dca": {
+    "tabs": {
+      "howToBuy": "How to Buy Bitcoin",
+      "howToBuySubtitle": "DCA vs lump sum and other strategies",
+      "data": "Data",
+      "risk": "Risk Metric",
+      "strategy": "Strategy",
+      "charts": "Charts",
+      "table": "Table"
+    }
+  },
   "blog": {
     "title": "Blog",
     "empty": "No posts yet."

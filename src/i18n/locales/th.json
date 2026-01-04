@@ -391,6 +391,17 @@
       }
     }
   },
+  "dca": {
+    "tabs": {
+      "howToBuy": "วิธีซื้อ Bitcoin",
+      "howToBuySubtitle": "DCA เทียบกับการซื้อครั้งเดียวและกลยุทธ์อื่น ๆ",
+      "data": "ข้อมูล",
+      "risk": "เมตริกความเสี่ยง",
+      "strategy": "กลยุทธ์",
+      "charts": "กราฟ",
+      "table": "ตาราง"
+    }
+  },
   "blog": {
     "title": "Blog",
     "empty": "No posts yet."

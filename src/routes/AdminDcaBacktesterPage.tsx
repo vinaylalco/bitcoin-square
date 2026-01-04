@@ -9,6 +9,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { useTranslation } from "react-i18next";
 
 const COINDESK_CURRENT_URL = "https://api.coindesk.com/v1/bpi/currentprice/USD.json";
 const COINDESK_HISTORICAL_URL = "https://api.coindesk.com/v1/bpi/historical/close.json";
@@ -232,6 +233,7 @@ function calculateXirr(
 }
 
 export default function AdminDcaBacktesterPage() {
+  const { t } = useTranslation();
   const today = useMemo(() => new Date(), []);
   const defaultEnd = formatDateInput(today);
   const defaultStart = formatDateInput(
@@ -267,7 +269,7 @@ export default function AdminDcaBacktesterPage() {
   const [riskBandInput, setRiskBandInput] = useState(
     ["0.2,0.5", "0.4,0.8", "0.6,1", "0.8,1.2", "1,1.5"].join("\n"),
   );
-  const [activeTab, setActiveTab] = useState("data");
+  const [activeTab, setActiveTab] = useState("why");
 
   useEffect(() => {
     const title = "BTC DCA Backtester | Compare DCA vs Lump Sum vs Hybrid Strategies";
@@ -787,17 +789,20 @@ export default function AdminDcaBacktesterPage() {
   };
 
   const tabItems = [
-    { id: "data", label: "Data" },
-    { id: "risk", label: "Risk Metric" },
-    { id: "strategy", label: "Strategy" },
-    { id: "charts", label: "Charts" },
-    { id: "table", label: "Table" },
-    { id: "why", label: "Why" },
+    {
+      id: "why",
+      label: t("dca.tabs.howToBuy", { defaultValue: "How to Buy Bitcoin" }),
+    },
+    { id: "data", label: t("dca.tabs.data", { defaultValue: "Data" }) },
+    { id: "risk", label: t("dca.tabs.risk", { defaultValue: "Risk Metric" }) },
+    { id: "strategy", label: t("dca.tabs.strategy", { defaultValue: "Strategy" }) },
+    { id: "charts", label: t("dca.tabs.charts", { defaultValue: "Charts" }) },
+    { id: "table", label: t("dca.tabs.table", { defaultValue: "Table" }) },
   ];
 
   return (
     <div className="bg-[var(--bg-app)] text-[var(--fg-default)]">
-      <main className="mx-auto flex max-w-4xl flex-col gap-6 px-4 py-12 sm:px-6 lg:px-8">
+      <main className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-12 sm:px-6 lg:px-8">
         <header className="flex flex-col gap-3">
           <p className="text-xs font-semibold uppercase tracking-[0.28em] text-neutral-500 dark:text-neutral-400">
             DCA Backtester
@@ -1401,6 +1406,13 @@ export default function AdminDcaBacktesterPage() {
 
           {activeTab === "why" ? (
             <div className="flex flex-col gap-4 text-sm text-neutral-600 dark:text-neutral-300">
+              <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-app)]/60 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-neutral-500 dark:text-neutral-400">
+                  {t("dca.tabs.howToBuySubtitle", {
+                    defaultValue: "DCA vs lump sum and other strategies",
+                  })}
+                </p>
+              </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-neutral-500 dark:text-neutral-400">
                   Why DCA at all (normal)

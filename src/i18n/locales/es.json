@@ -391,6 +391,17 @@
       }
     }
   },
+  "dca": {
+    "tabs": {
+      "howToBuy": "Cómo comprar Bitcoin",
+      "howToBuySubtitle": "DCA vs compra única y otras estrategias",
+      "data": "Datos",
+      "risk": "Métrica de riesgo",
+      "strategy": "Estrategia",
+      "charts": "Gráficas",
+      "table": "Tabla"
+    }
+  },
   "blog": {
     "title": "Blog",
     "empty": "Aún no hay publicaciones."

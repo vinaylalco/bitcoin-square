@@ -208,7 +208,7 @@ export default function App() {
 
             <nav className="hidden lg:flex items-center gap-8 text-sm font-semibold uppercase tracking-[0.22em]">
               {desktopNav.map((item) => {
-                if (item.dropdown && item.dropdown.length > 0) {
+                if (Array.isArray(item.dropdown) && item.dropdown.length > 0) {
                   return (
                     <div
                       key={item.to}

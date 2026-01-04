@@ -391,6 +391,17 @@
       }
     }
   },
+  "dca": {
+    "tabs": {
+      "howToBuy": "Cara membeli Bitcoin",
+      "howToBuySubtitle": "DCA vs pembelian sekaligus dan strategi lainnya",
+      "data": "Data",
+      "risk": "Metrik risiko",
+      "strategy": "Strategi",
+      "charts": "Grafik",
+      "table": "Tabel"
+    }
+  },
   "blog": {
     "title": "Blog",
     "empty": "No posts yet."

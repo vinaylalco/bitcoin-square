@@ -391,6 +391,17 @@
       }
     }
   },
+  "dca": {
+    "tabs": {
+      "howToBuy": "Как купить Bitcoin",
+      "howToBuySubtitle": "DCA против единовременной покупки и другие стратегии",
+      "data": "Данные",
+      "risk": "Метрика риска",
+      "strategy": "Стратегия",
+      "charts": "Графики",
+      "table": "Таблица"
+    }
+  },
   "blog": {
     "title": "Blog",
     "empty": "No posts yet."
