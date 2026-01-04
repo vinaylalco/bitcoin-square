@@ -17,10 +17,13 @@
     "messages": "Сообщения",
     "newsletter": "Рассылка",
     "community": "Сообщество",
+    "tools": "Инструменты",
     "settings": "Настройки",
     "dashboard": "Панель",
     "login": "Вход",
     "logout": "Выход",
+    "minerQuotation": "Котировка майнинга",
+    "btcBuyingStrategies": "Стратегии покупки BTC",
     "affiliateProgram": "Партнёрская программа",
     "affiliateAdmin": "Администрирование партнёров"
   },
@@ -60,7 +63,8 @@
       "openAria": "Open menu",
       "closeAria": "Close menu",
       "ariaLabel": "Main menu",
-      "toggleEducation": "Toggle education submenu"
+      "toggleEducation": "Toggle education submenu",
+      "toggleTools": "Toggle tools submenu"
     }
   },
   "settings": {
@@ -274,6 +278,9 @@
         "eyebrow": "Платформа",
         "title": "Что мы предлагаем",
         "description": "Полная платформа на базе Nostr, в которой есть всё, чтобы освоить Bitcoin.",
+        "dcaToolsTitle": "Инструменты DCA",
+        "dcaToolsDescription": "Сравнивайте DCA, единовременную покупку и смешанные подходы с инструментами бэктестинга.",
+        "dcaToolsCta": "Тестер DCA",
         "items": [
           {
             "icon": "📚",
@@ -382,6 +389,17 @@
           }
         ]
       }
+    }
+  },
+  "dca": {
+    "tabs": {
+      "howToBuy": "Как купить Bitcoin",
+      "howToBuySubtitle": "DCA против единовременной покупки и другие стратегии",
+      "data": "Данные",
+      "risk": "Метрика риска",
+      "strategy": "Стратегия",
+      "charts": "Графики",
+      "table": "Таблица"
     }
   },
   "blog": {

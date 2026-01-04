@@ -17,11 +17,13 @@
     "messages": "Messages",
     "newsletter": "Newsletter",
     "community": "Community",
+    "tools": "Tools",
     "settings": "Settings",
     "dashboard": "Dashboard",
     "login": "Login",
     "logout": "Logout",
     "minerQuotation": "Miner Quote",
+    "btcBuyingStrategies": "BTC Buying Strategies",
     "affiliateProgram": "Affiliate Program",
     "affiliateAdmin": "Affiliate Admin"
   },
@@ -61,7 +63,8 @@
       "openAria": "Open menu",
       "closeAria": "Close menu",
       "ariaLabel": "Main menu",
-      "toggleEducation": "Toggle education submenu"
+      "toggleEducation": "Toggle education submenu",
+      "toggleTools": "Toggle tools submenu"
     }
   },
   "settings": {
@@ -275,6 +278,9 @@
         "eyebrow": "Platform",
         "title": "What We Offer",
         "description": "A complete platform built on Nostr that provides everything you need to master Bitcoin.",
+        "dcaToolsTitle": "DCA Tools",
+        "dcaToolsDescription": "Compare dollar-cost averaging, lump-sum, and blended entry approaches with live backtesting tools.",
+        "dcaToolsCta": "DCA Backtester",
         "items": [
           {
             "icon": "📚",
@@ -383,6 +389,17 @@
           }
         ]
       }
+    }
+  },
+  "dca": {
+    "tabs": {
+      "howToBuy": "How to Buy Bitcoin",
+      "howToBuySubtitle": "DCA vs lump sum and other strategies",
+      "data": "Data",
+      "risk": "Risk Metric",
+      "strategy": "Strategy",
+      "charts": "Charts",
+      "table": "Table"
     }
   },
   "blog": {

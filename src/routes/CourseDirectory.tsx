@@ -39,9 +39,15 @@ export default function CourseDirectory() {
         )}
       </header>
       <div className="mt-10 grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-        {courses.map((course) => (
-          <CourseCard key={String(course.id || course.slug)} course={course} />
-        ))}
+        {courses.length > 0 ? (
+          courses.map((course) => (
+            <CourseCard key={String(course.id || course.slug)} course={course} />
+          ))
+        ) : (
+          <div className="rounded-3xl border border-neutral-200/70 bg-white/80 p-8 text-center text-sm text-neutral-600 dark:border-neutral-800/70 dark:bg-neutral-900/70 dark:text-neutral-300 md:col-span-2 lg:col-span-3">
+            {t("courses.empty", { defaultValue: "No lessons available." })}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -36,11 +36,13 @@ import MembershipSuccess from "./routes/MembershipSuccess";
 import MembershipCancel from "./routes/MembershipCancel";
 import Affiliate from "./routes/Affiliate";
 import Admin from "./routes/Admin";
+import BtcBuyingStrategiesPage from "./routes/BtcBuyingStrategiesPage";
 import { ProfileIdentityProvider } from "./context/ProfileIdentityContext";
 import { DirectMessageProvider } from "./context/DirectMessageContext";
 import { ToastProvider } from "./context/ToastContext";
 import RequireMembership from "./components/RequireMembership";
 import { MinerQuotation2Page } from "./pages/MinerQuotation2Page";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 const router = createBrowserRouter([
   {
@@ -74,6 +76,10 @@ const router = createBrowserRouter([
       { path: "memberships", element: <Membership /> },
       { path: "affiliate", element: <Affiliate /> },
       { path: "admin", element: <Admin /> },
+      {
+        path: "tools/btc-buying-strategies",
+        element: <BtcBuyingStrategiesPage />,
+      },
       { path: "login", element: <Navigate to="/membership" replace /> },
       { path: "membership/success", element: <MembershipSuccess /> },
       { path: "membership/cancel", element: <MembershipCancel /> },
@@ -96,12 +102,8 @@ const router = createBrowserRouter([
         ),
       },
       {
-        path: "miner-quotation",
-        element: (
-          <RequireMembership>
-            <MinerQuotation2Page />
-          </RequireMembership>
-        ),
+        path: "tools/miner-quote",
+        element: <MinerQuotation2Page />,
       },
       { path: "profile/:pubkey/messages", element: <Messages /> },
       { path: "profile/:pubkey", element: <Profile /> },
@@ -121,7 +123,24 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <ProfileIdentityProvider>
               <DirectMessageProvider>
                 <ToastProvider>
-                  <RouterProvider router={router} />
+                  <ErrorBoundary
+                    fallback={
+                      <div className="mx-auto max-w-3xl px-6 py-16 text-center text-[var(--fg-default)]">
+                        <p className="text-sm font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">
+                          Something went wrong
+                        </p>
+                        <h1 className="mt-4 text-3xl font-bold">We hit a snag.</h1>
+                        <p className="mt-3 text-sm text-[var(--fg-muted)]">
+                          Please refresh the page or try again in a moment.
+                        </p>
+                      </div>
+                    }
+                    onError={(error, info) => {
+                      console.error("App ErrorBoundary caught an error", error, info);
+                    }}
+                  >
+                    <RouterProvider router={router} />
+                  </ErrorBoundary>
                 </ToastProvider>
               </DirectMessageProvider>
             </ProfileIdentityProvider>

@@ -17,10 +17,13 @@
     "messages": "Pesan",
     "newsletter": "Buletin",
     "community": "Komunitas",
+    "tools": "Alat",
     "settings": "Pengaturan",
     "dashboard": "Dasbor",
     "login": "Masuk",
     "logout": "Keluar",
+    "minerQuotation": "Kutipan Penambangan",
+    "btcBuyingStrategies": "Strategi Pembelian BTC",
     "affiliateProgram": "Program Afiliasi",
     "affiliateAdmin": "Admin Afiliasi"
   },
@@ -60,7 +63,8 @@
       "openAria": "Open menu",
       "closeAria": "Close menu",
       "ariaLabel": "Main menu",
-      "toggleEducation": "Toggle education submenu"
+      "toggleEducation": "Toggle education submenu",
+      "toggleTools": "Toggle tools submenu"
     }
   },
   "settings": {
@@ -274,6 +278,9 @@
         "eyebrow": "Platform",
         "title": "Yang kami tawarkan",
         "description": "Platform lengkap berbasis Nostr yang menyediakan semua yang Anda perlukan untuk menguasai Bitcoin.",
+        "dcaToolsTitle": "Alat DCA",
+        "dcaToolsDescription": "Bandingkan DCA, pembelian sekaligus, dan pendekatan campuran dengan alat backtesting.",
+        "dcaToolsCta": "Penguji DCA",
         "items": [
           {
             "icon": "📚",
@@ -382,6 +389,17 @@
           }
         ]
       }
+    }
+  },
+  "dca": {
+    "tabs": {
+      "howToBuy": "Cara membeli Bitcoin",
+      "howToBuySubtitle": "DCA vs pembelian sekaligus dan strategi lainnya",
+      "data": "Data",
+      "risk": "Metrik risiko",
+      "strategy": "Strategi",
+      "charts": "Grafik",
+      "table": "Tabel"
     }
   },
   "blog": {

@@ -17,10 +17,13 @@
     "messages": "ข้อความ",
     "newsletter": "จดหมายข่าว",
     "community": "ชุมชน",
+    "tools": "เครื่องมือ",
     "settings": "การตั้งค่า",
     "dashboard": "แดชบอร์ด",
     "login": "เข้าสู่ระบบ",
     "logout": "ออกจากระบบ",
+    "minerQuotation": "ใบเสนอราคาเหมืองขุด",
+    "btcBuyingStrategies": "กลยุทธ์การซื้อ BTC",
     "affiliateProgram": "โปรแกรมพันธมิตร",
     "affiliateAdmin": "ผู้ดูแลพันธมิตร"
   },
@@ -60,7 +63,8 @@
       "openAria": "Open menu",
       "closeAria": "Close menu",
       "ariaLabel": "Main menu",
-      "toggleEducation": "Toggle education submenu"
+      "toggleEducation": "Toggle education submenu",
+      "toggleTools": "Toggle tools submenu"
     }
   },
   "settings": {
@@ -274,6 +278,9 @@
         "eyebrow": "แพลตฟอร์ม",
         "title": "สิ่งที่เรามีให้",
         "description": "แพลตฟอร์มครบวงจรบน Nostr ที่มีทุกอย่างเพื่อให้คุณเชี่ยวชาญ Bitcoin.",
+        "dcaToolsTitle": "เครื่องมือ DCA",
+        "dcaToolsDescription": "เปรียบเทียบ DCA การซื้อครั้งเดียว และแนวทางผสมด้วยเครื่องมือแบ็กเทสต์.",
+        "dcaToolsCta": "ตัวทดสอบ DCA",
         "items": [
           {
             "icon": "📚",
@@ -382,6 +389,17 @@
           }
         ]
       }
+    }
+  },
+  "dca": {
+    "tabs": {
+      "howToBuy": "วิธีซื้อ Bitcoin",
+      "howToBuySubtitle": "DCA เทียบกับการซื้อครั้งเดียวและกลยุทธ์อื่น ๆ",
+      "data": "ข้อมูล",
+      "risk": "เมตริกความเสี่ยง",
+      "strategy": "กลยุทธ์",
+      "charts": "กราฟ",
+      "table": "ตาราง"
     }
   },
   "blog": {

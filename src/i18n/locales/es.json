@@ -17,11 +17,13 @@
     "messages": "Mensajes",
     "newsletter": "Boletín",
     "community": "Comunidad",
+    "tools": "Herramientas",
     "settings": "Configuración",
     "dashboard": "Panel",
     "login": "Iniciar sesión",
     "logout": "Cerrar sesión",
     "minerQuotation": "Cotización minera",
+    "btcBuyingStrategies": "Estrategias de compra de BTC",
     "affiliateProgram": "Programa de afiliados",
     "affiliateAdmin": "Administración de afiliados"
   },
@@ -61,7 +63,8 @@
       "openAria": "Abrir menú",
       "closeAria": "Cerrar menú",
       "ariaLabel": "Menú principal",
-      "toggleEducation": "Alternar submenú de educación"
+      "toggleEducation": "Alternar submenú de educación",
+      "toggleTools": "Alternar submenú de herramientas"
     }
   },
   "settings": {
@@ -275,6 +278,9 @@
         "eyebrow": "Plataforma",
         "title": "Lo que ofrecemos",
         "description": "Una plataforma completa construida sobre Nostr que te da todo lo que necesitas para dominar Bitcoin.",
+        "dcaToolsTitle": "Herramientas DCA",
+        "dcaToolsDescription": "Compara DCA, compra única y enfoques mixtos con herramientas de backtesting.",
+        "dcaToolsCta": "Probador DCA",
         "items": [
           {
             "icon": "📚",
@@ -383,6 +389,17 @@
           }
         ]
       }
+    }
+  },
+  "dca": {
+    "tabs": {
+      "howToBuy": "Cómo comprar Bitcoin",
+      "howToBuySubtitle": "DCA vs compra única y otras estrategias",
+      "data": "Datos",
+      "risk": "Métrica de riesgo",
+      "strategy": "Estrategia",
+      "charts": "Gráficas",
+      "table": "Tabla"
     }
   },
   "blog": {

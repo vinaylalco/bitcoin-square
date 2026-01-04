@@ -342,6 +342,13 @@ export function MinerQuotation2Page() {
               <h1 className="text-3xl font-bold text-[var(--fg-default)]">
                 {t("minerQuotation.subtitle")}
               </h1>
+              <div className="mt-4 rounded-xl border border-amber-200/60 bg-amber-50/70 p-3 text-xs text-amber-900 dark:border-amber-300/30 dark:bg-amber-400/10 dark:text-amber-100">
+                <p className="font-semibold uppercase tracking-[0.24em]">Beta notice</p>
+                <p className="mt-2">
+                  This page is a proof of concept and should not be considered accurate until site
+                  admins have verified the data.
+                </p>
+              </div>
             </div>
             <div className="flex items-center gap-2 text-sm">
               <label className="text-[var(--fg-muted)]" htmlFor="model-select">
