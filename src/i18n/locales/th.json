@@ -17,6 +17,7 @@
     "messages": "ข้อความ",
     "newsletter": "จดหมายข่าว",
     "community": "ชุมชน",
+    "tools": "เครื่องมือ",
     "settings": "การตั้งค่า",
     "dashboard": "แดชบอร์ด",
     "login": "เข้าสู่ระบบ",
@@ -62,7 +63,8 @@
       "openAria": "Open menu",
       "closeAria": "Close menu",
       "ariaLabel": "Main menu",
-      "toggleEducation": "Toggle education submenu"
+      "toggleEducation": "Toggle education submenu",
+      "toggleTools": "Toggle tools submenu"
     }
   },
   "settings": {

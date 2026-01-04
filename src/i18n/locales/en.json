@@ -17,6 +17,7 @@
     "messages": "Messages",
     "newsletter": "Newsletter",
     "community": "Community",
+    "tools": "Tools",
     "settings": "Settings",
     "dashboard": "Dashboard",
     "login": "Login",
@@ -62,7 +63,8 @@
       "openAria": "Open menu",
       "closeAria": "Close menu",
       "ariaLabel": "Main menu",
-      "toggleEducation": "Toggle education submenu"
+      "toggleEducation": "Toggle education submenu",
+      "toggleTools": "Toggle tools submenu"
     }
   },
   "settings": {

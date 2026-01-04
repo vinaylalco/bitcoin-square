@@ -17,6 +17,7 @@
     "messages": "Mensajes",
     "newsletter": "Boletín",
     "community": "Comunidad",
+    "tools": "Herramientas",
     "settings": "Configuración",
     "dashboard": "Panel",
     "login": "Iniciar sesión",
@@ -62,7 +63,8 @@
       "openAria": "Abrir menú",
       "closeAria": "Cerrar menú",
       "ariaLabel": "Menú principal",
-      "toggleEducation": "Alternar submenú de educación"
+      "toggleEducation": "Alternar submenú de educación",
+      "toggleTools": "Alternar submenú de herramientas"
     }
   },
   "settings": {

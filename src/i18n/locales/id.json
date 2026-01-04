@@ -17,6 +17,7 @@
     "messages": "Pesan",
     "newsletter": "Buletin",
     "community": "Komunitas",
+    "tools": "Alat",
     "settings": "Pengaturan",
     "dashboard": "Dasbor",
     "login": "Masuk",
@@ -62,7 +63,8 @@
       "openAria": "Open menu",
       "closeAria": "Close menu",
       "ariaLabel": "Main menu",
-      "toggleEducation": "Toggle education submenu"
+      "toggleEducation": "Toggle education submenu",
+      "toggleTools": "Toggle tools submenu"
     }
   },
   "settings": {

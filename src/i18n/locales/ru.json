@@ -17,6 +17,7 @@
     "messages": "Сообщения",
     "newsletter": "Рассылка",
     "community": "Сообщество",
+    "tools": "Инструменты",
     "settings": "Настройки",
     "dashboard": "Панель",
     "login": "Вход",
@@ -62,7 +63,8 @@
       "openAria": "Open menu",
       "closeAria": "Close menu",
       "ariaLabel": "Main menu",
-      "toggleEducation": "Toggle education submenu"
+      "toggleEducation": "Toggle education submenu",
+      "toggleTools": "Toggle tools submenu"
     }
   },
   "settings": {

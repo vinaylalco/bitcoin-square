@@ -32,6 +32,8 @@ export default function App() {
   const [isClient, setIsClient] = useState(false);
   const [mobileEducationOpen, setMobileEducationOpen] = useState(false);
   const [desktopEducationOpen, setDesktopEducationOpen] = useState(false);
+  const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
+  const [desktopToolsOpen, setDesktopToolsOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const drawerRef = useRef<HTMLDivElement | null>(null);
 
@@ -79,17 +81,24 @@ export default function App() {
     ];
   })();
 
+  const toolsChildren = [
+    { label: t("nav.dcaBacktester"), to: "/admin/dca-backtester" },
+    { label: t("nav.minerQuotation"), to: "/miner-quotation" },
+  ];
+
   const desktopNav = [
     { label: t("nav.education"), to: "/education", dropdown: educationChildren },
+    { label: t("nav.tools"), to: "/admin/dca-backtester", dropdown: toolsChildren },
     { label: t("nav.shop"), to: "/shop" },
     { label: t("nav.membership"), to: "/membership" },
     { label: t("nav.community"), to: "/community" },
-    { label: t("nav.dcaBacktester"), to: "/admin/dca-backtester" },
   ];
 
   const educationRootMatch = useMatch("/education");
   const educationDetailMatch = useMatch("/education/:slug");
   const isEducationActive = Boolean(educationRootMatch || educationDetailMatch);
+  const toolsDetailMatch = useMatch("/admin/dca-backtester") || useMatch("/miner-quotation");
+  const isToolsActive = Boolean(toolsDetailMatch);
 
   useEffect(() => {
     setIsClient(true);
@@ -108,6 +117,8 @@ export default function App() {
     setOpen(false);
     setMobileEducationOpen(false);
     setDesktopEducationOpen(false);
+    setMobileToolsOpen(false);
+    setDesktopToolsOpen(false);
   }, [loc.pathname]);
 
   useEffect(() => {
@@ -202,13 +213,29 @@ export default function App() {
                     <div
                       key={item.to}
                       className="relative"
-                      onMouseEnter={() => setDesktopEducationOpen(true)}
-                      onMouseLeave={() => setDesktopEducationOpen(false)}
-                      onFocusCapture={() => setDesktopEducationOpen(true)}
+                      onMouseEnter={() =>
+                        item.to === "/education"
+                          ? setDesktopEducationOpen(true)
+                          : setDesktopToolsOpen(true)
+                      }
+                      onMouseLeave={() =>
+                        item.to === "/education"
+                          ? setDesktopEducationOpen(false)
+                          : setDesktopToolsOpen(false)
+                      }
+                      onFocusCapture={() =>
+                        item.to === "/education"
+                          ? setDesktopEducationOpen(true)
+                          : setDesktopToolsOpen(true)
+                      }
                       onBlurCapture={(event) => {
                         const nextFocus = event.relatedTarget as Node | null;
                         if (!nextFocus || !event.currentTarget.contains(nextFocus)) {
-                          setDesktopEducationOpen(false);
+                          if (item.to === "/education") {
+                            setDesktopEducationOpen(false);
+                          } else {
+                            setDesktopToolsOpen(false);
+                          }
                         }
                       }}
                     >
@@ -220,17 +247,27 @@ export default function App() {
                             item.highlight
                               ? "rounded-full border border-brand px-4 text-xs tracking-[0.32em] text-brand hover:-translate-y-0.5 hover:border-brand hover:shadow-[0_12px_30px_rgba(169,21,255,0.35)]"
                               : "text-[var(--fg-muted)] hover:text-brand",
-                            (isActive || desktopEducationOpen) &&
+                            ((item.to === "/education" && (isActive || desktopEducationOpen)) ||
+                              (item.to === "/admin/dca-backtester" &&
+                                (isToolsActive || desktopToolsOpen))) &&
                               (item.highlight ? "bg-brand text-white" : "text-brand"),
                           )
                         }
-                        onClick={() => setDesktopEducationOpen(false)}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          if (item.to === "/education") {
+                            setDesktopEducationOpen((prev) => !prev);
+                          } else {
+                            setDesktopToolsOpen((prev) => !prev);
+                          }
+                        }}
                       >
                         {item.label}
                         <ChevronDown
                           className={cn(
                             "h-3 w-3 transition-transform",
-                            desktopEducationOpen && "rotate-180",
+                            desktopEducationOpen && item.to === "/education" && "rotate-180",
+                            desktopToolsOpen && item.to === "/tools" && "rotate-180",
                           )}
                           aria-hidden
                         />
@@ -238,7 +275,8 @@ export default function App() {
                       <div
                         className={cn(
                           "absolute left-1/2 top-full z-20 mt-3 hidden w-60 -translate-x-1/2 rounded-2xl border border-brand/30 bg-[var(--bg-card)] p-3 text-[0.6rem] font-semibold shadow-[0_24px_60px_rgba(169,21,255,0.25)]",
-                          desktopEducationOpen && "block",
+                          item.to === "/education" && desktopEducationOpen && "block",
+                          item.to === "/tools" && desktopToolsOpen && "block",
                         )}
                       >
                         <div className="flex flex-col gap-2">
@@ -252,7 +290,13 @@ export default function App() {
                                   isActive && "border-brand bg-brand/10 text-brand",
                                 )
                               }
-                              onClick={() => setDesktopEducationOpen(false)}
+                              onClick={() => {
+                                if (item.to === "/education") {
+                                  setDesktopEducationOpen(false);
+                                } else {
+                                  setDesktopToolsOpen(false);
+                                }
+                              }}
                             >
                               {child.label}
                             </NavLink>
@@ -434,18 +478,61 @@ export default function App() {
                   ))}
                 </div>
               </div>
-              <NavLink
-                to="/admin/dca-backtester"
-                onClick={() => setOpen(false)}
-                className={({ isActive }) =>
-                  cn(
-                    "inline-flex items-center gap-3 rounded-2xl border border-transparent px-4 py-3 transition hover:border-brand/40 hover:bg-brand/5",
-                    isActive && "border-brand bg-brand/10 text-brand",
-                  )
-                }
+              <div
+                className={cn(
+                  "rounded-2xl border border-transparent transition hover:border-brand/40 hover:bg-brand/5",
+                  (mobileToolsOpen || isToolsActive) && "border-brand bg-brand/10 text-brand",
+                )}
               >
-                <LayoutDashboard className="h-5 w-5" /> {t("nav.dcaBacktester")}
-              </NavLink>
+                <div className="flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => setMobileToolsOpen((prev) => !prev)}
+                    className="flex flex-1 items-center gap-3 px-4 py-3 text-left"
+                  >
+                    <LayoutDashboard className="h-5 w-5" /> {t("nav.tools")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      setMobileToolsOpen((prev) => !prev);
+                    }}
+                    aria-expanded={mobileToolsOpen}
+                    aria-controls="mobile-tools-submenu"
+                    className="px-4 py-3 text-[0.65rem] font-semibold uppercase tracking-[0.4em] text-[var(--fg-muted)] transition hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                    aria-label={t("app.mobileMenu.toggleTools", {
+                      defaultValue: "Toggle tools submenu",
+                    })}
+                  >
+                    {mobileToolsOpen ? "−" : "+"}
+                  </button>
+                </div>
+                <div
+                  id="mobile-tools-submenu"
+                  className={cn(
+                    "mt-2 space-y-2 pb-3 text-[0.65rem] font-semibold",
+                    mobileToolsOpen ? "block" : "hidden",
+                  )}
+                >
+                  {toolsChildren.map((item) => (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      onClick={() => setOpen(false)}
+                      className={({ isActive }) =>
+                        cn(
+                          "block rounded-2xl border border-transparent px-6 py-2 tracking-[0.4em] text-[var(--fg-muted)] transition hover:border-brand/40 hover:bg-brand/5 hover:text-brand dark:text-white dark:hover:text-brand",
+                          isActive && "border-brand bg-brand/10 text-brand",
+                        )
+                      }
+                    >
+                      {item.label}
+                    </NavLink>
+                  ))}
+                </div>
+              </div>
               <NavLink
                 to="/shop"
                 onClick={() => setOpen(false)}
