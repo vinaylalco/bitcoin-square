@@ -10,6 +10,7 @@ type CoinDeskError = {
 
 type CoinDeskHistoricalDay = {
   TIME?: number;
+  TIMESTAMP?: number;
   OPEN?: number;
   HIGH?: number;
   LOW?: number;
