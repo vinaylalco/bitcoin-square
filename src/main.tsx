@@ -76,7 +76,7 @@ const router = createBrowserRouter([
       { path: "affiliate", element: <Affiliate /> },
       { path: "admin", element: <Admin /> },
       {
-        path: "admin/dca-backtester",
+        path: "tools/dca-backtester",
         element: <AdminDcaBacktesterPage />,
       },
       { path: "login", element: <Navigate to="/membership" replace /> },
@@ -101,7 +101,7 @@ const router = createBrowserRouter([
         ),
       },
       {
-        path: "miner-quotation",
+        path: "tools/miner-quote",
         element: <MinerQuotation2Page />,
       },
       { path: "profile/:pubkey/messages", element: <Messages /> },

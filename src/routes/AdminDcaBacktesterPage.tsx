@@ -865,6 +865,10 @@ export default function AdminDcaBacktesterPage() {
 
           {activeTab === "data" ? (
             <div className="flex flex-col gap-4">
+              <p className="text-sm text-neutral-600 dark:text-neutral-300">
+                This tab supplies the historical price data that powers every BTC accumulation
+                comparison in the tool.
+              </p>
               <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
                 <label className="flex flex-1 flex-col gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
                   Start Date
@@ -932,6 +936,10 @@ export default function AdminDcaBacktesterPage() {
                 The risk metric blends moving-average distance, drawdown, and realized volatility
                 into a single 0–1 score. Use the controls below to adjust windows, normalization
                 ranges, and weights.
+              </p>
+              <p className="text-sm text-neutral-600 dark:text-neutral-300">
+                This helps you understand how buy sizes might adapt when you are trying to
+                accumulate BTC across different market regimes.
               </p>
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-app)]/60 p-4">
@@ -1105,6 +1113,10 @@ export default function AdminDcaBacktesterPage() {
 
           {activeTab === "strategy" ? (
             <div className="flex flex-col gap-4">
+              <p className="text-sm text-neutral-600 dark:text-neutral-300">
+                Strategy settings define how much BTC you are attempting to accumulate and how the
+                buys are paced over time.
+              </p>
               <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-app)]/60 p-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-neutral-500 dark:text-neutral-400">
                   Strategy Settings
@@ -1178,6 +1190,10 @@ export default function AdminDcaBacktesterPage() {
 
           {activeTab === "charts" ? (
             <div className="flex flex-col gap-4">
+              <p className="text-sm text-neutral-600 dark:text-neutral-300">
+                Charts visualize how each approach grows BTC holdings and portfolio value through
+                time.
+              </p>
               <div className="grid gap-4 md:grid-cols-2">
                 {backtestResults ? (
                   <>
@@ -1342,6 +1358,10 @@ export default function AdminDcaBacktesterPage() {
 
           {activeTab === "table" ? (
             <div className="flex flex-col gap-4">
+              <p className="text-sm text-neutral-600 dark:text-neutral-300">
+                The audit table gives a line-by-line view of contributions so you can verify each
+                BTC accumulation step.
+              </p>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-neutral-500 dark:text-neutral-400">
                   Period-by-Period Audit
@@ -1406,6 +1426,10 @@ export default function AdminDcaBacktesterPage() {
 
           {activeTab === "why" ? (
             <div className="flex flex-col gap-4 text-sm text-neutral-600 dark:text-neutral-300">
+              <p>
+                This section explains why different buy methods matter so you can build an
+                accumulation plan that fits your BTC goals.
+              </p>
               <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-app)]/60 p-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-neutral-500 dark:text-neutral-400">
                   {t("dca.tabs.howToBuySubtitle", {

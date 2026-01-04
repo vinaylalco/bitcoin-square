@@ -82,13 +82,13 @@ export default function App() {
   })();
 
   const toolsChildren = [
-    { label: t("nav.dcaBacktester"), to: "/admin/dca-backtester" },
-    { label: t("nav.minerQuotation"), to: "/miner-quotation" },
+    { label: t("nav.dcaBacktester"), to: "/tools/dca-backtester" },
+    { label: t("nav.minerQuotation"), to: "/tools/miner-quote" },
   ];
 
   const desktopNav = [
-    { label: t("nav.education"), to: "/education", dropdown: educationChildren },
-    { label: t("nav.tools"), to: "/admin/dca-backtester", dropdown: toolsChildren },
+    { id: "education", label: t("nav.education"), to: "/education", dropdown: educationChildren },
+    { id: "tools", label: t("nav.tools"), to: "/tools/dca-backtester", dropdown: toolsChildren },
     { label: t("nav.shop"), to: "/shop" },
     { label: t("nav.membership"), to: "/membership" },
     { label: t("nav.community"), to: "/community" },
@@ -97,7 +97,7 @@ export default function App() {
   const educationRootMatch = useMatch("/education");
   const educationDetailMatch = useMatch("/education/:slug");
   const isEducationActive = Boolean(educationRootMatch || educationDetailMatch);
-  const toolsDetailMatch = useMatch("/admin/dca-backtester") || useMatch("/miner-quotation");
+  const toolsDetailMatch = useMatch("/tools/dca-backtester") || useMatch("/tools/miner-quote");
   const isToolsActive = Boolean(toolsDetailMatch);
 
   useEffect(() => {
@@ -209,29 +209,31 @@ export default function App() {
             <nav className="hidden lg:flex items-center gap-8 text-sm font-semibold uppercase tracking-[0.22em]">
               {desktopNav.map((item) => {
                 if (Array.isArray(item.dropdown) && item.dropdown.length > 0) {
+                  const isEducationMenu = item.id === "education";
+                  const isToolsMenu = item.id === "tools";
                   return (
                     <div
                       key={item.to}
                       className="relative"
                       onMouseEnter={() =>
-                        item.to === "/education"
+                        isEducationMenu
                           ? setDesktopEducationOpen(true)
                           : setDesktopToolsOpen(true)
                       }
                       onMouseLeave={() =>
-                        item.to === "/education"
+                        isEducationMenu
                           ? setDesktopEducationOpen(false)
                           : setDesktopToolsOpen(false)
                       }
                       onFocusCapture={() =>
-                        item.to === "/education"
+                        isEducationMenu
                           ? setDesktopEducationOpen(true)
                           : setDesktopToolsOpen(true)
                       }
                       onBlurCapture={(event) => {
                         const nextFocus = event.relatedTarget as Node | null;
                         if (!nextFocus || !event.currentTarget.contains(nextFocus)) {
-                          if (item.to === "/education") {
+                          if (isEducationMenu) {
                             setDesktopEducationOpen(false);
                           } else {
                             setDesktopToolsOpen(false);
@@ -247,15 +249,15 @@ export default function App() {
                             item.highlight
                               ? "rounded-full border border-brand px-4 text-xs tracking-[0.32em] text-brand hover:-translate-y-0.5 hover:border-brand hover:shadow-[0_12px_30px_rgba(169,21,255,0.35)]"
                               : "text-[var(--fg-muted)] hover:text-brand",
-                            ((item.to === "/education" && (isActive || desktopEducationOpen)) ||
-                              (item.to === "/admin/dca-backtester" &&
+                            ((isEducationMenu && (isActive || desktopEducationOpen)) ||
+                              (isToolsMenu &&
                                 (isToolsActive || desktopToolsOpen))) &&
                               (item.highlight ? "bg-brand text-white" : "text-brand"),
                           )
                         }
                         onClick={(event) => {
                           event.preventDefault();
-                          if (item.to === "/education") {
+                          if (isEducationMenu) {
                             setDesktopEducationOpen((prev) => !prev);
                           } else {
                             setDesktopToolsOpen((prev) => !prev);
@@ -266,8 +268,8 @@ export default function App() {
                         <ChevronDown
                           className={cn(
                             "h-3 w-3 transition-transform",
-                            desktopEducationOpen && item.to === "/education" && "rotate-180",
-                            desktopToolsOpen && item.to === "/tools" && "rotate-180",
+                            desktopEducationOpen && isEducationMenu && "rotate-180",
+                            desktopToolsOpen && isToolsMenu && "rotate-180",
                           )}
                           aria-hidden
                         />
@@ -275,8 +277,8 @@ export default function App() {
                       <div
                         className={cn(
                           "absolute left-1/2 top-full z-20 mt-3 hidden w-60 -translate-x-1/2 rounded-2xl border border-brand/30 bg-[var(--bg-card)] p-3 text-[0.6rem] font-semibold shadow-[0_24px_60px_rgba(169,21,255,0.25)]",
-                          item.to === "/education" && desktopEducationOpen && "block",
-                          item.to === "/tools" && desktopToolsOpen && "block",
+                          isEducationMenu && desktopEducationOpen && "block",
+                          isToolsMenu && desktopToolsOpen && "block",
                         )}
                       >
                         <div className="flex flex-col gap-2">
@@ -291,7 +293,7 @@ export default function App() {
                                 )
                               }
                               onClick={() => {
-                                if (item.to === "/education") {
+                                if (isEducationMenu) {
                                   setDesktopEducationOpen(false);
                                 } else {
                                   setDesktopToolsOpen(false);
@@ -610,7 +612,7 @@ export default function App() {
                 </>
               ) : null}
               <NavLink
-                to="/miner-quotation"
+                to="/tools/miner-quote"
                 onClick={() => setOpen(false)}
                 className={({ isActive }) =>
                   cn(

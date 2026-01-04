@@ -303,7 +303,7 @@ export default function HomePage() {
             {t("home.sections.offerings.dcaToolsDescription")}
           </p>
           <Link
-            to="/admin/dca-backtester"
+            to="/tools/dca-backtester"
             className="mt-4 inline-flex items-center gap-2 rounded-full border border-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-brand transition hover:bg-brand/10"
           >
             {t("home.sections.offerings.dcaToolsCta")} <span aria-hidden="true">→</span>

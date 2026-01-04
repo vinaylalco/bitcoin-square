@@ -82,11 +82,11 @@ export default function Footer() {
           <NavLink to="/settings" className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }>
             {t("nav.settings")}
           </NavLink>
-          <NavLink to="/miner-quotation" className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }>
+          <NavLink to="/tools/miner-quote" className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }>
             {t("nav.minerQuotation")}
           </NavLink>
           <NavLink
-            to="/admin/dca-backtester"
+            to="/tools/dca-backtester"
             className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }
           >
             {t("nav.dcaBacktester")}
