@@ -112,7 +112,7 @@ function formatDateInput(value: Date): string {
 function parseHistoricalRows(payload: {
   Data?: Array<{ TIMESTAMP?: number; CLOSE?: number }>;
 }): HistoricalRow[] {
-  const entries = payload.Data ?? [];
+  const entries = Array.isArray(payload.Data) ? payload.Data : [];
   return entries
     .map((row) => {
       const timestamp = typeof row.TIMESTAMP === "number" ? row.TIMESTAMP : null;
@@ -307,8 +307,8 @@ export default function AdminDcaBacktesterPage() {
       const raw = localStorage.getItem(SETTINGS_CACHE_KEY);
       if (!raw) return;
       const parsed = JSON.parse(raw) as Partial<SettingsCache>;
-      if (parsed.startDate) setStartDate(parsed.startDate);
-      if (parsed.endDate) setEndDate(parsed.endDate);
+      if (typeof parsed.startDate === "string") setStartDate(parsed.startDate);
+      if (typeof parsed.endDate === "string") setEndDate(parsed.endDate);
       if (parsed.maWindowDays != null) setMaWindowDays(parsed.maWindowDays);
       if (parsed.drawdownWindowDays != null) setDrawdownWindowDays(parsed.drawdownWindowDays);
       if (parsed.volWindowDays != null) setVolWindowDays(parsed.volWindowDays);
@@ -323,7 +323,7 @@ export default function AdminDcaBacktesterPage() {
       if (parsed.schedule) setSchedule(parsed.schedule);
       if (parsed.amountPerPeriod != null) setAmountPerPeriod(parsed.amountPerPeriod);
       if (parsed.feeRate != null) setFeeRate(parsed.feeRate);
-      if (parsed.riskBandInput) setRiskBandInput(parsed.riskBandInput);
+      if (typeof parsed.riskBandInput === "string") setRiskBandInput(parsed.riskBandInput);
     } catch {
       // Ignore settings hydration failures.
     }
