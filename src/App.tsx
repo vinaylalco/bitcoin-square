@@ -82,7 +82,7 @@ export default function App() {
   })();
 
   const toolsChildren = [
-    { label: t("nav.dcaBacktester"), to: "/tools/dca-backtester" },
+    ...(isAdmin ? [{ label: t("nav.dcaBacktester"), to: "/tools/dca-backtester" }] : []),
     { label: t("nav.minerQuotation"), to: "/tools/miner-quote" },
   ];
 

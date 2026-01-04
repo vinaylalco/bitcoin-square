@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ChangeEvent } from "react";
+import { Navigate } from "react-router-dom";
 import {
   CartesianGrid,
   Line,
@@ -1108,6 +1109,30 @@ export default function DcaBacktesterPage() {
       ? (backtestResults.dynamic.finalValue - backtestResults.normal.finalValue) /
         backtestResults.normal.finalValue
       : null;
+
+  if (!user) {
+    return <Navigate to="/membership?view=login" replace />;
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="bg-[var(--bg-app)] text-[var(--fg-default)]">
+        <main className="mx-auto flex max-w-4xl flex-col gap-6 px-4 py-12 sm:px-6 lg:px-8">
+          <header className="flex flex-col gap-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-neutral-500 dark:text-neutral-400">
+              DCA Backtester
+            </p>
+            <h1 className="text-3xl font-bold text-neutral-900 dark:text-white">
+              Access Restricted
+            </h1>
+            <p className="text-sm text-neutral-600 dark:text-neutral-300">
+              You need admin access to use the DCA backtester.
+            </p>
+          </header>
+        </main>
+      </div>
+    );
+  }
 
   const handleOptimizer = () => {
     if (!isAdmin) return;
