@@ -8,7 +8,6 @@ import {
   LayoutDashboard,
   Mail,
   Menu,
-  Pickaxe,
   Sparkles,
   Users,
   Settings,
@@ -246,7 +245,7 @@ export default function App() {
           className={cn(
             variant === "desktop" &&
               cn(
-                "inline-flex items-center gap-2 py-2 transition",
+                "inline-flex items-center gap-2 py-2 uppercase transition",
                 "text-[var(--fg-muted)] hover:text-brand",
                 isActive && "text-brand",
               ),
@@ -265,6 +264,15 @@ export default function App() {
         <div
           id={menuId}
           role="menu"
+          onMouseEnter={() => {
+            if (!isHoverable) return;
+            clearCloseTimeout();
+            setMenuOpen(true);
+          }}
+          onMouseLeave={() => {
+            if (!isHoverable) return;
+            scheduleClose();
+          }}
           className={cn(
             variant === "desktop" &&
               cn(
@@ -644,18 +652,6 @@ export default function App() {
                   </NavLink>
                 </>
               ) : null}
-              <NavLink
-                to="/tools/miner-quote"
-                onClick={() => setOpen(false)}
-                className={({ isActive }) =>
-                  cn(
-                    "inline-flex items-center gap-3 rounded-2xl border border-transparent px-4 py-3 transition hover:border-brand/40 hover:bg-brand/5",
-                    isActive && "border-brand bg-brand/10 text-brand",
-                  )
-                }
-              >
-                <Pickaxe className="h-5 w-5" /> {t("nav.minerQuotation")}
-              </NavLink>
               <NavLink
                 to="/settings"
                 onClick={() => setOpen(false)}
