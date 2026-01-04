@@ -365,7 +365,7 @@ export default function BtcBuyingStrategiesPage() {
     setError(null);
     setLoading(true);
     const cached = loadCachedHistorical(historyLimit);
-    if (cached && cached.length > 0) {
+    if (Array.isArray(cached) && cached.length > 0) {
       setRows(cached);
       setLoading(false);
       return;
@@ -403,10 +403,10 @@ export default function BtcBuyingStrategiesPage() {
   }, []);
 
   const safeRows = Array.isArray(rows) ? rows : [];
-  const backtestHistory = Array.isArray(backtest?.history) ? backtest?.history ?? [] : [];
+  const backtestHistory = Array.isArray(backtest?.history) ? backtest?.history : [];
   const lastBacktestPoint = backtestHistory.at(-1);
-  const startDate = safeRows.at(0)?.dateStr ?? defaultEnd;
-  const endDate = safeRows.at(-1)?.dateStr ?? defaultEnd;
+  const startDate = safeRows.length ? safeRows[0].dateStr : defaultEnd;
+  const endDate = safeRows.length ? safeRows[safeRows.length - 1].dateStr : defaultEnd;
 
   const runBacktest = () => {
     if (!safeRows.length) {
@@ -485,26 +485,32 @@ export default function BtcBuyingStrategiesPage() {
     });
   };
 
-  const priceChartData = safeRows.map((row) => ({
-    dateStr: row.dateStr,
-    price: row.price,
-  }));
+  const priceChartData = safeRows.length
+    ? safeRows.map((row) => ({
+        dateStr: row.dateStr,
+        price: row.price,
+      }))
+    : [];
 
-  const valueChartData = backtestHistory.map((point) => ({
-    dateStr: point.dateStr,
-    value: point.valueUSD,
-  }));
+  const valueChartData = backtestHistory.length
+    ? backtestHistory.map((point) => ({
+        dateStr: point.dateStr,
+        value: point.valueUSD,
+      }))
+    : [];
 
-  const roiChartData = backtestHistory.map((point) => {
-    const roiToDate =
-      point.contributedToDate > 0
-        ? (point.valueUSD - point.contributedToDate) / point.contributedToDate
-        : null;
-    return {
-      dateStr: point.dateStr,
-      roi: roiToDate != null ? roiToDate * 100 : null,
-    };
-  });
+  const roiChartData = backtestHistory.length
+    ? backtestHistory.map((point) => {
+        const roiToDate =
+          point.contributedToDate > 0
+            ? (point.valueUSD - point.contributedToDate) / point.contributedToDate
+            : null;
+        return {
+          dateStr: point.dateStr,
+          roi: roiToDate != null ? roiToDate * 100 : null,
+        };
+      })
+    : [];
 
   const auditRows = backtestHistory ?? [];
 
