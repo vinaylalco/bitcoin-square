@@ -101,6 +101,12 @@ export default function Footer() {
           <NavLink to="/tools/miner-quote" className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }>
             {t("nav.minerQuotation")}
           </NavLink>
+          <NavLink
+            to="/tools/btc-buying-strategies"
+            className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }
+          >
+            BTC Buying Strategies Guide
+          </NavLink>
           {isAdmin ? (
             <>
               <NavLink to="/affiliate" className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }>
