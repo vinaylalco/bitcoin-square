@@ -36,10 +36,12 @@ import MembershipSuccess from "./routes/MembershipSuccess";
 import MembershipCancel from "./routes/MembershipCancel";
 import Affiliate from "./routes/Affiliate";
 import Admin from "./routes/Admin";
+import AdminDcaBacktesterPage from "./routes/AdminDcaBacktesterPage";
 import { ProfileIdentityProvider } from "./context/ProfileIdentityContext";
 import { DirectMessageProvider } from "./context/DirectMessageContext";
 import { ToastProvider } from "./context/ToastContext";
 import RequireMembership from "./components/RequireMembership";
+import AdminOnly from "./components/AdminOnly";
 import { MinerQuotation2Page } from "./pages/MinerQuotation2Page";
 
 const router = createBrowserRouter([
@@ -74,6 +76,14 @@ const router = createBrowserRouter([
       { path: "memberships", element: <Membership /> },
       { path: "affiliate", element: <Affiliate /> },
       { path: "admin", element: <Admin /> },
+      {
+        path: "admin/dca-backtester",
+        element: (
+          <AdminOnly>
+            <AdminDcaBacktesterPage />
+          </AdminOnly>
+        ),
+      },
       { path: "login", element: <Navigate to="/membership" replace /> },
       { path: "membership/success", element: <MembershipSuccess /> },
       { path: "membership/cancel", element: <MembershipCancel /> },

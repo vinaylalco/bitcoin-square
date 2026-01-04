@@ -53,6 +53,12 @@ export default function Footer() {
               <NavLink to="/admin" className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }>
                 {t("nav.affiliateAdmin")}
               </NavLink>
+              <NavLink
+                to="/admin/dca-backtester"
+                className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }
+              >
+                DCA Backtester
+              </NavLink>
             </>
           ) : null}
         </nav>
