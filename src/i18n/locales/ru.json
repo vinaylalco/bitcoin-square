@@ -23,7 +23,7 @@
     "login": "Вход",
     "logout": "Выход",
     "minerQuotation": "Котировка майнинга",
-    "dcaBacktester": "Тестер DCA",
+    "btcBuyingStrategies": "Стратегии покупки BTC",
     "affiliateProgram": "Партнёрская программа",
     "affiliateAdmin": "Администрирование партнёров"
   },

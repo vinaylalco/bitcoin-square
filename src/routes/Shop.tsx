@@ -26,6 +26,8 @@ export default function Shop() {
     );
   }
 
+  const products = data ?? [];
+
   return (
     <div className="mx-auto max-w-6xl px-4 pb-20 pt-12 sm:px-6">
       <header className="space-y-4 text-center sm:text-left">
@@ -40,7 +42,15 @@ export default function Shop() {
         )}
       </header>
       <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {data && data.map((p) => <ProductCard key={p.documentId} product={p} />)}
+        {products.length > 0 ? (
+          products.map((product) => (
+            <ProductCard key={product.documentId} product={product} />
+          ))
+        ) : (
+          <div className="rounded-3xl border border-neutral-200/70 bg-white/80 p-8 text-center text-sm text-neutral-600 dark:border-neutral-800/70 dark:bg-neutral-900/70 dark:text-neutral-300 md:col-span-2 lg:col-span-3">
+            No products available right now.
+          </div>
+        )}
       </div>
     </div>
   );
