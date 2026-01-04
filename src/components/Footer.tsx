@@ -40,11 +40,15 @@ export default function Footer() {
           <NavLink to="/settings" className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }>
             {t("nav.settings")}
           </NavLink>
-          {user ? (
-            <NavLink to="/miner-quotation" className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }>
-              {t("nav.minerQuotation")}
-            </NavLink>
-          ) : null}
+          <NavLink to="/miner-quotation" className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }>
+            {t("nav.minerQuotation")}
+          </NavLink>
+          <NavLink
+            to="/admin/dca-backtester"
+            className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }
+          >
+            DCA Backtester
+          </NavLink>
           {isAdmin ? (
             <>
               <NavLink to="/affiliate" className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }>
@@ -52,12 +56,6 @@ export default function Footer() {
               </NavLink>
               <NavLink to="/admin" className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }>
                 {t("nav.affiliateAdmin")}
-              </NavLink>
-              <NavLink
-                to="/admin/dca-backtester"
-                className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }
-              >
-                DCA Backtester
               </NavLink>
             </>
           ) : null}

@@ -41,7 +41,6 @@ import { ProfileIdentityProvider } from "./context/ProfileIdentityContext";
 import { DirectMessageProvider } from "./context/DirectMessageContext";
 import { ToastProvider } from "./context/ToastContext";
 import RequireMembership from "./components/RequireMembership";
-import AdminOnly from "./components/AdminOnly";
 import { MinerQuotation2Page } from "./pages/MinerQuotation2Page";
 
 const router = createBrowserRouter([
@@ -78,11 +77,7 @@ const router = createBrowserRouter([
       { path: "admin", element: <Admin /> },
       {
         path: "admin/dca-backtester",
-        element: (
-          <AdminOnly>
-            <AdminDcaBacktesterPage />
-          </AdminOnly>
-        ),
+        element: <AdminDcaBacktesterPage />,
       },
       { path: "login", element: <Navigate to="/membership" replace /> },
       { path: "membership/success", element: <MembershipSuccess /> },
@@ -107,11 +102,7 @@ const router = createBrowserRouter([
       },
       {
         path: "miner-quotation",
-        element: (
-          <RequireMembership>
-            <MinerQuotation2Page />
-          </RequireMembership>
-        ),
+        element: <MinerQuotation2Page />,
       },
       { path: "profile/:pubkey/messages", element: <Messages /> },
       { path: "profile/:pubkey", element: <Profile /> },

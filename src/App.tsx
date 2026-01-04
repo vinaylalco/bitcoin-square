@@ -84,14 +84,7 @@ export default function App() {
     { label: t("nav.shop"), to: "/shop" },
     { label: t("nav.membership"), to: "/membership" },
     { label: t("nav.community"), to: "/community" },
-    ...(isAdmin
-      ? [
-          {
-            label: "DCA Backtester",
-            to: "/admin/dca-backtester",
-          },
-        ]
-      : []),
+    { label: "DCA Backtester", to: "/admin/dca-backtester" },
   ];
 
   const educationRootMatch = useMatch("/education");
@@ -442,6 +435,18 @@ export default function App() {
                 </div>
               </div>
               <NavLink
+                to="/admin/dca-backtester"
+                onClick={() => setOpen(false)}
+                className={({ isActive }) =>
+                  cn(
+                    "inline-flex items-center gap-3 rounded-2xl border border-transparent px-4 py-3 transition hover:border-brand/40 hover:bg-brand/5",
+                    isActive && "border-brand bg-brand/10 text-brand",
+                  )
+                }
+              >
+                <LayoutDashboard className="h-5 w-5" /> DCA Backtester
+              </NavLink>
+              <NavLink
                 to="/shop"
                 onClick={() => setOpen(false)}
                 className={({ isActive }) =>
@@ -515,34 +520,20 @@ export default function App() {
                   >
                     <LayoutDashboard className="h-5 w-5" /> {t("nav.affiliateAdmin")}
                   </NavLink>
-                  <NavLink
-                    to="/admin/dca-backtester"
-                    onClick={() => setOpen(false)}
-                    className={({ isActive }) =>
-                      cn(
-                        "inline-flex items-center gap-3 rounded-2xl border border-transparent px-4 py-3 transition hover:border-brand/40 hover:bg-brand/5",
-                        isActive && "border-brand bg-brand/10 text-brand",
-                      )
-                    }
-                  >
-                    <LayoutDashboard className="h-5 w-5" /> DCA Backtester
-                  </NavLink>
                 </>
               ) : null}
-              {user ? (
-                <NavLink
-                  to="/miner-quotation"
-                  onClick={() => setOpen(false)}
-                  className={({ isActive }) =>
-                    cn(
-                      "inline-flex items-center gap-3 rounded-2xl border border-transparent px-4 py-3 transition hover:border-brand/40 hover:bg-brand/5",
-                      isActive && "border-brand bg-brand/10 text-brand",
-                    )
-                  }
-                >
-                  <Pickaxe className="h-5 w-5" /> {t("nav.minerQuotation")}
-                </NavLink>
-              ) : null}
+              <NavLink
+                to="/miner-quotation"
+                onClick={() => setOpen(false)}
+                className={({ isActive }) =>
+                  cn(
+                    "inline-flex items-center gap-3 rounded-2xl border border-transparent px-4 py-3 transition hover:border-brand/40 hover:bg-brand/5",
+                    isActive && "border-brand bg-brand/10 text-brand",
+                  )
+                }
+              >
+                <Pickaxe className="h-5 w-5" /> {t("nav.minerQuotation")}
+              </NavLink>
               <NavLink
                 to="/settings"
                 onClick={() => setOpen(false)}

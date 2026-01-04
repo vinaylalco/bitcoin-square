@@ -6,7 +6,6 @@ import {
   fetchLessonPlanCount,
   isHeadlessApiConfigured,
 } from "../api/headless-client";
-import { useAuth } from "../context/AuthContext";
 
 type CtaCard = {
   title: string;
@@ -49,14 +48,12 @@ const buttonBase =
 
 export default function HomePage() {
   const { t } = useTranslation();
-  const { user } = useAuth();
   const [memberCount, setMemberCount] = useState<number | null>(null);
   const [isMembersLoading, setIsMembersLoading] = useState(true);
   const [membersError, setMembersError] = useState(false);
   const [lessonPlanCount, setLessonPlanCount] = useState<number | null>(null);
   const [isLessonPlansLoading, setIsLessonPlansLoading] = useState(true);
   const [lessonPlansError, setLessonPlansError] = useState(false);
-  const isAdmin = Boolean(user?.isAdmin);
 
   useEffect(() => {
     let isMounted = true;
@@ -298,22 +295,21 @@ export default function HomePage() {
             </article>
           ))}
         </div>
-        {isAdmin ? (
-          <div className="rounded-3xl border border-neutral-200/70 bg-white/80 p-6 text-left shadow-[0_25px_90px_rgba(15,23,42,0.12)] transition-colors duration-300 dark:border-neutral-800/70 dark:bg-neutral-900/70">
-            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-brand/80">
-              Admin tools
-            </p>
-            <p className="mt-2 text-sm text-neutral-600 transition-colors duration-300 dark:text-neutral-300">
-              Internal-only tools are available for admins.
-            </p>
-            <Link
-              to="/admin/dca-backtester"
-              className="mt-4 inline-flex items-center gap-2 rounded-full border border-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-brand transition hover:bg-brand/10"
-            >
-              DCA Backtester <span aria-hidden="true">→</span>
-            </Link>
-          </div>
-        ) : null}
+        <div className="rounded-3xl border border-neutral-200/70 bg-white/80 p-6 text-left shadow-[0_25px_90px_rgba(15,23,42,0.12)] transition-colors duration-300 dark:border-neutral-800/70 dark:bg-neutral-900/70">
+          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-brand/80">
+            DCA Tools
+          </p>
+          <p className="mt-2 text-sm text-neutral-600 transition-colors duration-300 dark:text-neutral-300">
+            Compare dollar-cost averaging, lump-sum, and blended entry approaches. Log in to run
+            the calculator.
+          </p>
+          <Link
+            to="/admin/dca-backtester"
+            className="mt-4 inline-flex items-center gap-2 rounded-full border border-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-brand transition hover:bg-brand/10"
+          >
+            DCA Backtester <span aria-hidden="true">→</span>
+          </Link>
+        </div>
       </section>
 
       <section className="mx-auto max-w-6xl space-y-10">
