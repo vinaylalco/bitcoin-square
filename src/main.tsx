@@ -36,7 +36,7 @@ import MembershipSuccess from "./routes/MembershipSuccess";
 import MembershipCancel from "./routes/MembershipCancel";
 import Affiliate from "./routes/Affiliate";
 import Admin from "./routes/Admin";
-import AdminDcaBacktesterPage from "./routes/AdminDcaBacktesterPage";
+import DcaBacktesterPage from "./routes/DcaBacktesterPage";
 import { ProfileIdentityProvider } from "./context/ProfileIdentityContext";
 import { DirectMessageProvider } from "./context/DirectMessageContext";
 import { ToastProvider } from "./context/ToastContext";
@@ -77,7 +77,7 @@ const router = createBrowserRouter([
       { path: "admin", element: <Admin /> },
       {
         path: "tools/dca-backtester",
-        element: <AdminDcaBacktesterPage />,
+        element: <DcaBacktesterPage />,
       },
       { path: "login", element: <Navigate to="/membership" replace /> },
       { path: "membership/success", element: <MembershipSuccess /> },

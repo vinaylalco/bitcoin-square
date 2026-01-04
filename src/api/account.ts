@@ -1,4 +1,5 @@
-import { StrapiResponse, strapiFetch } from './strapi-client';
+import { strapiFetch } from './strapi-client';
+import type { StrapiResponse } from './strapi-client';
 
 export interface UpdateLightningAddressResponse {
   id: number;
