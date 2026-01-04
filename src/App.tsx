@@ -30,12 +30,9 @@ import LanguageSwitcher from "./components/LanguageSwitcher";
 export default function App() {
   const [open, setOpen] = useState(false);
   const [isClient, setIsClient] = useState(false);
-  const [mobileEducationOpen, setMobileEducationOpen] = useState(false);
-  const [desktopEducationOpen, setDesktopEducationOpen] = useState(false);
-  const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
-  const [desktopToolsOpen, setDesktopToolsOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const drawerRef = useRef<HTMLDivElement | null>(null);
+  const [isHoverable, setIsHoverable] = useState(false);
 
   const { t, i18n } = useTranslation();
   const loc = useLocation();
@@ -51,8 +48,12 @@ export default function App() {
 
   const lessonPlanLocale = locale === "es" || locale === "id" ? locale : "en";
 
-  const { data: lessonPlans } = useLessonPlans(lessonPlanLocale);
-  const educationChildren = (() => {
+  const {
+    data: lessonPlans,
+    isLoading: lessonPlansLoading,
+    isError: lessonPlansError,
+  } = useLessonPlans(lessonPlanLocale);
+  const educationMenu = (() => {
     const normalized = (lessonPlans ?? [])
       .map((course) => {
         const rawSlug =
@@ -70,25 +71,49 @@ export default function App() {
       .filter((item): item is { label: string; to: string } => Boolean(item));
 
     if (normalized.length > 0) {
-      return normalized;
+      return {
+        items: normalized,
+        status: "ready" as const,
+      };
     }
 
-    return [
-      {
-        label: t("app.btcFullCourse"),
-        to: "/education/full-btc-course",
-      },
-    ];
+    if (lessonPlansLoading) {
+      return { items: [], status: "loading" as const };
+    }
+
+    if (lessonPlansError) {
+      return { items: [], status: "empty" as const };
+    }
+
+    return {
+      items: [
+        {
+          label: t("app.btcFullCourse"),
+          to: "/education/full-btc-course",
+        },
+      ],
+      status: "ready" as const,
+    };
   })();
 
   const toolsChildren = [
-    { label: t("nav.dcaBacktester"), to: "/tools/dca-backtester" },
+    { label: t("nav.btcBuyingStrategies"), to: "/tools/btc-buying-strategies" },
     { label: t("nav.minerQuotation"), to: "/tools/miner-quote" },
   ];
 
   const desktopNav = [
-    { id: "education", label: t("nav.education"), to: "/education", dropdown: educationChildren },
-    { id: "tools", label: t("nav.tools"), to: "/tools/dca-backtester", dropdown: toolsChildren },
+    {
+      id: "education",
+      label: t("nav.education"),
+      to: "/education",
+      dropdown: educationMenu.items,
+    },
+    {
+      id: "tools",
+      label: t("nav.tools"),
+      to: "/tools/btc-buying-strategies",
+      dropdown: toolsChildren,
+    },
     { label: t("nav.shop"), to: "/shop" },
     { label: t("nav.membership"), to: "/membership" },
     { label: t("nav.community"), to: "/community" },
@@ -97,8 +122,19 @@ export default function App() {
   const educationRootMatch = useMatch("/education");
   const educationDetailMatch = useMatch("/education/:slug");
   const isEducationActive = Boolean(educationRootMatch || educationDetailMatch);
-  const toolsDetailMatch = useMatch("/tools/dca-backtester") || useMatch("/tools/miner-quote");
+  const toolsDetailMatch =
+    useMatch("/tools/btc-buying-strategies") ||
+    useMatch("/tools/miner-quote");
   const isToolsActive = Boolean(toolsDetailMatch);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mediaQuery = window.matchMedia("(hover: hover) and (pointer: fine)");
+    const updateHoverable = () => setIsHoverable(mediaQuery.matches);
+    updateHoverable();
+    mediaQuery.addEventListener("change", updateHoverable);
+    return () => mediaQuery.removeEventListener("change", updateHoverable);
+  }, []);
 
   useEffect(() => {
     setIsClient(true);
@@ -115,11 +151,182 @@ export default function App() {
 
   useEffect(() => {
     setOpen(false);
-    setMobileEducationOpen(false);
-    setDesktopEducationOpen(false);
-    setMobileToolsOpen(false);
-    setDesktopToolsOpen(false);
   }, [loc.pathname]);
+
+  const MenuItem = ({
+    id,
+    label,
+    to,
+    items,
+    isActive,
+    variant,
+    onNavigate,
+    icon,
+    loadingLabel,
+    emptyLabel,
+  }: {
+    id: string;
+    label: string;
+    to: string;
+    items: Array<{ label: string; to: string }>;
+    isActive: boolean;
+    variant: "desktop" | "mobile";
+    onNavigate: () => void;
+    icon?: React.ReactNode;
+    loadingLabel?: string;
+    emptyLabel?: string;
+  }) => {
+    const [menuOpen, setMenuOpen] = useState(false);
+    const wrapperRef = useRef<HTMLDivElement | null>(null);
+    const closeTimeoutRef = useRef<number | null>(null);
+    const menuId = `${id}-submenu`;
+
+    const clearCloseTimeout = () => {
+      if (closeTimeoutRef.current) {
+        window.clearTimeout(closeTimeoutRef.current);
+        closeTimeoutRef.current = null;
+      }
+    };
+
+    const scheduleClose = () => {
+      clearCloseTimeout();
+      closeTimeoutRef.current = window.setTimeout(() => {
+        setMenuOpen(false);
+      }, 150);
+    };
+
+    useEffect(() => {
+      if (isHoverable) return;
+      if (!menuOpen) return;
+      const handlePointerDown = (event: PointerEvent) => {
+        if (!wrapperRef.current) return;
+        if (!wrapperRef.current.contains(event.target as Node)) {
+          setMenuOpen(false);
+        }
+      };
+      document.addEventListener("pointerdown", handlePointerDown);
+      return () => {
+        document.removeEventListener("pointerdown", handlePointerDown);
+      };
+    }, [menuOpen]);
+
+    useEffect(() => () => clearCloseTimeout(), []);
+
+    return (
+      <div
+        ref={wrapperRef}
+        className={cn(
+          variant === "desktop" && "relative group",
+          variant === "mobile" &&
+            "rounded-2xl border border-transparent transition hover:border-brand/40 hover:bg-brand/5",
+          isActive && variant === "mobile" && "border-brand bg-brand/10 text-brand",
+        )}
+        onMouseEnter={() => {
+          if (!isHoverable) return;
+          clearCloseTimeout();
+          setMenuOpen(true);
+        }}
+        onMouseLeave={() => {
+          if (!isHoverable) return;
+          scheduleClose();
+        }}
+        onFocusCapture={() => {
+          if (!isHoverable) return;
+          clearCloseTimeout();
+          setMenuOpen(true);
+        }}
+        onBlurCapture={(event) => {
+          if (!isHoverable) return;
+          const nextFocus = event.relatedTarget as Node | null;
+          if (!nextFocus || !event.currentTarget.contains(nextFocus)) {
+            scheduleClose();
+          }
+        }}
+      >
+        <button
+          type="button"
+          aria-expanded={menuOpen}
+          aria-controls={menuId}
+          onClick={() => {
+            if (isHoverable) return;
+            setMenuOpen((prev) => !prev);
+          }}
+          className={cn(
+            variant === "desktop" &&
+              cn(
+                "inline-flex items-center gap-2 py-2 transition",
+                "text-[var(--fg-muted)] hover:text-brand",
+                isActive && "text-brand",
+              ),
+            variant === "mobile" && "flex w-full items-center justify-between px-4 py-3 text-left",
+          )}
+        >
+          <span className="inline-flex items-center gap-3">
+            {variant === "mobile" ? icon : null}
+            {label}
+          </span>
+          <ChevronDown
+            className={cn("h-3 w-3 transition-transform", menuOpen && "rotate-180")}
+            aria-hidden
+          />
+        </button>
+        <div
+          id={menuId}
+          role="menu"
+          className={cn(
+            variant === "desktop" &&
+              cn(
+                "absolute left-1/2 top-full z-20 mt-3 hidden w-60 -translate-x-1/2 rounded-2xl border border-brand/30 bg-[var(--bg-card)] p-3 text-[0.6rem] font-semibold shadow-[0_24px_60px_rgba(169,21,255,0.25)]",
+                menuOpen && "block",
+              ),
+            variant === "mobile" &&
+              cn("mt-2 space-y-2 pb-3 text-[0.65rem] font-semibold", menuOpen ? "block" : "hidden"),
+          )}
+        >
+          <div className={cn(variant === "desktop" ? "flex flex-col gap-2" : "")}>
+            {items.length === 0 ? (
+              <span
+                className={cn(
+                  "block rounded-xl px-4 py-2 text-[var(--fg-muted)]",
+                  variant === "mobile" && "px-6 tracking-[0.4em]",
+                )}
+              >
+                {loadingLabel ?? emptyLabel ?? t("app.loading")}
+              </span>
+            ) : (
+              items.map((child) => (
+                <NavLink
+                  key={child.to}
+                  to={child.to}
+                  role="menuitem"
+                  className={({ isActive: childActive }) =>
+                    cn(
+                      variant === "desktop" &&
+                        cn(
+                          "block rounded-xl border border-transparent px-4 py-2 tracking-[0.32em] text-[var(--fg-muted)] transition hover:border-brand/40 hover:bg-brand/5 hover:text-brand",
+                          childActive && "border-brand bg-brand/10 text-brand",
+                        ),
+                      variant === "mobile" &&
+                        cn(
+                          "block rounded-2xl border border-transparent px-6 py-2 tracking-[0.4em] text-[var(--fg-muted)] transition hover:border-brand/40 hover:bg-brand/5 hover:text-brand dark:text-white dark:hover:text-brand",
+                          childActive && "border-brand bg-brand/10 text-brand",
+                        ),
+                    )
+                  }
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onNavigate();
+                  }}
+                >
+                  {child.label}
+                </NavLink>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   useEffect(() => {
     const el = document.documentElement;
@@ -212,100 +419,26 @@ export default function App() {
                   const isEducationMenu = item.id === "education";
                   const isToolsMenu = item.id === "tools";
                   return (
-                    <div
+                    <MenuItem
                       key={item.to}
-                      className="relative group"
-                      onMouseEnter={() =>
-                        isEducationMenu
-                          ? setDesktopEducationOpen(true)
-                          : setDesktopToolsOpen(true)
+                      id={item.id ?? item.to}
+                      label={item.label}
+                      to={item.to}
+                      items={item.dropdown}
+                      isActive={isEducationMenu ? isEducationActive : isToolsActive}
+                      variant="desktop"
+                      onNavigate={() => undefined}
+                      loadingLabel={
+                        isEducationMenu && educationMenu.status === "loading"
+                          ? "Loading..."
+                          : undefined
                       }
-                      onMouseLeave={() =>
-                        isEducationMenu
-                          ? setDesktopEducationOpen(false)
-                          : setDesktopToolsOpen(false)
+                      emptyLabel={
+                        isEducationMenu && educationMenu.status === "empty"
+                          ? "No lessons available"
+                          : undefined
                       }
-                      onFocusCapture={() =>
-                        isEducationMenu
-                          ? setDesktopEducationOpen(true)
-                          : setDesktopToolsOpen(true)
-                      }
-                      onBlurCapture={(event) => {
-                        const nextFocus = event.relatedTarget as Node | null;
-                        if (!nextFocus || !event.currentTarget.contains(nextFocus)) {
-                          if (isEducationMenu) {
-                            setDesktopEducationOpen(false);
-                          } else {
-                            setDesktopToolsOpen(false);
-                          }
-                        }
-                      }}
-                    >
-                      <NavLink
-                        to={item.to}
-                        className={({ isActive }) =>
-                          cn(
-                            "inline-flex items-center gap-2 py-2 transition",
-                            item.highlight
-                              ? "rounded-full border border-brand px-4 text-xs tracking-[0.32em] text-brand hover:-translate-y-0.5 hover:border-brand hover:shadow-[0_12px_30px_rgba(169,21,255,0.35)]"
-                              : "text-[var(--fg-muted)] hover:text-brand",
-                            ((isEducationMenu && (isActive || desktopEducationOpen)) ||
-                              (isToolsMenu &&
-                                (isToolsActive || desktopToolsOpen))) &&
-                              (item.highlight ? "bg-brand text-white" : "text-brand"),
-                          )
-                        }
-                        onClick={(event) => {
-                          event.preventDefault();
-                          if (isEducationMenu) {
-                            setDesktopEducationOpen((prev) => !prev);
-                          } else {
-                            setDesktopToolsOpen((prev) => !prev);
-                          }
-                        }}
-                      >
-                        {item.label}
-                        <ChevronDown
-                          className={cn(
-                            "h-3 w-3 transition-transform",
-                            desktopEducationOpen && isEducationMenu && "rotate-180",
-                            desktopToolsOpen && isToolsMenu && "rotate-180",
-                          )}
-                          aria-hidden
-                        />
-                      </NavLink>
-                      <div
-                        className={cn(
-                          "absolute left-1/2 top-full z-20 mt-3 hidden w-60 -translate-x-1/2 rounded-2xl border border-brand/30 bg-[var(--bg-card)] p-3 text-[0.6rem] font-semibold shadow-[0_24px_60px_rgba(169,21,255,0.25)] group-hover:block",
-                          isEducationMenu && desktopEducationOpen && "block",
-                          isToolsMenu && desktopToolsOpen && "block",
-                        )}
-                      >
-                        <div className="flex flex-col gap-2">
-                          {item.dropdown.map((child) => (
-                            <NavLink
-                              key={child.to}
-                              to={child.to}
-                              className={({ isActive }) =>
-                                cn(
-                                  "block rounded-xl border border-transparent px-4 py-2 tracking-[0.32em] text-[var(--fg-muted)] transition hover:border-brand/40 hover:bg-brand/5 hover:text-brand",
-                                  isActive && "border-brand bg-brand/10 text-brand",
-                                )
-                              }
-                              onClick={() => {
-                                if (isEducationMenu) {
-                                  setDesktopEducationOpen(false);
-                                } else {
-                                  setDesktopToolsOpen(false);
-                                }
-                              }}
-                            >
-                              {child.label}
-                            </NavLink>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
+                    />
                   );
                 }
 
@@ -417,124 +550,32 @@ export default function App() {
               >
                 <HomeIcon className="h-5 w-5" /> {t("nav.home")}
               </NavLink>
-              <div
-                className={cn(
-                  "rounded-2xl border border-transparent transition hover:border-brand/40 hover:bg-brand/5",
-                  (mobileEducationOpen || isEducationActive) && "border-brand bg-brand/10 text-brand",
-                )}
-              >
-                <div className="flex items-center justify-between">
-                  <NavLink
-                    to="/education"
-                    onClick={() => {
-                      setOpen(false);
-                      setMobileEducationOpen(false);
-                    }}
-                    className={({ isActive }) =>
-                      cn(
-                        "flex flex-1 items-center gap-3 px-4 py-3",
-                        isActive && "text-brand",
-                      )
-                    }
-                  >
-                    <BookOpen className="h-5 w-5" /> {t("nav.education")}
-                  </NavLink>
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      setMobileEducationOpen((prev) => !prev);
-                    }}
-                    aria-expanded={mobileEducationOpen}
-                    aria-controls="mobile-education-submenu"
-                    className="px-4 py-3 text-[0.65rem] font-semibold uppercase tracking-[0.4em] text-[var(--fg-muted)] transition hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-                    aria-label={t("app.mobileMenu.toggleEducation", {
-                      defaultValue: "Toggle education submenu",
-                    })}
-                  >
-                    {mobileEducationOpen ? "−" : "+"}
-                  </button>
-                </div>
-                <div
-                  id="mobile-education-submenu"
-                  className={cn(
-                    "mt-2 space-y-2 pb-3 text-[0.65rem] font-semibold",
-                    mobileEducationOpen ? "block" : "hidden",
-                  )}
-                >
-                  {educationChildren.map((item) => (
-                    <NavLink
-                      key={item.to}
-                      to={item.to}
-                      onClick={() => setOpen(false)}
-                      className={({ isActive }) =>
-                        cn(
-                          "block rounded-2xl border border-transparent px-6 py-2 tracking-[0.4em] text-[var(--fg-muted)] transition hover:border-brand/40 hover:bg-brand/5 hover:text-brand dark:text-white dark:hover:text-brand",
-                          isActive && "border-brand bg-brand/10 text-brand",
-                        )
-                      }
-                    >
-                      {item.label}
-                    </NavLink>
-                  ))}
-                </div>
-              </div>
-              <div
-                className={cn(
-                  "rounded-2xl border border-transparent transition hover:border-brand/40 hover:bg-brand/5",
-                  (mobileToolsOpen || isToolsActive) && "border-brand bg-brand/10 text-brand",
-                )}
-              >
-                <div className="flex items-center justify-between">
-                  <button
-                    type="button"
-                    onClick={() => setMobileToolsOpen((prev) => !prev)}
-                    className="flex flex-1 items-center gap-3 px-4 py-3 text-left"
-                  >
-                    <LayoutDashboard className="h-5 w-5" /> {t("nav.tools")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      setMobileToolsOpen((prev) => !prev);
-                    }}
-                    aria-expanded={mobileToolsOpen}
-                    aria-controls="mobile-tools-submenu"
-                    className="px-4 py-3 text-[0.65rem] font-semibold uppercase tracking-[0.4em] text-[var(--fg-muted)] transition hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-                    aria-label={t("app.mobileMenu.toggleTools", {
-                      defaultValue: "Toggle tools submenu",
-                    })}
-                  >
-                    {mobileToolsOpen ? "−" : "+"}
-                  </button>
-                </div>
-                <div
-                  id="mobile-tools-submenu"
-                  className={cn(
-                    "mt-2 space-y-2 pb-3 text-[0.65rem] font-semibold",
-                    mobileToolsOpen ? "block" : "hidden",
-                  )}
-                >
-                  {toolsChildren.map((item) => (
-                    <NavLink
-                      key={item.to}
-                      to={item.to}
-                      onClick={() => setOpen(false)}
-                      className={({ isActive }) =>
-                        cn(
-                          "block rounded-2xl border border-transparent px-6 py-2 tracking-[0.4em] text-[var(--fg-muted)] transition hover:border-brand/40 hover:bg-brand/5 hover:text-brand dark:text-white dark:hover:text-brand",
-                          isActive && "border-brand bg-brand/10 text-brand",
-                        )
-                      }
-                    >
-                      {item.label}
-                    </NavLink>
-                  ))}
-                </div>
-              </div>
+              <MenuItem
+                id="mobile-education"
+                label={t("nav.education")}
+                to="/education"
+                items={educationMenu.items}
+                isActive={isEducationActive}
+                variant="mobile"
+                icon={<BookOpen className="h-5 w-5" />}
+                onNavigate={() => setOpen(false)}
+                loadingLabel={
+                  educationMenu.status === "loading" ? "Loading..." : undefined
+                }
+                emptyLabel={
+                  educationMenu.status === "empty" ? "No lessons available" : undefined
+                }
+              />
+              <MenuItem
+                id="mobile-tools"
+                label={t("nav.tools")}
+                to="/tools/btc-buying-strategies"
+                items={toolsChildren}
+                isActive={isToolsActive}
+                variant="mobile"
+                icon={<LayoutDashboard className="h-5 w-5" />}
+                onNavigate={() => setOpen(false)}
+              />
               <NavLink
                 to="/shop"
                 onClick={() => setOpen(false)}
