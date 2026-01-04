@@ -9,7 +9,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { fetchCoinDeskHistoricalClose } from "../utils/coindesk";
+import { fetchBtcDailyHistory } from "../utils/coindesk";
 
 const HISTORICAL_CACHE_KEY = "btc-buying-strategies-historical-cache";
 const SETTINGS_CACHE_KEY = "btc-buying-strategies-settings";
@@ -18,6 +18,11 @@ type HistoricalRow = {
   dateStr: string;
   date: Date;
   price: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
 };
 
 type Schedule = "daily" | "weekly" | "biweekly" | "monthly";
@@ -48,15 +53,20 @@ type BacktestResult = {
 };
 
 type HistoricalCache = {
-  start: string;
-  end: string;
-  rows: { dateStr: string; price: number }[];
+  limit: number;
+  rows: {
+    dateStr: string;
+    price: number;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    volume: number;
+  }[];
   savedAt: number;
 };
 
 type SettingsCache = {
-  startDate: string;
-  endDate: string;
   schedule: Schedule;
   amountPerPeriod: number;
   feeRate: number;
@@ -87,46 +97,93 @@ function formatDateInput(value: Date): string {
   return value.toISOString().slice(0, 10);
 }
 
-function parseHistoricalRows(payload: { bpi?: Record<string, number> }): HistoricalRow[] {
-  const entries = payload.bpi ? Object.entries(payload.bpi) : [];
-  return entries
-    .map(([dateStr, price]) => {
-      if (!dateStr || typeof price !== "number") {
+function parseHistoricalRows(payload: {
+  Data?: Array<{
+    TIME?: number;
+    OPEN?: number;
+    HIGH?: number;
+    LOW?: number;
+    CLOSE?: number;
+    VOLUME?: number;
+  }> | { Data?: Array<{
+    TIME?: number;
+    OPEN?: number;
+    HIGH?: number;
+    LOW?: number;
+    CLOSE?: number;
+    VOLUME?: number;
+  }> };
+}): HistoricalRow[] {
+  const rawData = Array.isArray(payload.Data)
+    ? payload.Data
+    : Array.isArray(payload.Data?.Data)
+      ? payload.Data?.Data
+      : [];
+  return rawData
+    .map((row) => {
+      if (row?.TIME == null || typeof row.CLOSE !== "number") {
         return null;
       }
-      const date = new Date(`${dateStr}T00:00:00Z`);
+      const date = new Date(row.TIME * 1000);
       if (Number.isNaN(date.getTime())) {
         return null;
       }
-      return { dateStr, date, price };
+      const dateStr = date.toISOString().slice(0, 10);
+      const open = typeof row.OPEN === "number" ? row.OPEN : row.CLOSE;
+      const high = typeof row.HIGH === "number" ? row.HIGH : row.CLOSE;
+      const low = typeof row.LOW === "number" ? row.LOW : row.CLOSE;
+      const close = row.CLOSE;
+      const volume = typeof row.VOLUME === "number" ? row.VOLUME : 0;
+      return {
+        dateStr,
+        date,
+        price: close,
+        open,
+        high,
+        low,
+        close,
+        volume,
+      };
     })
     .filter((row): row is HistoricalRow => row !== null)
     .sort((a, b) => a.date.getTime() - b.date.getTime());
 }
 
-function loadCachedHistorical(start: string, end: string): HistoricalRow[] | null {
+function loadCachedHistorical(limit: number): HistoricalRow[] | null {
   try {
     const raw = localStorage.getItem(HISTORICAL_CACHE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as HistoricalCache;
-    if (parsed.start !== start || parsed.end !== end || !Array.isArray(parsed.rows)) {
+    if (parsed.limit !== limit || !Array.isArray(parsed.rows)) {
       return null;
     }
     return parsed.rows.map((row) => ({
       dateStr: row.dateStr,
       date: new Date(`${row.dateStr}T00:00:00Z`),
       price: row.price,
+      open: row.open,
+      high: row.high,
+      low: row.low,
+      close: row.close,
+      volume: row.volume,
     }));
   } catch {
     return null;
   }
 }
 
-function saveCachedHistorical(start: string, end: string, rows: HistoricalRow[]) {
+function saveCachedHistorical(limit: number, rows: HistoricalRow[]) {
   const payload: HistoricalCache = {
-    start,
-    end,
-    rows: rows.map((row) => ({ dateStr: row.dateStr, price: row.price })),
+    limit,
+    rows: rows.map((row) => ({
+      dateStr: row.dateStr,
+      price: row.price,
+      open: row.open,
+      high: row.high,
+      low: row.low,
+      close: row.close,
+      volume: row.volume,
+    })),
     savedAt: Date.now(),
   };
   try {
@@ -224,12 +281,8 @@ function pickSchedulePoints(rows: HistoricalRow[], frequency: Schedule): Histori
 export default function BtcBuyingStrategiesPage() {
   const today = useMemo(() => new Date(), []);
   const defaultEnd = formatDateInput(today);
-  const defaultStart = formatDateInput(
-    new Date(today.getFullYear(), today.getMonth(), today.getDate() - 365),
-  );
 
-  const [startDate, setStartDate] = useState(defaultStart);
-  const [endDate, setEndDate] = useState(defaultEnd);
+  const historyLimit = 30;
   const [rows, setRows] = useState<HistoricalRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -268,8 +321,6 @@ export default function BtcBuyingStrategiesPage() {
       const raw = localStorage.getItem(SETTINGS_CACHE_KEY);
       if (!raw) return;
       const parsed = JSON.parse(raw) as Partial<SettingsCache>;
-      if (typeof parsed.startDate === "string") setStartDate(parsed.startDate);
-      if (typeof parsed.endDate === "string") setEndDate(parsed.endDate);
       if (parsed.schedule) setSchedule(parsed.schedule);
       if (parsed.amountPerPeriod != null) setAmountPerPeriod(parsed.amountPerPeriod);
       if (parsed.feeRate != null) setFeeRate(parsed.feeRate);
@@ -280,8 +331,6 @@ export default function BtcBuyingStrategiesPage() {
 
   useEffect(() => {
     const payload: SettingsCache = {
-      startDate,
-      endDate,
       schedule,
       amountPerPeriod,
       feeRate,
@@ -291,7 +340,7 @@ export default function BtcBuyingStrategiesPage() {
     } catch {
       // Ignore settings persistence failures.
     }
-  }, [startDate, endDate, schedule, amountPerPeriod, feeRate]);
+  }, [schedule, amountPerPeriod, feeRate]);
 
   const handleNumberChange =
     (setter: (value: number) => void) => (event: ChangeEvent<HTMLInputElement>) => {
@@ -301,28 +350,26 @@ export default function BtcBuyingStrategiesPage() {
       }
     };
 
-  const fetchHistorical = async (start: string, end: string) => {
+  const fetchHistorical = async () => {
     setError(null);
     setLoading(true);
-    const cached = loadCachedHistorical(start, end);
+    const cached = loadCachedHistorical(historyLimit);
     if (cached && cached.length > 0) {
       setRows(cached);
       setLoading(false);
       return;
     }
     try {
-      const startDate = new Date(`${start}T00:00:00Z`);
-      const endDate = new Date(`${end}T00:00:00Z`);
-      if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
-        throw new Error("Invalid start or end date.");
+      const data = await fetchBtcDailyHistory({ limit: historyLimit });
+      const err = data.Err;
+      if (err) {
+        const message = err.message ?? err.Message ?? "CoinDesk returned an error.";
+        const status = err.status ?? err.Status;
+        throw new Error(status ? `${message} (${status})` : message);
       }
-      if (endDate < startDate) {
-        throw new Error("End date must be on or after start date.");
-      }
-      const data = await fetchCoinDeskHistoricalClose(start, end);
       const parsed = parseHistoricalRows(data);
       setRows(parsed);
-      saveCachedHistorical(start, end, parsed);
+      saveCachedHistorical(historyLimit, parsed);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unable to load historical prices.";
       setError(message);
@@ -332,23 +379,26 @@ export default function BtcBuyingStrategiesPage() {
   };
 
   useEffect(() => {
-    void fetchHistorical(startDate, endDate);
-  }, [startDate, endDate]);
+    void fetchHistorical();
+  }, []);
+
+  const safeRows = Array.isArray(rows) ? rows : [];
+  const backtestHistory = backtest?.history ?? [];
 
   const runBacktest = () => {
-    if (!rows.length) {
+    if (!safeRows.length) {
       setError("Load price history before running the backtest.");
       return;
     }
 
-    const scheduledRows = pickSchedulePoints(rows, schedule);
+    const scheduledRows = pickSchedulePoints(safeRows, schedule);
     const scheduledDates = new Set(scheduledRows.map((row) => row.dateStr));
     let cashUSD = 0;
     let totalContributedUSD = 0;
     let totalFeesUSD = 0;
     let btc = 0;
 
-    const history = rows.map((row) => {
+    const history = safeRows.map((row) => {
       let depositUSD = 0;
       let buyUSD = 0;
       let feeUSD = 0;
@@ -412,17 +462,17 @@ export default function BtcBuyingStrategiesPage() {
     });
   };
 
-  const priceChartData = rows.map((row) => ({
+  const priceChartData = safeRows.map((row) => ({
     dateStr: row.dateStr,
     price: row.price,
   }));
 
-  const valueChartData = backtest?.history.map((point) => ({
+  const valueChartData = backtestHistory.map((point) => ({
     dateStr: point.dateStr,
     value: point.valueUSD,
   }));
 
-  const roiChartData = backtest?.history.map((point) => {
+  const roiChartData = backtestHistory.map((point) => {
     const roiToDate =
       point.contributedToDate > 0
         ? (point.valueUSD - point.contributedToDate) / point.contributedToDate
@@ -433,7 +483,7 @@ export default function BtcBuyingStrategiesPage() {
     };
   });
 
-  const auditRows = backtest?.history ?? [];
+  const auditRows = backtestHistory;
 
   const handleExportCsv = () => {
     if (!backtest) return;
@@ -508,7 +558,7 @@ export default function BtcBuyingStrategiesPage() {
               </h2>
             </div>
             <div className="text-xs text-neutral-500 dark:text-neutral-400">
-              {rows.length ? `${rows.length} data points` : "No data yet"}
+              {safeRows.length ? `${safeRows.length} data points` : "No data yet"}
             </div>
           </div>
           <div className="mt-6 h-80">
@@ -516,7 +566,7 @@ export default function BtcBuyingStrategiesPage() {
               <div className="flex h-full items-center justify-center text-sm text-neutral-500">
                 Loading historical prices...
               </div>
-            ) : rows.length ? (
+            ) : safeRows.length ? (
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={priceChartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
@@ -577,28 +627,19 @@ export default function BtcBuyingStrategiesPage() {
               />
             </label>
             <label className="flex flex-col gap-2 text-sm text-neutral-600 dark:text-neutral-300">
-              Start date
+              History window
               <input
-                type="date"
-                value={startDate}
-                onChange={(event) => setStartDate(event.target.value)}
-                className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm text-neutral-900 outline-none focus:border-brand dark:text-white"
-              />
-            </label>
-            <label className="flex flex-col gap-2 text-sm text-neutral-600 dark:text-neutral-300">
-              End date
-              <input
-                type="date"
-                value={endDate}
-                onChange={(event) => setEndDate(event.target.value)}
-                className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm text-neutral-900 outline-none focus:border-brand dark:text-white"
+                type="text"
+                value={`Last ${historyLimit} days (as of ${defaultEnd})`}
+                readOnly
+                className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm text-neutral-900 outline-none dark:text-white"
               />
             </label>
           </div>
           <div className="mt-6 flex flex-wrap gap-3">
             <button
               type="button"
-              onClick={() => fetchHistorical(startDate, endDate)}
+              onClick={() => fetchHistorical()}
               className="rounded-full border border-transparent bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.28em] text-white shadow-sm transition hover:bg-brand/90"
               disabled={loading}
             >
