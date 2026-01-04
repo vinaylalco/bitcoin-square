@@ -54,6 +54,8 @@ type BacktestResult = {
 
 type HistoricalCache = {
   limit: number;
+  start: string;
+  end: string;
   rows: {
     dateStr: string;
     price: number;
@@ -70,6 +72,8 @@ type SettingsCache = {
   schedule: Schedule;
   amountPerPeriod: number;
   feeRate: number;
+  historyStart?: string;
+  historyEnd?: string;
 };
 
 function formatCurrency(value: number | null | undefined) {
@@ -158,12 +162,17 @@ function parseHistoricalRows(
     .sort((a, b) => a.date.getTime() - b.date.getTime());
 }
 
-function loadCachedHistorical(limit: number): HistoricalRow[] | null {
+function loadCachedHistorical(limit: number, start: string, end: string): HistoricalRow[] | null {
   try {
     const raw = localStorage.getItem(HISTORICAL_CACHE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as HistoricalCache;
-    if (parsed.limit !== limit || !Array.isArray(parsed.rows)) {
+    if (
+      parsed.limit !== limit ||
+      parsed.start !== start ||
+      parsed.end !== end ||
+      !Array.isArray(parsed.rows)
+    ) {
       return null;
     }
     return parsed.rows.map((row) => ({
@@ -181,9 +190,11 @@ function loadCachedHistorical(limit: number): HistoricalRow[] | null {
   }
 }
 
-function saveCachedHistorical(limit: number, rows: HistoricalRow[]) {
+function saveCachedHistorical(limit: number, start: string, end: string, rows: HistoricalRow[]) {
   const payload: HistoricalCache = {
     limit,
+    start,
+    end,
     rows: rows.map((row) => ({
       dateStr: row.dateStr,
       price: row.price,
@@ -292,14 +303,16 @@ function pickSchedulePoints(rows: HistoricalRow[], frequency: Schedule): Histori
 export default function BtcBuyingStrategiesPage() {
   const today = useMemo(() => new Date(), []);
   const defaultEnd = formatDateInput(today);
+  const defaultStart = formatDateInput(new Date(today.getTime() - 29 * 24 * 60 * 60 * 1000));
 
-  const historyLimit = 30;
   const [rows, setRows] = useState<HistoricalRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [schedule, setSchedule] = useState<Schedule>("weekly");
   const [amountPerPeriod, setAmountPerPeriod] = useState(100);
   const [feeRate, setFeeRate] = useState(0.25);
+  const [historyStart, setHistoryStart] = useState(defaultStart);
+  const [historyEnd, setHistoryEnd] = useState(defaultEnd);
   const [backtest, setBacktest] = useState<BacktestResult | null>(null);
   const [exchangeName, setExchangeName] = useState("");
   const [exchangeStartDate, setExchangeStartDate] = useState(formatDateInput(today));
@@ -335,6 +348,8 @@ export default function BtcBuyingStrategiesPage() {
       if (parsed.schedule) setSchedule(parsed.schedule);
       if (parsed.amountPerPeriod != null) setAmountPerPeriod(parsed.amountPerPeriod);
       if (parsed.feeRate != null) setFeeRate(parsed.feeRate);
+      if (parsed.historyStart) setHistoryStart(parsed.historyStart);
+      if (parsed.historyEnd) setHistoryEnd(parsed.historyEnd);
     } catch {
       // Ignore settings hydration failures.
     }
@@ -345,13 +360,15 @@ export default function BtcBuyingStrategiesPage() {
       schedule,
       amountPerPeriod,
       feeRate,
+      historyStart,
+      historyEnd,
     };
     try {
       localStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(payload));
     } catch {
       // Ignore settings persistence failures.
     }
-  }, [schedule, amountPerPeriod, feeRate]);
+  }, [schedule, amountPerPeriod, feeRate, historyStart, historyEnd]);
 
   const handleNumberChange =
     (setter: (value: number) => void) => (event: ChangeEvent<HTMLInputElement>) => {
@@ -364,14 +381,30 @@ export default function BtcBuyingStrategiesPage() {
   const fetchHistorical = async () => {
     setError(null);
     setLoading(true);
-    const cached = loadCachedHistorical(historyLimit);
+    const startDate = new Date(`${historyStart}T00:00:00Z`);
+    const endDate = new Date(`${historyEnd}T00:00:00Z`);
+    if (
+      Number.isNaN(startDate.getTime()) ||
+      Number.isNaN(endDate.getTime()) ||
+      startDate.getTime() > endDate.getTime()
+    ) {
+      setError("Select a valid start and end date.");
+      setLoading(false);
+      return;
+    }
+    const historyLimit =
+      Math.ceil((endDate.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000)) + 1;
+    const cached = loadCachedHistorical(historyLimit, historyStart, historyEnd);
     if (Array.isArray(cached) && cached.length > 0) {
       setRows(cached);
       setLoading(false);
       return;
     }
     try {
-      const data = await fetchBtcDailyHistory({ limit: historyLimit });
+      const data = await fetchBtcDailyHistory({
+        limit: historyLimit,
+        toTs: Math.floor(endDate.getTime() / 1000),
+      });
       if (!data) {
         throw new Error("CoinDesk returned an empty response.");
       }
@@ -388,8 +421,11 @@ export default function BtcBuyingStrategiesPage() {
         throw new Error(status ? `${message} (${status})` : message);
       }
       const parsed = parseHistoricalRows(data ?? {});
-      setRows(parsed);
-      saveCachedHistorical(historyLimit, parsed);
+      const filtered = parsed.filter(
+        (row) => row.date.getTime() >= startDate.getTime() && row.date.getTime() <= endDate.getTime(),
+      );
+      setRows(filtered);
+      saveCachedHistorical(historyLimit, historyStart, historyEnd, filtered);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unable to load historical prices.";
       setError(message);
@@ -681,12 +717,23 @@ export default function BtcBuyingStrategiesPage() {
             </label>
             <label className="flex flex-col gap-2 text-sm text-neutral-600 dark:text-neutral-300">
               History window
-              <input
-                type="text"
-                value={`Last ${historyLimit} days (as of ${defaultEnd})`}
-                readOnly
-                className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm text-neutral-900 outline-none dark:text-white"
-              />
+              <div className="grid gap-2 sm:grid-cols-2">
+                <input
+                  type="date"
+                  value={historyStart}
+                  max={historyEnd}
+                  onChange={(event) => setHistoryStart(event.target.value)}
+                  className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm text-neutral-900 outline-none focus:border-brand dark:text-white"
+                />
+                <input
+                  type="date"
+                  value={historyEnd}
+                  min={historyStart}
+                  max={defaultEnd}
+                  onChange={(event) => setHistoryEnd(event.target.value)}
+                  className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm text-neutral-900 outline-none focus:border-brand dark:text-white"
+                />
+              </div>
             </label>
           </div>
           <div className="mt-6 flex flex-wrap gap-3">
