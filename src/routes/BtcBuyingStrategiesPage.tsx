@@ -102,6 +102,7 @@ function parseHistoricalRows(
     Data?:
       | Array<{
           TIME?: number;
+          TIMESTAMP?: number;
           OPEN?: number;
           HIGH?: number;
           LOW?: number;
@@ -111,6 +112,7 @@ function parseHistoricalRows(
       | {
           Data?: Array<{
             TIME?: number;
+            TIMESTAMP?: number;
             OPEN?: number;
             HIGH?: number;
             LOW?: number;
@@ -127,10 +129,11 @@ function parseHistoricalRows(
       : [];
   return rawData
     .map((row) => {
-      if (row?.TIME == null || typeof row.CLOSE !== "number") {
+      const timestamp = row?.TIME ?? row?.TIMESTAMP;
+      if (timestamp == null || typeof row.CLOSE !== "number") {
         return null;
       }
-      const date = new Date(row.TIME * 1000);
+      const date = new Date(timestamp * 1000);
       if (Number.isNaN(date.getTime())) {
         return null;
       }
@@ -373,7 +376,13 @@ export default function BtcBuyingStrategiesPage() {
         throw new Error("CoinDesk returned an empty response.");
       }
       const err = data.Err ?? null;
-      if (err) {
+      const hasErrorDetails =
+        err != null &&
+        (typeof err.message === "string" ||
+          typeof err.Message === "string" ||
+          typeof err.status === "number" ||
+          typeof err.Status === "number");
+      if (hasErrorDetails) {
         const message = err.message ?? err.Message ?? "CoinDesk returned an error.";
         const status = err.status ?? err.Status;
         throw new Error(status ? `${message} (${status})` : message);
