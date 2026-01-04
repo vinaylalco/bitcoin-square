@@ -93,6 +93,7 @@ export default function App() {
   ];
 
   const desktopNav = [
+    { label: t("nav.home"), to: "/" },
     {
       id: "education",
       label: t("nav.education"),
@@ -107,7 +108,15 @@ export default function App() {
     },
     { label: t("nav.shop"), to: "/shop" },
     { label: t("nav.membership"), to: "/membership" },
+    { label: t("nav.newsletter"), to: "/newsletter" },
     { label: t("nav.community"), to: "/community" },
+    ...(isAdmin
+      ? [
+          { label: t("nav.affiliateProgram"), to: "/affiliate" },
+          { label: t("nav.affiliateAdmin"), to: "/admin" },
+        ]
+      : []),
+    { label: t("nav.settings"), to: "/settings" },
   ];
 
   const educationRootMatch = useMatch("/education");
