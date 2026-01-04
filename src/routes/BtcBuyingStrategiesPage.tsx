@@ -12,8 +12,8 @@ import {
 
 const COINDESK_HISTORICAL_URL = "https://api.coindesk.com/v1/bpi/historical/close.json";
 const COINDESK_API_KEY = import.meta.env.VITE_COINDESK_API_KEY ?? "";
-const HISTORICAL_CACHE_KEY = "normal-dca-backtester-historical-cache";
-const SETTINGS_CACHE_KEY = "normal-dca-backtester-settings";
+const HISTORICAL_CACHE_KEY = "btc-buying-strategies-historical-cache";
+const SETTINGS_CACHE_KEY = "btc-buying-strategies-settings";
 
 type HistoricalRow = {
   dateStr: string;
@@ -222,7 +222,7 @@ function pickSchedulePoints(rows: HistoricalRow[], frequency: Schedule): Histori
   return Array.from(monthlyMap.values()).sort((a, b) => a.date.getTime() - b.date.getTime());
 }
 
-export default function BtcNormalDcaBacktesterPage() {
+export default function BtcBuyingStrategiesPage() {
   const today = useMemo(() => new Date(), []);
   const defaultEnd = formatDateInput(today);
   const defaultStart = formatDateInput(
@@ -245,8 +245,9 @@ export default function BtcNormalDcaBacktesterPage() {
   const [exchangeNote, setExchangeNote] = useState("");
 
   useEffect(() => {
-    const title = "Normal BTC DCA Backtester | Bitcoin Square";
-    const description = "Backtest a simple Bitcoin dollar-cost averaging plan with no selling.";
+    const title = "BTC Buying Strategies | Bitcoin Square";
+    const description =
+      "Backtest a simple Bitcoin dollar-cost averaging plan with no selling.";
     document.title = title;
     const ensureMeta = (name: string, content: string, attr: "name" | "property" = "name") => {
       const selector = `meta[${attr}="${name}"]`;
@@ -497,7 +498,7 @@ export default function BtcNormalDcaBacktesterPage() {
       <main className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-12 sm:px-6 lg:px-8">
         <header className="flex flex-col gap-3">
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">
-            DCA Backtester
+            BTC Buying Strategies
           </p>
           <h1 className="text-3xl font-bold text-neutral-900 dark:text-white">
             Normal BTC DCA (No Selling)

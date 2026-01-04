@@ -24,7 +24,7 @@
     "logout": "Выход",
     "minerQuotation": "Котировка майнинга",
     "dcaBacktester": "Тестер DCA",
-    "normalDcaBacktester": "Обычный DCA-тестер",
+    "btcBuyingStrategies": "Стратегии покупки BTC",
     "affiliateProgram": "Партнёрская программа",
     "affiliateAdmin": "Администрирование партнёров"
   },

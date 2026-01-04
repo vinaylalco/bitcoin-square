@@ -24,7 +24,7 @@
     "logout": "ออกจากระบบ",
     "minerQuotation": "ใบเสนอราคาเหมืองขุด",
     "dcaBacktester": "ตัวทดสอบ DCA",
-    "normalDcaBacktester": "ตัวทดสอบ DCA แบบปกติ",
+    "btcBuyingStrategies": "กลยุทธ์การซื้อ BTC",
     "affiliateProgram": "โปรแกรมพันธมิตร",
     "affiliateAdmin": "ผู้ดูแลพันธมิตร"
   },

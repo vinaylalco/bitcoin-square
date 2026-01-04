@@ -24,7 +24,7 @@
     "logout": "Logout",
     "minerQuotation": "Miner Quote",
     "dcaBacktester": "DCA Backtester",
-    "normalDcaBacktester": "Normal DCA Backtester",
+    "btcBuyingStrategies": "BTC Buying Strategies",
     "affiliateProgram": "Affiliate Program",
     "affiliateAdmin": "Affiliate Admin"
   },

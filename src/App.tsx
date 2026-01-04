@@ -83,13 +83,18 @@ export default function App() {
 
   const toolsChildren = [
     { label: t("nav.dcaBacktester"), to: "/tools/dca-backtester" },
-    { label: t("nav.normalDcaBacktester"), to: "/tools/normal-dca-backtester" },
+    { label: t("nav.btcBuyingStrategies"), to: "/tools/btc-buying-strategies" },
     { label: t("nav.minerQuotation"), to: "/tools/miner-quote" },
   ];
 
   const desktopNav = [
     { id: "education", label: t("nav.education"), to: "/education", dropdown: educationChildren },
-    { id: "tools", label: t("nav.tools"), to: "/tools/dca-backtester", dropdown: toolsChildren },
+    {
+      id: "tools",
+      label: t("nav.tools"),
+      to: "/tools/btc-buying-strategies",
+      dropdown: toolsChildren,
+    },
     { label: t("nav.shop"), to: "/shop" },
     { label: t("nav.membership"), to: "/membership" },
     { label: t("nav.community"), to: "/community" },
@@ -100,7 +105,7 @@ export default function App() {
   const isEducationActive = Boolean(educationRootMatch || educationDetailMatch);
   const toolsDetailMatch =
     useMatch("/tools/dca-backtester") ||
-    useMatch("/tools/normal-dca-backtester") ||
+    useMatch("/tools/btc-buying-strategies") ||
     useMatch("/tools/miner-quote");
   const isToolsActive = Boolean(toolsDetailMatch);
 
