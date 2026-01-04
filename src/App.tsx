@@ -172,7 +172,7 @@ export default function App() {
     const buttonRef = useRef<HTMLButtonElement | null>(null);
     const closeTimeoutRef = useRef<number | null>(null);
     const menuId = `${id}-submenu`;
-    const closeDelayMs = 300;
+    const closeDelayMs = 500;
 
     const clearCloseTimeout = () => {
       if (closeTimeoutRef.current) {
@@ -209,7 +209,8 @@ export default function App() {
       <div
         ref={wrapperRef}
         className={cn(
-          variant === "desktop" && "relative group",
+          variant === "desktop" &&
+            "relative group before:absolute before:left-0 before:right-0 before:top-full before:h-3 before:content-['']",
           variant === "mobile" &&
             "rounded-2xl border border-transparent transition hover:border-brand/40 hover:bg-brand/5",
           isActive && variant === "mobile" && "border-brand bg-brand/10 text-brand",
