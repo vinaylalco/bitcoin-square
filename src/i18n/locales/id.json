@@ -21,6 +21,8 @@
     "dashboard": "Dasbor",
     "login": "Masuk",
     "logout": "Keluar",
+    "minerQuotation": "Kutipan Penambangan",
+    "dcaBacktester": "Penguji DCA",
     "affiliateProgram": "Program Afiliasi",
     "affiliateAdmin": "Admin Afiliasi"
   },
@@ -274,6 +276,9 @@
         "eyebrow": "Platform",
         "title": "Yang kami tawarkan",
         "description": "Platform lengkap berbasis Nostr yang menyediakan semua yang Anda perlukan untuk menguasai Bitcoin.",
+        "dcaToolsTitle": "Alat DCA",
+        "dcaToolsDescription": "Bandingkan DCA, pembelian sekaligus, dan pendekatan campuran dengan alat backtesting.",
+        "dcaToolsCta": "Penguji DCA",
         "items": [
           {
             "icon": "📚",

@@ -21,6 +21,8 @@
     "dashboard": "Панель",
     "login": "Вход",
     "logout": "Выход",
+    "minerQuotation": "Котировка майнинга",
+    "dcaBacktester": "Тестер DCA",
     "affiliateProgram": "Партнёрская программа",
     "affiliateAdmin": "Администрирование партнёров"
   },
@@ -274,6 +276,9 @@
         "eyebrow": "Платформа",
         "title": "Что мы предлагаем",
         "description": "Полная платформа на базе Nostr, в которой есть всё, чтобы освоить Bitcoin.",
+        "dcaToolsTitle": "Инструменты DCA",
+        "dcaToolsDescription": "Сравнивайте DCA, единовременную покупку и смешанные подходы с инструментами бэктестинга.",
+        "dcaToolsCta": "Тестер DCA",
         "items": [
           {
             "icon": "📚",

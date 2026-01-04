@@ -1,18 +1,51 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { Instagram } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "./LanguageSwitcher";
 import { useAuth } from "../context/AuthContext";
+import { useLessonPlans } from "../hooks/useLessonPlans";
+import { resolveLocale } from "../utils/locale";
 
 export default function Footer() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const location = useLocation();
   const { user } = useAuth();
 
   const isAdmin = Boolean(user?.isAdmin);
 
   const isCommunityRoute = /^\/community(?:\/|$)/i.test(location.pathname);
+  const locale = resolveLocale(i18n.language);
+  const lessonPlanLocale = locale === "es" || locale === "id" ? locale : "en";
+  const { data: lessonPlans } = useLessonPlans(lessonPlanLocale);
+  const educationChildren = useMemo(() => {
+    const normalized = (lessonPlans ?? [])
+      .map((course) => {
+        const rawSlug =
+          course.slug || course.documentId || (course.id != null ? String(course.id) : "");
+        const slug = rawSlug ? String(rawSlug).replace(/^\/+/, "") : "";
+        if (!slug) return null;
+
+        const label = course.title?.trim() || slug.replace(/-/g, " ");
+
+        return {
+          label,
+          to: `/education/${slug}`,
+        };
+      })
+      .filter((item): item is { label: string; to: string } => Boolean(item));
+
+    if (normalized.length > 0) {
+      return normalized;
+    }
+
+    return [
+      {
+        label: t("app.btcFullCourse"),
+        to: "/education/full-btc-course",
+      },
+    ];
+  }, [lessonPlans, t]);
 
   if (isCommunityRoute) {
     return null;
@@ -28,6 +61,15 @@ export default function Footer() {
           <NavLink to="/education" className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }>
             {t("nav.education")}
           </NavLink>
+          {educationChildren.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }
+            >
+              {item.label}
+            </NavLink>
+          ))}
           <NavLink to="/newsletter" className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }>
             {t("nav.newsletter")}
           </NavLink>
@@ -47,7 +89,7 @@ export default function Footer() {
             to="/admin/dca-backtester"
             className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }
           >
-            DCA Backtester
+            {t("nav.dcaBacktester")}
           </NavLink>
           {isAdmin ? (
             <>

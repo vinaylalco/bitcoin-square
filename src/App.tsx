@@ -84,7 +84,7 @@ export default function App() {
     { label: t("nav.shop"), to: "/shop" },
     { label: t("nav.membership"), to: "/membership" },
     { label: t("nav.community"), to: "/community" },
-    { label: "DCA Backtester", to: "/admin/dca-backtester" },
+    { label: t("nav.dcaBacktester"), to: "/admin/dca-backtester" },
   ];
 
   const educationRootMatch = useMatch("/education");
@@ -444,7 +444,7 @@ export default function App() {
                   )
                 }
               >
-                <LayoutDashboard className="h-5 w-5" /> DCA Backtester
+                <LayoutDashboard className="h-5 w-5" /> {t("nav.dcaBacktester")}
               </NavLink>
               <NavLink
                 to="/shop"

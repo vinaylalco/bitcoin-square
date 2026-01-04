@@ -297,17 +297,16 @@ export default function HomePage() {
         </div>
         <div className="rounded-3xl border border-neutral-200/70 bg-white/80 p-6 text-left shadow-[0_25px_90px_rgba(15,23,42,0.12)] transition-colors duration-300 dark:border-neutral-800/70 dark:bg-neutral-900/70">
           <p className="text-xs font-semibold uppercase tracking-[0.35em] text-brand/80">
-            DCA Tools
+            {t("home.sections.offerings.dcaToolsTitle")}
           </p>
           <p className="mt-2 text-sm text-neutral-600 transition-colors duration-300 dark:text-neutral-300">
-            Compare dollar-cost averaging, lump-sum, and blended entry approaches with live
-            backtesting tools.
+            {t("home.sections.offerings.dcaToolsDescription")}
           </p>
           <Link
             to="/admin/dca-backtester"
             className="mt-4 inline-flex items-center gap-2 rounded-full border border-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-brand transition hover:bg-brand/10"
           >
-            DCA Backtester <span aria-hidden="true">→</span>
+            {t("home.sections.offerings.dcaToolsCta")} <span aria-hidden="true">→</span>
           </Link>
         </div>
       </section>

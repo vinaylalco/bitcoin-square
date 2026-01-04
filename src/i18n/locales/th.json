@@ -21,6 +21,8 @@
     "dashboard": "แดชบอร์ด",
     "login": "เข้าสู่ระบบ",
     "logout": "ออกจากระบบ",
+    "minerQuotation": "ใบเสนอราคาเหมืองขุด",
+    "dcaBacktester": "ตัวทดสอบ DCA",
     "affiliateProgram": "โปรแกรมพันธมิตร",
     "affiliateAdmin": "ผู้ดูแลพันธมิตร"
   },
@@ -274,6 +276,9 @@
         "eyebrow": "แพลตฟอร์ม",
         "title": "สิ่งที่เรามีให้",
         "description": "แพลตฟอร์มครบวงจรบน Nostr ที่มีทุกอย่างเพื่อให้คุณเชี่ยวชาญ Bitcoin.",
+        "dcaToolsTitle": "เครื่องมือ DCA",
+        "dcaToolsDescription": "เปรียบเทียบ DCA การซื้อครั้งเดียว และแนวทางผสมด้วยเครื่องมือแบ็กเทสต์.",
+        "dcaToolsCta": "ตัวทดสอบ DCA",
         "items": [
           {
             "icon": "📚",

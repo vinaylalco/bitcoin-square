@@ -22,6 +22,7 @@
     "login": "Iniciar sesión",
     "logout": "Cerrar sesión",
     "minerQuotation": "Cotización minera",
+    "dcaBacktester": "Probador DCA",
     "affiliateProgram": "Programa de afiliados",
     "affiliateAdmin": "Administración de afiliados"
   },
@@ -275,6 +276,9 @@
         "eyebrow": "Plataforma",
         "title": "Lo que ofrecemos",
         "description": "Una plataforma completa construida sobre Nostr que te da todo lo que necesitas para dominar Bitcoin.",
+        "dcaToolsTitle": "Herramientas DCA",
+        "dcaToolsDescription": "Compara DCA, compra única y enfoques mixtos con herramientas de backtesting.",
+        "dcaToolsCta": "Probador DCA",
         "items": [
           {
             "icon": "📚",

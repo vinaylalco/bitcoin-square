@@ -22,6 +22,7 @@
     "login": "Login",
     "logout": "Logout",
     "minerQuotation": "Miner Quote",
+    "dcaBacktester": "DCA Backtester",
     "affiliateProgram": "Affiliate Program",
     "affiliateAdmin": "Affiliate Admin"
   },
@@ -275,6 +276,9 @@
         "eyebrow": "Platform",
         "title": "What We Offer",
         "description": "A complete platform built on Nostr that provides everything you need to master Bitcoin.",
+        "dcaToolsTitle": "DCA Tools",
+        "dcaToolsDescription": "Compare dollar-cost averaging, lump-sum, and blended entry approaches with live backtesting tools.",
+        "dcaToolsCta": "DCA Backtester",
         "items": [
           {
             "icon": "📚",
