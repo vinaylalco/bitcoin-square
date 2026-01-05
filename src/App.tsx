@@ -89,6 +89,8 @@ export default function App() {
 
   const toolsChildren = [
     { label: t("nav.btcBuyingStrategies"), to: "/tools/btc-buying-strategies" },
+    { label: "DCA Buying BTC", to: "/tools/btc-buying-strategies?tab=dca" },
+    { label: "Bulk Buying BTC", to: "/tools/btc-buying-strategies?tab=bulk" },
     { label: t("nav.minerQuotation"), to: "/tools/miner-quote" },
   ];
 

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ChangeEvent } from "react";
+import type { ChangeEvent, ReactNode } from "react";
 import {
   CartesianGrid,
   Line,
@@ -9,10 +9,12 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { useSearchParams } from "react-router-dom";
 import { fetchBtcDailyHistory } from "../utils/coindesk";
 
 const HISTORICAL_CACHE_KEY = "btc-buying-strategies-historical-cache";
 const SETTINGS_CACHE_KEY = "btc-buying-strategies-settings";
+const BULK_HISTORICAL_CACHE_KEY = "btc-buying-strategies-bulk-historical-cache";
 
 type HistoricalRow = {
   dateStr: string;
@@ -131,6 +133,112 @@ function InfoTooltip({ label }: { label: string }) {
   );
 }
 
+function MetricCard({
+  label,
+  tooltip,
+  value,
+}: {
+  label: string;
+  tooltip?: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-[var(--border-subtle)] bg-white/60 p-4 dark:bg-white/5">
+      <p className="text-xs font-semibold uppercase tracking-[0.28em] text-neutral-500 dark:text-neutral-400">
+        {label}
+        {tooltip ? <InfoTooltip label={tooltip} /> : null}
+      </p>
+      <p className="mt-2 text-xl font-semibold text-neutral-900 dark:text-white">{value}</p>
+    </div>
+  );
+}
+
+function ChartCard({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="rounded-2xl border border-[var(--border-subtle)] bg-white/60 p-4 dark:bg-white/5">
+      <p className="text-xs font-semibold uppercase tracking-[0.28em] text-neutral-500 dark:text-neutral-400">
+        {title}
+      </p>
+      <div className="mt-4 h-64">{children}</div>
+    </div>
+  );
+}
+
+function DetailTable({
+  rows,
+  emptyMessage,
+}: {
+  rows: BacktestPoint[];
+  emptyMessage: string;
+}) {
+  return rows.length ? (
+    <table className="min-w-full text-left text-sm">
+      <thead className="text-xs uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
+        <tr>
+          <th className="py-2 pr-4">Date</th>
+          <th className="py-2 pr-4">Price</th>
+          <th className="py-2 pr-4">Deposit</th>
+          <th className="py-2 pr-4">Buy USD</th>
+          <th className="py-2 pr-4">Fee USD</th>
+          <th className="py-2 pr-4">Bitcoin</th>
+          <th className="py-2 pr-4">Cash USD</th>
+          <th className="py-2 pr-4">Value USD</th>
+          <th className="py-2 pr-4">Contributed to date</th>
+          <th className="py-2 pr-4">Return (ROI)</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-[var(--border-subtle)]">
+        {rows.map((row) => (
+          <tr key={row.dateStr} className="text-neutral-700 dark:text-neutral-200">
+            <td className="py-2 pr-4">{row.dateStr}</td>
+            <td className="py-2 pr-4">{formatCurrency(row.price)}</td>
+            <td className="py-2 pr-4">{row.depositUSD ? formatCurrency(row.depositUSD) : "—"}</td>
+            <td className="py-2 pr-4">{row.buyUSD ? formatCurrency(row.buyUSD) : "—"}</td>
+            <td className="py-2 pr-4">{row.feeUSD ? formatCurrency(row.feeUSD) : "—"}</td>
+            <td className="py-2 pr-4">{formatNumber(row.btc, 6)}</td>
+            <td className="py-2 pr-4">{formatCurrency(row.cashUSD)}</td>
+            <td className="py-2 pr-4">{formatCurrency(row.valueUSD)}</td>
+            <td className="py-2 pr-4">{formatCurrency(row.contributedToDate)}</td>
+            <td className="py-2 pr-4">{formatPercent(row.roi)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  ) : (
+    <p className="text-sm text-neutral-500">{emptyMessage}</p>
+  );
+}
+
+function CsvExportSection({
+  onExport,
+  disabled,
+  disabledMessage,
+}: {
+  onExport: () => void;
+  disabled: boolean;
+  disabledMessage: string;
+}) {
+  return (
+    <div className="mt-4 space-y-3 text-sm text-neutral-600 dark:text-neutral-300">
+      <p>Export your results to CSV for a closer look or to share.</p>
+      <ol className="list-decimal space-y-2 pl-5">
+        <li>Run the test with your desired inputs.</li>
+        <li>Review the detailed table for any gaps.</li>
+        <li>Download the CSV file and save it to your device.</li>
+      </ol>
+      <button
+        type="button"
+        onClick={onExport}
+        className="rounded-full border border-brand/30 bg-brand/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.28em] text-brand transition hover:bg-brand/20"
+        disabled={disabled}
+      >
+        Download CSV
+      </button>
+      {disabled ? <p className="text-xs text-neutral-500">{disabledMessage}</p> : null}
+    </div>
+  );
+}
+
 function parseHistoricalRows(
   payload?: {
     Data?:
@@ -192,9 +300,14 @@ function parseHistoricalRows(
     .sort((a, b) => a.date.getTime() - b.date.getTime());
 }
 
-function loadCachedHistorical(limit: number, start: string, end: string): HistoricalRow[] | null {
+function loadCachedHistoricalForKey(
+  cacheKey: string,
+  limit: number,
+  start: string,
+  end: string,
+): HistoricalRow[] | null {
   try {
-    const raw = localStorage.getItem(HISTORICAL_CACHE_KEY);
+    const raw = localStorage.getItem(cacheKey);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as HistoricalCache;
     if (
@@ -220,7 +333,17 @@ function loadCachedHistorical(limit: number, start: string, end: string): Histor
   }
 }
 
-function saveCachedHistorical(limit: number, start: string, end: string, rows: HistoricalRow[]) {
+function loadCachedHistorical(limit: number, start: string, end: string): HistoricalRow[] | null {
+  return loadCachedHistoricalForKey(HISTORICAL_CACHE_KEY, limit, start, end);
+}
+
+function saveCachedHistoricalForKey(
+  cacheKey: string,
+  limit: number,
+  start: string,
+  end: string,
+  rows: HistoricalRow[],
+) {
   const payload: HistoricalCache = {
     limit,
     start,
@@ -237,10 +360,14 @@ function saveCachedHistorical(limit: number, start: string, end: string, rows: H
     savedAt: Date.now(),
   };
   try {
-    localStorage.setItem(HISTORICAL_CACHE_KEY, JSON.stringify(payload));
+    localStorage.setItem(cacheKey, JSON.stringify(payload));
   } catch {
     // Ignore cache write failures.
   }
+}
+
+function saveCachedHistorical(limit: number, start: string, end: string, rows: HistoricalRow[]) {
+  saveCachedHistoricalForKey(HISTORICAL_CACHE_KEY, limit, start, end, rows);
 }
 
 function calculateMaxDrawdown(values?: number[] | null): number | null {
@@ -303,6 +430,106 @@ function calculateXirr(
   return null;
 }
 
+function buildBacktestResult(
+  history: BacktestPoint[],
+  totalContributedUSD: number,
+  totalFeesUSD: number,
+  btc: number,
+): BacktestResult {
+  const lastPoint = history.at(-1);
+  const finalValueUSD = lastPoint ? lastPoint.valueUSD : 0;
+  const roi =
+    totalContributedUSD > 0
+      ? (finalValueUSD - totalContributedUSD) / totalContributedUSD
+      : null;
+  const cashflows = history
+    .filter((point) => point.depositUSD > 0)
+    .map((point) => ({ date: point.date, amount: -point.depositUSD }));
+  if (lastPoint && finalValueUSD > 0) {
+    cashflows.push({ date: lastPoint.date, amount: finalValueUSD });
+  }
+  const xirr = calculateXirr(cashflows);
+  const maxDrawdown = calculateMaxDrawdown(history.map((point) => point.valueUSD));
+
+  return {
+    history,
+    totalContributedUSD,
+    totalFeesUSD,
+    btc,
+    finalValueUSD,
+    roi,
+    xirr,
+    maxDrawdown,
+  };
+}
+
+function buildValueChartData(history: BacktestPoint[]) {
+  return history.map((point) => ({
+    dateStr: point.dateStr,
+    value: point.valueUSD,
+  }));
+}
+
+function buildRoiChartData(history: BacktestPoint[]) {
+  return history.map((point) => {
+    const roiToDate =
+      point.contributedToDate > 0
+        ? (point.valueUSD - point.contributedToDate) / point.contributedToDate
+        : null;
+    return {
+      dateStr: point.dateStr,
+      roi: roiToDate != null ? roiToDate * 100 : null,
+    };
+  });
+}
+
+function exportBacktestCsv(history: BacktestPoint[], filename: string) {
+  if (!history.length) return;
+  const escapeCsv = (value: unknown) => {
+    if (value == null) return "";
+    const text = String(value);
+    if (/[",\n]/.test(text)) {
+      return `"${text.replace(/"/g, '""')}"`;
+    }
+    return text;
+  };
+  const header = [
+    "date",
+    "price",
+    "deposit",
+    "buy_usd",
+    "fee_usd",
+    "cash_usd",
+    "btc_total",
+    "portfolio_value_usd",
+    "contributed_to_date",
+    "roi",
+  ];
+  const rowsCsv = history.map((point) => [
+    point.dateStr,
+    point.price,
+    point.depositUSD,
+    point.buyUSD,
+    point.feeUSD,
+    point.cashUSD,
+    point.btc,
+    point.valueUSD,
+    point.contributedToDate,
+    point.roi,
+  ]);
+  const csvContent =
+    [header, ...rowsCsv].map((row) => row.map(escapeCsv).join(",")).join("\n") + "\n";
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
 function pickSchedulePoints(rows: HistoricalRow[], frequency: Schedule): HistoricalRow[] {
   if (!rows.length) return [];
   const sorted = [...rows].sort((a, b) => a.date.getTime() - b.date.getTime());
@@ -347,9 +574,22 @@ export default function BtcBuyingStrategiesPage() {
   const [historyEnd, setHistoryEnd] = useState(defaultEnd);
   const [backtest, setBacktest] = useState<BacktestResult | null>(null);
   const [isMobileChart, setIsMobileChart] = useState(false);
+  const [activeTab, setActiveTab] = useState<"dca" | "bulk">("dca");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [bulkRows, setBulkRows] = useState<HistoricalRow[]>([]);
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
+  const [bulkAmount, setBulkAmount] = useState(10000);
+  const [bulkFeeRate, setBulkFeeRate] = useState(0.25);
+  const [bulkHistoryStart, setBulkHistoryStart] = useState(defaultStart);
+  const [bulkHistoryEnd, setBulkHistoryEnd] = useState(defaultEnd);
+  const [bulkBacktest, setBulkBacktest] = useState<BacktestResult | null>(null);
   const debounceRef = useRef<number | null>(null);
   const requestIdRef = useRef(0);
   const lastFetchKeyRef = useRef<string | null>(null);
+  const bulkDebounceRef = useRef<number | null>(null);
+  const bulkRequestIdRef = useRef(0);
+  const bulkLastFetchKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -379,6 +619,15 @@ export default function BtcBuyingStrategiesPage() {
     ensureMeta("og:title", title, "property");
     ensureMeta("og:description", description, "property");
   }, []);
+
+  useEffect(() => {
+    const tabParam = searchParams.get("tab");
+    if (tabParam === "dca" || tabParam === "bulk") {
+      setActiveTab(tabParam);
+      return;
+    }
+    setActiveTab("dca");
+  }, [searchParams]);
 
   useEffect(() => {
     try {
@@ -418,31 +667,9 @@ export default function BtcBuyingStrategiesPage() {
       }
     };
 
-  const fetchHistorical = async () => {
-    setError(null);
-    setLoading(true);
-    const fetchKey = `${historyStart}|${historyEnd}`;
-    const requestId = ++requestIdRef.current;
-    try {
-      const nextRows = await fetchHistoricalData();
-      if (requestId !== requestIdRef.current) return;
-      lastFetchKeyRef.current = fetchKey;
-      setRows(nextRows);
-      runBacktestWithRows(nextRows);
-    } catch (err) {
-      if (requestId !== requestIdRef.current) return;
-      const message = err instanceof Error ? err.message : "Unable to load historical prices.";
-      setError(message);
-    } finally {
-      if (requestId === requestIdRef.current) {
-        setLoading(false);
-      }
-    }
-  };
-
-  const fetchHistoricalData = async () => {
-    const startDate = new Date(`${historyStart}T00:00:00Z`);
-    const endDate = new Date(`${historyEnd}T00:00:00Z`);
+  const fetchHistoricalDataForRange = async (start: string, end: string, cacheKey: string) => {
+    const startDate = new Date(`${start}T00:00:00Z`);
+    const endDate = new Date(`${end}T00:00:00Z`);
     if (
       Number.isNaN(startDate.getTime()) ||
       Number.isNaN(endDate.getTime()) ||
@@ -452,7 +679,7 @@ export default function BtcBuyingStrategiesPage() {
     }
     const historyLimit =
       Math.ceil((endDate.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000)) + 1;
-    const cached = loadCachedHistorical(historyLimit, historyStart, historyEnd);
+    const cached = loadCachedHistoricalForKey(cacheKey, historyLimit, start, end);
     if (Array.isArray(cached) && cached.length > 0) {
       return cached;
     }
@@ -479,8 +706,34 @@ export default function BtcBuyingStrategiesPage() {
     const filtered = parsed.filter(
       (row) => row.date.getTime() >= startDate.getTime() && row.date.getTime() <= endDate.getTime(),
     );
-    saveCachedHistorical(historyLimit, historyStart, historyEnd, filtered);
+    saveCachedHistoricalForKey(cacheKey, historyLimit, start, end, filtered);
     return filtered;
+  };
+
+  const fetchHistorical = async () => {
+    setError(null);
+    setLoading(true);
+    const fetchKey = `${historyStart}|${historyEnd}`;
+    const requestId = ++requestIdRef.current;
+    try {
+      const nextRows = await fetchHistoricalDataForRange(
+        historyStart,
+        historyEnd,
+        HISTORICAL_CACHE_KEY,
+      );
+      if (requestId !== requestIdRef.current) return;
+      lastFetchKeyRef.current = fetchKey;
+      setRows(nextRows);
+      runBacktestWithRows(nextRows);
+    } catch (err) {
+      if (requestId !== requestIdRef.current) return;
+      const message = err instanceof Error ? err.message : "Unable to load historical prices.";
+      setError(message);
+    } finally {
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+      }
+    }
   };
 
   useEffect(() => {
@@ -500,7 +753,11 @@ export default function BtcBuyingStrategiesPage() {
     debounceRef.current = window.setTimeout(async () => {
       const requestId = ++requestIdRef.current;
       try {
-        const nextRows = await fetchHistoricalData();
+        const nextRows = await fetchHistoricalDataForRange(
+          historyStart,
+          historyEnd,
+          HISTORICAL_CACHE_KEY,
+        );
         if (requestId !== requestIdRef.current) return;
         lastFetchKeyRef.current = fetchKey;
         setRows(nextRows);
@@ -522,6 +779,76 @@ export default function BtcBuyingStrategiesPage() {
       }
     };
   }, [historyStart, historyEnd, amountPerPeriod, schedule, feeRate, rows]);
+
+  const fetchBulkHistorical = async () => {
+    setBulkError(null);
+    setBulkLoading(true);
+    const fetchKey = `${bulkHistoryStart}|${bulkHistoryEnd}`;
+    const requestId = ++bulkRequestIdRef.current;
+    try {
+      const nextRows = await fetchHistoricalDataForRange(
+        bulkHistoryStart,
+        bulkHistoryEnd,
+        BULK_HISTORICAL_CACHE_KEY,
+      );
+      if (requestId !== bulkRequestIdRef.current) return;
+      bulkLastFetchKeyRef.current = fetchKey;
+      setBulkRows(nextRows);
+      runBulkBacktestWithRows(nextRows);
+    } catch (err) {
+      if (requestId !== bulkRequestIdRef.current) return;
+      const message = err instanceof Error ? err.message : "Unable to load historical prices.";
+      setBulkError(message);
+    } finally {
+      if (requestId === bulkRequestIdRef.current) {
+        setBulkLoading(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    setBulkError(null);
+    const fetchKey = `${bulkHistoryStart}|${bulkHistoryEnd}`;
+    const currentRows = Array.isArray(bulkRows) ? bulkRows : [];
+    const canReuse = bulkLastFetchKeyRef.current === fetchKey && currentRows.length > 0;
+    if (canReuse) {
+      runBulkBacktestWithRows(currentRows);
+      return;
+    }
+
+    if (bulkDebounceRef.current) {
+      window.clearTimeout(bulkDebounceRef.current);
+    }
+    setBulkLoading(true);
+    bulkDebounceRef.current = window.setTimeout(async () => {
+      const requestId = ++bulkRequestIdRef.current;
+      try {
+        const nextRows = await fetchHistoricalDataForRange(
+          bulkHistoryStart,
+          bulkHistoryEnd,
+          BULK_HISTORICAL_CACHE_KEY,
+        );
+        if (requestId !== bulkRequestIdRef.current) return;
+        bulkLastFetchKeyRef.current = fetchKey;
+        setBulkRows(nextRows);
+        runBulkBacktestWithRows(nextRows);
+      } catch (err) {
+        if (requestId !== bulkRequestIdRef.current) return;
+        const message = err instanceof Error ? err.message : "Unable to load historical prices.";
+        setBulkError(message);
+      } finally {
+        if (requestId === bulkRequestIdRef.current) {
+          setBulkLoading(false);
+        }
+      }
+    }, 600);
+
+    return () => {
+      if (bulkDebounceRef.current) {
+        window.clearTimeout(bulkDebounceRef.current);
+      }
+    };
+  }, [bulkHistoryStart, bulkHistoryEnd, bulkAmount, bulkFeeRate, bulkRows]);
 
   const safeRows = Array.isArray(rows) ? rows : [];
   const backtestHistory = Array.isArray(backtest?.history) ? backtest?.history : [];
@@ -641,35 +968,57 @@ export default function BtcBuyingStrategiesPage() {
       };
     });
 
-    const lastPoint = history.at(-1);
-    const finalValueUSD = lastPoint ? lastPoint.valueUSD : 0;
-    const roi =
-      totalContributedUSD > 0
-        ? (finalValueUSD - totalContributedUSD) / totalContributedUSD
-        : null;
-    const cashflows = history
-      .filter((point) => point.depositUSD > 0)
-      .map((point) => ({ date: point.date, amount: -point.depositUSD }));
-    if (lastPoint && finalValueUSD > 0) {
-      cashflows.push({ date: lastPoint.date, amount: finalValueUSD });
-    }
-    const xirr = calculateXirr(cashflows);
-    const maxDrawdown = calculateMaxDrawdown(history.map((point) => point.valueUSD));
-
-    setBacktest({
-      history,
-      totalContributedUSD,
-      totalFeesUSD,
-      btc,
-      finalValueUSD,
-      roi,
-      xirr,
-      maxDrawdown,
-    });
+    setBacktest(buildBacktestResult(history, totalContributedUSD, totalFeesUSD, btc));
   };
 
   const runBacktest = () => {
     runBacktestWithRows(safeRows);
+  };
+
+  const runBulkBacktestWithRows = (inputRows: HistoricalRow[]) => {
+    if (!inputRows.length) {
+      setBulkBacktest(null);
+      setBulkError("Load price history before running the test.");
+      return;
+    }
+
+    const sortedRows = [...inputRows].sort((a, b) => a.date.getTime() - b.date.getTime());
+    const buyRow = sortedRows[0];
+    const feeUSD = bulkAmount * (bulkFeeRate / 100);
+    const netUSD = Math.max(0, bulkAmount - feeUSD);
+    const btc = buyRow.price > 0 ? netUSD / buyRow.price : 0;
+    const totalContributedUSD = bulkAmount;
+    const totalFeesUSD = feeUSD;
+
+    const history = sortedRows.map((row, index) => {
+      const isBuyDate = index === 0;
+      const depositUSD = isBuyDate ? bulkAmount : 0;
+      const buyUSD = isBuyDate ? bulkAmount : 0;
+      const feeUSDRow = isBuyDate ? feeUSD : 0;
+      const valueUSD = btc * row.price;
+      const roi =
+        totalContributedUSD > 0 ? (valueUSD - totalContributedUSD) / totalContributedUSD : null;
+
+      return {
+        dateStr: row.dateStr,
+        date: row.date,
+        price: row.price,
+        depositUSD,
+        buyUSD,
+        feeUSD: feeUSDRow,
+        cashUSD: 0,
+        contributedToDate: totalContributedUSD,
+        btc,
+        valueUSD,
+        roi,
+      };
+    });
+
+    setBulkBacktest(buildBacktestResult(history, totalContributedUSD, totalFeesUSD, btc));
+  };
+
+  const runBulkBacktest = () => {
+    runBulkBacktestWithRows(Array.isArray(bulkRows) ? bulkRows : []);
   };
 
   const priceChartData = safeRows.length
@@ -679,74 +1028,39 @@ export default function BtcBuyingStrategiesPage() {
       }))
     : [];
 
-  const valueChartData = backtestHistory.length
-    ? backtestHistory.map((point) => ({
-        dateStr: point.dateStr,
-        value: point.valueUSD,
-      }))
-    : [];
-
-  const roiChartData = backtestHistory.length
-    ? backtestHistory.map((point) => {
-        const roiToDate =
-          point.contributedToDate > 0
-            ? (point.valueUSD - point.contributedToDate) / point.contributedToDate
-            : null;
-        return {
-          dateStr: point.dateStr,
-          roi: roiToDate != null ? roiToDate * 100 : null,
-        };
-      })
-    : [];
+  const valueChartData = backtestHistory.length ? buildValueChartData(backtestHistory) : [];
+  const roiChartData = backtestHistory.length ? buildRoiChartData(backtestHistory) : [];
 
   const auditRows = Array.isArray(backtestHistory) ? backtestHistory : [];
+
+  const bulkSafeRows = Array.isArray(bulkRows) ? bulkRows : [];
+  const bulkBacktestHistory = Array.isArray(bulkBacktest?.history) ? bulkBacktest?.history : [];
+  const bulkHasHistory = bulkSafeRows.length > 0;
+  const bulkStartDate = bulkHasHistory ? bulkSafeRows[0].dateStr : defaultEnd;
+  const bulkEndDate = bulkHasHistory ? bulkSafeRows[bulkSafeRows.length - 1].dateStr : defaultEnd;
+
+  const bulkPriceChartData = bulkSafeRows.length
+    ? bulkSafeRows.map((row) => ({
+        dateStr: row.dateStr,
+        price: row.price,
+      }))
+    : [];
+  const bulkValueChartData = bulkBacktestHistory.length
+    ? buildValueChartData(bulkBacktestHistory)
+    : [];
+  const bulkRoiChartData = bulkBacktestHistory.length ? buildRoiChartData(bulkBacktestHistory) : [];
+  const bulkAuditRows = Array.isArray(bulkBacktestHistory) ? bulkBacktestHistory : [];
 
   const handleExportCsv = () => {
     if (!backtest) return;
     const exportHistory = Array.isArray(backtest?.history) ? backtest?.history ?? [] : [];
-    const escapeCsv = (value: unknown) => {
-      if (value == null) return "";
-      const text = String(value);
-      if (/[",\n]/.test(text)) {
-        return `"${text.replace(/"/g, '""')}"`;
-      }
-      return text;
-    };
-    const header = [
-      "date",
-      "price",
-      "deposit",
-      "buy_usd",
-      "fee_usd",
-      "cash_usd",
-      "btc_total",
-      "portfolio_value_usd",
-      "contributed_to_date",
-      "roi",
-    ];
-    const rowsCsv = exportHistory.map((point) => [
-      point.dateStr,
-      point.price,
-      point.depositUSD,
-      point.buyUSD,
-      point.feeUSD,
-      point.cashUSD,
-      point.btc,
-      point.valueUSD,
-      point.contributedToDate,
-      point.roi,
-    ]);
-    const csvContent =
-      [header, ...rowsCsv].map((row) => row.map(escapeCsv).join(",")).join("\n") + "\n";
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `normal-dca-backtest-${startDate}-${endDate}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    exportBacktestCsv(exportHistory, `normal-dca-backtest-${startDate}-${endDate}.csv`);
+  };
+
+  const handleBulkExportCsv = () => {
+    if (!bulkBacktest) return;
+    const exportHistory = Array.isArray(bulkBacktest?.history) ? bulkBacktest?.history ?? [] : [];
+    exportBacktestCsv(exportHistory, `bulk-buy-backtest-${bulkStartDate}-${bulkEndDate}.csv`);
   };
 
   if (error && !loading && !safeRows.length) {
@@ -775,487 +1089,685 @@ export default function BtcBuyingStrategiesPage() {
   return (
     <div className="bg-[var(--bg-app)] text-[var(--fg-default)]">
       <main className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-12 sm:px-6 lg:px-8">
-        <header className="flex flex-col gap-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">
-            Bitcoin Buying Strategies
-          </p>
-          <h1 className="text-3xl font-bold text-neutral-900 dark:text-white">
-            Simple Bitcoin Buying Plan (No Selling)
-          </h1>
-          <p className="text-sm text-neutral-600 dark:text-neutral-300">
-            Try a simple plan where you buy Bitcoin on a schedule and never sell.
-          </p>
-        </header>
+        <div className="flex w-full max-w-2xl items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-card)] p-1 text-xs font-semibold uppercase tracking-[0.28em] text-neutral-500 dark:text-neutral-400">
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab("dca");
+              setSearchParams({ tab: "dca" });
+            }}
+            className={`flex-1 rounded-full px-4 py-2 transition ${
+              activeTab === "dca"
+                ? "bg-brand text-white shadow-[var(--shadow-soft)]"
+                : "text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
+            }`}
+          >
+            DCA Buying BTC
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab("bulk");
+              setSearchParams({ tab: "bulk" });
+            }}
+            className={`flex-1 rounded-full px-4 py-2 transition ${
+              activeTab === "bulk"
+                ? "bg-brand text-white shadow-[var(--shadow-soft)]"
+                : "text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
+            }`}
+          >
+            Bulk Buying BTC
+          </button>
+        </div>
 
-        <section className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-[var(--shadow-soft)]">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-neutral-500 dark:text-neutral-400">
-                Bitcoin price history
+        {activeTab === "dca" ? (
+          <>
+            <header className="flex flex-col gap-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">
+                Bitcoin Buying Strategies
               </p>
-              <h2 className="mt-2 text-lg font-semibold text-neutral-900 dark:text-white">
-                Past Bitcoin closing prices (USD)
-              </h2>
-            </div>
-            <div className="text-xs text-neutral-500 dark:text-neutral-400">
-              {safeRows.length ? `${safeRows.length} data points` : "No data available"}
-            </div>
-          </div>
-          <div className="mt-6 h-80">
-            {loading ? (
-              <div className="flex h-full items-center justify-center text-sm text-neutral-500">
-                Loading price history...
+              <h1 className="text-3xl font-bold text-neutral-900 dark:text-white">
+                Simple Bitcoin Buying Plan (No Selling)
+              </h1>
+              <p className="text-sm text-neutral-600 dark:text-neutral-300">
+                Try a simple plan where you buy Bitcoin on a schedule and never sell.
+              </p>
+            </header>
+
+            <section className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-[var(--shadow-soft)]">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.28em] text-neutral-500 dark:text-neutral-400">
+                    Bitcoin price history
+                  </p>
+                  <h2 className="mt-2 text-lg font-semibold text-neutral-900 dark:text-white">
+                    Past Bitcoin closing prices (USD)
+                  </h2>
+                </div>
+                <div className="text-xs text-neutral-500 dark:text-neutral-400">
+                  {safeRows.length ? `${safeRows.length} data points` : "No data available"}
+                </div>
               </div>
-            ) : safeRows.length ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={priceChartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
-                  <XAxis dataKey="dateStr" tick={{ fontSize: 11 }} minTickGap={24} />
-                  <YAxis
-                    tick={{ fontSize: 11 }}
-                    tickFormatter={(value) =>
-                      isMobileChart ? formatCompactCurrency(Number(value)) : `$${Number(value).toLocaleString()}`
-                    }
-                    width={isMobileChart ? 48 : 80}
-                    tickMargin={isMobileChart ? -20 : 8}
+              <div className="mt-6 h-80">
+                {loading ? (
+                  <div className="flex h-full items-center justify-center text-sm text-neutral-500">
+                    Loading price history...
+                  </div>
+                ) : safeRows.length ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={priceChartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                      <XAxis dataKey="dateStr" tick={{ fontSize: 11 }} minTickGap={24} />
+                      <YAxis
+                        tick={{ fontSize: 11 }}
+                        tickFormatter={(value) =>
+                          isMobileChart ? formatCompactCurrency(Number(value)) : `$${Number(value).toLocaleString()}`
+                        }
+                        width={isMobileChart ? 48 : 80}
+                        tickMargin={isMobileChart ? -20 : 8}
+                      />
+                      <Tooltip formatter={(value) => formatCurrency(Number(value))} labelClassName="text-xs" />
+                      <Line type="monotone" dataKey="price" stroke="#F97316" strokeWidth={2} dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex h-full items-center justify-center text-sm text-neutral-500">
+                    No price data available yet.
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <section className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-[var(--shadow-soft)]">
+              <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">Plan inputs</h2>
+              <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <label className="flex flex-col gap-2 text-sm text-neutral-600 dark:text-neutral-300">
+                  Amount per buy (USD)
+                  <input
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={amountPerPeriod}
+                    onChange={handleNumberChange(setAmountPerPeriod)}
+                    className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm text-neutral-900 outline-none focus:border-brand dark:text-white"
                   />
-                  <Tooltip formatter={(value) => formatCurrency(Number(value))} labelClassName="text-xs" />
-                  <Line type="monotone" dataKey="price" stroke="#F97316" strokeWidth={2} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex h-full items-center justify-center text-sm text-neutral-500">
-                No price data available yet.
+                </label>
+                <label className="flex flex-col gap-2 text-sm text-neutral-600 dark:text-neutral-300">
+                  Frequency
+                  <select
+                    value={schedule}
+                    onChange={(event) => setSchedule(event.target.value as Schedule)}
+                    className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm text-neutral-900 outline-none focus:border-brand dark:text-white"
+                  >
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="biweekly">Biweekly</option>
+                    <option value="monthly">Monthly</option>
+                  </select>
+                </label>
+                <label className="flex flex-col gap-2 text-sm text-neutral-600 dark:text-neutral-300">
+                  Fee rate (%) (what the exchange charges)
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={feeRate}
+                    onChange={handleNumberChange(setFeeRate)}
+                    className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm text-neutral-900 outline-none focus:border-brand dark:text-white"
+                  />
+                </label>
+                <label className="flex flex-col gap-2 text-sm text-neutral-600 dark:text-neutral-300">
+                  History window
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <input
+                      type="date"
+                      value={historyStart}
+                      max={historyEnd}
+                      onChange={(event) => setHistoryStart(event.target.value)}
+                      className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm text-neutral-900 outline-none focus:border-brand dark:text-white"
+                    />
+                    <input
+                      type="date"
+                      value={historyEnd}
+                      min={historyStart}
+                      max={defaultEnd}
+                      onChange={(event) => setHistoryEnd(event.target.value)}
+                      className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm text-neutral-900 outline-none focus:border-brand dark:text-white"
+                    />
+                  </div>
+                </label>
               </div>
-            )}
-          </div>
-        </section>
-
-        <section className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-[var(--shadow-soft)]">
-          <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">Plan inputs</h2>
-          <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <label className="flex flex-col gap-2 text-sm text-neutral-600 dark:text-neutral-300">
-              Amount per buy (USD)
-              <input
-                type="number"
-                min={0}
-                step={1}
-                value={amountPerPeriod}
-                onChange={handleNumberChange(setAmountPerPeriod)}
-                className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm text-neutral-900 outline-none focus:border-brand dark:text-white"
-              />
-            </label>
-            <label className="flex flex-col gap-2 text-sm text-neutral-600 dark:text-neutral-300">
-              Frequency
-              <select
-                value={schedule}
-                onChange={(event) => setSchedule(event.target.value as Schedule)}
-                className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm text-neutral-900 outline-none focus:border-brand dark:text-white"
-              >
-                <option value="daily">Daily</option>
-                <option value="weekly">Weekly</option>
-                <option value="biweekly">Biweekly</option>
-                <option value="monthly">Monthly</option>
-              </select>
-            </label>
-            <label className="flex flex-col gap-2 text-sm text-neutral-600 dark:text-neutral-300">
-              Fee rate (%) (what the exchange charges)
-              <input
-                type="number"
-                min={0}
-                step={0.01}
-                value={feeRate}
-                onChange={handleNumberChange(setFeeRate)}
-                className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm text-neutral-900 outline-none focus:border-brand dark:text-white"
-              />
-            </label>
-            <label className="flex flex-col gap-2 text-sm text-neutral-600 dark:text-neutral-300">
-              History window
-              <div className="grid gap-2 sm:grid-cols-2">
-                <input
-                  type="date"
-                  value={historyStart}
-                  max={historyEnd}
-                  onChange={(event) => setHistoryStart(event.target.value)}
-                  className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm text-neutral-900 outline-none focus:border-brand dark:text-white"
-                />
-                <input
-                  type="date"
-                  value={historyEnd}
-                  min={historyStart}
-                  max={defaultEnd}
-                  onChange={(event) => setHistoryEnd(event.target.value)}
-                  className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm text-neutral-900 outline-none focus:border-brand dark:text-white"
-                />
+              <div className="mt-6 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => fetchHistorical()}
+                  className="rounded-full border border-transparent bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.28em] text-white shadow-sm transition hover:bg-brand/90"
+                  disabled={loading}
+                >
+                  {loading ? "Fetching..." : "Fetch data"}
+                </button>
+                <button
+                  type="button"
+                  onClick={runBacktest}
+                  className="rounded-full border border-transparent bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.28em] text-white shadow-sm transition hover:bg-brand/90"
+                >
+                  Run test
+                </button>
               </div>
-            </label>
-          </div>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={() => fetchHistorical()}
-              className="rounded-full border border-transparent bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.28em] text-white shadow-sm transition hover:bg-brand/90"
-              disabled={loading}
-            >
-              {loading ? "Fetching..." : "Fetch data"}
-            </button>
-            <button
-              type="button"
-              onClick={runBacktest}
-              className="rounded-full border border-transparent bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.28em] text-white shadow-sm transition hover:bg-brand/90"
-            >
-              Run test
-            </button>
-          </div>
-          <p className="mt-4 text-xs text-neutral-500 dark:text-neutral-400">
-            If price data does not load, a backend proxy may be required.
-          </p>
-          {error ? (
-            <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-400/40 dark:bg-red-500/10 dark:text-red-200">
-              {error}
-            </div>
-          ) : null}
-        </section>
+              <p className="mt-4 text-xs text-neutral-500 dark:text-neutral-400">
+                If price data does not load, a backend proxy may be required.
+              </p>
+              {error ? (
+                <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-400/40 dark:bg-red-500/10 dark:text-red-200">
+                  {error}
+                </div>
+              ) : null}
+            </section>
 
-        <section className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-[var(--shadow-soft)]">
-          <div className="flex flex-col gap-2">
-            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">Results</h2>
-            <p className="text-sm text-neutral-600 dark:text-neutral-300">
-              A simple summary of how your plan would have performed.
-            </p>
-          </div>
-          {loading && !hasHistory ? (
-            <div className="mt-6 rounded-2xl border border-dashed border-[var(--border-subtle)] p-6 text-sm text-neutral-500">
-              Loading data...
-            </div>
-          ) : backtest ? (
-            <>
+            <section className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-[var(--shadow-soft)]">
+              <div className="flex flex-col gap-2">
+                <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">Results</h2>
+                <p className="text-sm text-neutral-600 dark:text-neutral-300">
+                  A simple summary of how your plan would have performed.
+                </p>
+              </div>
+              {loading && !hasHistory ? (
+                <div className="mt-6 rounded-2xl border border-dashed border-[var(--border-subtle)] p-6 text-sm text-neutral-500">
+                  Loading data...
+                </div>
+              ) : backtest ? (
+                <>
               <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <div className="rounded-2xl border border-[var(--border-subtle)] bg-white/60 p-4 dark:bg-white/5">
-                  <p className="text-xs font-semibold uppercase tracking-[0.28em] text-neutral-500 dark:text-neutral-400">
-                    Total contributed
-                    <InfoTooltip label="Total dollars you have put into the plan so far." />
-                  </p>
-                  <p className="mt-2 text-xl font-semibold text-neutral-900 dark:text-white">
-                    {formatCurrency(backtest.totalContributedUSD)}
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-[var(--border-subtle)] bg-white/60 p-4 dark:bg-white/5">
-                  <p className="text-xs font-semibold uppercase tracking-[0.28em] text-neutral-500 dark:text-neutral-400">
-                    Final value
-                    <InfoTooltip label="Total value of your Bitcoin plus any leftover cash." />
-                  </p>
-                  <p className="mt-2 text-xl font-semibold text-neutral-900 dark:text-white">
-                    {formatCurrency(backtest.finalValueUSD)}
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-[var(--border-subtle)] bg-white/60 p-4 dark:bg-white/5">
-                  <p className="text-xs font-semibold uppercase tracking-[0.28em] text-neutral-500 dark:text-neutral-400">
-                    Return (ROI)
-                    <InfoTooltip label="Return on investment: how much you gained or lost compared to what you put in." />
-                  </p>
-                  <p className="mt-2 text-xl font-semibold text-neutral-900 dark:text-white">
-                    {formatPercent(backtest.roi)}
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-[var(--border-subtle)] bg-white/60 p-4 dark:bg-white/5">
-                  <p className="text-xs font-semibold uppercase tracking-[0.28em] text-neutral-500 dark:text-neutral-400">
-                    Annual return (XIRR)
-                    <InfoTooltip label="Yearly return, adjusted for when each deposit was made." />
-                  </p>
-                  <p className="mt-2 text-xl font-semibold text-neutral-900 dark:text-white">
-                    {formatPercent(backtest.xirr)}
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-[var(--border-subtle)] bg-white/60 p-4 dark:bg-white/5">
-                  <p className="text-xs font-semibold uppercase tracking-[0.28em] text-neutral-500 dark:text-neutral-400">
-                    Biggest drop (drawdown)
-                    <InfoTooltip label="Largest drop from a high point to a low point during the period." />
-                  </p>
-                  <p className="mt-2 text-xl font-semibold text-neutral-900 dark:text-white">
-                    {formatPercent(backtest.maxDrawdown)}
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-[var(--border-subtle)] bg-white/60 p-4 dark:bg-white/5">
-                  <p className="text-xs font-semibold uppercase tracking-[0.28em] text-neutral-500 dark:text-neutral-400">
-                    Bitcoin held
-                    <InfoTooltip label="Total Bitcoin you would have accumulated by the end." />
-                  </p>
-                  <p className="mt-2 text-xl font-semibold text-neutral-900 dark:text-white">
-                    {formatNumber(backtest.btc, 6)}
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-[var(--border-subtle)] bg-white/60 p-4 dark:bg-white/5">
-                  <p className="text-xs font-semibold uppercase tracking-[0.28em] text-neutral-500 dark:text-neutral-400">
-                    Cash held
-                    <InfoTooltip label="Cash left over after your scheduled buys." />
-                  </p>
-                  <p className="mt-2 text-xl font-semibold text-neutral-900 dark:text-white">
-                    {formatCurrency(lastBacktestPoint?.cashUSD ?? 0)}
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-[var(--border-subtle)] bg-white/60 p-4 dark:bg-white/5">
-                  <p className="text-xs font-semibold uppercase tracking-[0.28em] text-neutral-500 dark:text-neutral-400">
-                    Fees
-                    <InfoTooltip label="Total fees charged by the exchange during the buys." />
-                  </p>
-                  <p className="mt-2 text-xl font-semibold text-neutral-900 dark:text-white">
-                    {formatCurrency(backtest.totalFeesUSD)}
-                  </p>
-                </div>
+                <MetricCard
+                  label="Total contributed"
+                  tooltip="Total dollars you have put into the plan so far."
+                  value={formatCurrency(backtest.totalContributedUSD)}
+                />
+                <MetricCard
+                  label="Final value"
+                  tooltip="Total value of your Bitcoin plus any leftover cash."
+                  value={formatCurrency(backtest.finalValueUSD)}
+                />
+                <MetricCard
+                  label="Return (ROI)"
+                  tooltip="Return on investment: how much you gained or lost compared to what you put in."
+                  value={formatPercent(backtest.roi)}
+                />
+                <MetricCard
+                  label="Annual return (XIRR)"
+                  tooltip="Yearly return, adjusted for when each deposit was made."
+                  value={formatPercent(backtest.xirr)}
+                />
+                <MetricCard
+                  label="Biggest drop (drawdown)"
+                  tooltip="Largest drop from a high point to a low point during the period."
+                  value={formatPercent(backtest.maxDrawdown)}
+                />
+                <MetricCard
+                  label="Bitcoin held"
+                  tooltip="Total Bitcoin you would have accumulated by the end."
+                  value={formatNumber(backtest.btc, 6)}
+                />
+                <MetricCard
+                  label="Cash held"
+                  tooltip="Cash left over after your scheduled buys."
+                  value={formatCurrency(lastBacktestPoint?.cashUSD ?? 0)}
+                />
+                <MetricCard
+                  label="Fees"
+                  tooltip="Total fees charged by the exchange during the buys."
+                  value={formatCurrency(backtest.totalFeesUSD)}
+                />
               </div>
               <div className="mt-6 grid gap-6 lg:grid-cols-2">
-                <div className="rounded-2xl border border-[var(--border-subtle)] bg-white/60 p-4 dark:bg-white/5">
-                  <p className="text-xs font-semibold uppercase tracking-[0.28em] text-neutral-500 dark:text-neutral-400">
-                    Portfolio value
-                  </p>
-                  <div className="mt-4 h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart
-                        data={valueChartData}
-                        margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
-                        <XAxis dataKey="dateStr" tick={{ fontSize: 11 }} minTickGap={24} />
-                        <YAxis
-                          tick={{ fontSize: 11 }}
-                          tickFormatter={(value) =>
-                            isMobileChart
-                              ? formatCompactCurrency(Number(value))
-                              : `$${Number(value).toLocaleString()}`
-                          }
-                          width={isMobileChart ? 48 : 80}
-                          tickMargin={isMobileChart ? -20 : 8}
-                        />
-                        <Tooltip
-                          formatter={(value) => formatCurrency(Number(value))}
-                          labelClassName="text-xs"
-                        />
-                        <Line type="monotone" dataKey="value" stroke="#0EA5E9" strokeWidth={2} dot={false} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-                <div className="rounded-2xl border border-[var(--border-subtle)] bg-white/60 p-4 dark:bg-white/5">
-                  <p className="text-xs font-semibold uppercase tracking-[0.28em] text-neutral-500 dark:text-neutral-400">
-                    Return to date (ROI)
-                  </p>
-                  <div className="mt-4 h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart
-                        data={roiChartData}
-                        margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
-                        <XAxis dataKey="dateStr" tick={{ fontSize: 11 }} minTickGap={24} />
-                        <YAxis
-                          tick={{ fontSize: 11 }}
-                          tickFormatter={(value) => `${Number(value).toFixed(isMobileChart ? 0 : 1)}%`}
-                          width={isMobileChart ? 40 : 60}
-                          tickMargin={isMobileChart ? -16 : 8}
-                        />
-                        <Tooltip
-                          formatter={(value) => `${Number(value).toFixed(2)}%`}
-                          labelClassName="text-xs"
-                        />
-                        <Line type="monotone" dataKey="roi" stroke="#22C55E" strokeWidth={2} dot={false} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
+                <ChartCard title="Portfolio value">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={valueChartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                      <XAxis dataKey="dateStr" tick={{ fontSize: 11 }} minTickGap={24} />
+                      <YAxis
+                        tick={{ fontSize: 11 }}
+                        tickFormatter={(value) =>
+                          isMobileChart
+                            ? formatCompactCurrency(Number(value))
+                            : `$${Number(value).toLocaleString()}`
+                        }
+                        width={isMobileChart ? 48 : 80}
+                        tickMargin={isMobileChart ? -20 : 8}
+                      />
+                      <Tooltip formatter={(value) => formatCurrency(Number(value))} labelClassName="text-xs" />
+                      <Line type="monotone" dataKey="value" stroke="#0EA5E9" strokeWidth={2} dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </ChartCard>
+                <ChartCard title="Return to date (ROI)">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={roiChartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                      <XAxis dataKey="dateStr" tick={{ fontSize: 11 }} minTickGap={24} />
+                      <YAxis
+                        tick={{ fontSize: 11 }}
+                        tickFormatter={(value) => `${Number(value).toFixed(isMobileChart ? 0 : 1)}%`}
+                        width={isMobileChart ? 40 : 60}
+                        tickMargin={isMobileChart ? -16 : 8}
+                      />
+                      <Tooltip formatter={(value) => `${Number(value).toFixed(2)}%`} labelClassName="text-xs" />
+                      <Line type="monotone" dataKey="roi" stroke="#22C55E" strokeWidth={2} dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </ChartCard>
               </div>
-              <div className="mt-6 rounded-2xl border border-[var(--border-subtle)] bg-white/60 p-4 dark:bg-white/5">
-                  <p className="text-xs font-semibold uppercase tracking-[0.28em] text-neutral-500 dark:text-neutral-400">
-                    Projected results
-                    <InfoTooltip label="Simple estimates based on steady growth and continued buying." />
-                  </p>
-                  <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
-                    What you’re looking at: these are hypothetical projections assuming Bitcoin grows at the
-                    listed yearly rates and you keep buying the same amount.
-                  </p>
-                {startPrice > 0 && schedulePerYear > 0 ? (
-                  <div className="mt-4 overflow-x-auto">
-                    <table className="min-w-full text-left text-sm">
-                      <thead className="text-xs uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
-                        <tr>
-                          <th className="py-2 pr-4">
-                            Yearly growth
-                            <InfoTooltip label="Fixed yearly Bitcoin price increase used for this scenario." />
-                          </th>
-                          {projectionYears.map((years) => (
-                            <th key={years} className="py-2 pr-4">
-                              {years}y
-                              <InfoTooltip
-                                label={`Projected portfolio value after ${years} year${
-                                  years === 1 ? "" : "s"
-                                } of continued buying.`}
-                              />
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[var(--border-subtle)]">
-                        {projectedResults.map((projection) => (
-                          <tr key={projection.rate} className="text-neutral-700 dark:text-neutral-200">
-                            <td className="py-2 pr-4 font-semibold">
-                              {(projection.rate * 100).toFixed(0)}%
-                            </td>
-                            {projection.results.map((result) => (
-                              <td key={result.years} className="py-2 pr-4">
-                                {formatCurrency(result.finalValue)}
-                              </td>
+                  <div className="mt-6 rounded-2xl border border-[var(--border-subtle)] bg-white/60 p-4 dark:bg-white/5">
+                      <p className="text-xs font-semibold uppercase tracking-[0.28em] text-neutral-500 dark:text-neutral-400">
+                        Projected results
+                        <InfoTooltip label="Simple estimates based on steady growth and continued buying." />
+                      </p>
+                      <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
+                        What you’re looking at: these are hypothetical projections assuming Bitcoin grows at the
+                        listed yearly rates and you keep buying the same amount.
+                      </p>
+                    {startPrice > 0 && schedulePerYear > 0 ? (
+                      <div className="mt-4 overflow-x-auto">
+                        <table className="min-w-full text-left text-sm">
+                          <thead className="text-xs uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
+                            <tr>
+                              <th className="py-2 pr-4">
+                                Yearly growth
+                                <InfoTooltip label="Fixed yearly Bitcoin price increase used for this scenario." />
+                              </th>
+                              {projectionYears.map((years) => (
+                                <th key={years} className="py-2 pr-4">
+                                  {years}y
+                                  <InfoTooltip
+                                    label={`Projected portfolio value after ${years} year${
+                                      years === 1 ? "" : "s"
+                                    } of continued buying.`}
+                                  />
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[var(--border-subtle)]">
+                            {projectedResults.map((projection) => (
+                              <tr key={projection.rate} className="text-neutral-700 dark:text-neutral-200">
+                                <td className="py-2 pr-4 font-semibold">
+                                  {(projection.rate * 100).toFixed(0)}%
+                                </td>
+                                {projection.results.map((result) => (
+                                  <td key={result.years} className="py-2 pr-4">
+                                    {formatCurrency(result.finalValue)}
+                                  </td>
+                                ))}
+                              </tr>
                             ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <p className="mt-4 text-sm text-neutral-500">
+                        No data available.
+                      </p>
+                    )}
+                    {projectedChartData.length ? (
+                      <div className="mt-6 h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={projectedChartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                            <XAxis
+                              dataKey="month"
+                              tick={{ fontSize: 11 }}
+                              tickFormatter={(value) => `${Math.round(Number(value) / 12)}y`}
+                            />
+                            <YAxis
+                              tick={{ fontSize: 11 }}
+                              tickFormatter={(value) =>
+                                isMobileChart
+                                  ? formatCompactCurrency(Number(value))
+                                  : `$${Number(value).toLocaleString()}`
+                              }
+                              width={isMobileChart ? 48 : 80}
+                              tickMargin={isMobileChart ? -20 : 8}
+                            />
+                            <Tooltip
+                              formatter={(value) => formatCurrency(Number(value))}
+                              labelFormatter={(value) => `Month ${value}`}
+                              labelClassName="text-xs"
+                            />
+                            {growthRates.map((rate) => (
+                              <Line
+                                key={rate}
+                                type="monotone"
+                                dataKey={`${Math.round(rate * 100)}%`}
+                                strokeWidth={2}
+                                dot={false}
+                              />
+                            ))}
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    ) : null}
                   </div>
-                ) : (
-                  <p className="mt-4 text-sm text-neutral-500">
-                    No data available.
-                  </p>
-                )}
-                {projectedChartData.length ? (
-                  <div className="mt-6 h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={projectedChartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
-                        <XAxis
-                          dataKey="month"
-                          tick={{ fontSize: 11 }}
-                          tickFormatter={(value) => `${Math.round(Number(value) / 12)}y`}
-                        />
-                        <YAxis
-                          tick={{ fontSize: 11 }}
-                          tickFormatter={(value) =>
-                            isMobileChart
-                              ? formatCompactCurrency(Number(value))
-                              : `$${Number(value).toLocaleString()}`
-                          }
-                          width={isMobileChart ? 48 : 80}
-                          tickMargin={isMobileChart ? -20 : 8}
-                        />
-                        <Tooltip
-                          formatter={(value) => formatCurrency(Number(value))}
-                          labelFormatter={(value) => `Month ${value}`}
-                          labelClassName="text-xs"
-                        />
-                        {growthRates.map((rate) => (
-                          <Line
-                            key={rate}
-                            type="monotone"
-                            dataKey={`${Math.round(rate * 100)}%`}
-                            strokeWidth={2}
-                            dot={false}
-                          />
-                        ))}
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                ) : null}
-              </div>
-            </>
-          ) : !hasHistory ? (
-            <div className="mt-6 rounded-2xl border border-dashed border-[var(--border-subtle)] p-6 text-sm text-neutral-500">
-              No data available.
-            </div>
-          ) : (
-            <div className="mt-6 rounded-2xl border border-dashed border-[var(--border-subtle)] p-6 text-sm text-neutral-500">
-              Run the test to see summary numbers and charts.
-            </div>
-          )}
-        </section>
-
-        <section className="space-y-4">
-          <details className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-[var(--shadow-soft)]">
-            <summary className="cursor-pointer text-lg font-semibold text-neutral-900 dark:text-white">
-              Show detailed table
-            </summary>
-            <div className="mt-4 overflow-x-auto">
-              {backtest ? (
-                <table className="min-w-full text-left text-sm">
-                  <thead className="text-xs uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
-                    <tr>
-                      <th className="py-2 pr-4">Date</th>
-                      <th className="py-2 pr-4">Price</th>
-                      <th className="py-2 pr-4">Deposit</th>
-                      <th className="py-2 pr-4">Buy USD</th>
-                      <th className="py-2 pr-4">Fee USD</th>
-                      <th className="py-2 pr-4">Bitcoin</th>
-                      <th className="py-2 pr-4">Cash USD</th>
-                      <th className="py-2 pr-4">Value USD</th>
-                      <th className="py-2 pr-4">Contributed to date</th>
-                      <th className="py-2 pr-4">Return (ROI)</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[var(--border-subtle)]">
-                    {auditRows.map((row) => (
-                      <tr key={row.dateStr} className="text-neutral-700 dark:text-neutral-200">
-                        <td className="py-2 pr-4">{row.dateStr}</td>
-                        <td className="py-2 pr-4">{formatCurrency(row.price)}</td>
-                        <td className="py-2 pr-4">{row.depositUSD ? formatCurrency(row.depositUSD) : "—"}</td>
-                        <td className="py-2 pr-4">{row.buyUSD ? formatCurrency(row.buyUSD) : "—"}</td>
-                        <td className="py-2 pr-4">{row.feeUSD ? formatCurrency(row.feeUSD) : "—"}</td>
-                        <td className="py-2 pr-4">{formatNumber(row.btc, 6)}</td>
-                        <td className="py-2 pr-4">{formatCurrency(row.cashUSD)}</td>
-                        <td className="py-2 pr-4">{formatCurrency(row.valueUSD)}</td>
-                        <td className="py-2 pr-4">{formatCurrency(row.contributedToDate)}</td>
-                        <td className="py-2 pr-4">{formatPercent(row.roi)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                </>
+              ) : !hasHistory ? (
+                <div className="mt-6 rounded-2xl border border-dashed border-[var(--border-subtle)] p-6 text-sm text-neutral-500">
+                  No data available.
+                </div>
               ) : (
-                <p className="text-sm text-neutral-500">
-                  Run the test to populate the table.
-                </p>
+                <div className="mt-6 rounded-2xl border border-dashed border-[var(--border-subtle)] p-6 text-sm text-neutral-500">
+                  Run the test to see summary numbers and charts.
+                </div>
               )}
+            </section>
+
+            <section className="space-y-4">
+              <details className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-[var(--shadow-soft)]">
+                <summary className="cursor-pointer text-lg font-semibold text-neutral-900 dark:text-white">
+                  Show detailed table
+                </summary>
+            <div className="mt-4 overflow-x-auto">
+              <DetailTable rows={auditRows} emptyMessage="Run the test to populate the table." />
             </div>
           </details>
 
-          <details className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-[var(--shadow-soft)]">
-            <summary className="cursor-pointer text-lg font-semibold text-neutral-900 dark:text-white">
-              Show CSV export
-            </summary>
-            <div className="mt-4 space-y-3 text-sm text-neutral-600 dark:text-neutral-300">
-              <p>
-                Export your results to CSV for a closer look or to share.
+              <details className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-[var(--shadow-soft)]">
+                <summary className="cursor-pointer text-lg font-semibold text-neutral-900 dark:text-white">
+                  Show CSV export
+                </summary>
+            <CsvExportSection
+              onExport={handleExportCsv}
+              disabled={!backtest}
+              disabledMessage="Run the test to enable export."
+            />
+          </details>
+
+              <details className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-[var(--shadow-soft)]">
+                <summary className="cursor-pointer text-lg font-semibold text-neutral-900 dark:text-white">
+                  How to do this on an exchange
+                </summary>
+                <div className="mt-4 space-y-6 text-sm text-neutral-600 dark:text-neutral-300">
+                  <p>Set up a recurring buy on your exchange using the same amount and timing.</p>
+                  <ul className="list-disc space-y-2 pl-5">
+                    <li>Open your exchange’s recurring buy or auto-buy feature.</li>
+                    <li>Choose Bitcoin as the asset to buy.</li>
+                    <li>Set the buy amount to match your plan.</li>
+                    <li>Pick the same schedule (daily, weekly, etc.).</li>
+                    <li>Review and turn it on.</li>
+                  </ul>
+                </div>
+              </details>
+            </section>
+          </>
+        ) : (
+          <>
+            <header className="flex flex-col gap-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">
+                Bitcoin Buying Strategies
               </p>
-              <ol className="list-decimal space-y-2 pl-5">
-                <li>Run the test with your desired inputs.</li>
-                <li>Review the detailed table for any gaps.</li>
-                <li>Download the CSV file and save it to your device.</li>
-              </ol>
-              <button
-                type="button"
-                onClick={handleExportCsv}
-                className="rounded-full border border-brand/30 bg-brand/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.28em] text-brand transition hover:bg-brand/20"
-                disabled={!backtest}
-              >
-                Download CSV
-              </button>
-              {!backtest ? (
-                <p className="text-xs text-neutral-500">Run the test to enable export.</p>
-              ) : null}
-            </div>
-          </details>
+              <h1 className="text-3xl font-bold text-neutral-900 dark:text-white">
+                Bulk Bitcoin Buying Plan (Single Purchase)
+              </h1>
+              <p className="text-sm text-neutral-600 dark:text-neutral-300">
+                Model a one-time lump sum buy and track how it would have performed.
+              </p>
+            </header>
 
-          <details className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-[var(--shadow-soft)]">
-            <summary className="cursor-pointer text-lg font-semibold text-neutral-900 dark:text-white">
-              How to do this on an exchange
-            </summary>
-            <div className="mt-4 space-y-6 text-sm text-neutral-600 dark:text-neutral-300">
-              <p>Set up a recurring buy on your exchange using the same amount and timing.</p>
-              <ul className="list-disc space-y-2 pl-5">
-                <li>Open your exchange’s recurring buy or auto-buy feature.</li>
-                <li>Choose Bitcoin as the asset to buy.</li>
-                <li>Set the buy amount to match your plan.</li>
-                <li>Pick the same schedule (daily, weekly, etc.).</li>
-                <li>Review and turn it on.</li>
-              </ul>
-            </div>
-          </details>
-        </section>
+            <section className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-[var(--shadow-soft)]">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.28em] text-neutral-500 dark:text-neutral-400">
+                    Bitcoin price history
+                  </p>
+                  <h2 className="mt-2 text-lg font-semibold text-neutral-900 dark:text-white">
+                    Past Bitcoin closing prices (USD)
+                  </h2>
+                </div>
+                <div className="text-xs text-neutral-500 dark:text-neutral-400">
+                  {bulkSafeRows.length ? `${bulkSafeRows.length} data points` : "No data available"}
+                </div>
+              </div>
+              <div className="mt-6 h-80">
+                {bulkLoading ? (
+                  <div className="flex h-full items-center justify-center text-sm text-neutral-500">
+                    Loading price history...
+                  </div>
+                ) : bulkSafeRows.length ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={bulkPriceChartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                      <XAxis dataKey="dateStr" tick={{ fontSize: 11 }} minTickGap={24} />
+                      <YAxis
+                        tick={{ fontSize: 11 }}
+                        tickFormatter={(value) =>
+                          isMobileChart ? formatCompactCurrency(Number(value)) : `$${Number(value).toLocaleString()}`
+                        }
+                        width={isMobileChart ? 48 : 80}
+                        tickMargin={isMobileChart ? -20 : 8}
+                      />
+                      <Tooltip formatter={(value) => formatCurrency(Number(value))} labelClassName="text-xs" />
+                      <Line type="monotone" dataKey="price" stroke="#F97316" strokeWidth={2} dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex h-full items-center justify-center text-sm text-neutral-500">
+                    No price data available yet.
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <section className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-[var(--shadow-soft)]">
+              <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">Plan inputs</h2>
+              <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <label className="flex flex-col gap-2 text-sm text-neutral-600 dark:text-neutral-300">
+                  Lump sum amount (USD)
+                  <input
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={bulkAmount}
+                    onChange={handleNumberChange(setBulkAmount)}
+                    className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm text-neutral-900 outline-none focus:border-brand dark:text-white"
+                  />
+                </label>
+                <label className="flex flex-col gap-2 text-sm text-neutral-600 dark:text-neutral-300">
+                  Fee rate (%) (what the exchange charges)
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={bulkFeeRate}
+                    onChange={handleNumberChange(setBulkFeeRate)}
+                    className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm text-neutral-900 outline-none focus:border-brand dark:text-white"
+                  />
+                </label>
+                <label className="flex flex-col gap-2 text-sm text-neutral-600 dark:text-neutral-300">
+                  History window
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <input
+                      type="date"
+                      value={bulkHistoryStart}
+                      max={bulkHistoryEnd}
+                      onChange={(event) => setBulkHistoryStart(event.target.value)}
+                      className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm text-neutral-900 outline-none focus:border-brand dark:text-white"
+                    />
+                    <input
+                      type="date"
+                      value={bulkHistoryEnd}
+                      min={bulkHistoryStart}
+                      max={defaultEnd}
+                      onChange={(event) => setBulkHistoryEnd(event.target.value)}
+                      className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm text-neutral-900 outline-none focus:border-brand dark:text-white"
+                    />
+                  </div>
+                </label>
+              </div>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => fetchBulkHistorical()}
+                  className="rounded-full border border-transparent bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.28em] text-white shadow-sm transition hover:bg-brand/90"
+                  disabled={bulkLoading}
+                >
+                  {bulkLoading ? "Fetching..." : "Fetch data"}
+                </button>
+                <button
+                  type="button"
+                  onClick={runBulkBacktest}
+                  className="rounded-full border border-transparent bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.28em] text-white shadow-sm transition hover:bg-brand/90"
+                >
+                  Run test
+                </button>
+              </div>
+              <p className="mt-4 text-xs text-neutral-500 dark:text-neutral-400">
+                If price data does not load, a backend proxy may be required.
+              </p>
+              {bulkError ? (
+                <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-400/40 dark:bg-red-500/10 dark:text-red-200">
+                  {bulkError}
+                </div>
+              ) : null}
+            </section>
+
+            <section className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-[var(--shadow-soft)]">
+              <div className="flex flex-col gap-2">
+                <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">Results</h2>
+                <p className="text-sm text-neutral-600 dark:text-neutral-300">
+                  A simple summary of how your bulk buy would have performed.
+                </p>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                  This simulates buying once with {formatCurrency(bulkAmount)} on the first day of the
+                  period and holding until the end.
+                </p>
+              </div>
+              {bulkLoading && !bulkHasHistory ? (
+                <div className="mt-6 rounded-2xl border border-dashed border-[var(--border-subtle)] p-6 text-sm text-neutral-500">
+                  Loading data...
+                </div>
+              ) : bulkBacktest ? (
+                <>
+                  <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    <MetricCard
+                      label="Total contributed"
+                      tooltip="Total dollars you have put into the plan so far."
+                      value={formatCurrency(bulkBacktest.totalContributedUSD)}
+                    />
+                    <MetricCard
+                      label="Final value"
+                      tooltip="Total value of your Bitcoin plus any leftover cash."
+                      value={formatCurrency(bulkBacktest.finalValueUSD)}
+                    />
+                    <MetricCard
+                      label="Return (ROI)"
+                      tooltip="Return on investment: how much you gained or lost compared to what you put in."
+                      value={formatPercent(bulkBacktest.roi)}
+                    />
+                    <MetricCard
+                      label="Biggest drop (drawdown)"
+                      tooltip="Largest drop from a high point to a low point during the period."
+                      value={formatPercent(bulkBacktest.maxDrawdown)}
+                    />
+                    <MetricCard
+                      label="Bitcoin held"
+                      tooltip="Total Bitcoin you would have accumulated by the end."
+                      value={formatNumber(bulkBacktest.btc, 6)}
+                    />
+                    <MetricCard
+                      label="Fees"
+                      tooltip="Total fees charged by the exchange during the buy."
+                      value={formatCurrency(bulkBacktest.totalFeesUSD)}
+                    />
+                  </div>
+                  <div className="mt-6 grid gap-6 lg:grid-cols-2">
+                    <ChartCard title="Portfolio value">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={bulkValueChartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                          <XAxis dataKey="dateStr" tick={{ fontSize: 11 }} minTickGap={24} />
+                          <YAxis
+                            tick={{ fontSize: 11 }}
+                            tickFormatter={(value) =>
+                              isMobileChart
+                                ? formatCompactCurrency(Number(value))
+                                : `$${Number(value).toLocaleString()}`
+                            }
+                            width={isMobileChart ? 48 : 80}
+                            tickMargin={isMobileChart ? -20 : 8}
+                          />
+                          <Tooltip formatter={(value) => formatCurrency(Number(value))} labelClassName="text-xs" />
+                          <Line type="monotone" dataKey="value" stroke="#0EA5E9" strokeWidth={2} dot={false} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </ChartCard>
+                    <ChartCard title="Return to date (ROI)">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={bulkRoiChartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                          <XAxis dataKey="dateStr" tick={{ fontSize: 11 }} minTickGap={24} />
+                          <YAxis
+                            tick={{ fontSize: 11 }}
+                            tickFormatter={(value) => `${Number(value).toFixed(isMobileChart ? 0 : 1)}%`}
+                            width={isMobileChart ? 40 : 60}
+                            tickMargin={isMobileChart ? -16 : 8}
+                          />
+                          <Tooltip
+                            formatter={(value) => `${Number(value).toFixed(2)}%`}
+                            labelClassName="text-xs"
+                          />
+                          <Line type="monotone" dataKey="roi" stroke="#22C55E" strokeWidth={2} dot={false} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </ChartCard>
+                  </div>
+                </>
+              ) : !bulkHasHistory ? (
+                <div className="mt-6 rounded-2xl border border-dashed border-[var(--border-subtle)] p-6 text-sm text-neutral-500">
+                  No data available.
+                </div>
+              ) : (
+                <div className="mt-6 rounded-2xl border border-dashed border-[var(--border-subtle)] p-6 text-sm text-neutral-500">
+                  Run the test to see summary numbers and charts.
+                </div>
+              )}
+            </section>
+
+            <section className="space-y-4">
+              <details className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-[var(--shadow-soft)]">
+                <summary className="cursor-pointer text-lg font-semibold text-neutral-900 dark:text-white">
+                  Show detailed table
+                </summary>
+                <div className="mt-4 overflow-x-auto">
+                  <DetailTable rows={bulkAuditRows} emptyMessage="Run the test to populate the table." />
+                </div>
+              </details>
+
+              <details className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-[var(--shadow-soft)]">
+                <summary className="cursor-pointer text-lg font-semibold text-neutral-900 dark:text-white">
+                  Show CSV export
+                </summary>
+                <CsvExportSection
+                  onExport={handleBulkExportCsv}
+                  disabled={!bulkBacktest}
+                  disabledMessage="Run the test to enable export."
+                />
+              </details>
+
+              <details className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-[var(--shadow-soft)]">
+                <summary className="cursor-pointer text-lg font-semibold text-neutral-900 dark:text-white">
+                  How to do this on an exchange
+                </summary>
+                <div className="mt-4 space-y-6 text-sm text-neutral-600 dark:text-neutral-300">
+                  <p>Place a one-time buy using the same lump sum amount.</p>
+                  <ul className="list-disc space-y-2 pl-5">
+                    <li>Open your exchange’s buy or trade screen.</li>
+                    <li>Choose Bitcoin as the asset to buy.</li>
+                    <li>Enter your lump sum amount.</li>
+                    <li>Review the fees and confirm the order.</li>
+                  </ul>
+                </div>
+              </details>
+            </section>
+          </>
+        )}
       </main>
     </div>
   );

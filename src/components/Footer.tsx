@@ -109,6 +109,18 @@ export default function Footer() {
           >
             BTC Buying Strategies Guide
           </NavLink>
+          <NavLink
+            to="/tools/btc-buying-strategies?tab=dca"
+            className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }
+          >
+            DCA Buying BTC
+          </NavLink>
+          <NavLink
+            to="/tools/btc-buying-strategies?tab=bulk"
+            className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }
+          >
+            Bulk Buying BTC
+          </NavLink>
           {isAdmin ? (
             <>
               <NavLink to="/affiliate" className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }>
