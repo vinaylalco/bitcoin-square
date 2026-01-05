@@ -526,8 +526,9 @@ export default function BtcBuyingStrategiesPage() {
   const safeRows = Array.isArray(rows) ? rows : [];
   const backtestHistory = Array.isArray(backtest?.history) ? backtest?.history : [];
   const lastBacktestPoint = backtestHistory.at(-1);
-  const startDate = safeRows.length ? safeRows[0].dateStr : defaultEnd;
-  const endDate = safeRows.length ? safeRows[safeRows.length - 1].dateStr : defaultEnd;
+  const hasHistory = safeRows.length > 0;
+  const startDate = hasHistory ? safeRows[0].dateStr : defaultEnd;
+  const endDate = hasHistory ? safeRows[safeRows.length - 1].dateStr : defaultEnd;
   const startPrice = lastBacktestPoint?.price ?? safeRows.at(-1)?.price ?? 0;
   const startBtc = backtest?.btc ?? 0;
   const startCash = lastBacktestPoint?.cashUSD ?? 0;
@@ -591,6 +592,7 @@ export default function BtcBuyingStrategiesPage() {
 
   const runBacktestWithRows = (inputRows: HistoricalRow[]) => {
     if (!inputRows.length) {
+      setBacktest(null);
       setError("Load price history before running the test.");
       return;
     }
@@ -697,7 +699,7 @@ export default function BtcBuyingStrategiesPage() {
       })
     : [];
 
-  const auditRows = backtestHistory ?? [];
+  const auditRows = Array.isArray(backtestHistory) ? backtestHistory : [];
 
   const handleExportCsv = () => {
     if (!backtest) return;
@@ -922,7 +924,11 @@ export default function BtcBuyingStrategiesPage() {
               A simple summary of how your plan would have performed.
             </p>
           </div>
-          {backtest ? (
+          {loading && !hasHistory ? (
+            <div className="mt-6 rounded-2xl border border-dashed border-[var(--border-subtle)] p-6 text-sm text-neutral-500">
+              Loading data...
+            </div>
+          ) : backtest ? (
             <>
               <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <div className="rounded-2xl border border-[var(--border-subtle)] bg-white/60 p-4 dark:bg-white/5">
@@ -1149,6 +1155,10 @@ export default function BtcBuyingStrategiesPage() {
                 ) : null}
               </div>
             </>
+          ) : !hasHistory ? (
+            <div className="mt-6 rounded-2xl border border-dashed border-[var(--border-subtle)] p-6 text-sm text-neutral-500">
+              No data available.
+            </div>
           ) : (
             <div className="mt-6 rounded-2xl border border-dashed border-[var(--border-subtle)] p-6 text-sm text-neutral-500">
               Run the test to see summary numbers and charts.

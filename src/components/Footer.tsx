@@ -57,6 +57,8 @@ export default function Footer() {
     return { items: [], status: "empty" as const };
   }, [lessonPlans, lessonPlansError, lessonPlansLoading]);
 
+  const educationItems = Array.isArray(educationMenu.items) ? educationMenu.items : [];
+
   if (isCommunityRoute) {
     return null;
   }
@@ -71,8 +73,8 @@ export default function Footer() {
           <NavLink to="/education" className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }>
             {t("nav.education")}
           </NavLink>
-          {educationMenu.items.length > 0 ? (
-            educationMenu.items.map((item) => (
+          {educationItems.length > 0 ? (
+            educationItems.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
