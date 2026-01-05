@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import {
   CartesianGrid,
@@ -76,11 +76,28 @@ type SettingsCache = {
   historyEnd?: string;
 };
 
+const SCHEDULES_PER_YEAR: Record<Schedule, number> = {
+  daily: 365,
+  weekly: 52,
+  biweekly: 26,
+  monthly: 12,
+};
+
 function formatCurrency(value: number | null | undefined) {
   if (value == null || Number.isNaN(value)) {
     return "—";
   }
   return `$${value.toLocaleString()}`;
+}
+
+function formatCompactCurrency(value: number | null | undefined) {
+  if (value == null || Number.isNaN(value)) {
+    return "—";
+  }
+  return new Intl.NumberFormat(undefined, {
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(value);
 }
 
 function formatNumber(value: number | null | undefined, digits = 2) {
@@ -99,6 +116,19 @@ function formatPercent(value: number | null | undefined, digits = 2) {
 
 function formatDateInput(value: Date): string {
   return value.toISOString().slice(0, 10);
+}
+
+function InfoTooltip({ label }: { label: string }) {
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      className="ml-2 inline-flex h-4 w-4 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[0.6rem] font-semibold text-neutral-500 transition hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
+    >
+      i
+    </button>
+  );
 }
 
 function parseHistoricalRows(
@@ -303,7 +333,9 @@ function pickSchedulePoints(rows: HistoricalRow[], frequency: Schedule): Histori
 export default function BtcBuyingStrategiesPage() {
   const today = useMemo(() => new Date(), []);
   const defaultEnd = formatDateInput(today);
-  const defaultStart = formatDateInput(new Date(today.getTime() - 29 * 24 * 60 * 60 * 1000));
+  const defaultStart = formatDateInput(
+    new Date(today.getFullYear() - 4, today.getMonth(), today.getDate()),
+  );
 
   const [rows, setRows] = useState<HistoricalRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -314,16 +346,24 @@ export default function BtcBuyingStrategiesPage() {
   const [historyStart, setHistoryStart] = useState(defaultStart);
   const [historyEnd, setHistoryEnd] = useState(defaultEnd);
   const [backtest, setBacktest] = useState<BacktestResult | null>(null);
-  const [exchangeName, setExchangeName] = useState("");
-  const [exchangeStartDate, setExchangeStartDate] = useState(formatDateInput(today));
-  const [exchangeFrequency, setExchangeFrequency] = useState<Schedule>("weekly");
-  const [exchangeAmount, setExchangeAmount] = useState(100);
-  const [exchangeNote, setExchangeNote] = useState("");
+  const [isMobileChart, setIsMobileChart] = useState(false);
+  const debounceRef = useRef<number | null>(null);
+  const requestIdRef = useRef(0);
+  const lastFetchKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const title = "BTC Buying Strategies | Bitcoin Square";
+    if (typeof window === "undefined") return;
+    const mediaQuery = window.matchMedia("(max-width: 640px)");
+    const update = () => setIsMobileChart(mediaQuery.matches);
+    update();
+    mediaQuery.addEventListener("change", update);
+    return () => mediaQuery.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
+    const title = "Bitcoin Buying Strategies | Bitcoin Square";
     const description =
-      "Backtest a simple Bitcoin dollar-cost averaging plan with no selling.";
+      "Test a simple plan for buying Bitcoin on a schedule, without selling.";
     document.title = title;
     const ensureMeta = (name: string, content: string, attr: "name" | "property" = "name") => {
       const selector = `meta[${attr}="${name}"]`;
@@ -381,6 +421,26 @@ export default function BtcBuyingStrategiesPage() {
   const fetchHistorical = async () => {
     setError(null);
     setLoading(true);
+    const fetchKey = `${historyStart}|${historyEnd}`;
+    const requestId = ++requestIdRef.current;
+    try {
+      const nextRows = await fetchHistoricalData();
+      if (requestId !== requestIdRef.current) return;
+      lastFetchKeyRef.current = fetchKey;
+      setRows(nextRows);
+      runBacktestWithRows(nextRows);
+    } catch (err) {
+      if (requestId !== requestIdRef.current) return;
+      const message = err instanceof Error ? err.message : "Unable to load historical prices.";
+      setError(message);
+    } finally {
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+      }
+    }
+  };
+
+  const fetchHistoricalData = async () => {
     const startDate = new Date(`${historyStart}T00:00:00Z`);
     const endDate = new Date(`${historyEnd}T00:00:00Z`);
     if (
@@ -388,76 +448,161 @@ export default function BtcBuyingStrategiesPage() {
       Number.isNaN(endDate.getTime()) ||
       startDate.getTime() > endDate.getTime()
     ) {
-      setError("Select a valid start and end date.");
-      setLoading(false);
-      return;
+      throw new Error("Select a valid start and end date.");
     }
     const historyLimit =
       Math.ceil((endDate.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000)) + 1;
     const cached = loadCachedHistorical(historyLimit, historyStart, historyEnd);
     if (Array.isArray(cached) && cached.length > 0) {
-      setRows(cached);
-      setLoading(false);
-      return;
+      return cached;
     }
-    try {
-      const data = await fetchBtcDailyHistory({
-        limit: historyLimit,
-        toTs: Math.floor(endDate.getTime() / 1000),
-      });
-      if (!data) {
-        throw new Error("CoinDesk returned an empty response.");
-      }
-      const err = data.Err ?? null;
-      const hasErrorDetails =
-        err != null &&
-        (typeof err.message === "string" ||
-          typeof err.Message === "string" ||
-          typeof err.status === "number" ||
-          typeof err.Status === "number");
-      if (hasErrorDetails) {
-        const message = err.message ?? err.Message ?? "CoinDesk returned an error.";
-        const status = err.status ?? err.Status;
-        throw new Error(status ? `${message} (${status})` : message);
-      }
-      const parsed = parseHistoricalRows(data ?? {});
-      const filtered = parsed.filter(
-        (row) => row.date.getTime() >= startDate.getTime() && row.date.getTime() <= endDate.getTime(),
-      );
-      setRows(filtered);
-      saveCachedHistorical(historyLimit, historyStart, historyEnd, filtered);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Unable to load historical prices.";
-      setError(message);
-    } finally {
-      setLoading(false);
+    const data = await fetchBtcDailyHistory({
+      limit: historyLimit,
+      toTs: Math.floor(endDate.getTime() / 1000),
+    });
+    if (!data) {
+      throw new Error("CoinDesk returned an empty response.");
     }
+    const err = data.Err ?? null;
+    const hasErrorDetails =
+      err != null &&
+      (typeof err.message === "string" ||
+        typeof err.Message === "string" ||
+        typeof err.status === "number" ||
+        typeof err.Status === "number");
+    if (hasErrorDetails) {
+      const message = err.message ?? err.Message ?? "CoinDesk returned an error.";
+      const status = err.status ?? err.Status;
+      throw new Error(status ? `${message} (${status})` : message);
+    }
+    const parsed = parseHistoricalRows(data ?? {});
+    const filtered = parsed.filter(
+      (row) => row.date.getTime() >= startDate.getTime() && row.date.getTime() <= endDate.getTime(),
+    );
+    saveCachedHistorical(historyLimit, historyStart, historyEnd, filtered);
+    return filtered;
   };
 
   useEffect(() => {
-    void fetchHistorical();
-  }, []);
+    setError(null);
+    const fetchKey = `${historyStart}|${historyEnd}`;
+    const currentRows = Array.isArray(rows) ? rows : [];
+    const canReuse = lastFetchKeyRef.current === fetchKey && currentRows.length > 0;
+    if (canReuse) {
+      runBacktestWithRows(currentRows);
+      return;
+    }
+
+    if (debounceRef.current) {
+      window.clearTimeout(debounceRef.current);
+    }
+    setLoading(true);
+    debounceRef.current = window.setTimeout(async () => {
+      const requestId = ++requestIdRef.current;
+      try {
+        const nextRows = await fetchHistoricalData();
+        if (requestId !== requestIdRef.current) return;
+        lastFetchKeyRef.current = fetchKey;
+        setRows(nextRows);
+        runBacktestWithRows(nextRows);
+      } catch (err) {
+        if (requestId !== requestIdRef.current) return;
+        const message = err instanceof Error ? err.message : "Unable to load historical prices.";
+        setError(message);
+      } finally {
+        if (requestId === requestIdRef.current) {
+          setLoading(false);
+        }
+      }
+    }, 600);
+
+    return () => {
+      if (debounceRef.current) {
+        window.clearTimeout(debounceRef.current);
+      }
+    };
+  }, [historyStart, historyEnd, amountPerPeriod, schedule, feeRate, rows]);
 
   const safeRows = Array.isArray(rows) ? rows : [];
   const backtestHistory = Array.isArray(backtest?.history) ? backtest?.history : [];
   const lastBacktestPoint = backtestHistory.at(-1);
   const startDate = safeRows.length ? safeRows[0].dateStr : defaultEnd;
   const endDate = safeRows.length ? safeRows[safeRows.length - 1].dateStr : defaultEnd;
+  const startPrice = lastBacktestPoint?.price ?? safeRows.at(-1)?.price ?? 0;
+  const startBtc = backtest?.btc ?? 0;
+  const startCash = lastBacktestPoint?.cashUSD ?? 0;
+  const dcaPerPeriod = amountPerPeriod ?? 0;
+  const schedulePerYear = SCHEDULES_PER_YEAR[schedule] ?? 0;
+  const growthRates = [0.2, 0.3, 0.4, 0.5];
+  const projectionYears = [1, 2, 5, 10];
+  const projectionMonths = 120;
+  const projectedResults = backtest
+    ? growthRates.map((rate) => {
+        const perPeriodRate = schedulePerYear > 0 ? (1 + rate) ** (1 / schedulePerYear) - 1 : 0;
+        return {
+          rate,
+          results: projectionYears.map((years) => {
+            let price = startPrice;
+            let btc = startBtc;
+            let cash = startCash;
+            const totalPeriods = Math.round(schedulePerYear * years);
+            for (let i = 0; i < totalPeriods; i += 1) {
+              cash += dcaPerPeriod;
+              if (price > 0 && cash > 0) {
+                btc += cash / price;
+                cash = 0;
+              }
+              price *= 1 + perPeriodRate;
+            }
+            const finalValue = btc * price + cash;
+            return {
+              years,
+              finalValue,
+            };
+          }),
+        };
+      })
+    : [];
+  const projectedChartData =
+    backtest && startPrice > 0 && schedulePerYear > 0
+      ? Array.from({ length: projectionMonths + 1 }, (_, month) => {
+          const entry: Record<string, number> = { month };
+          growthRates.forEach((rate) => {
+            const monthlyRate = (1 + rate) ** (1 / 12) - 1;
+            const monthlyContribution = dcaPerPeriod * (schedulePerYear / 12);
+            let price = startPrice;
+            let btc = startBtc;
+            let cash = startCash;
 
-  const runBacktest = () => {
-    if (!safeRows.length) {
-      setError("Load price history before running the backtest.");
+            for (let i = 0; i < month; i += 1) {
+              cash += monthlyContribution;
+              if (price > 0 && cash > 0) {
+                btc += cash / price;
+                cash = 0;
+              }
+              price *= 1 + monthlyRate;
+            }
+
+            entry[`${Math.round(rate * 100)}%`] = btc * price + cash;
+          });
+          return entry;
+        })
+      : [];
+
+  const runBacktestWithRows = (inputRows: HistoricalRow[]) => {
+    if (!inputRows.length) {
+      setError("Load price history before running the test.");
       return;
     }
 
-    const scheduledRows = pickSchedulePoints(safeRows, schedule);
+    const scheduledRows = pickSchedulePoints(inputRows, schedule);
     const scheduledDates = new Set(scheduledRows.map((row) => row.dateStr));
     let cashUSD = 0;
     let totalContributedUSD = 0;
     let totalFeesUSD = 0;
     let btc = 0;
 
-    const history = safeRows.map((row) => {
+    const history = inputRows.map((row) => {
       let depositUSD = 0;
       let buyUSD = 0;
       let feeUSD = 0;
@@ -519,6 +664,10 @@ export default function BtcBuyingStrategiesPage() {
       xirr,
       maxDrawdown,
     });
+  };
+
+  const runBacktest = () => {
+    runBacktestWithRows(safeRows);
   };
 
   const priceChartData = safeRows.length
@@ -603,7 +752,7 @@ export default function BtcBuyingStrategiesPage() {
       <div className="bg-[var(--bg-app)] text-[var(--fg-default)]">
         <main className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-12 text-center sm:px-6 lg:px-8">
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">
-            BTC Buying Strategies
+            Bitcoin Buying Strategies
           </p>
           <h1 className="text-3xl font-bold text-neutral-900 dark:text-white">
             We hit an issue loading data.
@@ -626,13 +775,13 @@ export default function BtcBuyingStrategiesPage() {
       <main className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-12 sm:px-6 lg:px-8">
         <header className="flex flex-col gap-3">
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">
-            BTC Buying Strategies
+            Bitcoin Buying Strategies
           </p>
           <h1 className="text-3xl font-bold text-neutral-900 dark:text-white">
-            Normal BTC DCA (No Selling)
+            Simple Bitcoin Buying Plan (No Selling)
           </h1>
           <p className="text-sm text-neutral-600 dark:text-neutral-300">
-            Backtest a clean dollar-cost averaging plan with fixed buys and zero selling.
+            Try a simple plan where you buy Bitcoin on a schedule and never sell.
           </p>
         </header>
 
@@ -640,20 +789,20 @@ export default function BtcBuyingStrategiesPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.28em] text-neutral-500 dark:text-neutral-400">
-                BTC price history
+                Bitcoin price history
               </p>
               <h2 className="mt-2 text-lg font-semibold text-neutral-900 dark:text-white">
-                Historical BTC Close (USD)
+                Past Bitcoin closing prices (USD)
               </h2>
             </div>
             <div className="text-xs text-neutral-500 dark:text-neutral-400">
-              {safeRows.length ? `${safeRows.length} data points` : "No data yet"}
+              {safeRows.length ? `${safeRows.length} data points` : "No data available"}
             </div>
           </div>
           <div className="mt-6 h-80">
             {loading ? (
               <div className="flex h-full items-center justify-center text-sm text-neutral-500">
-                Loading historical prices...
+                Loading price history...
               </div>
             ) : safeRows.length ? (
               <ResponsiveContainer width="100%" height="100%">
@@ -662,8 +811,11 @@ export default function BtcBuyingStrategiesPage() {
                   <XAxis dataKey="dateStr" tick={{ fontSize: 11 }} minTickGap={24} />
                   <YAxis
                     tick={{ fontSize: 11 }}
-                    tickFormatter={(value) => `$${Number(value).toLocaleString()}`}
-                    width={80}
+                    tickFormatter={(value) =>
+                      isMobileChart ? formatCompactCurrency(Number(value)) : `$${Number(value).toLocaleString()}`
+                    }
+                    width={isMobileChart ? 48 : 80}
+                    tickMargin={isMobileChart ? -20 : 8}
                   />
                   <Tooltip formatter={(value) => formatCurrency(Number(value))} labelClassName="text-xs" />
                   <Line type="monotone" dataKey="price" stroke="#F97316" strokeWidth={2} dot={false} />
@@ -671,14 +823,14 @@ export default function BtcBuyingStrategiesPage() {
               </ResponsiveContainer>
             ) : (
               <div className="flex h-full items-center justify-center text-sm text-neutral-500">
-                Select a date range and fetch data to view the chart.
+                No price data available yet.
               </div>
             )}
           </div>
         </section>
 
         <section className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-[var(--shadow-soft)]">
-          <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">DCA Inputs</h2>
+          <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">Plan inputs</h2>
           <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <label className="flex flex-col gap-2 text-sm text-neutral-600 dark:text-neutral-300">
               Amount per buy (USD)
@@ -705,7 +857,7 @@ export default function BtcBuyingStrategiesPage() {
               </select>
             </label>
             <label className="flex flex-col gap-2 text-sm text-neutral-600 dark:text-neutral-300">
-              Fee rate (%)
+              Fee rate (%) (what the exchange charges)
               <input
                 type="number"
                 min={0}
@@ -750,11 +902,11 @@ export default function BtcBuyingStrategiesPage() {
               onClick={runBacktest}
               className="rounded-full border border-transparent bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.28em] text-white shadow-sm transition hover:bg-brand/90"
             >
-              Run backtest
+              Run test
             </button>
           </div>
           <p className="mt-4 text-xs text-neutral-500 dark:text-neutral-400">
-            If CoinDesk fetch fails due to CORS, use a backend proxy.
+            If price data does not load, a backend proxy may be required.
           </p>
           {error ? (
             <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-400/40 dark:bg-red-500/10 dark:text-red-200">
@@ -767,7 +919,7 @@ export default function BtcBuyingStrategiesPage() {
           <div className="flex flex-col gap-2">
             <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">Results</h2>
             <p className="text-sm text-neutral-600 dark:text-neutral-300">
-              Summary metrics and portfolio performance for your normal DCA plan.
+              A simple summary of how your plan would have performed.
             </p>
           </div>
           {backtest ? (
@@ -775,7 +927,8 @@ export default function BtcBuyingStrategiesPage() {
               <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <div className="rounded-2xl border border-[var(--border-subtle)] bg-white/60 p-4 dark:bg-white/5">
                   <p className="text-xs font-semibold uppercase tracking-[0.28em] text-neutral-500 dark:text-neutral-400">
-                    Contributed
+                    Total contributed
+                    <InfoTooltip label="Total dollars you have put into the plan so far." />
                   </p>
                   <p className="mt-2 text-xl font-semibold text-neutral-900 dark:text-white">
                     {formatCurrency(backtest.totalContributedUSD)}
@@ -784,6 +937,7 @@ export default function BtcBuyingStrategiesPage() {
                 <div className="rounded-2xl border border-[var(--border-subtle)] bg-white/60 p-4 dark:bg-white/5">
                   <p className="text-xs font-semibold uppercase tracking-[0.28em] text-neutral-500 dark:text-neutral-400">
                     Final value
+                    <InfoTooltip label="Total value of your Bitcoin plus any leftover cash." />
                   </p>
                   <p className="mt-2 text-xl font-semibold text-neutral-900 dark:text-white">
                     {formatCurrency(backtest.finalValueUSD)}
@@ -791,7 +945,8 @@ export default function BtcBuyingStrategiesPage() {
                 </div>
                 <div className="rounded-2xl border border-[var(--border-subtle)] bg-white/60 p-4 dark:bg-white/5">
                   <p className="text-xs font-semibold uppercase tracking-[0.28em] text-neutral-500 dark:text-neutral-400">
-                    ROI
+                    Return (ROI)
+                    <InfoTooltip label="Return on investment: how much you gained or lost compared to what you put in." />
                   </p>
                   <p className="mt-2 text-xl font-semibold text-neutral-900 dark:text-white">
                     {formatPercent(backtest.roi)}
@@ -799,7 +954,8 @@ export default function BtcBuyingStrategiesPage() {
                 </div>
                 <div className="rounded-2xl border border-[var(--border-subtle)] bg-white/60 p-4 dark:bg-white/5">
                   <p className="text-xs font-semibold uppercase tracking-[0.28em] text-neutral-500 dark:text-neutral-400">
-                    XIRR
+                    Annual return (XIRR)
+                    <InfoTooltip label="Yearly return, adjusted for when each deposit was made." />
                   </p>
                   <p className="mt-2 text-xl font-semibold text-neutral-900 dark:text-white">
                     {formatPercent(backtest.xirr)}
@@ -807,7 +963,8 @@ export default function BtcBuyingStrategiesPage() {
                 </div>
                 <div className="rounded-2xl border border-[var(--border-subtle)] bg-white/60 p-4 dark:bg-white/5">
                   <p className="text-xs font-semibold uppercase tracking-[0.28em] text-neutral-500 dark:text-neutral-400">
-                    Max drawdown
+                    Biggest drop (drawdown)
+                    <InfoTooltip label="Largest drop from a high point to a low point during the period." />
                   </p>
                   <p className="mt-2 text-xl font-semibold text-neutral-900 dark:text-white">
                     {formatPercent(backtest.maxDrawdown)}
@@ -815,7 +972,8 @@ export default function BtcBuyingStrategiesPage() {
                 </div>
                 <div className="rounded-2xl border border-[var(--border-subtle)] bg-white/60 p-4 dark:bg-white/5">
                   <p className="text-xs font-semibold uppercase tracking-[0.28em] text-neutral-500 dark:text-neutral-400">
-                    BTC end
+                    Bitcoin held
+                    <InfoTooltip label="Total Bitcoin you would have accumulated by the end." />
                   </p>
                   <p className="mt-2 text-xl font-semibold text-neutral-900 dark:text-white">
                     {formatNumber(backtest.btc, 6)}
@@ -823,7 +981,8 @@ export default function BtcBuyingStrategiesPage() {
                 </div>
                 <div className="rounded-2xl border border-[var(--border-subtle)] bg-white/60 p-4 dark:bg-white/5">
                   <p className="text-xs font-semibold uppercase tracking-[0.28em] text-neutral-500 dark:text-neutral-400">
-                    Cash end
+                    Cash held
+                    <InfoTooltip label="Cash left over after your scheduled buys." />
                   </p>
                   <p className="mt-2 text-xl font-semibold text-neutral-900 dark:text-white">
                     {formatCurrency(lastBacktestPoint?.cashUSD ?? 0)}
@@ -831,7 +990,8 @@ export default function BtcBuyingStrategiesPage() {
                 </div>
                 <div className="rounded-2xl border border-[var(--border-subtle)] bg-white/60 p-4 dark:bg-white/5">
                   <p className="text-xs font-semibold uppercase tracking-[0.28em] text-neutral-500 dark:text-neutral-400">
-                    Fees paid
+                    Fees
+                    <InfoTooltip label="Total fees charged by the exchange during the buys." />
                   </p>
                   <p className="mt-2 text-xl font-semibold text-neutral-900 dark:text-white">
                     {formatCurrency(backtest.totalFeesUSD)}
@@ -853,8 +1013,13 @@ export default function BtcBuyingStrategiesPage() {
                         <XAxis dataKey="dateStr" tick={{ fontSize: 11 }} minTickGap={24} />
                         <YAxis
                           tick={{ fontSize: 11 }}
-                          tickFormatter={(value) => `$${Number(value).toLocaleString()}`}
-                          width={80}
+                          tickFormatter={(value) =>
+                            isMobileChart
+                              ? formatCompactCurrency(Number(value))
+                              : `$${Number(value).toLocaleString()}`
+                          }
+                          width={isMobileChart ? 48 : 80}
+                          tickMargin={isMobileChart ? -20 : 8}
                         />
                         <Tooltip
                           formatter={(value) => formatCurrency(Number(value))}
@@ -867,7 +1032,7 @@ export default function BtcBuyingStrategiesPage() {
                 </div>
                 <div className="rounded-2xl border border-[var(--border-subtle)] bg-white/60 p-4 dark:bg-white/5">
                   <p className="text-xs font-semibold uppercase tracking-[0.28em] text-neutral-500 dark:text-neutral-400">
-                    ROI to date
+                    Return to date (ROI)
                   </p>
                   <div className="mt-4 h-64">
                     <ResponsiveContainer width="100%" height="100%">
@@ -877,7 +1042,12 @@ export default function BtcBuyingStrategiesPage() {
                       >
                         <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
                         <XAxis dataKey="dateStr" tick={{ fontSize: 11 }} minTickGap={24} />
-                        <YAxis tick={{ fontSize: 11 }} tickFormatter={(value) => `${value}%`} />
+                        <YAxis
+                          tick={{ fontSize: 11 }}
+                          tickFormatter={(value) => `${Number(value).toFixed(isMobileChart ? 0 : 1)}%`}
+                          width={isMobileChart ? 40 : 60}
+                          tickMargin={isMobileChart ? -16 : 8}
+                        />
                         <Tooltip
                           formatter={(value) => `${Number(value).toFixed(2)}%`}
                           labelClassName="text-xs"
@@ -888,10 +1058,100 @@ export default function BtcBuyingStrategiesPage() {
                   </div>
                 </div>
               </div>
+              <div className="mt-6 rounded-2xl border border-[var(--border-subtle)] bg-white/60 p-4 dark:bg-white/5">
+                  <p className="text-xs font-semibold uppercase tracking-[0.28em] text-neutral-500 dark:text-neutral-400">
+                    Projected results
+                    <InfoTooltip label="Simple estimates based on steady growth and continued buying." />
+                  </p>
+                  <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
+                    What you’re looking at: these are hypothetical projections assuming Bitcoin grows at the
+                    listed yearly rates and you keep buying the same amount.
+                  </p>
+                {startPrice > 0 && schedulePerYear > 0 ? (
+                  <div className="mt-4 overflow-x-auto">
+                    <table className="min-w-full text-left text-sm">
+                      <thead className="text-xs uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
+                        <tr>
+                          <th className="py-2 pr-4">
+                            Yearly growth
+                            <InfoTooltip label="Fixed yearly Bitcoin price increase used for this scenario." />
+                          </th>
+                          {projectionYears.map((years) => (
+                            <th key={years} className="py-2 pr-4">
+                              {years}y
+                              <InfoTooltip
+                                label={`Projected portfolio value after ${years} year${
+                                  years === 1 ? "" : "s"
+                                } of continued buying.`}
+                              />
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[var(--border-subtle)]">
+                        {projectedResults.map((projection) => (
+                          <tr key={projection.rate} className="text-neutral-700 dark:text-neutral-200">
+                            <td className="py-2 pr-4 font-semibold">
+                              {(projection.rate * 100).toFixed(0)}%
+                            </td>
+                            {projection.results.map((result) => (
+                              <td key={result.years} className="py-2 pr-4">
+                                {formatCurrency(result.finalValue)}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="mt-4 text-sm text-neutral-500">
+                    No data available.
+                  </p>
+                )}
+                {projectedChartData.length ? (
+                  <div className="mt-6 h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={projectedChartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                        <XAxis
+                          dataKey="month"
+                          tick={{ fontSize: 11 }}
+                          tickFormatter={(value) => `${Math.round(Number(value) / 12)}y`}
+                        />
+                        <YAxis
+                          tick={{ fontSize: 11 }}
+                          tickFormatter={(value) =>
+                            isMobileChart
+                              ? formatCompactCurrency(Number(value))
+                              : `$${Number(value).toLocaleString()}`
+                          }
+                          width={isMobileChart ? 48 : 80}
+                          tickMargin={isMobileChart ? -20 : 8}
+                        />
+                        <Tooltip
+                          formatter={(value) => formatCurrency(Number(value))}
+                          labelFormatter={(value) => `Month ${value}`}
+                          labelClassName="text-xs"
+                        />
+                        {growthRates.map((rate) => (
+                          <Line
+                            key={rate}
+                            type="monotone"
+                            dataKey={`${Math.round(rate * 100)}%`}
+                            strokeWidth={2}
+                            dot={false}
+                          />
+                        ))}
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : null}
+              </div>
             </>
           ) : (
             <div className="mt-6 rounded-2xl border border-dashed border-[var(--border-subtle)] p-6 text-sm text-neutral-500">
-              Run the backtest to see summary metrics and performance charts.
+              Run the test to see summary numbers and charts.
             </div>
           )}
         </section>
@@ -899,7 +1159,7 @@ export default function BtcBuyingStrategiesPage() {
         <section className="space-y-4">
           <details className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-[var(--shadow-soft)]">
             <summary className="cursor-pointer text-lg font-semibold text-neutral-900 dark:text-white">
-              Show audit table
+              Show detailed table
             </summary>
             <div className="mt-4 overflow-x-auto">
               {backtest ? (
@@ -911,11 +1171,11 @@ export default function BtcBuyingStrategiesPage() {
                       <th className="py-2 pr-4">Deposit</th>
                       <th className="py-2 pr-4">Buy USD</th>
                       <th className="py-2 pr-4">Fee USD</th>
-                      <th className="py-2 pr-4">BTC</th>
+                      <th className="py-2 pr-4">Bitcoin</th>
                       <th className="py-2 pr-4">Cash USD</th>
                       <th className="py-2 pr-4">Value USD</th>
                       <th className="py-2 pr-4">Contributed to date</th>
-                      <th className="py-2 pr-4">ROI</th>
+                      <th className="py-2 pr-4">Return (ROI)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--border-subtle)]">
@@ -937,7 +1197,7 @@ export default function BtcBuyingStrategiesPage() {
                 </table>
               ) : (
                 <p className="text-sm text-neutral-500">
-                  Run the backtest to populate the audit table.
+                  Run the test to populate the table.
                 </p>
               )}
             </div>
@@ -949,12 +1209,12 @@ export default function BtcBuyingStrategiesPage() {
             </summary>
             <div className="mt-4 space-y-3 text-sm text-neutral-600 dark:text-neutral-300">
               <p>
-                Export your backtest to CSV for deeper analysis or sharing with your advisor.
+                Export your results to CSV for a closer look or to share.
               </p>
               <ol className="list-decimal space-y-2 pl-5">
-                <li>Run the backtest with your desired inputs.</li>
-                <li>Review the audit table for any data gaps.</li>
-                <li>Download the CSV file and save it to your local device.</li>
+                <li>Run the test with your desired inputs.</li>
+                <li>Review the detailed table for any gaps.</li>
+                <li>Download the CSV file and save it to your device.</li>
               </ol>
               <button
                 type="button"
@@ -965,88 +1225,24 @@ export default function BtcBuyingStrategiesPage() {
                 Download CSV
               </button>
               {!backtest ? (
-                <p className="text-xs text-neutral-500">Run the backtest to enable export.</p>
+                <p className="text-xs text-neutral-500">Run the test to enable export.</p>
               ) : null}
             </div>
           </details>
 
           <details className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-[var(--shadow-soft)]">
             <summary className="cursor-pointer text-lg font-semibold text-neutral-900 dark:text-white">
-              Exchange plan
+              How to do this on an exchange
             </summary>
             <div className="mt-4 space-y-6 text-sm text-neutral-600 dark:text-neutral-300">
-              <p>
-                This should be considered a planning document. Execution requires manual setup
-                using your exchange’s recurring buy feature.
-              </p>
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="flex flex-col gap-2 text-sm text-neutral-600 dark:text-neutral-300">
-                  Exchange name
-                  <input
-                    type="text"
-                    value={exchangeName}
-                    onChange={(event) => setExchangeName(event.target.value)}
-                    placeholder="e.g., Coinbase"
-                    className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm text-neutral-900 outline-none focus:border-brand dark:text-white"
-                  />
-                </label>
-                <label className="flex flex-col gap-2 text-sm text-neutral-600 dark:text-neutral-300">
-                  Start date
-                  <input
-                    type="date"
-                    value={exchangeStartDate}
-                    onChange={(event) => setExchangeStartDate(event.target.value)}
-                    className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm text-neutral-900 outline-none focus:border-brand dark:text-white"
-                  />
-                </label>
-                <label className="flex flex-col gap-2 text-sm text-neutral-600 dark:text-neutral-300">
-                  Frequency
-                  <select
-                    value={exchangeFrequency}
-                    onChange={(event) => setExchangeFrequency(event.target.value as Schedule)}
-                    className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm text-neutral-900 outline-none focus:border-brand dark:text-white"
-                  >
-                    <option value="daily">Daily</option>
-                    <option value="weekly">Weekly</option>
-                    <option value="biweekly">Biweekly</option>
-                    <option value="monthly">Monthly</option>
-                  </select>
-                </label>
-                <label className="flex flex-col gap-2 text-sm text-neutral-600 dark:text-neutral-300">
-                  Contribution amount (USD)
-                  <input
-                    type="number"
-                    min={0}
-                    step={1}
-                    value={exchangeAmount}
-                    onChange={handleNumberChange(setExchangeAmount)}
-                    className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm text-neutral-900 outline-none focus:border-brand dark:text-white"
-                  />
-                </label>
-                <label className="flex flex-col gap-2 text-sm text-neutral-600 dark:text-neutral-300 md:col-span-2">
-                  Optional note
-                  <textarea
-                    value={exchangeNote}
-                    onChange={(event) => setExchangeNote(event.target.value)}
-                    placeholder="Add any reminders or settings you need."
-                    rows={3}
-                    className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm text-neutral-900 outline-none focus:border-brand dark:text-white"
-                  />
-                </label>
-              </div>
-              <div className="rounded-2xl border border-[var(--border-subtle)] bg-white/60 p-4 text-sm text-neutral-700 dark:bg-white/5 dark:text-neutral-200">
-                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-neutral-500 dark:text-neutral-400">
-                  Instruction set
-                </p>
-                <p className="mt-3 text-base font-semibold text-neutral-900 dark:text-white">
-                  Every {exchangeFrequency}, buy ${exchangeAmount.toLocaleString()} of BTC.
-                </p>
-                <div className="mt-3 space-y-1 text-xs text-neutral-500 dark:text-neutral-400">
-                  <p>{exchangeName ? `Exchange: ${exchangeName}` : "Exchange: choose your venue"}</p>
-                  <p>Start date: {exchangeStartDate}</p>
-                  {exchangeNote ? <p>Note: {exchangeNote}</p> : null}
-                </div>
-              </div>
+              <p>Set up a recurring buy on your exchange using the same amount and timing.</p>
+              <ul className="list-disc space-y-2 pl-5">
+                <li>Open your exchange’s recurring buy or auto-buy feature.</li>
+                <li>Choose Bitcoin as the asset to buy.</li>
+                <li>Set the buy amount to match your plan.</li>
+                <li>Pick the same schedule (daily, weekly, etc.).</li>
+                <li>Review and turn it on.</li>
+              </ul>
             </div>
           </details>
         </section>
