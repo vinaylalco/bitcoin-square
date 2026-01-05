@@ -91,6 +91,9 @@ const router = createBrowserRouter([
                 </p>
               </div>
             }
+            onError={(error, info) => {
+              console.error("ErrorBoundary /tools/btc-buying-strategies", error, info);
+            }}
           >
             <BtcBuyingStrategiesPage />
           </ErrorBoundary>
