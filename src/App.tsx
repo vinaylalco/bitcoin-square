@@ -168,6 +168,7 @@ export default function App() {
     emptyLabel?: string;
   }) => {
     const [menuOpen, setMenuOpen] = useState(false);
+    const safeItems = Array.isArray(items) ? items : [];
     const wrapperRef = useRef<HTMLDivElement | null>(null);
     const buttonRef = useRef<HTMLButtonElement | null>(null);
     const closeTimeoutRef = useRef<number | null>(null);
@@ -302,7 +303,7 @@ export default function App() {
           )}
         >
           <div className={cn(variant === "desktop" ? "flex flex-col gap-2" : "")}>
-            {items.length === 0 ? (
+            {safeItems.length === 0 ? (
               <span
                 className={cn(
                   "block rounded-xl px-4 py-2 text-[var(--fg-muted)]",
@@ -312,7 +313,7 @@ export default function App() {
                 {loadingLabel ?? emptyLabel ?? t("app.loading")}
               </span>
             ) : (
-              items.map((child) => (
+              safeItems.map((child) => (
                 <NavLink
                   key={child.to}
                   to={child.to}
