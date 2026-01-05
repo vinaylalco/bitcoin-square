@@ -171,7 +171,8 @@ function DetailTable({
   rows: BacktestPoint[];
   emptyMessage: string;
 }) {
-  return rows.length ? (
+  const safeRows = Array.isArray(rows) ? rows : [];
+  return safeRows.length ? (
     <table className="min-w-full text-left text-sm">
       <thead className="text-xs uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
         <tr>
@@ -188,7 +189,7 @@ function DetailTable({
         </tr>
       </thead>
       <tbody className="divide-y divide-[var(--border-subtle)]">
-        {rows.map((row) => (
+        {safeRows.map((row) => (
           <tr key={row.dateStr} className="text-neutral-700 dark:text-neutral-200">
             <td className="py-2 pr-4">{row.dateStr}</td>
             <td className="py-2 pr-4">{formatCurrency(row.price)}</td>

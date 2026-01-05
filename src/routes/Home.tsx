@@ -55,6 +55,8 @@ export default function HomePage() {
   const [isLessonPlansLoading, setIsLessonPlansLoading] = useState(true);
   const [lessonPlansError, setLessonPlansError] = useState(false);
 
+  const normalizeArray = <T,>(value: unknown): T[] => (Array.isArray(value) ? value : []);
+
   useEffect(() => {
     let isMounted = true;
 
@@ -104,27 +106,68 @@ export default function HomePage() {
   }, []);
 
   const howItWorks = useMemo(
-    () => t("home.sections.howItWorks.items", { returnObjects: true }) as HowItWorksItem[],
+    () =>
+      normalizeArray<Partial<HowItWorksItem>>(
+        t("home.sections.howItWorks.items", { returnObjects: true }),
+      ).map((item) => ({
+        step: item.step ?? "",
+        title: item.title ?? "",
+        description: item.description ?? "",
+      })),
     [t],
   );
 
   const offerings = useMemo(
-    () => t("home.sections.offerings.items", { returnObjects: true }) as Offering[],
+    () =>
+      normalizeArray<Partial<Offering>>(
+        t("home.sections.offerings.items", { returnObjects: true }),
+      ).map((item) => ({
+        icon: item.icon ?? "",
+        title: item.title ?? "",
+        description: item.description ?? "",
+      })),
     [t],
   );
 
   const roadmap = useMemo(
-    () => t("home.sections.roadmap.items", { returnObjects: true }) as RoadmapEntry[],
+    () =>
+      normalizeArray<Partial<RoadmapEntry>>(
+        t("home.sections.roadmap.items", { returnObjects: true }),
+      ).map((item) => ({
+        phase: item.phase ?? "",
+        focus: item.focus ?? "",
+        description: item.description ?? "",
+      })),
     [t],
   );
 
   const pricing = useMemo(
-    () => t("home.sections.pricing.items", { returnObjects: true }) as PricingPlan[],
+    () =>
+      normalizeArray<Partial<PricingPlan>>(
+        t("home.sections.pricing.items", { returnObjects: true }),
+      ).map((plan, index) => ({
+        name: plan.name ?? `Plan ${index + 1}`,
+        price: plan.price ?? "",
+        highlight: plan.highlight ?? "",
+        suffix: plan.suffix ?? "",
+        features: Array.isArray(plan.features) ? plan.features : [],
+        cta: plan.cta ?? "",
+        accent: Boolean(plan.accent),
+      })),
     [t],
   );
 
   const ctaCards = useMemo(
-    () => t("home.sections.cta.cards", { returnObjects: true }) as CtaCard[],
+    () =>
+      normalizeArray<Partial<CtaCard>>(t("home.sections.cta.cards", { returnObjects: true })).map(
+        (card, index) => ({
+          title: card.title ?? `CTA ${index + 1}`,
+          description: card.description ?? "",
+          cta: card.cta ?? "",
+          subscribeMessage: card.subscribeMessage ?? "",
+          href: card.href ?? undefined,
+        }),
+      ),
     [t],
   );
 
