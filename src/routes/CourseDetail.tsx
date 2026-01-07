@@ -797,25 +797,10 @@ export default function CourseDetail() {
       ? normalizeContentCreatorCourse(contentCreatorData)
       : null;
 
-  if ((lessonPlanLoading || contentCreatorLoading) && !unifiedCourse) {
-    return <CourseDetailSkeleton />;
-  }
-
-  if (lessonPlanError && !unifiedCourse) {
-    if (lessonPlanError.message === "Not Found") {
-      return <div className="mx-auto max-w-3xl px-4 py-16 text-center text-[var(--fg-muted)]">Course not found.</div>;
-    }
-    return <div className="mx-auto max-w-3xl px-4 py-16 text-center text-brand">Failed to load lesson plan.</div>;
-  }
-
-  if (!unifiedCourse || !canViewCourse(unifiedCourse, user ?? null)) {
-    return <div className="mx-auto max-w-3xl px-4 py-16 text-center text-[var(--fg-muted)]">Course not found.</div>;
-  }
-
   const effectiveLocale =
-    unifiedCourse.type === "lessonPlan" ? lessonPlan?.locale ?? locale : locale;
+    unifiedCourse?.type === "lessonPlan" ? lessonPlan?.locale ?? locale : locale;
   const rawModules =
-    unifiedCourse.type === "lessonPlan" && lessonPlan
+    unifiedCourse?.type === "lessonPlan" && lessonPlan
       ? Array.isArray(lessonPlan.modules)
         ? lessonPlan.modules
         : []
@@ -887,20 +872,35 @@ export default function CourseDetail() {
   }, [effectiveLocale, rawModules.length, sanitizedModules]);
 
   const contentCreatorModules =
-    unifiedCourse.type === "contentCreator"
+    unifiedCourse?.type === "contentCreator"
       ? buildContentCreatorModules(unifiedCourse as ContentCreatorCourse)
       : { modules: [], cards: [] as LessonCard[] };
 
   const modules =
-    unifiedCourse.type === "lessonPlan"
+    unifiedCourse?.type === "lessonPlan"
       ? lessonPlanModules
       : contentCreatorModules.modules;
   const cards: LessonCard[] =
-    unifiedCourse.type === "lessonPlan"
+    unifiedCourse?.type === "lessonPlan"
       ? lessonPlanModules.flatMap((module) =>
           (module.topics ?? []).flatMap((topic) => topic.cards as LessonCard[]),
         )
       : contentCreatorModules.cards;
+
+  if ((lessonPlanLoading || contentCreatorLoading) && !unifiedCourse) {
+    return <CourseDetailSkeleton />;
+  }
+
+  if (lessonPlanError && !unifiedCourse) {
+    if (lessonPlanError.message === "Not Found") {
+      return <div className="mx-auto max-w-3xl px-4 py-16 text-center text-[var(--fg-muted)]">Course not found.</div>;
+    }
+    return <div className="mx-auto max-w-3xl px-4 py-16 text-center text-brand">Failed to load lesson plan.</div>;
+  }
+
+  if (!unifiedCourse || !canViewCourse(unifiedCourse, user ?? null)) {
+    return <div className="mx-auto max-w-3xl px-4 py-16 text-center text-[var(--fg-muted)]">Course not found.</div>;
+  }
 
   const normalizedSlug = String(lessonPlanData?.slug ?? slug ?? "").toLowerCase();
   const enableCustomize = normalizedSlug === "full-btc-course";
