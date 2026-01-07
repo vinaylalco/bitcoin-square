@@ -634,7 +634,12 @@ function normalizeOutlineToObjectives(
     return [];
   }
   if (Array.isArray(outline)) {
-    return outline.map((item) => item.trim()).filter(Boolean);
+    return outline
+      .map((item) => (typeof item === "string" ? item.trim() : ""))
+      .filter(Boolean);
+  }
+  if (typeof outline !== "string") {
+    return [];
   }
   return outline
     .split(/\r?\n|•|- /)
@@ -683,9 +688,10 @@ function resolveContentHtml(value: unknown): string | null {
 
 function buildContentCreatorModules(course: ContentCreatorCourse) {
   const moduleId = course.id != null ? `cc-module-${course.id}` : "cc-module";
-  const moduleName = course.title?.trim() || "Course";
+  const courseTitle = isNonEmptyString(course.title) ? course.title.trim() : "";
+  const moduleName = courseTitle || "Course";
   const topicId = `${moduleId}-topic-1`;
-  const topicName = course.title?.trim() || "Lesson";
+  const topicName = courseTitle || "Lesson";
   const objectives = normalizeOutlineToObjectives(course.outline);
   const contentHtml =
     resolveContentHtml((course as UnknownRecord).content) ??
@@ -715,7 +721,7 @@ function buildContentCreatorModules(course: ContentCreatorCourse) {
   if (contentHtml || objectives.length > 0) {
     cards.push({
       id: `${topicId}-content`,
-      title: course.title?.trim() || "Lesson content",
+      title: courseTitle || "Lesson content",
       content: contentHtml ?? "",
       objectives: objectives.length > 0 ? objectives : undefined,
       topicId,
