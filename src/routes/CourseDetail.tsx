@@ -7,6 +7,7 @@ import fallbackEn from "../data/lessons.en.json";
 import fallbackEs from "../data/lessons.es.json";
 import { resolveLocale } from "../utils/locale";
 import { useLessonPlan } from "../hooks/useLessonPlan";
+import { useContentCreatorCourse } from "../hooks/useContentCreatorCourse";
 import type {
   Card,
   LessonCard,
@@ -14,12 +15,18 @@ import type {
   Module,
   Topic,
 } from "../types/lesson-plan";
+import type { ContentCreatorCourse, UnifiedCourse } from "../types/course";
 import { useAuth } from "../context/AuthContext";
 import { useCurrentUserMembership } from "../hooks/useCurrentUserMembership";
 import {
   extractGrandfatheredFlag,
   normalizeMembershipStatus,
 } from "../utils/membership";
+import {
+  canViewCourse,
+  normalizeContentCreatorCourse,
+  normalizeLessonPlanCourse,
+} from "../utils/courseNormalization";
 
 type UnknownRecord = Record<string, unknown>;
 type RichCard = Card & UnknownRecord;
@@ -620,11 +627,133 @@ function buildLessonCard({
   } as LessonCard;
 }
 
+function normalizeOutlineToObjectives(
+  outline: string | string[] | null | undefined,
+): string[] {
+  if (!outline) {
+    return [];
+  }
+  if (Array.isArray(outline)) {
+    return outline.map((item) => item.trim()).filter(Boolean);
+  }
+  return outline
+    .split(/\r?\n|•|- /)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function toParagraphHtml(text: string): string {
+  const paragraphs = text
+    .split(/\n{2,}/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => part.replace(/\n/g, "<br />"));
+  return paragraphs.map((part) => `<p>${part}</p>`).join("");
+}
+
+function resolveContentHtml(value: unknown): string | null {
+  if (!value) {
+    return null;
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    return trimmed.includes("<") ? trimmed : toParagraphHtml(trimmed);
+  }
+  if (Array.isArray(value)) {
+    const parts = value
+      .map((entry) => resolveContentHtml(entry))
+      .filter((entry): entry is string => Boolean(entry));
+    return parts.length ? parts.join("") : null;
+  }
+  if (typeof value === "object") {
+    const record = value as UnknownRecord;
+    return (
+      resolveContentHtml(record.html) ??
+      resolveContentHtml(record.content) ??
+      resolveContentHtml(record.body) ??
+      resolveContentHtml(record.text) ??
+      resolveContentHtml(record.description) ??
+      resolveContentHtml(record.sections) ??
+      resolveContentHtml(record.blocks)
+    );
+  }
+  return null;
+}
+
+function buildContentCreatorModules(course: ContentCreatorCourse) {
+  const moduleId = course.id != null ? `cc-module-${course.id}` : "cc-module";
+  const moduleName = course.title?.trim() || "Course";
+  const topicId = `${moduleId}-topic-1`;
+  const topicName = course.title?.trim() || "Lesson";
+  const objectives = normalizeOutlineToObjectives(course.outline);
+  const contentHtml =
+    resolveContentHtml((course as UnknownRecord).content) ??
+    resolveContentHtml((course as UnknownRecord).lessonContent) ??
+    resolveContentHtml((course as UnknownRecord).body) ??
+    resolveContentHtml(course.description);
+
+  const cards: LessonCard[] = [];
+  const videoUrl = course.youtubeEmbed ?? course.youtube ?? course.videoUrl ?? null;
+
+  if (videoUrl) {
+    cards.push({
+      id: `${topicId}-video`,
+      title: "Video overview",
+      youtube: videoUrl,
+      videoUrl,
+      isVideoLesson: true,
+      topicId,
+      topicName,
+      moduleId,
+      moduleName,
+      isLastInTopic: false,
+      isLastInModule: false,
+    } as LessonCard);
+  }
+
+  if (contentHtml || objectives.length > 0) {
+    cards.push({
+      id: `${topicId}-content`,
+      title: course.title?.trim() || "Lesson content",
+      content: contentHtml ?? "",
+      objectives: objectives.length > 0 ? objectives : undefined,
+      topicId,
+      topicName,
+      moduleId,
+      moduleName,
+      isLastInTopic: true,
+      isLastInModule: true,
+    } as LessonCard);
+  }
+
+  if (cards.length === 1) {
+    cards[0].isLastInTopic = true;
+    cards[0].isLastInModule = true;
+  }
+
+  const modules: Module[] = [
+    {
+      id: moduleId,
+      name: moduleName,
+      topics: [
+        {
+          id: topicId,
+          name: topicName,
+          cards,
+        },
+      ],
+    },
+  ];
+
+  return { modules, cards };
+}
+
 export default function CourseDetail() {
   const { t, i18n } = useTranslation();
   const { slug = "" } = useParams();
   const locale = resolveLocale(i18n.language);
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const {
     me: membershipInfo,
     loading: membershipLoading,
@@ -643,23 +772,48 @@ export default function CourseDetail() {
   const restrictLessons =
     !token ||
     (membershipResolved && (!hasLessonAccess || Boolean(membershipError)));
-  const { data, isLoading, error } = useLessonPlan(locale, slug);
+  const {
+    data: lessonPlanData,
+    isLoading: lessonPlanLoading,
+    error: lessonPlanError,
+  } = useLessonPlan(locale, slug);
+  const {
+    data: contentCreatorData,
+    isLoading: contentCreatorLoading,
+  } = useContentCreatorCourse(slug);
   const fallbackPlan = useMemo(() => buildFallbackPlan(locale), [locale]);
-  const lessonPlan = data ?? fallbackPlan;
+  const lessonPlan =
+    lessonPlanData ??
+    (contentCreatorData || contentCreatorLoading ? null : fallbackPlan);
+  const unifiedCourse: UnifiedCourse | null = lessonPlan
+    ? normalizeLessonPlanCourse(lessonPlan)
+    : contentCreatorData
+      ? normalizeContentCreatorCourse(contentCreatorData)
+      : null;
 
-  if (isLoading && !lessonPlan) {
+  if ((lessonPlanLoading || contentCreatorLoading) && !unifiedCourse) {
     return <CourseDetailSkeleton />;
   }
 
-  if (error && !lessonPlan) {
-    if (error.message === "Not Found") {
+  if (lessonPlanError && !unifiedCourse) {
+    if (lessonPlanError.message === "Not Found") {
       return <div className="mx-auto max-w-3xl px-4 py-16 text-center text-[var(--fg-muted)]">Course not found.</div>;
     }
     return <div className="mx-auto max-w-3xl px-4 py-16 text-center text-brand">Failed to load lesson plan.</div>;
   }
 
-  const effectiveLocale = lessonPlan?.locale ?? locale;
-  const rawModules = Array.isArray(lessonPlan?.modules) ? lessonPlan.modules : [];
+  if (!unifiedCourse || !canViewCourse(unifiedCourse, user ?? null)) {
+    return <div className="mx-auto max-w-3xl px-4 py-16 text-center text-[var(--fg-muted)]">Course not found.</div>;
+  }
+
+  const effectiveLocale =
+    unifiedCourse.type === "lessonPlan" ? lessonPlan?.locale ?? locale : locale;
+  const rawModules =
+    unifiedCourse.type === "lessonPlan" && lessonPlan
+      ? Array.isArray(lessonPlan.modules)
+        ? lessonPlan.modules
+        : []
+      : [];
   const sanitizedModules = useMemo(
     () =>
       rawModules
@@ -668,7 +822,7 @@ export default function CourseDetail() {
     [rawModules],
   );
 
-  const modules = useMemo(() => {
+  const lessonPlanModules = useMemo(() => {
     return sanitizedModules.map((module, moduleIndex) => {
       const moduleTopics = Array.isArray(module.topics) ? module.topics : [];
       const topicCount = moduleTopics.length;
@@ -726,20 +880,28 @@ export default function CourseDetail() {
     });
   }, [effectiveLocale, rawModules.length, sanitizedModules]);
 
-  const cards: LessonCard[] = useMemo(
-    () =>
-      modules.flatMap((module) =>
-        (module.topics ?? []).flatMap((topic) => topic.cards as LessonCard[]),
-      ),
-    [modules],
-  );
+  const contentCreatorModules =
+    unifiedCourse.type === "contentCreator"
+      ? buildContentCreatorModules(unifiedCourse as ContentCreatorCourse)
+      : { modules: [], cards: [] as LessonCard[] };
 
-  const normalizedSlug = String(data?.slug ?? slug ?? "").toLowerCase();
+  const modules =
+    unifiedCourse.type === "lessonPlan"
+      ? lessonPlanModules
+      : contentCreatorModules.modules;
+  const cards: LessonCard[] =
+    unifiedCourse.type === "lessonPlan"
+      ? lessonPlanModules.flatMap((module) =>
+          (module.topics ?? []).flatMap((topic) => topic.cards as LessonCard[]),
+        )
+      : contentCreatorModules.cards;
+
+  const normalizedSlug = String(lessonPlanData?.slug ?? slug ?? "").toLowerCase();
   const enableCustomize = normalizedSlug === "full-btc-course";
 
   return (
     <div className="w-full">
-      {data && data.locale !== locale && (
+      {lessonPlanData && lessonPlanData.locale !== locale && (
         <div className="mx-auto max-w-6xl px-4 pt-12 sm:px-10">
           <p className="max-w-xl text-xs font-medium uppercase tracking-[0.32em] text-[var(--fg-muted)]">
             {t("courses.localeFallback", {
@@ -754,8 +916,8 @@ export default function CourseDetail() {
           <Slider
             cards={cards}
             modules={modules}
-            courseTitle={data?.title || "Education"}
-            lessonSlug={data?.slug || slug}
+            courseTitle={unifiedCourse.title || "Education"}
+            lessonSlug={lessonPlanData?.slug || slug}
             enableCustomize={enableCustomize}
             isLessonAccessRestricted={restrictLessons}
           />
