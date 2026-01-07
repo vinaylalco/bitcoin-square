@@ -70,6 +70,10 @@ function toSlug(title?: string): string {
   );
 }
 
+function coerceString(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
 function extractMediaUrl(value: unknown): string | undefined {
   if (!value) return undefined;
   if (typeof value === "string") return value;
@@ -152,9 +156,9 @@ function resolvePublished(record: AnyRecord): boolean | undefined {
 
 export function mapContentCreatorEntry(entry: unknown): ContentCreatorCourse {
   const unwrapped = unwrapEntry(entry);
-  const title = (unwrapped.title as string | undefined) ?? (unwrapped.name as string | undefined);
+  const title = coerceString(unwrapped.title) ?? coerceString(unwrapped.name);
   const slug =
-    (unwrapped.slug as string | undefined) ||
+    coerceString(unwrapped.slug) ||
     toSlug(title) ||
     (unwrapped.id != null ? String(unwrapped.id) : "");
   const coverUrl = extractMediaUrl(
@@ -164,11 +168,11 @@ export function mapContentCreatorEntry(entry: unknown): ContentCreatorCourse {
     parseNumber(unwrapped.price ?? unwrapped.Price ?? unwrapped.price_usd) ??
     parseNumber((unwrapped.course as AnyRecord | undefined)?.price);
   const stripePriceId =
-    (unwrapped.stripePriceId as string | undefined) ||
-    (unwrapped.stripe_price_id as string | undefined);
+    coerceString(unwrapped.stripePriceId) ||
+    coerceString(unwrapped.stripe_price_id);
   const stripeProductId =
-    (unwrapped.stripeProductId as string | undefined) ||
-    (unwrapped.stripe_product_id as string | undefined);
+    coerceString(unwrapped.stripeProductId) ||
+    coerceString(unwrapped.stripe_product_id);
   const isPaid =
     coerceBoolean(unwrapped.isPaid ?? unwrapped.is_paid) ??
     coerceBoolean((unwrapped.course as AnyRecord | undefined)?.isPaid) ??
@@ -181,10 +185,10 @@ export function mapContentCreatorEntry(entry: unknown): ContentCreatorCourse {
 
   return {
     id: typeof unwrapped.id === "number" ? unwrapped.id : undefined,
-    documentId: unwrapped.documentId as string | undefined,
+    documentId: coerceString(unwrapped.documentId),
     title,
     slug,
-    description: unwrapped.description as string | undefined,
+    description: coerceString(unwrapped.description),
     coverImage: resolveMedia(coverUrl),
     modules,
     price,
@@ -194,14 +198,14 @@ export function mapContentCreatorEntry(entry: unknown): ContentCreatorCourse {
     type: "contentCreator",
     published: resolvePublished(unwrapped),
     authorId: resolveAuthorId(unwrapped),
-    youtube: (unwrapped.youtube as string | undefined) ?? null,
+    youtube: coerceString(unwrapped.youtube) ?? null,
     youtubeId:
-      (unwrapped.youtubeId as string | undefined) ??
-      (unwrapped.youtube_id as string | undefined) ??
+      coerceString(unwrapped.youtubeId) ??
+      coerceString(unwrapped.youtube_id) ??
       null,
     videoUrl:
-      (unwrapped.videoUrl as string | undefined) ??
-      (unwrapped.video_url as string | undefined) ??
+      coerceString(unwrapped.videoUrl) ??
+      coerceString(unwrapped.video_url) ??
       null,
     outline:
       (unwrapped.outline as string | string[] | undefined) ??
