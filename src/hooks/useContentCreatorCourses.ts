@@ -226,15 +226,38 @@ export function useContentCreatorCourses() {
       const params = new URLSearchParams();
       params.append("populate[0]", "coverImage");
       params.append("populate[1]", "author");
-      params.append("filters[$or][0][publishedAt][$notNull]", "true");
+      let orIndex = 0;
+      const addOrClause = (entries: Array<[string, string]>) => {
+        for (const [path, value] of entries) {
+          params.append(`filters[$or][${orIndex}]${path}`, value);
+        }
+        orIndex += 1;
+      };
+
+      addOrClause([["[publishedAt][$notNull]", "true"]]);
+      addOrClause([["[published][$eq]", "true"]]);
+
       if (user) {
         if (isAdmin) {
-          params.append("filters[$or][1][publishedAt][$null]", "true");
+          addOrClause([["[publishedAt][$null]", "true"]]);
+          addOrClause([["[published][$eq]", "false"]]);
         } else {
-          params.append("filters[$or][1][publishedAt][$null]", "true");
-          params.append("filters[$or][1][author][id][$eq]", String(user.id));
-          params.append("filters[$or][2][publishedAt][$null]", "true");
-          params.append("filters[$or][2][createdBy][id][$eq]", String(user.id));
+          addOrClause([
+            ["[publishedAt][$null]", "true"],
+            ["[author][id][$eq]", String(user.id)],
+          ]);
+          addOrClause([
+            ["[publishedAt][$null]", "true"],
+            ["[createdBy][id][$eq]", String(user.id)],
+          ]);
+          addOrClause([
+            ["[published][$eq]", "false"],
+            ["[author][id][$eq]", String(user.id)],
+          ]);
+          addOrClause([
+            ["[published][$eq]", "false"],
+            ["[createdBy][id][$eq]", String(user.id)],
+          ]);
         }
       }
       const path = `/api/content-creator-courses?${params.toString()}`;
