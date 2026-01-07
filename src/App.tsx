@@ -245,43 +245,61 @@ export default function App() {
           buttonRef.current?.focus();
         }}
       >
-        <button
-          type="button"
-          aria-expanded={menuOpen}
-          aria-controls={menuId}
-          ref={buttonRef}
-          onClick={(event) => {
-            if (isHoverable && event.detail !== 0) return;
-            setMenuOpen((prev) => !prev);
-          }}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" || event.key === " ") {
-              event.preventDefault();
-              setMenuOpen((prev) => !prev);
-            }
-            if (event.key === "Escape") {
-              setMenuOpen(false);
-            }
-          }}
+        <div
           className={cn(
-            variant === "desktop" &&
-              cn(
-                "inline-flex items-center gap-2 py-2 uppercase transition",
-                "text-[var(--fg-muted)] hover:text-brand",
-                isActive && "text-brand",
-              ),
-            variant === "mobile" && "flex w-full items-center justify-between px-4 py-3 text-left",
+            variant === "desktop" && "inline-flex items-center gap-2 py-2 uppercase transition",
+            variant === "mobile" && "flex w-full items-center justify-between px-4 py-3",
           )}
         >
-          <span className="inline-flex items-center gap-3">
+          <NavLink
+            to={to}
+            className={({ isActive: navActive }) =>
+              cn(
+                "inline-flex items-center gap-3 transition",
+                variant === "desktop" && "text-[var(--fg-muted)] hover:text-brand",
+                variant === "mobile" &&
+                  "flex-1 text-left text-[var(--fg-muted)] hover:text-brand dark:text-white dark:hover:text-brand",
+                (navActive || isActive) && "text-brand",
+              )
+            }
+            onClick={() => {
+              setMenuOpen(false);
+              onNavigate();
+            }}
+          >
             {variant === "mobile" ? icon : null}
             {label}
-          </span>
-          <ChevronDown
-            className={cn("h-3 w-3 transition-transform", menuOpen && "rotate-180")}
-            aria-hidden
-          />
-        </button>
+          </NavLink>
+          <button
+            type="button"
+            aria-expanded={menuOpen}
+            aria-controls={menuId}
+            ref={buttonRef}
+            onClick={(event) => {
+              if (isHoverable && event.detail !== 0) return;
+              setMenuOpen((prev) => !prev);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                setMenuOpen((prev) => !prev);
+              }
+              if (event.key === "Escape") {
+                setMenuOpen(false);
+              }
+            }}
+            className={cn(
+              "inline-flex items-center justify-center rounded-full border border-transparent text-[var(--fg-muted)] transition hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand",
+              variant === "desktop" && "h-6 w-6",
+              variant === "mobile" && "h-8 w-8",
+            )}
+          >
+            <ChevronDown
+              className={cn("h-3 w-3 transition-transform", menuOpen && "rotate-180")}
+              aria-hidden
+            />
+          </button>
+        </div>
         <div
           id={menuId}
           role="menu"
