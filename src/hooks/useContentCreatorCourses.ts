@@ -1,8 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { strapiFetch } from "../api/strapi-client";
+import { useAuth } from "../context/AuthContext";
 import { resolveMedia } from "../lib/strapi";
 import type { LessonPlan } from "../types/lesson-plan";
 import type { ContentCreatorCourse } from "../types/course";
+import type { User } from "../context/AuthContext";
 
 type AnyRecord = Record<string, unknown>;
 
@@ -215,12 +217,26 @@ export function mapContentCreatorEntry(entry: unknown): ContentCreatorCourse {
 }
 
 export function useContentCreatorCourses() {
+  const { user } = useAuth();
+  const isAdmin = isAdminUser(user);
+
   return useQuery<ContentCreatorCourse[], Error>({
-    queryKey: ["content-creator-courses"],
+    queryKey: ["content-creator-courses", user?.id ?? null, isAdmin],
     queryFn: async () => {
       const params = new URLSearchParams();
       params.append("populate[0]", "coverImage");
       params.append("populate[1]", "author");
+      params.append("filters[$or][0][publishedAt][$notNull]", "true");
+      if (user) {
+        if (isAdmin) {
+          params.append("filters[$or][1][publishedAt][$null]", "true");
+        } else {
+          params.append("filters[$or][1][publishedAt][$null]", "true");
+          params.append("filters[$or][1][author][id][$eq]", String(user.id));
+          params.append("filters[$or][2][publishedAt][$null]", "true");
+          params.append("filters[$or][2][createdBy][id][$eq]", String(user.id));
+        }
+      }
       const path = `/api/content-creator-courses?${params.toString()}`;
       const json = await strapiFetch<StrapiCollectionResponse<AnyRecord>>(path);
       const entries = Array.isArray(json?.data) ? json.data : [];
@@ -228,4 +244,19 @@ export function useContentCreatorCourses() {
     },
     placeholderData: (prev) => prev,
   });
+}
+
+function isAdminUser(user: User | null): boolean {
+  if (!user) return false;
+  if (user.isAdmin) return true;
+  const rawRoles = (user as { roles?: unknown }).roles;
+  if (Array.isArray(rawRoles)) {
+    return rawRoles.some((role) =>
+      typeof role === "string" ? role.trim().toLowerCase().includes("admin") : false,
+    );
+  }
+  if (typeof rawRoles === "string") {
+    return rawRoles.trim().toLowerCase().includes("admin");
+  }
+  return false;
 }
