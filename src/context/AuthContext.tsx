@@ -49,6 +49,7 @@ export interface User {
   lastStudyDate: string | null;
   preferences?: UserPreferences;
   isAdmin: boolean;
+  contentCreator?: boolean;
 }
 
 type NostrKeyPayload = {
