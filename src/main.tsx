@@ -24,6 +24,7 @@ import ProductDetail from "./routes/ProductDetail";
 import ForgotPassword from "./routes/ForgotPassword";
 import ResetPassword from "./routes/ResetPassword";
 import Dashboard from "./routes/Dashboard";
+import CreatorStudio from "./routes/CreatorStudio";
 import { AuthProvider } from "./context/AuthContext";
 import NewsletterSubscribe from "./pages/NewsletterSubscribe";
 import CheckoutSuccess from "./routes/CheckoutSuccess";
@@ -68,6 +69,7 @@ const router = createBrowserRouter([
       { path: "shop", element: <Shop /> },
       { path: "shop/:id", element: <ProductDetail /> },
       { path: "dashboard", element: <Dashboard /> },
+      { path: "creator/courses/new", element: <CreatorStudio /> },
       { path: "forgot-password", element: <ForgotPassword /> },
       { path: "reset-password", element: <ResetPassword /> },
       { path: "newsletter", element: <NewsletterSubscribe /> },
