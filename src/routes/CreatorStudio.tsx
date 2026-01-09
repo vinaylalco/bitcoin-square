@@ -21,6 +21,9 @@ type CourseRecord = {
   id?: number | string;
   documentId?: string;
   title?: string;
+  publishedAt?: string | null;
+  published_at?: string | null;
+  published?: boolean;
 };
 
 type LessonDraft = {
@@ -53,7 +56,10 @@ export default function CreatorStudio() {
   const [creatorProfile, setCreatorProfile] = useState<CreatorMe | null>(null);
 
   const [courseDraft, setCourseDraft] = useState({ ...EMPTY_COURSE });
-  const [courseStatus, setCourseStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+  const [courseStatus, setCourseStatus] = useState<
+    'idle' | 'saving' | 'publishing' | 'success' | 'error'
+  >('idle');
+  const [courseNotice, setCourseNotice] = useState<string | null>(null);
   const [courseError, setCourseError] = useState<string | null>(null);
   const [courseRecord, setCourseRecord] = useState<CourseRecord | null>(null);
 
@@ -108,14 +114,47 @@ export default function CreatorStudio() {
       if (courseStatus !== 'idle') {
         setCourseStatus('idle');
       }
+      if (courseNotice) {
+        setCourseNotice(null);
+      }
       if (courseError) {
         setCourseError(null);
       }
     },
-    [courseError, courseStatus],
+    [courseError, courseNotice, courseStatus],
   );
 
-  const handleCourseSubmit = useCallback(
+  const resolveCoursePublished = useCallback((record: CourseRecord | null): boolean | null => {
+    if (!record) return null;
+    if (typeof record.published === 'boolean') {
+      return record.published;
+    }
+    const publishedAt = record.publishedAt ?? record.published_at;
+    if (typeof publishedAt === 'string') {
+      return publishedAt.trim().length > 0;
+    }
+    if (publishedAt != null) {
+      return Boolean(publishedAt);
+    }
+    return false;
+  }, []);
+
+  const coursePublished = useMemo(() => resolveCoursePublished(courseRecord), [courseRecord, resolveCoursePublished]);
+
+  const buildCoursePayload = useCallback(
+    () => ({
+      title: courseDraft.title.trim(),
+      description: normalizeText(courseDraft.description),
+      level: normalizeText(courseDraft.level),
+      language: normalizeText(courseDraft.language),
+      outline: normalizeText(courseDraft.outline),
+      youtube: normalizeText(courseDraft.youtube),
+      videoUrl: normalizeText(courseDraft.videoUrl),
+    }),
+    [courseDraft],
+  );
+
+  const handleCourseSaveDraft = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
       if (!token) {
@@ -132,29 +171,27 @@ export default function CreatorStudio() {
 
       setCourseStatus('saving');
       setCourseError(null);
+      setCourseNotice(null);
 
       try {
-        const response = await strapiFetch<{ data?: CourseRecord }>('/api/courses', {
-          method: 'POST',
+        const courseIdentifier = courseRecord?.documentId ?? courseRecord?.id;
+        const path = courseIdentifier
+          ? `/api/courses/${courseIdentifier}?status=draft`
+          : '/api/courses?status=draft';
+        const response = await strapiFetch<{ data?: CourseRecord }>(path, {
+          method: courseIdentifier ? 'PUT' : 'POST',
           headers: {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            data: {
-              title: courseDraft.title.trim(),
-              description: normalizeText(courseDraft.description),
-              level: normalizeText(courseDraft.level),
-              language: normalizeText(courseDraft.language),
-              outline: normalizeText(courseDraft.outline),
-              youtube: normalizeText(courseDraft.youtube),
-              videoUrl: normalizeText(courseDraft.videoUrl),
-            },
+            data: buildCoursePayload(),
           }),
         });
 
         const record = response?.data ?? response;
         setCourseRecord(record ?? null);
         setCourseStatus('success');
+        setCourseNotice(courseIdentifier ? 'Draft updated.' : 'Draft saved.');
       } catch (error) {
         const message =
           error instanceof StrapiRequestError
@@ -166,8 +203,52 @@ export default function CreatorStudio() {
         setCourseError(message);
       }
     },
-    [courseDraft, token],
+    [buildCoursePayload, courseDraft.title, courseRecord, token],
   );
+
+  const handleCoursePublish = useCallback(async () => {
+    if (!token) {
+      setCourseStatus('error');
+      setCourseError('Please log in to publish a course.');
+      return;
+    }
+
+    const courseIdentifier = courseRecord?.documentId ?? courseRecord?.id;
+    if (!courseIdentifier) {
+      setCourseStatus('error');
+      setCourseError('Save a draft before publishing.');
+      return;
+    }
+
+    setCourseStatus('publishing');
+    setCourseError(null);
+    setCourseNotice(null);
+
+    try {
+      const response = await strapiFetch<{ data?: CourseRecord }>(
+        `/api/courses/${courseIdentifier}/publish`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+      const record = response?.data ?? response;
+      setCourseRecord(record ?? courseRecord);
+      setCourseStatus('success');
+      setCourseNotice('Course published.');
+    } catch (error) {
+      const message =
+        error instanceof StrapiRequestError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : 'Unable to publish course.';
+      setCourseStatus('error');
+      setCourseError(message);
+    }
+  }, [courseRecord, token]);
 
   const handleLessonChange = useCallback(
     (id: string, field: keyof LessonDraft, value: string) => {
@@ -317,14 +398,27 @@ export default function CreatorStudio() {
 
         <section className="rounded-3xl border border-neutral-200 bg-white p-8 shadow-sm transition-colors dark:border-neutral-800 dark:bg-neutral-900">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-xl font-semibold">Step 1: Course details</h2>
-            {courseStatus === 'success' && (
+            <div className="flex flex-wrap items-center gap-3">
+              <h2 className="text-xl font-semibold">Step 1: Course details</h2>
+              {courseRecord && (
+                <span
+                  className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] ${
+                    coursePublished
+                      ? 'bg-emerald-500/10 text-emerald-500'
+                      : 'bg-amber-500/10 text-amber-500'
+                  }`}
+                >
+                  {coursePublished ? 'Published' : 'Draft'}
+                </span>
+              )}
+            </div>
+            {courseStatus === 'success' && courseNotice && (
               <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-500">
-                Course created
+                {courseNotice}
               </span>
             )}
           </div>
-          <form onSubmit={handleCourseSubmit} className="mt-6 space-y-4">
+          <form onSubmit={handleCourseSaveDraft} className="mt-6 space-y-4">
             <div>
               <label htmlFor="course-title" className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500">
                 Title
@@ -430,13 +524,23 @@ export default function CreatorStudio() {
                 {courseRecord.documentId ? ` · Document ID: ${courseRecord.documentId}` : ''}
               </p>
             )}
-            <button
-              type="submit"
-              disabled={courseStatus === 'saving'}
-              className="inline-flex items-center justify-center rounded-full bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-white transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:bg-brand/40"
-            >
-              {courseStatus === 'saving' ? 'Creating…' : 'Create course'}
-            </button>
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="submit"
+                disabled={courseStatus === 'saving' || courseStatus === 'publishing'}
+                className="inline-flex items-center justify-center rounded-full bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-white transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:bg-brand/40"
+              >
+                {courseStatus === 'saving' ? 'Saving…' : 'Save draft'}
+              </button>
+              <button
+                type="button"
+                onClick={handleCoursePublish}
+                disabled={!courseRecord || courseStatus === 'saving' || courseStatus === 'publishing'}
+                className="inline-flex items-center justify-center rounded-full border border-emerald-500 px-5 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-emerald-500 transition hover:bg-emerald-500/10 disabled:cursor-not-allowed disabled:border-emerald-500/40 disabled:text-emerald-500/40"
+              >
+                {courseStatus === 'publishing' ? 'Publishing…' : 'Publish'}
+              </button>
+            </div>
           </form>
         </section>
 
