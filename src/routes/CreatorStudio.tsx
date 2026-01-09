@@ -10,6 +10,8 @@ const EMPTY_COURSE = {
 
 type CreatorMe = {
   contentCreator?: boolean;
+  id?: number | string;
+  documentId?: string;
 };
 
 type CourseRecord = {
@@ -24,9 +26,6 @@ type MyCourseRecord = {
   title?: string;
   updatedAt?: string | null;
   updated_at?: string | null;
-  publishedAt?: string | null;
-  published_at?: string | null;
-  published?: boolean;
   author?: { id?: number | string; data?: { id?: number | string } | null } | null;
   authorId?: number | string;
 };
@@ -35,7 +34,6 @@ type MyCourseItem = {
   id: number | string;
   title: string;
   updatedAt?: string | null;
-  published?: boolean;
 };
 
 type CourseDetailRecord = MyCourseRecord & {
@@ -167,20 +165,6 @@ function lessonTextToDisplay(lessonText: LessonTextValue): string {
     .flatMap((block) => block.children?.map((child) => child.text) ?? [])
     .join(' ')
     .trim();
-}
-
-function resolvePublished(record: MyCourseRecord): boolean | undefined {
-  if (typeof record.published === 'boolean') {
-    return record.published;
-  }
-  const publishedAt = record.publishedAt ?? record.published_at;
-  if (typeof publishedAt === 'string') {
-    return publishedAt.trim().length > 0;
-  }
-  if (publishedAt != null) {
-    return Boolean(publishedAt);
-  }
-  return undefined;
 }
 
 function resolveAuthorId(record: MyCourseRecord): number | string | null {
@@ -404,7 +388,7 @@ export default function CreatorStudio() {
   }, [courseIdParam, token, user?.id]);
 
   useEffect(() => {
-    if (!token || !user?.id) {
+    if (!token || !creatorProfile?.id) {
       setMyCourses([]);
       setMyCoursesStatus('idle');
       setMyCoursesError(null);
@@ -418,7 +402,8 @@ export default function CreatorStudio() {
     const fetchCourses = async (status: 'draft' | 'published') => {
       const params = new URLSearchParams();
       params.set('status', status);
-      params.append('filters[author][id][$eq]', String(user.id));
+      params.append('filters[author][id][$eq]', String(creatorProfile.id));
+      params.append('sort', 'updatedAt:desc');
       const response = await strapiFetch<{ data?: MyCourseRecord[] }>(
         `/api/content-creator-courses?${params.toString()}`,
         {
@@ -439,16 +424,15 @@ export default function CreatorStudio() {
           const attributes = (record as { attributes?: MyCourseRecord }).attributes ?? record;
           const recordId = attributes.id ?? record.id ?? attributes.documentId ?? record.documentId;
           if (recordId == null) return;
-          const authorId = resolveAuthorId(attributes);
-          if (authorId == null || String(authorId) !== String(user.id)) {
+          const title = attributes.title?.trim() || 'Untitled course';
+          const key = attributes.documentId ?? record.documentId ?? recordId;
+          if (merged.has(key)) {
             return;
           }
-          const title = attributes.title?.trim() || 'Untitled course';
-          merged.set(recordId, {
+          merged.set(key, {
             id: recordId,
             title,
             updatedAt: attributes.updatedAt ?? attributes.updated_at ?? null,
-            published: resolvePublished(attributes),
           });
         });
         setMyCourses(Array.from(merged.values()));
@@ -464,7 +448,7 @@ export default function CreatorStudio() {
     return () => {
       active = false;
     };
-  }, [token, user?.id]);
+  }, [creatorProfile?.id, token]);
 
   const handleCourseChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -529,7 +513,7 @@ export default function CreatorStudio() {
         description: string;
         lessons: Array<{ lessonTitle: string; lessonText: RichTextBlock[]; youtubeEmbedCode?: string }>;
         coverImage: number;
-        author?: number;
+        author?: number | string;
       } = {
         title: courseDraft.title.trim(),
         slug: courseDraft.slug.trim(),
@@ -538,8 +522,9 @@ export default function CreatorStudio() {
         coverImage: coverImageId as number,
       };
 
-      if (includeAuthor && user?.id) {
-        payload.author = user.id;
+      const authorIdentifier = creatorProfile?.documentId ?? creatorProfile?.id ?? user?.id;
+      if (includeAuthor && authorIdentifier != null) {
+        payload.author = authorIdentifier;
       }
 
       if (!hasLoggedLessonPayload.current) {
@@ -549,7 +534,7 @@ export default function CreatorStudio() {
 
       return payload;
     },
-    [courseDraft, coverImageId, validLessonDrafts.validLessons, user?.id],
+    [courseDraft, coverImageId, creatorProfile?.documentId, creatorProfile?.id, user?.id, validLessonDrafts.validLessons],
   );
 
   const handleCourseSaveDraft = useCallback(
@@ -640,7 +625,7 @@ export default function CreatorStudio() {
 
         let response: { data?: CourseRecord };
         try {
-          response = await attemptRequest(false);
+          response = await attemptRequest(!courseIdentifier);
         } catch (error) {
           if (error instanceof StrapiRequestError && error.status === 400 && user?.id) {
             response = await attemptRequest(true);
@@ -649,7 +634,25 @@ export default function CreatorStudio() {
           }
         }
 
-        const record = response?.data ?? response;
+        let record = response?.data ?? response;
+        if (!courseIdentifier) {
+          const createdId = record?.id;
+          if (createdId != null) {
+            try {
+              const populated = await strapiFetch<{ data?: CourseRecord }>(
+                `/api/content-creator-courses/${createdId}?populate=author`,
+                {
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                  },
+                },
+              );
+              record = populated?.data ?? populated ?? record;
+            } catch {
+              // ignore follow-up fetch failures
+            }
+          }
+        }
         setCourseRecord(record ?? null);
         setCourseStatus('success');
         setCourseNotice(courseIdentifier ? 'Draft updated.' : 'Draft saved.');
@@ -1081,7 +1084,7 @@ export default function CreatorStudio() {
               <h2 className="text-xl font-semibold">My Courses</h2>
             </div>
             <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
-              Review your existing drafts and published courses.
+              Review your existing courses.
             </p>
             <div className="mt-6 space-y-4">
               {myCoursesStatus === 'loading' && <p className="text-sm text-neutral-500">Loading courses…</p>}
@@ -1095,8 +1098,6 @@ export default function CreatorStudio() {
                 <ul className="space-y-3">
                   {myCourses.map((course) => {
                     const updatedAt = formatUpdatedAt(course.updatedAt);
-                    const status =
-                      typeof course.published === 'boolean' ? (course.published ? 'Published' : 'Draft') : null;
                     return (
                       <li
                         key={course.id}
@@ -1106,11 +1107,6 @@ export default function CreatorStudio() {
                           <span className="font-semibold text-neutral-900 dark:text-neutral-100">{course.title}</span>
                           <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-500">
                             {updatedAt && <span>Last updated: {updatedAt}</span>}
-                            {status && (
-                              <span className="rounded-full bg-neutral-200 px-2 py-0.5 font-semibold uppercase tracking-[0.2em] text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">
-                                {status}
-                              </span>
-                            )}
                           </div>
                         </div>
                         <Link
