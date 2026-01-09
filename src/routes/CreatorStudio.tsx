@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getStrapiBaseUrl, strapiFetch, StrapiRequestError } from '../api/strapi-client';
 import { useAuth } from '../context/AuthContext';
@@ -25,7 +25,7 @@ type LessonDraft = {
   id: string;
   lessonTitle: string;
   youtubeEmbedCode: string;
-  lessonText: string;
+  lessonText: LessonTextValue;
 };
 
 const EMPTY_LESSON = (): LessonDraft => ({
@@ -34,6 +34,18 @@ const EMPTY_LESSON = (): LessonDraft => ({
   youtubeEmbedCode: '',
   lessonText: '',
 });
+
+type RichTextChild = {
+  type: 'text';
+  text: string;
+};
+
+type RichTextBlock = {
+  type: 'paragraph';
+  children: RichTextChild[];
+};
+
+type LessonTextValue = string | RichTextBlock[];
 
 function normalizeText(value: string): string | null {
   const trimmed = value.trim();
@@ -50,7 +62,7 @@ function toSlug(value: string): string {
 }
 
 function isLessonBlank(lesson: LessonDraft): boolean {
-  return !lesson.lessonTitle.trim() && !lesson.lessonText.trim() && !lesson.youtubeEmbedCode.trim();
+  return !lesson.lessonTitle.trim() && !hasLessonTextContent(lesson.lessonText) && !lesson.youtubeEmbedCode.trim();
 }
 
 function validateYouTubeEmbedCode(value: string): string | null {
@@ -90,6 +102,44 @@ function validateYouTubeEmbedCode(value: string): string | null {
   return null;
 }
 
+function hasLessonTextContent(lessonText: LessonTextValue): boolean {
+  if (Array.isArray(lessonText)) {
+    return lessonText.some((block) => block.children?.some((child) => child.text.trim().length > 0));
+  }
+  return lessonText.trim().length > 0;
+}
+
+function lessonTextToBlocks(lessonText: LessonTextValue): RichTextBlock[] | null {
+  if (Array.isArray(lessonText)) {
+    return hasLessonTextContent(lessonText) ? lessonText : null;
+  }
+  const trimmed = lessonText.trim();
+  if (!trimmed) {
+    return null;
+  }
+  return [
+    {
+      type: 'paragraph',
+      children: [
+        {
+          type: 'text',
+          text: trimmed,
+        },
+      ],
+    },
+  ];
+}
+
+function lessonTextToDisplay(lessonText: LessonTextValue): string {
+  if (!Array.isArray(lessonText)) {
+    return lessonText;
+  }
+  return lessonText
+    .flatMap((block) => block.children?.map((child) => child.text) ?? [])
+    .join(' ')
+    .trim();
+}
+
 export default function CreatorStudio() {
   const { token, user } = useAuth();
   const [creatorStatus, setCreatorStatus] = useState<'idle' | 'loading' | 'error' | 'success'>('idle');
@@ -113,6 +163,7 @@ export default function CreatorStudio() {
   const [coverImageStatus, setCoverImageStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
   const [coverImageError, setCoverImageError] = useState<string | null>(null);
   const [coverImageName, setCoverImageName] = useState<string | null>(null);
+  const hasLoggedLessonPayload = useRef(false);
 
   useEffect(() => {
     if (!token) {
@@ -198,14 +249,15 @@ export default function CreatorStudio() {
   const coursePublished = useMemo(() => resolveCoursePublished(courseRecord), [courseRecord, resolveCoursePublished]);
 
   const validLessonDrafts = useMemo(() => {
-    const validLessons: Array<{ lessonTitle: string; lessonText: string; youtubeEmbedCode?: string }> = [];
+    const validLessons: Array<{ lessonTitle: string; lessonText: RichTextBlock[]; youtubeEmbedCode?: string }> = [];
     let hasInvalidLesson = false;
 
     lessonDrafts.forEach((lesson) => {
       if (isLessonBlank(lesson)) {
         return;
       }
-      if (!lesson.lessonTitle.trim() || !lesson.lessonText.trim()) {
+      const lessonTextBlocks = lessonTextToBlocks(lesson.lessonText);
+      if (!lesson.lessonTitle.trim() || !lessonTextBlocks) {
         hasInvalidLesson = true;
         return;
       }
@@ -217,7 +269,7 @@ export default function CreatorStudio() {
       const youtubeEmbedCode = normalizeText(lesson.youtubeEmbedCode);
       validLessons.push({
         lessonTitle: lesson.lessonTitle.trim(),
-        lessonText: lesson.lessonText.trim(),
+        lessonText: lessonTextBlocks,
         ...(youtubeEmbedCode ? { youtubeEmbedCode } : {}),
       });
     });
@@ -233,7 +285,7 @@ export default function CreatorStudio() {
         title: string;
         slug: string;
         description: string;
-        lessons: Array<{ lessonTitle: string; lessonText: string; youtubeEmbedCode?: string }>;
+        lessons: Array<{ lessonTitle: string; lessonText: RichTextBlock[]; youtubeEmbedCode?: string }>;
         coverImage: number;
         author?: number;
       } = {
@@ -246,6 +298,11 @@ export default function CreatorStudio() {
 
       if (includeAuthor && user?.id) {
         payload.author = user.id;
+      }
+
+      if (!hasLoggedLessonPayload.current) {
+        console.debug('Course lessonText payload sample:', payload.lessons[0]?.lessonText);
+        hasLoggedLessonPayload.current = true;
       }
 
       return payload;
@@ -795,7 +852,7 @@ export default function CreatorStudio() {
                       Lesson text
                     </label>
                     <textarea
-                      value={lesson.lessonText}
+                      value={lessonTextToDisplay(lesson.lessonText)}
                       onChange={(event) => handleLessonChange(lesson.id, 'lessonText', event.target.value)}
                       className="mt-2 w-full rounded-2xl border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 shadow-sm focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
                       rows={4}
