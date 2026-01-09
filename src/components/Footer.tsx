@@ -13,6 +13,7 @@ export default function Footer() {
   const { user } = useAuth();
 
   const isAdmin = Boolean(user?.isAdmin);
+  const isAuthenticated = Boolean(user);
 
   const isCommunityRoute = /^\/community(?:\/|$)/i.test(location.pathname);
   const locale = resolveLocale(i18n.language);
@@ -97,6 +98,11 @@ export default function Footer() {
           <NavLink to="/shop" className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }>
             {t("nav.shop")}
           </NavLink>
+          {!isAuthenticated ? (
+            <NavLink to="/membership" className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }>
+              {t("nav.membership")}
+            </NavLink>
+          ) : null}
           <NavLink to="/settings" className={({ isActive }) => (isActive ? "text-brand" : "hover:text-brand") }>
             {t("nav.settings")}
           </NavLink>
