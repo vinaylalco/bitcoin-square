@@ -2,15 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { strapiFetch, StrapiRequestError } from '../api/strapi-client';
 import { useAuth } from '../context/AuthContext';
+import InfoModal from '../components/InfoModal';
 
 const EMPTY_COURSE = {
   title: '',
   description: '',
   level: '',
-  language: '',
   outline: '',
-  youtube: '',
-  videoUrl: '',
 };
 
 type CreatorMe = {
@@ -31,7 +29,6 @@ type LessonDraft = {
   title: string;
   order: string;
   content: string;
-  duration: string;
   media: string;
 };
 
@@ -40,13 +37,54 @@ const EMPTY_LESSON = (): LessonDraft => ({
   title: '',
   order: '',
   content: '',
-  duration: '',
   media: '',
 });
 
 function normalizeText(value: string): string | null {
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function validateYouTubeEmbedUrl(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const lowered = trimmed.toLowerCase();
+  const forbiddenSnippets = [
+    '<',
+    '>',
+    '<iframe',
+    '</iframe',
+    '<script',
+    '</script',
+    'src=',
+    'javascript:',
+    'data:',
+  ];
+  if (forbiddenSnippets.some((snippet) => lowered.includes(snippet))) {
+    return 'Please enter a valid URL (not embed code).';
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return 'Please enter a valid URL (not embed code).';
+  }
+
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return 'Please enter a valid URL (not embed code).';
+  }
+
+  const host = parsed.hostname.toLowerCase();
+  const allowedHosts = new Set(['youtube.com', 'www.youtube.com', 'youtu.be']);
+  if (!allowedHosts.has(host) || !parsed.pathname.includes('/embed/')) {
+    return 'Use a YouTube embed URL (youtube.com/embed/...).';
+  }
+
+  return null;
 }
 
 export default function CreatorStudio() {
@@ -66,6 +104,9 @@ export default function CreatorStudio() {
   const [lessonDrafts, setLessonDrafts] = useState<LessonDraft[]>([EMPTY_LESSON()]);
   const [lessonStatus, setLessonStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const [lessonError, setLessonError] = useState<string | null>(null);
+  const [lessonMediaErrors, setLessonMediaErrors] = useState<Record<string, string | null>>({});
+  const [savedLessonsCount, setSavedLessonsCount] = useState(0);
+  const [mediaInfoOpen, setMediaInfoOpen] = useState(false);
 
   useEffect(() => {
     if (!token) {
@@ -107,6 +148,10 @@ export default function CreatorStudio() {
     return courseRecord.id ?? courseRecord.documentId ?? null;
   }, [courseRecord]);
 
+  useEffect(() => {
+    setSavedLessonsCount(0);
+  }, [courseIdForLessons]);
+
   const handleCourseChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
       const { name, value } = event.target;
@@ -146,10 +191,7 @@ export default function CreatorStudio() {
       title: courseDraft.title.trim(),
       description: normalizeText(courseDraft.description),
       level: normalizeText(courseDraft.level),
-      language: normalizeText(courseDraft.language),
       outline: normalizeText(courseDraft.outline),
-      youtube: normalizeText(courseDraft.youtube),
-      videoUrl: normalizeText(courseDraft.videoUrl),
     }),
     [courseDraft],
   );
@@ -176,8 +218,8 @@ export default function CreatorStudio() {
       try {
         const courseIdentifier = courseRecord?.documentId ?? courseRecord?.id;
         const path = courseIdentifier
-          ? `/api/courses/${courseIdentifier}?status=draft`
-          : '/api/courses?status=draft';
+          ? `/api/content-creator-courses/${courseIdentifier}`
+          : '/api/content-creator-courses';
         const response = await strapiFetch<{ data?: CourseRecord }>(path, {
           method: courseIdentifier ? 'PUT' : 'POST',
           headers: {
@@ -226,7 +268,7 @@ export default function CreatorStudio() {
 
     try {
       const response = await strapiFetch<{ data?: CourseRecord }>(
-        `/api/courses/${courseIdentifier}/publish`,
+        `/api/content-creator-courses/${courseIdentifier}/publish`,
         {
           method: 'POST',
           headers: {
@@ -255,6 +297,9 @@ export default function CreatorStudio() {
       setLessonDrafts((prev) =>
         prev.map((lesson) => (lesson.id === id ? { ...lesson, [field]: value } : lesson)),
       );
+      if (field === 'media') {
+        setLessonMediaErrors((prev) => ({ ...prev, [id]: null }));
+      }
       if (lessonStatus !== 'idle') {
         setLessonStatus('idle');
       }
@@ -271,6 +316,14 @@ export default function CreatorStudio() {
 
   const removeLessonDraft = useCallback((id: string) => {
     setLessonDrafts((prev) => prev.filter((lesson) => lesson.id !== id));
+    setLessonMediaErrors((prev) => {
+      if (!(id in prev)) {
+        return prev;
+      }
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
   }, []);
 
   const handleLessonSubmit = useCallback(
@@ -301,6 +354,20 @@ export default function CreatorStudio() {
         return;
       }
 
+      const nextMediaErrors: Record<string, string> = {};
+      lessonDrafts.forEach((lesson) => {
+        const error = validateYouTubeEmbedUrl(lesson.media);
+        if (error) {
+          nextMediaErrors[lesson.id] = error;
+        }
+      });
+      if (Object.keys(nextMediaErrors).length > 0) {
+        setLessonMediaErrors((prev) => ({ ...prev, ...nextMediaErrors }));
+        setLessonStatus('error');
+        setLessonError('Please fix the lesson media URLs.');
+        return;
+      }
+
       setLessonStatus('saving');
       setLessonError(null);
 
@@ -308,7 +375,6 @@ export default function CreatorStudio() {
         await Promise.all(
           lessonDrafts.map((lesson) => {
             const order = Number(lesson.order);
-            const duration = lesson.duration ? Number(lesson.duration) : null;
             return strapiFetch('/api/lessons', {
               method: 'POST',
               headers: {
@@ -319,7 +385,6 @@ export default function CreatorStudio() {
                   title: lesson.title.trim(),
                   order,
                   content: lesson.content.trim(),
-                  duration: Number.isFinite(duration) ? duration : null,
                   media: normalizeText(lesson.media),
                   course: courseIdForLessons,
                 },
@@ -328,6 +393,7 @@ export default function CreatorStudio() {
           }),
         );
 
+        setSavedLessonsCount((prev) => prev + lessonDrafts.length);
         setLessonStatus('success');
       } catch (error) {
         const message =
@@ -461,19 +527,6 @@ export default function CreatorStudio() {
                   placeholder="Beginner, Intermediate, Advanced"
                 />
               </div>
-              <div>
-                <label htmlFor="course-language" className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500">
-                  Language
-                </label>
-                <input
-                  id="course-language"
-                  name="language"
-                  value={courseDraft.language}
-                  onChange={handleCourseChange}
-                  className="mt-2 w-full rounded-2xl border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 shadow-sm focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
-                  placeholder="EN, ES, etc."
-                />
-              </div>
             </div>
             <div>
               <label htmlFor="course-outline" className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500">
@@ -488,34 +541,6 @@ export default function CreatorStudio() {
                 rows={3}
                 placeholder="Optional outline"
               />
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label htmlFor="course-youtube" className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500">
-                  YouTube
-                </label>
-                <input
-                  id="course-youtube"
-                  name="youtube"
-                  value={courseDraft.youtube}
-                  onChange={handleCourseChange}
-                  className="mt-2 w-full rounded-2xl border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 shadow-sm focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
-                  placeholder="YouTube ID or URL"
-                />
-              </div>
-              <div>
-                <label htmlFor="course-video-url" className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500">
-                  Video URL
-                </label>
-                <input
-                  id="course-video-url"
-                  name="videoUrl"
-                  value={courseDraft.videoUrl}
-                  onChange={handleCourseChange}
-                  className="mt-2 w-full rounded-2xl border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 shadow-sm focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
-                  placeholder="https://"
-                />
-              </div>
             </div>
             {courseError && <p className="text-sm text-red-500">{courseError}</p>}
             {courseRecord && (
@@ -532,14 +557,16 @@ export default function CreatorStudio() {
               >
                 {courseStatus === 'saving' ? 'Saving…' : 'Save draft'}
               </button>
-              <button
-                type="button"
-                onClick={handleCoursePublish}
-                disabled={!courseRecord || courseStatus === 'saving' || courseStatus === 'publishing'}
-                className="inline-flex items-center justify-center rounded-full border border-emerald-500 px-5 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-emerald-500 transition hover:bg-emerald-500/10 disabled:cursor-not-allowed disabled:border-emerald-500/40 disabled:text-emerald-500/40"
-              >
-                {courseStatus === 'publishing' ? 'Publishing…' : 'Publish'}
-              </button>
+              {courseIdForLessons && savedLessonsCount > 0 ? (
+                <button
+                  type="button"
+                  onClick={handleCoursePublish}
+                  disabled={courseStatus === 'saving' || courseStatus === 'publishing'}
+                  className="inline-flex items-center justify-center rounded-full border border-emerald-500 px-5 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-emerald-500 transition hover:bg-emerald-500/10 disabled:cursor-not-allowed disabled:border-emerald-500/40 disabled:text-emerald-500/40"
+                >
+                  {courseStatus === 'publishing' ? 'Publishing…' : 'Publish'}
+                </button>
+              ) : null}
             </div>
           </form>
         </section>
@@ -617,31 +644,36 @@ export default function CreatorStudio() {
                     required
                   />
                 </div>
-                <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                  <div>
+                <div className="mt-4">
+                  <div className="flex flex-wrap items-center gap-2">
                     <label className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500">
-                      Duration (minutes)
+                      Embedded link for a YouTube video
                     </label>
-                    <input
-                      type="number"
-                      value={lesson.duration}
-                      onChange={(event) => handleLessonChange(lesson.id, 'duration', event.target.value)}
-                      className="mt-2 w-full rounded-2xl border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 shadow-sm focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
-                      placeholder="5"
-                      min={0}
-                    />
+                    <button
+                      type="button"
+                      onClick={() => setMediaInfoOpen(true)}
+                      className="text-xs font-semibold uppercase tracking-[0.2em] text-brand hover:underline"
+                      aria-label="What is an embedded YouTube link?"
+                    >
+                      What’s this?
+                    </button>
                   </div>
-                  <div>
-                    <label className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500">
-                      Media
-                    </label>
-                    <input
-                      value={lesson.media}
-                      onChange={(event) => handleLessonChange(lesson.id, 'media', event.target.value)}
-                      className="mt-2 w-full rounded-2xl border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 shadow-sm focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
-                      placeholder="Media URL"
-                    />
-                  </div>
+                  <p className="mt-1 text-xs text-neutral-500">
+                    Embed URL only (youtube.com/embed/...).
+                  </p>
+                  <input
+                    value={lesson.media}
+                    onChange={(event) => handleLessonChange(lesson.id, 'media', event.target.value)}
+                    onBlur={(event) => {
+                      const error = validateYouTubeEmbedUrl(event.target.value);
+                      setLessonMediaErrors((prev) => ({ ...prev, [lesson.id]: error }));
+                    }}
+                    className="mt-2 w-full rounded-2xl border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 shadow-sm focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+                    placeholder="https://www.youtube.com/embed/..."
+                  />
+                  {lessonMediaErrors[lesson.id] && (
+                    <p className="mt-2 text-sm text-red-500">{lessonMediaErrors[lesson.id]}</p>
+                  )}
                 </div>
               </div>
             ))}
@@ -665,6 +697,20 @@ export default function CreatorStudio() {
           </form>
         </section>
       </div>
+      <InfoModal
+        title="Embedded YouTube link"
+        open={mediaInfoOpen}
+        onClose={() => setMediaInfoOpen(false)}
+        body={
+          <p>
+            The URL needed here is the embed URL link from the YouTube embed code — not the full
+            script itself, just the link. Do not enter the browser URL for the video — it won’t
+            work. To get this link you need to first upload the video to YouTube (ideally as a
+            private/unlisted video) so the public cannot view it, but users from this website can.
+            This keeps its exclusivity to this platform.
+          </p>
+        }
+      />
     </div>
   );
 }

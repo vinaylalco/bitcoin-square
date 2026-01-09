@@ -39,6 +39,7 @@ export default function App() {
   const { user, logout } = useAuth();
 
   const isAdmin = Boolean(user?.isAdmin);
+  const isAuthenticated = Boolean(user);
 
   const isCommunityRoute = loc.pathname.startsWith("/community");
   const hideFooterOnPage = /^\/education\/[\w-]+/.test(loc.pathname) || isCommunityRoute;
@@ -108,9 +109,15 @@ export default function App() {
       dropdown: toolsChildren,
     },
     { label: t("nav.shop"), to: "/shop" },
-    { label: t("nav.membership"), to: "/membership" },
+    !isAuthenticated ? { label: t("nav.membership"), to: "/membership" } : null,
     { label: t("nav.community"), to: "/community" },
-  ];
+  ].filter(Boolean) as Array<{
+    id?: string;
+    label: string;
+    to: string;
+    dropdown?: Array<{ label: string; to: string }>;
+    highlight?: boolean;
+  }>;
 
   const educationRootMatch = useMatch("/education");
   const educationDetailMatch = useMatch("/education/:slug");
@@ -627,18 +634,20 @@ export default function App() {
               >
                 <ShoppingBag className="h-5 w-5" /> {t("nav.shop")}
               </NavLink>
-              <NavLink
-                to="/membership"
-                onClick={() => setOpen(false)}
-                className={({ isActive }) =>
-                  cn(
-                    "inline-flex items-center gap-3 rounded-2xl border border-transparent px-4 py-3 transition hover:border-brand/40 hover:bg-brand/5",
-                    isActive && "border-brand bg-brand/10 text-brand",
-                  )
-                }
-              >
-                <Sparkles className="h-5 w-5" /> {t("nav.membership")}
-              </NavLink>
+              {!isAuthenticated ? (
+                <NavLink
+                  to="/membership"
+                  onClick={() => setOpen(false)}
+                  className={({ isActive }) =>
+                    cn(
+                      "inline-flex items-center gap-3 rounded-2xl border border-transparent px-4 py-3 transition hover:border-brand/40 hover:bg-brand/5",
+                      isActive && "border-brand bg-brand/10 text-brand",
+                    )
+                  }
+                >
+                  <Sparkles className="h-5 w-5" /> {t("nav.membership")}
+                </NavLink>
+              ) : null}
               <NavLink
                 to="/newsletter"
                 onClick={() => setOpen(false)}

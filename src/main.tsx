@@ -45,6 +45,27 @@ import RequireMembership from "./components/RequireMembership";
 import { MinerQuotation2Page } from "./pages/MinerQuotation2Page";
 import ErrorBoundary from "./components/ErrorBoundary";
 
+const membershipRouteElement = (
+  <ErrorBoundary
+    fallback={
+      <div className="mx-auto max-w-3xl px-6 py-16 text-center text-[var(--fg-default)]">
+        <p className="text-sm font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">
+          Membership
+        </p>
+        <h1 className="mt-4 text-3xl font-bold">We hit a snag.</h1>
+        <p className="mt-3 text-sm text-[var(--fg-muted)]">
+          Please refresh the page or try again in a moment.
+        </p>
+      </div>
+    }
+    onError={(error, info) => {
+      console.error("ErrorBoundary /membership", error, info);
+    }}
+  >
+    <Membership />
+  </ErrorBoundary>
+);
+
 const router = createBrowserRouter([
   {
     path: "/",
@@ -74,8 +95,8 @@ const router = createBrowserRouter([
       { path: "reset-password", element: <ResetPassword /> },
       { path: "newsletter", element: <NewsletterSubscribe /> },
       { path: "subscribe", element: <NewsletterSubscribe /> },
-      { path: "membership", element: <Membership /> },
-      { path: "memberships", element: <Membership /> },
+      { path: "membership", element: membershipRouteElement },
+      { path: "memberships", element: membershipRouteElement },
       { path: "affiliate", element: <Affiliate /> },
       { path: "admin", element: <Admin /> },
       {

@@ -18,6 +18,9 @@ import { resolveStrapiAuthError } from "../utils/strapiErrors";
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 8;
 
+const normalizeInput = (value: string | null | undefined): string =>
+  typeof value === "string" ? value.trim() : "";
+
 const formatDiscountTxHash = (discountCode: string | undefined, email: string) => {
   const sanitizeSegment = (value: string): string =>
     value
@@ -45,24 +48,28 @@ export default function Membership() {
 
   const { mutateAsync: startCheckout } = useMembershipCheckout();
 
-  const [signupDiscountCode, setSignupDiscountCode] = useState(() => {
-    const code = searchParams.get("discount");
-    return code ? code.trim() : "";
-  });
+  const [signupDiscountCode, setSignupDiscountCode] = useState(() =>
+    normalizeInput(searchParams.get("discount")),
+  );
   const [signupReferrerId] = useState(() => {
-    const ref = searchParams.get("ref");
-    return ref ? ref.trim() : "";
+    return normalizeInput(searchParams.get("ref"));
   });
 
-  const viewParam = searchParams.get("view");
-  const [activeView, setActiveView] = useState<PortalView>(
-    viewParam === "signup" ? "signup" : "login",
-  );
+  const viewParam = normalizeInput(searchParams.get("view")).toLowerCase();
+  const normalizedView: PortalView = viewParam === "signup" ? "signup" : "login";
+  const [activeView, setActiveView] = useState<PortalView>(normalizedView);
 
   useEffect(() => {
-    const nextView = viewParam === "signup" ? "signup" : "login";
-    setActiveView((prev) => (prev === nextView ? prev : nextView));
-  }, [viewParam]);
+    setActiveView((prev) => (prev === normalizedView ? prev : normalizedView));
+  }, [normalizedView]);
+
+  useEffect(() => {
+    if (!viewParam) return;
+    if (viewParam === "login" || viewParam === "signup") return;
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("view");
+    setSearchParams(nextParams, { replace: true });
+  }, [searchParams, setSearchParams, viewParam]);
 
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
@@ -92,13 +99,18 @@ export default function Membership() {
     setSignupInfo(null);
   }, [activeView]);
 
-  const isLoginEmailValid = emailRegex.test(loginEmail.trim());
-  const isLoginPasswordValid = loginPassword.trim().length > 0;
+  const normalizedLoginEmail = normalizeInput(loginEmail);
+  const normalizedLoginPassword = normalizeInput(loginPassword);
+  const isLoginEmailValid = emailRegex.test(normalizedLoginEmail);
+  const isLoginPasswordValid = normalizedLoginPassword.length > 0;
   const showLoginEmailError = loginAttempted && !isLoginEmailValid;
   const showLoginPasswordError = loginAttempted && !isLoginPasswordValid;
 
-  const isSignupEmailValid = emailRegex.test(signupEmail.trim());
-  const isSignupPasswordValid = signupPassword.trim().length >= MIN_PASSWORD_LENGTH;
+  const normalizedSignupEmail = normalizeInput(signupEmail);
+  const normalizedSignupPassword = normalizeInput(signupPassword);
+  const isSignupEmailValid = emailRegex.test(normalizedSignupEmail);
+  const isSignupPasswordValid =
+    normalizedSignupPassword.length >= MIN_PASSWORD_LENGTH;
   const showSignupEmailError = signupAttempted && !isSignupEmailValid;
   const showSignupPasswordError = signupAttempted && !isSignupPasswordValid;
 
@@ -118,8 +130,8 @@ export default function Membership() {
     setLoginAttempted(true);
     setLoginError(null);
 
-    const trimmedEmail = loginEmail.trim();
-    const trimmedPassword = loginPassword.trim();
+    const trimmedEmail = normalizedLoginEmail;
+    const trimmedPassword = normalizedLoginPassword;
 
     if (!emailRegex.test(trimmedEmail)) {
       setLoginError(t("membership.errors.invalidEmail"));
@@ -167,14 +179,14 @@ export default function Membership() {
     setSignupError(null);
     setSignupInfo(null);
 
-    const trimmedEmail = signupEmail.trim();
+    const trimmedEmail = normalizedSignupEmail;
 
     if (!emailRegex.test(trimmedEmail)) {
       setSignupError(t("membership.errors.invalidEmail"));
       return;
     }
 
-    if (signupPassword.trim().length < MIN_PASSWORD_LENGTH) {
+    if (normalizedSignupPassword.length < MIN_PASSWORD_LENGTH) {
       setSignupError(
         t("membership.portal.errors.passwordLength", { count: MIN_PASSWORD_LENGTH }),
       );
@@ -182,10 +194,10 @@ export default function Membership() {
     }
 
     setSignupSubmitting(true);
-    const trimmedDiscountCode = signupDiscountCode.trim();
+    const trimmedDiscountCode = normalizeInput(signupDiscountCode);
     const resolvedDiscountCode =
       trimmedDiscountCode.length > 0 ? trimmedDiscountCode : undefined;
-    const trimmedReferrerId = signupReferrerId.trim();
+    const trimmedReferrerId = normalizeInput(signupReferrerId);
     const resolvedReferrerId =
       trimmedReferrerId.length > 0 ? trimmedReferrerId : undefined;
     let pendingStored = false;
