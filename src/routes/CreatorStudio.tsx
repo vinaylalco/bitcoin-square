@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { strapiFetch, StrapiRequestError } from '../api/strapi-client';
+import { getStrapiBaseUrl, strapiFetch, StrapiRequestError } from '../api/strapi-client';
 import { useAuth } from '../context/AuthContext';
 const EMPTY_COURSE = {
   title: '',
   slug: '',
   description: '',
-  coverImage: '',
 };
 
 type CreatorMe = {
@@ -24,16 +23,16 @@ type CourseRecord = {
 
 type LessonDraft = {
   id: string;
-  title: string;
-  order: string;
-  content: string;
+  lessonTitle: string;
+  youtubeEmbedCode: string;
+  lessonText: string;
 };
 
 const EMPTY_LESSON = (): LessonDraft => ({
   id: crypto.randomUUID?.() ?? `lesson-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-  title: '',
-  order: '',
-  content: '',
+  lessonTitle: '',
+  youtubeEmbedCode: '',
+  lessonText: '',
 });
 
 function normalizeText(value: string): string | null {
@@ -51,20 +50,48 @@ function toSlug(value: string): string {
 }
 
 function isLessonBlank(lesson: LessonDraft): boolean {
-  return !lesson.title.trim() && !lesson.content.trim() && !lesson.order.trim();
+  return !lesson.lessonTitle.trim() && !lesson.lessonText.trim() && !lesson.youtubeEmbedCode.trim();
 }
 
-function parseLessonOrder(order: string): number | null {
-  if (!order.trim()) return null;
-  const parsed = Number(order);
-  if (Number.isNaN(parsed) || !Number.isFinite(parsed)) {
+function validateYouTubeEmbedCode(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) {
     return null;
   }
-  return parsed;
+  const lower = trimmed.toLowerCase();
+  if (
+    trimmed.includes('<') ||
+    trimmed.includes('>') ||
+    lower.includes('<iframe') ||
+    lower.includes('<script') ||
+    lower.includes('src=') ||
+    lower.includes('javascript:') ||
+    lower.includes('data:')
+  ) {
+    return 'Please enter a valid URL (not embed code).';
+  }
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return 'Please enter a valid URL (not embed code).';
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return 'Please enter a valid URL (not embed code).';
+  }
+  const hostname = parsed.hostname.toLowerCase();
+  const allowedHosts = ['youtube.com', 'www.youtube.com', 'youtu.be'];
+  if (!allowedHosts.includes(hostname)) {
+    return 'Use a YouTube embed URL (youtube.com/embed/...).';
+  }
+  if (!parsed.pathname.startsWith('/embed/')) {
+    return 'Use a YouTube embed URL (youtube.com/embed/...).';
+  }
+  return null;
 }
 
 export default function CreatorStudio() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [creatorStatus, setCreatorStatus] = useState<'idle' | 'loading' | 'error' | 'success'>('idle');
   const [creatorError, setCreatorError] = useState<string | null>(null);
   const [creatorProfile, setCreatorProfile] = useState<CreatorMe | null>(null);
@@ -80,6 +107,12 @@ export default function CreatorStudio() {
 
   const [lessonDrafts, setLessonDrafts] = useState<LessonDraft[]>([EMPTY_LESSON()]);
   const [lessonError, setLessonError] = useState<string | null>(null);
+  const [lessonFieldErrors, setLessonFieldErrors] = useState<Record<string, { youtubeEmbedCode?: string }>>({});
+  const [youtubeInfoLessonId, setYoutubeInfoLessonId] = useState<string | null>(null);
+  const [coverImageId, setCoverImageId] = useState<number | null>(null);
+  const [coverImageStatus, setCoverImageStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
+  const [coverImageError, setCoverImageError] = useState<string | null>(null);
+  const [coverImageName, setCoverImageName] = useState<string | null>(null);
 
   useEffect(() => {
     if (!token) {
@@ -165,22 +198,27 @@ export default function CreatorStudio() {
   const coursePublished = useMemo(() => resolveCoursePublished(courseRecord), [courseRecord, resolveCoursePublished]);
 
   const validLessonDrafts = useMemo(() => {
-    const validLessons: Array<{ title: string; content: string; order: number }> = [];
+    const validLessons: Array<{ lessonTitle: string; lessonText: string; youtubeEmbedCode?: string }> = [];
     let hasInvalidLesson = false;
 
     lessonDrafts.forEach((lesson) => {
       if (isLessonBlank(lesson)) {
         return;
       }
-      const parsedOrder = parseLessonOrder(lesson.order);
-      if (!lesson.title.trim() || !lesson.content.trim() || parsedOrder === null) {
+      if (!lesson.lessonTitle.trim() || !lesson.lessonText.trim()) {
         hasInvalidLesson = true;
         return;
       }
+      const youtubeError = validateYouTubeEmbedCode(lesson.youtubeEmbedCode);
+      if (youtubeError) {
+        hasInvalidLesson = true;
+        return;
+      }
+      const youtubeEmbedCode = normalizeText(lesson.youtubeEmbedCode);
       validLessons.push({
-        title: lesson.title.trim(),
-        content: lesson.content.trim(),
-        order: parsedOrder,
+        lessonTitle: lesson.lessonTitle.trim(),
+        lessonText: lesson.lessonText.trim(),
+        ...(youtubeEmbedCode ? { youtubeEmbedCode } : {}),
       });
     });
 
@@ -190,31 +228,29 @@ export default function CreatorStudio() {
   const validLessonCount = validLessonDrafts.validLessons.length;
 
   const buildCoursePayload = useCallback(
-    () => {
+    (includeAuthor: boolean) => {
       const payload: {
         title: string;
         slug: string;
         description: string;
-        lessons: Array<{ title: string; content: string; order: number }>;
-        coverImage?: number;
+        lessons: Array<{ lessonTitle: string; lessonText: string; youtubeEmbedCode?: string }>;
+        coverImage: number;
+        author?: number;
       } = {
         title: courseDraft.title.trim(),
         slug: courseDraft.slug.trim(),
         description: courseDraft.description.trim(),
         lessons: validLessonDrafts.validLessons,
+        coverImage: coverImageId as number,
       };
 
-      const coverImageValue = normalizeText(courseDraft.coverImage ?? '');
-      if (coverImageValue) {
-        const parsedCoverImage = Number(coverImageValue);
-        if (!Number.isNaN(parsedCoverImage) && Number.isFinite(parsedCoverImage)) {
-          payload.coverImage = parsedCoverImage;
-        }
+      if (includeAuthor && user?.id) {
+        payload.author = user.id;
       }
 
       return payload;
     },
-    [courseDraft, validLessonDrafts.validLessons],
+    [courseDraft, coverImageId, validLessonDrafts.validLessons, user?.id],
   );
 
   const handleCourseSaveDraft = useCallback(
@@ -244,20 +280,34 @@ export default function CreatorStudio() {
         return;
       }
 
-      const coverImageValue = normalizeText(courseDraft.coverImage ?? '');
-      if (coverImageValue) {
-        const parsedCoverImage = Number(coverImageValue);
-        if (Number.isNaN(parsedCoverImage) || !Number.isFinite(parsedCoverImage)) {
-          setCourseStatus('error');
-          setCourseError('Cover image must be a numeric media ID.');
-          return;
-        }
+      if (coverImageStatus === 'uploading') {
+        setCourseStatus('error');
+        setCourseError('Please wait for the cover image upload to finish.');
+        return;
+      }
+
+      if (!coverImageId) {
+        setCourseStatus('error');
+        setCourseError(null);
+        setCoverImageError('Cover image is required.');
+        return;
       }
 
       if (validLessonDrafts.hasInvalidLesson) {
         setCourseStatus('error');
         setCourseError(null);
-        setLessonError('Each lesson needs a title, content, and numeric order.');
+        setLessonError('Each lesson needs a title and lesson text. Add a valid YouTube embed URL if provided.');
+        const nextErrors: Record<string, { youtubeEmbedCode?: string }> = {};
+        lessonDrafts.forEach((lesson) => {
+          if (isLessonBlank(lesson)) {
+            return;
+          }
+          const youtubeError = validateYouTubeEmbedCode(lesson.youtubeEmbedCode);
+          if (youtubeError) {
+            nextErrors[lesson.id] = { youtubeEmbedCode: youtubeError };
+          }
+        });
+        setLessonFieldErrors(nextErrors);
         return;
       }
 
@@ -278,15 +328,27 @@ export default function CreatorStudio() {
         const path = courseIdentifier
           ? `/api/content-creator-courses/${courseIdentifier}`
           : '/api/content-creator-courses';
-        const response = await strapiFetch<{ data?: CourseRecord }>(path, {
-          method: courseIdentifier ? 'PUT' : 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            data: buildCoursePayload(),
-          }),
-        });
+        const attemptRequest = async (includeAuthor: boolean) =>
+          strapiFetch<{ data?: CourseRecord }>(path, {
+            method: courseIdentifier ? 'PUT' : 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              data: buildCoursePayload(includeAuthor),
+            }),
+          });
+
+        let response: { data?: CourseRecord };
+        try {
+          response = await attemptRequest(false);
+        } catch (error) {
+          if (error instanceof StrapiRequestError && error.status === 400 && user?.id) {
+            response = await attemptRequest(true);
+          } else {
+            throw error;
+          }
+        }
 
         const record = response?.data ?? response;
         setCourseRecord(record ?? null);
@@ -303,7 +365,19 @@ export default function CreatorStudio() {
         setCourseError(message);
       }
     },
-    [buildCoursePayload, courseDraft.description, courseDraft.slug, courseDraft.title, courseRecord, token, validLessonDrafts],
+    [
+      buildCoursePayload,
+      coverImageId,
+      coverImageStatus,
+      courseDraft.description,
+      courseDraft.slug,
+      courseDraft.title,
+      courseRecord,
+      lessonDrafts,
+      token,
+      user?.id,
+      validLessonDrafts,
+    ],
   );
 
   const handleCoursePublish = useCallback(async () => {
@@ -350,6 +424,72 @@ export default function CreatorStudio() {
     }
   }, [courseRecord, token]);
 
+  const handleCoverImageChange = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) {
+        return;
+      }
+      if (!token) {
+        setCoverImageStatus('error');
+        setCoverImageError('Please log in to upload a cover image.');
+        return;
+      }
+
+      setCoverImageStatus('uploading');
+      setCoverImageError(null);
+      setCoverImageId(null);
+      setCoverImageName(file.name);
+
+      try {
+        const base = getStrapiBaseUrl();
+        if (!base) {
+          throw new Error('Strapi base URL is not configured.');
+        }
+        const formData = new FormData();
+        formData.append('files', file);
+        const response = await fetch(`${base}/api/upload`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
+        });
+        if (!response.ok) {
+          let message = `Upload failed with status ${response.status}`;
+          try {
+            const payload = await response.json();
+            const extractedMessage =
+              typeof payload === 'string'
+                ? payload
+                : (payload as { error?: { message?: string }; message?: string })?.error?.message ??
+                  (payload as { error?: { message?: string }; message?: string })?.message;
+            if (extractedMessage && typeof extractedMessage === 'string' && extractedMessage.trim()) {
+              message = extractedMessage.trim();
+            }
+          } catch {
+            // ignore payload parsing errors
+          }
+          throw new Error(message);
+        }
+        const payload = await response.json();
+        const uploaded = Array.isArray(payload) ? payload[0] : payload?.[0];
+        const uploadedId = uploaded?.id;
+        if (!uploadedId) {
+          throw new Error('Upload failed. Please try again.');
+        }
+        setCoverImageId(uploadedId);
+        setCoverImageStatus('success');
+        setCoverImageError(null);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Upload failed. Please try again.';
+        setCoverImageStatus('error');
+        setCoverImageError(message);
+      }
+    },
+    [token],
+  );
+
   const handleLessonChange = useCallback(
     (id: string, field: keyof LessonDraft, value: string) => {
       setLessonDrafts((prev) =>
@@ -357,6 +497,16 @@ export default function CreatorStudio() {
       );
       if (lessonError) {
         setLessonError(null);
+      }
+      if (field === 'youtubeEmbedCode') {
+        setLessonFieldErrors((prev) => {
+          if (!prev[id]?.youtubeEmbedCode) {
+            return prev;
+          }
+          const next = { ...prev };
+          next[id] = { ...next[id], youtubeEmbedCode: undefined };
+          return next;
+        });
       }
     },
     [lessonError],
@@ -369,6 +519,37 @@ export default function CreatorStudio() {
   const removeLessonDraft = useCallback((id: string) => {
     setLessonDrafts((prev) => prev.filter((lesson) => lesson.id !== id));
   }, []);
+
+  const handleYoutubeBlur = useCallback((id: string, value: string) => {
+    const error = validateYouTubeEmbedCode(value);
+    setLessonFieldErrors((prev) => {
+      const next = { ...prev };
+      if (error) {
+        next[id] = { ...next[id], youtubeEmbedCode: error };
+      } else if (next[id]) {
+        next[id] = { ...next[id], youtubeEmbedCode: undefined };
+      }
+      return next;
+    });
+  }, []);
+
+  const requiredCourseFieldsValid = useMemo(() => {
+    return Boolean(courseDraft.title.trim() && courseDraft.slug.trim() && courseDraft.description.trim());
+  }, [courseDraft.description, courseDraft.slug, courseDraft.title]);
+
+  const coverImageReady = coverImageStatus === 'success' && coverImageId !== null;
+
+  const canSaveDraft = useMemo(() => {
+    return (
+      requiredCourseFieldsValid &&
+      coverImageReady &&
+      validLessonDrafts.validLessons.length > 0 &&
+      !validLessonDrafts.hasInvalidLesson &&
+      coverImageStatus !== 'uploading' &&
+      courseStatus !== 'saving' &&
+      courseStatus !== 'publishing'
+    );
+  }, [coverImageReady, coverImageStatus, courseStatus, requiredCourseFieldsValid, validLessonDrafts]);
 
   if (!token) {
     return (
@@ -423,197 +604,233 @@ export default function CreatorStudio() {
           </p>
         </header>
 
-        <section className="rounded-3xl border border-neutral-200 bg-white p-8 shadow-sm transition-colors dark:border-neutral-800 dark:bg-neutral-900">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-3">
-              <h2 className="text-xl font-semibold">Step 1: Course details</h2>
-              {courseRecord && (
-                <span
-                  className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] ${
-                    coursePublished
-                      ? 'bg-emerald-500/10 text-emerald-500'
-                      : 'bg-amber-500/10 text-amber-500'
-                  }`}
-                >
-                  {coursePublished ? 'Published' : 'Draft'}
+        <form onSubmit={handleCourseSaveDraft} className="space-y-10">
+          <section className="rounded-3xl border border-neutral-200 bg-white p-8 shadow-sm transition-colors dark:border-neutral-800 dark:bg-neutral-900">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <h2 className="text-xl font-semibold">Step 1: Course details</h2>
+                {courseRecord && (
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] ${
+                      coursePublished
+                        ? 'bg-emerald-500/10 text-emerald-500'
+                        : 'bg-amber-500/10 text-amber-500'
+                    }`}
+                  >
+                    {coursePublished ? 'Published' : 'Draft'}
+                  </span>
+                )}
+              </div>
+              {courseStatus === 'success' && courseNotice && (
+                <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-500">
+                  {courseNotice}
                 </span>
               )}
             </div>
-            {courseStatus === 'success' && courseNotice && (
-              <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-500">
-                {courseNotice}
-              </span>
-            )}
-          </div>
-          <form onSubmit={handleCourseSaveDraft} className="mt-6 space-y-4">
-            <div>
-              <label htmlFor="course-title" className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500">
-                Title
-              </label>
-              <input
-                id="course-title"
-                name="title"
-                value={courseDraft.title}
-                onChange={handleCourseChange}
-                className="mt-2 w-full rounded-2xl border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 shadow-sm focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
-                placeholder="Course title"
-                required
-              />
+            <div className="mt-6 space-y-4">
+              <div>
+                <label htmlFor="course-title" className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500">
+                  Title
+                </label>
+                <input
+                  id="course-title"
+                  name="title"
+                  value={courseDraft.title}
+                  onChange={handleCourseChange}
+                  className="mt-2 w-full rounded-2xl border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 shadow-sm focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+                  placeholder="Course title"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="course-slug" className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500">
+                  Slug
+                </label>
+                <input
+                  id="course-slug"
+                  name="slug"
+                  value={courseDraft.slug}
+                  onChange={handleCourseChange}
+                  className="mt-2 w-full rounded-2xl border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 shadow-sm focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+                  placeholder="course-title"
+                  required
+                />
+                <p className="mt-2 text-xs text-neutral-500">Used in the course URL.</p>
+              </div>
+              <div>
+                <label htmlFor="course-description" className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500">
+                  Description
+                </label>
+                <textarea
+                  id="course-description"
+                  name="description"
+                  value={courseDraft.description}
+                  onChange={handleCourseChange}
+                  className="mt-2 w-full rounded-2xl border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 shadow-sm focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+                  rows={4}
+                  placeholder="Short summary"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="course-cover-image" className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500">
+                  Cover image
+                </label>
+                <input
+                  id="course-cover-image"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleCoverImageChange}
+                  className="mt-2 w-full rounded-2xl border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 shadow-sm file:mr-4 file:rounded-full file:border-0 file:bg-brand/10 file:px-4 file:py-1 file:text-xs file:font-semibold file:uppercase file:tracking-[0.2em] file:text-brand focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+                  required
+                />
+                {coverImageStatus === 'uploading' && (
+                  <p className="mt-2 text-xs text-neutral-500">Uploading…</p>
+                )}
+                {coverImageStatus === 'success' && coverImageId && (
+                  <p className="mt-2 text-xs text-emerald-500">
+                    Uploaded{coverImageName ? `: ${coverImageName}` : ''} (ID: {coverImageId})
+                  </p>
+                )}
+                {coverImageError && <p className="mt-2 text-xs text-red-500">{coverImageError}</p>}
+              </div>
+              {courseError && <p className="text-sm text-red-500">{courseError}</p>}
+              {courseRecord && (
+                <p className="text-xs text-neutral-500">
+                  Course ID: {courseRecord.id ?? 'N/A'}
+                  {courseRecord.documentId ? ` · Document ID: ${courseRecord.documentId}` : ''}
+                </p>
+              )}
+              <div className="flex flex-wrap items-center gap-3">
+                {courseIdForLessons && validLessonCount > 0 ? (
+                  <button
+                    type="button"
+                    onClick={handleCoursePublish}
+                    disabled={courseStatus === 'saving' || courseStatus === 'publishing'}
+                    className="inline-flex items-center justify-center rounded-full border border-emerald-500 px-5 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-emerald-500 transition hover:bg-emerald-500/10 disabled:cursor-not-allowed disabled:border-emerald-500/40 disabled:text-emerald-500/40"
+                  >
+                    {courseStatus === 'publishing' ? 'Publishing…' : 'Publish'}
+                  </button>
+                ) : null}
+              </div>
             </div>
-            <div>
-              <label htmlFor="course-slug" className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500">
-                Slug
-              </label>
-              <input
-                id="course-slug"
-                name="slug"
-                value={courseDraft.slug}
-                onChange={handleCourseChange}
-                className="mt-2 w-full rounded-2xl border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 shadow-sm focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
-                placeholder="course-title"
-                required
-              />
-              <p className="mt-2 text-xs text-neutral-500">Used in the course URL.</p>
-            </div>
-            <div>
-              <label htmlFor="course-description" className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500">
-                Description
-              </label>
-              <textarea
-                id="course-description"
-                name="description"
-                value={courseDraft.description}
-                onChange={handleCourseChange}
-                className="mt-2 w-full rounded-2xl border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 shadow-sm focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
-                rows={4}
-                placeholder="Short summary"
-                required
-              />
-            </div>
-            <div>
-              <label htmlFor="course-cover-image" className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500">
-                Cover image (media ID)
-              </label>
-              <input
-                id="course-cover-image"
-                name="coverImage"
-                value={courseDraft.coverImage}
-                onChange={handleCourseChange}
-                className="mt-2 w-full rounded-2xl border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 shadow-sm focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
-                placeholder="Optional media ID"
-              />
-            </div>
-            {courseError && <p className="text-sm text-red-500">{courseError}</p>}
-            {courseRecord && (
-              <p className="text-xs text-neutral-500">
-                Course ID: {courseRecord.id ?? 'N/A'}
-                {courseRecord.documentId ? ` · Document ID: ${courseRecord.documentId}` : ''}
-              </p>
-            )}
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="submit"
-                disabled={courseStatus === 'saving' || courseStatus === 'publishing'}
-                className="inline-flex items-center justify-center rounded-full bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-white transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:bg-brand/40"
-              >
-                {courseStatus === 'saving' ? 'Saving…' : 'Save draft'}
-              </button>
-              {courseIdForLessons && validLessonCount > 0 ? (
-                <button
-                  type="button"
-                  onClick={handleCoursePublish}
-                  disabled={courseStatus === 'saving' || courseStatus === 'publishing'}
-                  className="inline-flex items-center justify-center rounded-full border border-emerald-500 px-5 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-emerald-500 transition hover:bg-emerald-500/10 disabled:cursor-not-allowed disabled:border-emerald-500/40 disabled:text-emerald-500/40"
-                >
-                  {courseStatus === 'publishing' ? 'Publishing…' : 'Publish'}
-                </button>
-              ) : null}
-            </div>
-          </form>
-        </section>
+          </section>
 
-        <section className="rounded-3xl border border-neutral-200 bg-white p-8 shadow-sm transition-colors dark:border-neutral-800 dark:bg-neutral-900">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-xl font-semibold">Step 2: Lessons</h2>
-          </div>
-          <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
-            Add lessons to the course.
-          </p>
-          <div className="mt-6 space-y-6">
-            {lessonDrafts.map((lesson, index) => (
-              <div
-                key={lesson.id}
-                className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4 transition-colors dark:border-neutral-800 dark:bg-neutral-950/40"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-neutral-500">
-                    Lesson {index + 1}
-                  </h3>
-                  {lessonDrafts.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeLessonDraft(lesson.id)}
-                      className="text-xs font-semibold uppercase tracking-[0.2em] text-red-500"
-                    >
-                      Remove
-                    </button>
-                  )}
-                </div>
-                <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                  <div>
+          <section className="rounded-3xl border border-neutral-200 bg-white p-8 shadow-sm transition-colors dark:border-neutral-800 dark:bg-neutral-900">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-xl font-semibold">Step 2: Lessons</h2>
+            </div>
+            <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
+              Add lessons to the course.
+            </p>
+            <div className="mt-6 space-y-6">
+              {lessonDrafts.map((lesson, index) => (
+                <div
+                  key={lesson.id}
+                  className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4 transition-colors dark:border-neutral-800 dark:bg-neutral-950/40"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-neutral-500">
+                      Lesson {index + 1}
+                    </h3>
+                    {lessonDrafts.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeLessonDraft(lesson.id)}
+                        className="text-xs font-semibold uppercase tracking-[0.2em] text-red-500"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                  <div className="mt-4">
                     <label className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500">
-                      Title
+                      Lesson title
                     </label>
                     <input
-                      value={lesson.title}
-                      onChange={(event) => handleLessonChange(lesson.id, 'title', event.target.value)}
+                      value={lesson.lessonTitle}
+                      onChange={(event) => handleLessonChange(lesson.id, 'lessonTitle', event.target.value)}
                       className="mt-2 w-full rounded-2xl border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 shadow-sm focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
                       placeholder="Lesson title"
                       required
                     />
                   </div>
-                  <div>
-                    <label className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500">
-                      Order
-                    </label>
+                  <div className="mt-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500">
+                        YouTube embed URL
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setYoutubeInfoLessonId((prev) => (prev === lesson.id ? null : lesson.id))
+                        }
+                        className="text-xs font-semibold uppercase tracking-[0.2em] text-brand"
+                      >
+                        What&apos;s this?
+                      </button>
+                    </div>
                     <input
-                      type="number"
-                      value={lesson.order}
-                      onChange={(event) => handleLessonChange(lesson.id, 'order', event.target.value)}
+                      value={lesson.youtubeEmbedCode}
+                      onChange={(event) => handleLessonChange(lesson.id, 'youtubeEmbedCode', event.target.value)}
+                      onBlur={(event) => handleYoutubeBlur(lesson.id, event.target.value)}
                       className="mt-2 w-full rounded-2xl border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 shadow-sm focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
-                      placeholder="1"
-                      min={0}
+                      placeholder="https://www.youtube.com/embed/..."
+                    />
+                    {youtubeInfoLessonId === lesson.id && (
+                      <div className="mt-2 rounded-2xl border border-neutral-200 bg-white p-3 text-xs text-neutral-600 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
+                        The URL needed here is the embed URL link from the YouTube embed code — not the full script
+                        itself, just the link. Do not enter the browser URL for the video — it won&apos;t work. To
+                        get this link you need to first upload the video to YouTube (ideally as a private/unlisted
+                        video) so the public cannot view it, but users from this website can. This keeps its
+                        exclusivity to this platform.
+                      </div>
+                    )}
+                    {lessonFieldErrors[lesson.id]?.youtubeEmbedCode && (
+                      <p className="mt-2 text-xs text-red-500">{lessonFieldErrors[lesson.id]?.youtubeEmbedCode}</p>
+                    )}
+                  </div>
+                  <div className="mt-4">
+                    <label className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500">
+                      Lesson text
+                    </label>
+                    <textarea
+                      value={lesson.lessonText}
+                      onChange={(event) => handleLessonChange(lesson.id, 'lessonText', event.target.value)}
+                      className="mt-2 w-full rounded-2xl border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 shadow-sm focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+                      rows={4}
+                      placeholder="Lesson text"
                       required
                     />
                   </div>
                 </div>
-                <div className="mt-4">
-                  <label className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500">
-                    Content
-                  </label>
-                  <textarea
-                    value={lesson.content}
-                    onChange={(event) => handleLessonChange(lesson.id, 'content', event.target.value)}
-                    className="mt-2 w-full rounded-2xl border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 shadow-sm focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
-                    rows={4}
-                    placeholder="Lesson content"
-                    required
-                  />
-                </div>
+              ))}
+              {lessonError && <p className="text-sm text-red-500">{lessonError}</p>}
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={addLessonDraft}
+                  className="rounded-full border border-neutral-300 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-600 transition hover:border-brand hover:text-brand dark:border-neutral-700 dark:text-neutral-200"
+                >
+                  Add lesson
+                </button>
               </div>
-            ))}
-            {lessonError && <p className="text-sm text-red-500">{lessonError}</p>}
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={addLessonDraft}
-                className="rounded-full border border-neutral-300 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-600 transition hover:border-brand hover:text-brand dark:border-neutral-700 dark:text-neutral-200"
-              >
-                Add lesson
-              </button>
             </div>
+          </section>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="submit"
+              disabled={!canSaveDraft}
+              className="inline-flex items-center justify-center rounded-full bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-white transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:bg-brand/40"
+            >
+              {courseStatus === 'saving' ? 'Saving…' : 'Save draft'}
+            </button>
+            {!canSaveDraft && validLessonDrafts.validLessons.length === 0 && (
+              <p className="text-xs text-neutral-500">Add at least one lesson to enable saving.</p>
+            )}
           </div>
-        </section>
+        </form>
       </div>
     </div>
   );
