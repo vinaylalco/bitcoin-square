@@ -3,6 +3,7 @@ import { useContactContent } from "../hooks/useContactContent";
 
 export default function Contact() {
   const { content } = useContactContent();
+  const socials = Array.isArray(content.socials) ? content.socials : [];
   return (
     <div className="px-4 sm:px-6 py-6 space-y-4">
       <h1
@@ -15,9 +16,9 @@ export default function Contact() {
           dangerouslySetInnerHTML={{ __html: content.body }}
         />
       )}
-      {content.socials.length > 0 && (
+      {socials.length > 0 && (
         <ul className="flex gap-4 mt-4">
-          {content.socials.map((s, i) => (
+          {socials.map((s, i) => (
             <li key={i}>
               <a
                 href={s.url}

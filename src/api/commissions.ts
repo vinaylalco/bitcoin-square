@@ -326,7 +326,8 @@ export async function fetchCommissionsByReferrer(
     `/api/commissions?${searchParams.toString()}`,
   );
 
-  return (response.data ?? []).map(normalizeCommission);
+  const entries = Array.isArray(response.data) ? response.data : [];
+  return entries.map(normalizeCommission);
 }
 
 export async function fetchMyCommissions(): Promise<Commission[]> {
@@ -338,7 +339,8 @@ export async function fetchMyCommissions(): Promise<Commission[]> {
     `/api/commissions/me?${searchParams.toString()}`,
   );
 
-  return (response.data ?? []).map(normalizeCommission);
+  const entries = Array.isArray(response.data) ? response.data : [];
+  return entries.map(normalizeCommission);
 }
 
 export async function fetchAllCommissions(): Promise<Commission[]> {
@@ -350,5 +352,6 @@ export async function fetchAllCommissions(): Promise<Commission[]> {
     `/api/commissions?${searchParams.toString()}`,
   );
 
-  return (response.data ?? []).map(normalizeCommission);
+  const entries = Array.isArray(response.data) ? response.data : [];
+  return entries.map(normalizeCommission);
 }

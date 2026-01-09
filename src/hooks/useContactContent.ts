@@ -9,12 +9,26 @@ export type ContactContent = {
 
 const KEY = "bsq.contact.v1";
 
+function normalizeContactContent(value: unknown): ContactContent {
+  if (!value || typeof value !== "object") {
+    return { title: "Contact", body: "", socials: [] };
+  }
+  const record = value as Partial<ContactContent>;
+  const title = typeof record.title === "string" ? record.title : "Contact";
+  const body = typeof record.body === "string" ? record.body : "";
+  const socials = Array.isArray(record.socials) ? record.socials : [];
+  return { title, body, socials };
+}
+
 function load(): ContactContent {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) return JSON.parse(raw) as ContactContent;
+    if (raw) {
+      const parsed = JSON.parse(raw) as unknown;
+      return normalizeContactContent(parsed);
+    }
   } catch {}
-  return { title: "Contact", body: "", socials: [] };
+  return normalizeContactContent(null);
 }
 
 function save(c: ContactContent) {
@@ -28,7 +42,7 @@ export function getContactContent(): ContactContent {
 }
 
 export function setContactContent(c: ContactContent) {
-  save(c);
+  save(normalizeContactContent(c));
 }
 
 export function useContactContent() {
@@ -37,8 +51,9 @@ export function useContactContent() {
     setContent(load());
   }, []);
   const update = (c: ContactContent) => {
-    setContent(c);
-    save(c);
+    const normalized = normalizeContactContent(c);
+    setContent(normalized);
+    save(normalized);
   };
   return { content, update };
 }

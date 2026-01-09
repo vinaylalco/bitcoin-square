@@ -7,7 +7,7 @@ export default function LanguagesPage() {
   const { data, isLoading, error } = useStrapiQuery<{ data: Language[] }>("languages", "/api/languages");
   if (isLoading) return <LanguagesSkeleton />;
   if (error) return <p className="mx-auto max-w-3xl px-4 py-16 text-center text-brand">Failed to load languages.</p>;
-  const languages = data?.data ?? [];
+  const languages = Array.isArray(data?.data) ? data.data : [];
   return (
     <div className="mx-auto max-w-4xl px-4 pb-20 pt-12 sm:px-6">
       <header className="space-y-4 text-center sm:text-left">

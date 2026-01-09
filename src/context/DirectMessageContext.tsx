@@ -771,6 +771,7 @@ const DirectMessageOverlay: React.FC = () => {
   const listRef = useRef<HTMLDivElement | null>(null);
 
   const conversation = activeConversation ? conversations[activeConversation] : undefined;
+  const conversationMessages = Array.isArray(conversation?.messages) ? conversation.messages : [];
   const draft = activeConversation ? getDraft(activeConversation) : "";
   const summary = activeConversation ? resolveProfileSummary(activeConversation) : null;
   const disableOverlay =
@@ -782,7 +783,7 @@ const DirectMessageOverlay: React.FC = () => {
     if (disableOverlay) return;
     if (!listRef.current) return;
     listRef.current.scrollTop = listRef.current.scrollHeight;
-  }, [conversation?.messages.length, activeConversation, disableOverlay]);
+  }, [conversationMessages.length, activeConversation, disableOverlay]);
 
   useEffect(() => {
     setComposerFocused(false);
@@ -854,12 +855,12 @@ const DirectMessageOverlay: React.FC = () => {
 
         <div className="flex h-96 flex-col bg-[var(--bg-surface)]/60">
           <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-3">
-            {conversation.messages.length === 0 ? (
+            {conversationMessages.length === 0 ? (
               <p className="mt-8 text-center text-xs uppercase tracking-[0.2em] text-[var(--fg-muted)]">
                 No messages yet. Say hello!
               </p>
             ) : (
-              conversation.messages.map((message) => (
+              conversationMessages.map((message) => (
                 <div
                   key={message.id || message.clientId}
                   className={`flex ${message.direction === "outgoing" ? "justify-end" : "justify-start"}`}

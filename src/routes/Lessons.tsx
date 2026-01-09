@@ -16,7 +16,7 @@ export default function LessonsPage() {
   if (isLoading) return <LessonGridSkeleton />;
   if (error) return <p className="mx-auto max-w-3xl px-4 py-16 text-center text-brand">Failed to load lessons.</p>;
 
-  const lessons = data?.data ?? [];
+  const lessons = Array.isArray(data?.data) ? data.data : [];
   return (
     <div className="mx-auto max-w-6xl px-4 pb-20 pt-12 sm:px-6">
       <header className="space-y-4 text-center sm:text-left">
