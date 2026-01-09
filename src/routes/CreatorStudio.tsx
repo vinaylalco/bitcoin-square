@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { getStrapiBaseUrl, strapiFetch, StrapiRequestError } from '../api/strapi-client';
 import { useAuth } from '../context/AuthContext';
 const EMPTY_COURSE = {
@@ -16,9 +16,38 @@ type CourseRecord = {
   id?: number | string;
   documentId?: string;
   title?: string;
+};
+
+type MyCourseRecord = {
+  id?: number | string;
+  documentId?: string;
+  title?: string;
+  updatedAt?: string | null;
+  updated_at?: string | null;
   publishedAt?: string | null;
   published_at?: string | null;
   published?: boolean;
+  author?: { id?: number | string; data?: { id?: number | string } | null } | null;
+  authorId?: number | string;
+};
+
+type MyCourseItem = {
+  id: number | string;
+  title: string;
+  updatedAt?: string | null;
+  published?: boolean;
+};
+
+type CourseDetailRecord = MyCourseRecord & {
+  slug?: string;
+  description?: string;
+  coverImage?: { id?: number; data?: { id?: number; attributes?: { name?: string } } | null; name?: string } | null;
+  lessons?: Array<{
+    id?: number | string;
+    lessonTitle?: string;
+    youtubeEmbedCode?: string;
+    lessonText?: LessonTextValue;
+  }>;
 };
 
 type LessonDraft = {
@@ -140,16 +169,90 @@ function lessonTextToDisplay(lessonText: LessonTextValue): string {
     .trim();
 }
 
+function resolvePublished(record: MyCourseRecord): boolean | undefined {
+  if (typeof record.published === 'boolean') {
+    return record.published;
+  }
+  const publishedAt = record.publishedAt ?? record.published_at;
+  if (typeof publishedAt === 'string') {
+    return publishedAt.trim().length > 0;
+  }
+  if (publishedAt != null) {
+    return Boolean(publishedAt);
+  }
+  return undefined;
+}
+
+function resolveAuthorId(record: MyCourseRecord): number | string | null {
+  if (record.authorId != null) {
+    return record.authorId;
+  }
+  const author = record.author;
+  if (author?.id != null) {
+    return author.id;
+  }
+  if (author?.data?.id != null) {
+    return author.data.id;
+  }
+  return null;
+}
+
+function formatUpdatedAt(value?: string | null): string | null {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+  return new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric' }).format(parsed);
+}
+
+function resolveCoverImageId(record: CourseDetailRecord): number | null {
+  const direct = record.coverImage;
+  if (direct?.id != null) {
+    return direct.id;
+  }
+  if (direct?.data?.id != null) {
+    return direct.data.id;
+  }
+  return null;
+}
+
+function resolveCoverImageName(record: CourseDetailRecord): string | null {
+  const direct = record.coverImage;
+  if (direct?.name) {
+    return direct.name;
+  }
+  if (direct?.data?.attributes?.name) {
+    return direct.data.attributes.name;
+  }
+  return null;
+}
+
+function normalizeCourseRecord(payload: unknown): CourseDetailRecord | null {
+  if (!payload || typeof payload !== 'object') {
+    return null;
+  }
+  const record = payload as { attributes?: CourseDetailRecord; id?: number | string; documentId?: string };
+  if (record.attributes && typeof record.attributes === 'object') {
+    return {
+      ...record.attributes,
+      id: record.attributes.id ?? record.id,
+      documentId: record.attributes.documentId ?? record.documentId,
+    };
+  }
+  return record as CourseDetailRecord;
+}
+
 export default function CreatorStudio() {
   const { token, user } = useAuth();
+  const { id: courseIdParam } = useParams<{ id?: string }>();
+  const isEditing = Boolean(courseIdParam);
   const [creatorStatus, setCreatorStatus] = useState<'idle' | 'loading' | 'error' | 'success'>('idle');
   const [creatorError, setCreatorError] = useState<string | null>(null);
   const [creatorProfile, setCreatorProfile] = useState<CreatorMe | null>(null);
 
   const [courseDraft, setCourseDraft] = useState({ ...EMPTY_COURSE });
-  const [courseStatus, setCourseStatus] = useState<
-    'idle' | 'saving' | 'publishing' | 'success' | 'error'
-  >('idle');
+  const [courseStatus, setCourseStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const [courseNotice, setCourseNotice] = useState<string | null>(null);
   const [courseError, setCourseError] = useState<string | null>(null);
   const [courseRecord, setCourseRecord] = useState<CourseRecord | null>(null);
@@ -164,6 +267,14 @@ export default function CreatorStudio() {
   const [coverImageError, setCoverImageError] = useState<string | null>(null);
   const [coverImageName, setCoverImageName] = useState<string | null>(null);
   const hasLoggedLessonPayload = useRef(false);
+
+  const [myCourses, setMyCourses] = useState<MyCourseItem[]>([]);
+  const [myCoursesStatus, setMyCoursesStatus] = useState<'idle' | 'loading' | 'error' | 'success'>('idle');
+  const [myCoursesError, setMyCoursesError] = useState<string | null>(null);
+
+  const [courseLoadStatus, setCourseLoadStatus] = useState<'idle' | 'loading' | 'error' | 'success'>('idle');
+  const [courseLoadError, setCourseLoadError] = useState<string | null>(null);
+  const [courseAccessDenied, setCourseAccessDenied] = useState(false);
 
   useEffect(() => {
     if (!token) {
@@ -200,10 +311,160 @@ export default function CreatorStudio() {
 
   const isCreator = useMemo(() => creatorProfile?.contentCreator === true, [creatorProfile]);
 
-  const courseIdForLessons = useMemo(() => {
-    if (!courseRecord) return null;
-    return courseRecord.id ?? null;
-  }, [courseRecord]);
+  useEffect(() => {
+    if (!courseIdParam) {
+      setCourseLoadStatus('idle');
+      setCourseLoadError(null);
+      setCourseAccessDenied(false);
+      setCourseRecord(null);
+      setCourseDraft({ ...EMPTY_COURSE });
+      setLessonDrafts([EMPTY_LESSON()]);
+      setCoverImageId(null);
+      setCoverImageStatus('idle');
+      setCoverImageError(null);
+      setCoverImageName(null);
+      setCourseNotice(null);
+      setCourseError(null);
+      setSlugEdited(false);
+      return;
+    }
+
+    if (!token) {
+      setCourseLoadStatus('idle');
+      return;
+    }
+
+    let active = true;
+    setCourseLoadStatus('loading');
+    setCourseLoadError(null);
+    setCourseAccessDenied(false);
+
+    const params = new URLSearchParams();
+    params.append('populate[0]', 'lessons');
+    params.append('populate[1]', 'coverImage');
+    params.append('populate[2]', 'author');
+
+    strapiFetch<{ data?: CourseDetailRecord }>(
+      `/api/content-creator-courses/${courseIdParam}?${params.toString()}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    )
+      .then((response) => {
+        if (!active) return;
+        const record = normalizeCourseRecord(response?.data ?? response);
+        if (!record) {
+          setCourseLoadStatus('error');
+          setCourseLoadError('Unable to load course.');
+          return;
+        }
+        const authorId = resolveAuthorId(record);
+        if (authorId != null && user?.id && String(authorId) !== String(user.id)) {
+          setCourseAccessDenied(true);
+          setCourseLoadStatus('error');
+          return;
+        }
+        setCourseRecord({ id: record.id ?? courseIdParam, documentId: record.documentId, title: record.title });
+        setCourseDraft({
+          title: record.title ?? '',
+          slug: record.slug ?? '',
+          description: record.description ?? '',
+        });
+        setSlugEdited(true);
+        const lessonEntries = Array.isArray(record.lessons) ? record.lessons : [];
+        if (lessonEntries.length > 0) {
+          const nextLessons = lessonEntries.map((lesson) => ({
+            id: String(lesson.id ?? crypto.randomUUID?.() ?? `lesson-${Date.now()}-${Math.random().toString(36).slice(2)}`),
+            lessonTitle: lesson.lessonTitle ?? '',
+            youtubeEmbedCode: lesson.youtubeEmbedCode ?? '',
+            lessonText: lesson.lessonText ?? '',
+          }));
+          setLessonDrafts(nextLessons);
+        } else {
+          setLessonDrafts([EMPTY_LESSON()]);
+        }
+        const nextCoverId = resolveCoverImageId(record);
+        setCoverImageId(nextCoverId);
+        setCoverImageStatus(nextCoverId ? 'success' : 'idle');
+        setCoverImageName(resolveCoverImageName(record));
+        setCourseLoadStatus('success');
+      })
+      .catch((error) => {
+        if (!active) return;
+        const message = error instanceof Error ? error.message : 'Unable to load course.';
+        setCourseLoadError(message);
+        setCourseLoadStatus('error');
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [courseIdParam, token, user?.id]);
+
+  useEffect(() => {
+    if (!token || !user?.id) {
+      setMyCourses([]);
+      setMyCoursesStatus('idle');
+      setMyCoursesError(null);
+      return;
+    }
+
+    let active = true;
+    setMyCoursesStatus('loading');
+    setMyCoursesError(null);
+
+    const fetchCourses = async (status: 'draft' | 'published') => {
+      const params = new URLSearchParams();
+      params.set('status', status);
+      params.append('filters[author][id][$eq]', String(user.id));
+      const response = await strapiFetch<{ data?: MyCourseRecord[] }>(
+        `/api/content-creator-courses?${params.toString()}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+      return Array.isArray(response?.data) ? response.data : [];
+    };
+
+    Promise.all([fetchCourses('published'), fetchCourses('draft')])
+      .then(([publishedCourses, draftCourses]) => {
+        if (!active) return;
+        const merged = new Map<number | string, MyCourseItem>();
+        const combined = [...publishedCourses, ...draftCourses];
+        combined.forEach((record) => {
+          const attributes = (record as { attributes?: MyCourseRecord }).attributes ?? record;
+          const recordId = attributes.id ?? record.id ?? attributes.documentId ?? record.documentId;
+          if (recordId == null) return;
+          const authorId = resolveAuthorId(attributes);
+          if (authorId == null || String(authorId) !== String(user.id)) {
+            return;
+          }
+          const title = attributes.title?.trim() || 'Untitled course';
+          merged.set(recordId, {
+            id: recordId,
+            title,
+            updatedAt: attributes.updatedAt ?? attributes.updated_at ?? null,
+            published: resolvePublished(attributes),
+          });
+        });
+        setMyCourses(Array.from(merged.values()));
+        setMyCoursesStatus('success');
+      })
+      .catch((error) => {
+        if (!active) return;
+        const message = error instanceof Error ? error.message : 'Unable to load courses.';
+        setMyCoursesError(message);
+        setMyCoursesStatus('error');
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [token, user?.id]);
 
   const handleCourseChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -230,23 +491,6 @@ export default function CreatorStudio() {
     },
     [courseError, courseNotice, courseStatus, slugEdited],
   );
-
-  const resolveCoursePublished = useCallback((record: CourseRecord | null): boolean | null => {
-    if (!record) return null;
-    if (typeof record.published === 'boolean') {
-      return record.published;
-    }
-    const publishedAt = record.publishedAt ?? record.published_at;
-    if (typeof publishedAt === 'string') {
-      return publishedAt.trim().length > 0;
-    }
-    if (publishedAt != null) {
-      return Boolean(publishedAt);
-    }
-    return false;
-  }, []);
-
-  const coursePublished = useMemo(() => resolveCoursePublished(courseRecord), [courseRecord, resolveCoursePublished]);
 
   const validLessonDrafts = useMemo(() => {
     const validLessons: Array<{ lessonTitle: string; lessonText: RichTextBlock[]; youtubeEmbedCode?: string }> = [];
@@ -276,8 +520,6 @@ export default function CreatorStudio() {
 
     return { validLessons, hasInvalidLesson };
   }, [lessonDrafts]);
-
-  const validLessonCount = validLessonDrafts.validLessons.length;
 
   const buildCoursePayload = useCallback(
     (includeAuthor: boolean) => {
@@ -437,50 +679,6 @@ export default function CreatorStudio() {
     ],
   );
 
-  const handleCoursePublish = useCallback(async () => {
-    if (!token) {
-      setCourseStatus('error');
-      setCourseError('Please log in to publish a course.');
-      return;
-    }
-
-    const courseIdentifier = courseRecord?.id;
-    if (!courseIdentifier) {
-      setCourseStatus('error');
-      setCourseError('Save a draft before publishing.');
-      return;
-    }
-
-    setCourseStatus('publishing');
-    setCourseError(null);
-    setCourseNotice(null);
-
-    try {
-      const response = await strapiFetch<{ data?: CourseRecord }>(
-        `/api/content-creator-courses/${courseIdentifier}/publish`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
-      const record = response?.data ?? response;
-      setCourseRecord(record ?? courseRecord);
-      setCourseStatus('success');
-      setCourseNotice('Course published.');
-    } catch (error) {
-      const message =
-        error instanceof StrapiRequestError
-          ? error.message
-          : error instanceof Error
-            ? error.message
-            : 'Unable to publish course.';
-      setCourseStatus('error');
-      setCourseError(message);
-    }
-  }, [courseRecord, token]);
-
   const handleCoverImageChange = useCallback(
     async (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
@@ -603,8 +801,7 @@ export default function CreatorStudio() {
       validLessonDrafts.validLessons.length > 0 &&
       !validLessonDrafts.hasInvalidLesson &&
       coverImageStatus !== 'uploading' &&
-      courseStatus !== 'saving' &&
-      courseStatus !== 'publishing'
+      courseStatus !== 'saving'
     );
   }, [coverImageReady, coverImageStatus, courseStatus, requiredCourseFieldsValid, validLessonDrafts]);
 
@@ -650,6 +847,33 @@ export default function CreatorStudio() {
     );
   }
 
+  if (isEditing && courseLoadStatus === 'loading') {
+    return (
+      <div className="mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center gap-2 px-6 py-16 text-center">
+        <h1 className="text-3xl font-semibold">Creator Studio</h1>
+        <p className="text-sm text-neutral-600">Loading course…</p>
+      </div>
+    );
+  }
+
+  if (isEditing && courseAccessDenied) {
+    return (
+      <div className="mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center gap-2 px-6 py-16 text-center">
+        <h1 className="text-3xl font-semibold">Creator Studio</h1>
+        <p className="text-sm text-neutral-600">Access denied.</p>
+      </div>
+    );
+  }
+
+  if (isEditing && courseLoadStatus === 'error') {
+    return (
+      <div className="mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center gap-2 px-6 py-16 text-center">
+        <h1 className="text-3xl font-semibold">Creator Studio</h1>
+        <p className="text-sm text-red-500">{courseLoadError ?? 'Unable to load course.'}</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen w-full bg-white text-neutral-900 transition-colors dark:bg-neutral-950 dark:text-neutral-100">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-4 py-10 sm:px-6 lg:px-8">
@@ -657,7 +881,7 @@ export default function CreatorStudio() {
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-brand">Creator Studio</p>
           <h1 className="mt-4 text-3xl font-semibold">Create a Course</h1>
           <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
-            Publish a course and add lessons under it.
+            Save your course draft and add lessons under it.
           </p>
         </header>
 
@@ -666,17 +890,6 @@ export default function CreatorStudio() {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-3">
                 <h2 className="text-xl font-semibold">Step 1: Course details</h2>
-                {courseRecord && (
-                  <span
-                    className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] ${
-                      coursePublished
-                        ? 'bg-emerald-500/10 text-emerald-500'
-                        : 'bg-amber-500/10 text-amber-500'
-                    }`}
-                  >
-                    {coursePublished ? 'Published' : 'Draft'}
-                  </span>
-                )}
               </div>
               {courseStatus === 'success' && courseNotice && (
                 <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-500">
@@ -739,7 +952,7 @@ export default function CreatorStudio() {
                   accept="image/*"
                   onChange={handleCoverImageChange}
                   className="mt-2 w-full rounded-2xl border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 shadow-sm file:mr-4 file:rounded-full file:border-0 file:bg-brand/10 file:px-4 file:py-1 file:text-xs file:font-semibold file:uppercase file:tracking-[0.2em] file:text-brand focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
-                  required
+                  required={coverImageId == null}
                 />
                 {coverImageStatus === 'uploading' && (
                   <p className="mt-2 text-xs text-neutral-500">Uploading…</p>
@@ -758,18 +971,6 @@ export default function CreatorStudio() {
                   {courseRecord.documentId ? ` · Document ID: ${courseRecord.documentId}` : ''}
                 </p>
               )}
-              <div className="flex flex-wrap items-center gap-3">
-                {courseIdForLessons && validLessonCount > 0 ? (
-                  <button
-                    type="button"
-                    onClick={handleCoursePublish}
-                    disabled={courseStatus === 'saving' || courseStatus === 'publishing'}
-                    className="inline-flex items-center justify-center rounded-full border border-emerald-500 px-5 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-emerald-500 transition hover:bg-emerald-500/10 disabled:cursor-not-allowed disabled:border-emerald-500/40 disabled:text-emerald-500/40"
-                  >
-                    {courseStatus === 'publishing' ? 'Publishing…' : 'Publish'}
-                  </button>
-                ) : null}
-              </div>
             </div>
           </section>
 
@@ -875,6 +1076,57 @@ export default function CreatorStudio() {
             </div>
           </section>
 
+          <section className="rounded-3xl border border-neutral-200 bg-white p-8 shadow-sm transition-colors dark:border-neutral-800 dark:bg-neutral-900">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-xl font-semibold">My Courses</h2>
+            </div>
+            <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
+              Review your existing drafts and published courses.
+            </p>
+            <div className="mt-6 space-y-4">
+              {myCoursesStatus === 'loading' && <p className="text-sm text-neutral-500">Loading courses…</p>}
+              {myCoursesStatus === 'error' && (
+                <p className="text-sm text-red-500">{myCoursesError ?? 'Unable to load courses.'}</p>
+              )}
+              {myCoursesStatus !== 'loading' && myCourses.length === 0 && (
+                <p className="text-sm text-neutral-500">No courses yet.</p>
+              )}
+              {myCourses.length > 0 && (
+                <ul className="space-y-3">
+                  {myCourses.map((course) => {
+                    const updatedAt = formatUpdatedAt(course.updatedAt);
+                    const status =
+                      typeof course.published === 'boolean' ? (course.published ? 'Published' : 'Draft') : null;
+                    return (
+                      <li
+                        key={course.id}
+                        className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-700 dark:border-neutral-800 dark:bg-neutral-950/40 dark:text-neutral-200"
+                      >
+                        <div className="flex flex-col gap-1">
+                          <span className="font-semibold text-neutral-900 dark:text-neutral-100">{course.title}</span>
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-500">
+                            {updatedAt && <span>Last updated: {updatedAt}</span>}
+                            {status && (
+                              <span className="rounded-full bg-neutral-200 px-2 py-0.5 font-semibold uppercase tracking-[0.2em] text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">
+                                {status}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <Link
+                          to={`/creator/courses/${course.id}/edit`}
+                          className="inline-flex items-center justify-center rounded-full border border-neutral-300 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-600 transition hover:border-brand hover:text-brand dark:border-neutral-700 dark:text-neutral-200"
+                        >
+                          Edit
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          </section>
+
           <div className="flex flex-wrap items-center gap-3">
             <button
               type="submit"
@@ -886,6 +1138,9 @@ export default function CreatorStudio() {
             {!canSaveDraft && validLessonDrafts.validLessons.length === 0 && (
               <p className="text-xs text-neutral-500">Add at least one lesson to enable saving.</p>
             )}
+            <p className="text-xs text-neutral-500">
+              Courses are saved as drafts. An admin will review and publish them later.
+            </p>
           </div>
         </form>
       </div>

@@ -91,6 +91,7 @@ const router = createBrowserRouter([
       { path: "shop/:id", element: <ProductDetail /> },
       { path: "dashboard", element: <Dashboard /> },
       { path: "creator/courses/new", element: <CreatorStudio /> },
+      { path: "creator/courses/:id/edit", element: <CreatorStudio /> },
       { path: "forgot-password", element: <ForgotPassword /> },
       { path: "reset-password", element: <ResetPassword /> },
       { path: "newsletter", element: <NewsletterSubscribe /> },
