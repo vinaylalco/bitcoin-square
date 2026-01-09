@@ -408,7 +408,7 @@ export default function CreatorStudio() {
           setCourseLoadStatus('error');
           return;
         }
-        setCourseRecord({ id: record.id ?? courseIdParam, documentId: record.documentId, title: record.title });
+        setCourseRecord({ id: record.id, documentId: record.documentId, title: record.title });
         setCourseDraft({
           title: record.title ?? '',
           slug: record.slug ?? '',
@@ -681,14 +681,19 @@ export default function CreatorStudio() {
       setCourseNotice(null);
 
       try {
-        const courseIdentifier = courseRecord?.id;
+        if (isEditing && !courseRecord?.documentId) {
+          setCourseStatus('error');
+          setCourseError('Unable to save course draft.');
+          return;
+        }
+        const courseDocumentId = courseRecord?.documentId;
         const statusParam = 'status=draft';
-        const path = courseIdentifier
-          ? `/api/content-creator-courses/${courseIdentifier}?${statusParam}`
+        const path = courseDocumentId
+          ? `/api/content-creator-courses/${courseDocumentId}?${statusParam}`
           : `/api/content-creator-courses?${statusParam}`;
         const attemptRequest = async (includeAuthor: boolean) =>
           strapiFetch<{ data?: CourseRecord }>(path, {
-            method: courseIdentifier ? 'PUT' : 'POST',
+            method: courseDocumentId ? 'PUT' : 'POST',
             headers: {
               Authorization: `Bearer ${token}`,
             },
@@ -699,7 +704,7 @@ export default function CreatorStudio() {
 
         let response: { data?: CourseRecord };
         try {
-          response = await attemptRequest(!courseIdentifier);
+          response = await attemptRequest(!courseDocumentId);
         } catch (error) {
           if (error instanceof StrapiRequestError && error.status === 400 && user?.id) {
             response = await attemptRequest(true);
@@ -713,7 +718,7 @@ export default function CreatorStudio() {
         if (publishedAt) {
           throw new Error(publishErrorMessage);
         }
-        if (!courseIdentifier) {
+        if (!courseDocumentId) {
           const createdId = record?.id;
           if (createdId != null) {
             try {
@@ -744,7 +749,7 @@ export default function CreatorStudio() {
         }
         setCourseRecord(record ?? null);
         setCourseStatus('success');
-        setCourseNotice(courseIdentifier ? 'Draft updated.' : 'Draft saved.');
+        setCourseNotice(courseDocumentId ? 'Draft updated.' : 'Draft saved.');
       } catch (error) {
         const message =
           error instanceof StrapiRequestError
@@ -763,6 +768,7 @@ export default function CreatorStudio() {
       courseDraft.description,
       courseDraft.slug,
       courseDraft.title,
+      isEditing,
       courseRecord,
       lessonDrafts,
       token,
