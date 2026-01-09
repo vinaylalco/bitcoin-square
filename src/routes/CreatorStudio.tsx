@@ -145,7 +145,7 @@ export default function CreatorStudio() {
 
   const courseIdForLessons = useMemo(() => {
     if (!courseRecord) return null;
-    return courseRecord.id ?? courseRecord.documentId ?? null;
+    return courseRecord.id ?? null;
   }, [courseRecord]);
 
   useEffect(() => {
@@ -216,7 +216,7 @@ export default function CreatorStudio() {
       setCourseNotice(null);
 
       try {
-        const courseIdentifier = courseRecord?.documentId ?? courseRecord?.id;
+        const courseIdentifier = courseRecord?.id;
         const path = courseIdentifier
           ? `/api/content-creator-courses/${courseIdentifier}`
           : '/api/content-creator-courses';
@@ -255,7 +255,7 @@ export default function CreatorStudio() {
       return;
     }
 
-    const courseIdentifier = courseRecord?.documentId ?? courseRecord?.id;
+    const courseIdentifier = courseRecord?.id;
     if (!courseIdentifier) {
       setCourseStatus('error');
       setCourseError('Save a draft before publishing.');
