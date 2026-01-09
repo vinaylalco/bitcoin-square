@@ -32,6 +32,7 @@ type MyCourseRecord = {
 
 type MyCourseItem = {
   id: number | string;
+  editId: number | string;
   title: string;
   updatedAt?: string | null;
 };
@@ -227,6 +228,20 @@ function normalizeCourseRecord(payload: unknown): CourseDetailRecord | null {
   return record as CourseDetailRecord;
 }
 
+function resolvePublishedAt(payload: unknown): string | null | undefined {
+  if (!payload || typeof payload !== 'object') {
+    return undefined;
+  }
+  const record = payload as { publishedAt?: string | null; attributes?: { publishedAt?: string | null } };
+  if (record.publishedAt !== undefined) {
+    return record.publishedAt;
+  }
+  if (record.attributes?.publishedAt !== undefined) {
+    return record.attributes.publishedAt;
+  }
+  return undefined;
+}
+
 export default function CreatorStudio() {
   const { token, user } = useAuth();
   const { id: courseIdParam } = useParams<{ id?: string }>();
@@ -323,22 +338,68 @@ export default function CreatorStudio() {
     setCourseLoadError(null);
     setCourseAccessDenied(false);
 
-    const params = new URLSearchParams();
-    params.append('populate[0]', 'lessons');
-    params.append('populate[1]', 'coverImage');
-    params.append('populate[2]', 'author');
+    const buildPopulateParams = () => {
+      const params = new URLSearchParams();
+      params.append('populate[0]', 'lessons');
+      params.append('populate[1]', 'coverImage');
+      params.append('populate[2]', 'author');
+      return params;
+    };
 
-    strapiFetch<{ data?: CourseDetailRecord }>(
-      `/api/content-creator-courses/${courseIdParam}?${params.toString()}`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
+    const fetchCourseById = async (status: 'draft' | 'published') => {
+      const params = buildPopulateParams();
+      params.set('status', status);
+      try {
+        const response = await strapiFetch<{ data?: CourseDetailRecord }>(
+          `/api/content-creator-courses/${courseIdParam}?${params.toString()}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+        return normalizeCourseRecord(response?.data ?? response);
+      } catch (error) {
+        if (error instanceof StrapiRequestError && error.status === 404) {
+          return null;
+        }
+        throw error;
+      }
+    };
+
+    const fetchCourseByDocumentId = async (status: 'draft' | 'published') => {
+      const params = buildPopulateParams();
+      params.set('status', status);
+      params.append('filters[documentId][$eq]', courseIdParam);
+      const response = await strapiFetch<{ data?: CourseDetailRecord[] }>(
+        `/api/content-creator-courses?${params.toString()}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         },
-      },
-    )
-      .then((response) => {
+      );
+      const records = Array.isArray(response?.data) ? response.data : [];
+      return normalizeCourseRecord(records[0]);
+    };
+
+    const loadCourse = async () => {
+      let record = await fetchCourseById('published');
+      if (!record) {
+        record = await fetchCourseById('draft');
+      }
+      if (!record) {
+        record = await fetchCourseByDocumentId('draft');
+      }
+      if (!record) {
+        record = await fetchCourseByDocumentId('published');
+      }
+      return record;
+    };
+
+    loadCourse()
+      .then((record) => {
         if (!active) return;
-        const record = normalizeCourseRecord(response?.data ?? response);
         if (!record) {
           setCourseLoadStatus('error');
           setCourseLoadError('Unable to load course.');
@@ -419,22 +480,36 @@ export default function CreatorStudio() {
       .then(([publishedCourses, draftCourses]) => {
         if (!active) return;
         const merged = new Map<number | string, MyCourseItem>();
-        const combined = [...publishedCourses, ...draftCourses];
-        combined.forEach((record) => {
+        const upsertCourse = (record: MyCourseRecord, status: 'draft' | 'published') => {
           const attributes = (record as { attributes?: MyCourseRecord }).attributes ?? record;
-          const recordId = attributes.id ?? record.id ?? attributes.documentId ?? record.documentId;
-          if (recordId == null) return;
+          const recordId = attributes.id ?? record.id;
+          const documentId = attributes.documentId ?? record.documentId;
+          const key = documentId ?? recordId;
+          if (key == null) return;
           const title = attributes.title?.trim() || 'Untitled course';
-          const key = attributes.documentId ?? record.documentId ?? recordId;
-          if (merged.has(key)) {
+          const updatedAt = attributes.updatedAt ?? attributes.updated_at ?? null;
+          const editId = recordId ?? key;
+          const existing = merged.get(key);
+          if (!existing) {
+            merged.set(key, {
+              id: key,
+              editId,
+              title,
+              updatedAt,
+            });
             return;
           }
-          merged.set(key, {
-            id: recordId,
-            title,
-            updatedAt: attributes.updatedAt ?? attributes.updated_at ?? null,
-          });
-        });
+          if (status === 'draft') {
+            merged.set(key, {
+              ...existing,
+              editId,
+              title,
+              updatedAt,
+            });
+          }
+        };
+        publishedCourses.forEach((record) => upsertCourse(record, 'published'));
+        draftCourses.forEach((record) => upsertCourse(record, 'draft'));
         setMyCourses(Array.from(merged.values()));
         setMyCoursesStatus('success');
       })
@@ -540,6 +615,7 @@ export default function CreatorStudio() {
   const handleCourseSaveDraft = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
+      const publishErrorMessage = 'Course was unexpectedly published. Please contact support.';
       if (!token) {
         setCourseStatus('error');
         setCourseError('Please log in to create a course.');
@@ -609,9 +685,10 @@ export default function CreatorStudio() {
 
       try {
         const courseIdentifier = courseRecord?.id;
+        const statusParam = 'status=draft';
         const path = courseIdentifier
-          ? `/api/content-creator-courses/${courseIdentifier}`
-          : '/api/content-creator-courses';
+          ? `/api/content-creator-courses/${courseIdentifier}?${statusParam}`
+          : `/api/content-creator-courses?${statusParam}`;
         const attemptRequest = async (includeAuthor: boolean) =>
           strapiFetch<{ data?: CourseRecord }>(path, {
             method: courseIdentifier ? 'PUT' : 'POST',
@@ -635,12 +712,19 @@ export default function CreatorStudio() {
         }
 
         let record = response?.data ?? response;
+        const publishedAt = resolvePublishedAt(record);
+        if (publishedAt) {
+          throw new Error(publishErrorMessage);
+        }
         if (!courseIdentifier) {
           const createdId = record?.id;
           if (createdId != null) {
             try {
+              const populateParams = new URLSearchParams();
+              populateParams.set('populate', 'author');
+              populateParams.set('status', 'draft');
               const populated = await strapiFetch<{ data?: CourseRecord }>(
-                `/api/content-creator-courses/${createdId}?populate=author`,
+                `/api/content-creator-courses/${createdId}?${populateParams.toString()}`,
                 {
                   headers: {
                     Authorization: `Bearer ${token}`,
@@ -648,8 +732,16 @@ export default function CreatorStudio() {
                 },
               );
               record = populated?.data ?? populated ?? record;
-            } catch {
+              const populatedPublishedAt = resolvePublishedAt(record);
+              if (populatedPublishedAt) {
+                throw new Error(publishErrorMessage);
+              }
+            } catch (error) {
               // ignore follow-up fetch failures
+              // unless we unexpectedly detect a published course
+              if (error instanceof Error && error.message === publishErrorMessage) {
+                throw error;
+              }
             }
           }
         }
@@ -1110,7 +1202,7 @@ export default function CreatorStudio() {
                           </div>
                         </div>
                         <Link
-                          to={`/creator/courses/${course.id}/edit`}
+                          to={`/creator/courses/${course.editId}/edit`}
                           className="inline-flex items-center justify-center rounded-full border border-neutral-300 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-600 transition hover:border-brand hover:text-brand dark:border-neutral-700 dark:text-neutral-200"
                         >
                           Edit
