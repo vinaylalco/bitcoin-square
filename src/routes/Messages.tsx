@@ -326,6 +326,7 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
   const conversation = activeConversation ? conversations[activeConversation] : null;
   const draft = activeConversation ? getDraft(activeConversation) : "";
   const summary = activeConversation ? resolveProfileSummary(activeConversation) : null;
+  const conversationMessages = Array.isArray(conversation?.messages) ? conversation.messages : [];
 
   useEffect(() => {
     markInboxAsViewed();
@@ -437,7 +438,8 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
         const summary = resolveProfileSummary(pubkey);
         const profile = profiles[pubkey]?.data ?? null;
         const username = profile?.screenName ?? "";
-        const lastMessage = conversation.messages.at(-1) ?? null;
+        const safeMessages = Array.isArray(conversation.messages) ? conversation.messages : [];
+        const lastMessage = safeMessages.at(-1) ?? null;
         const searchText = normalizeSearch(
           `${summary.displayName} ${username ?? ""} ${shortenPubkey(pubkey)} ${pubkey}`,
         );
@@ -679,17 +681,17 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
     closeMention();
   };
 
-  const messageCount = conversation?.messages.length ?? 0;
+  const messageCount = conversationMessages.length;
   const messageLookup = useMemo(() => {
     const map = new Map<string, DirectMessageEntry>();
-    conversation?.messages.forEach((message) => {
+    conversationMessages.forEach((message) => {
       map.set(message.id, message);
       if (message.clientId) {
         map.set(message.clientId, message);
       }
     });
     return map;
-  }, [conversation?.messages]);
+  }, [conversationMessages]);
 
   const replyTarget = useMemo(() => {
     if (!replyTargetKey) {
@@ -777,7 +779,7 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
     requestAnimationFrame(() => handleScrollToBottom());
   }, [activeConversation, handleScrollToBottom]);
 
-  const latestMessageIndex = conversation ? conversation.messages.length - 1 : -1;
+  const latestMessageIndex = conversationMessages.length > 0 ? conversationMessages.length - 1 : -1;
   const latestMessage =
     latestMessageIndex >= 0 ? conversation?.messages[latestMessageIndex] ?? null : null;
 
@@ -1067,12 +1069,12 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ variant = "standalone" }) =
                     className="flex-1 min-h-0 space-y-3 overflow-y-auto px-5 pt-4"
                     style={{ paddingBottom: chatSpacing.padding }}
                   >
-                    {conversation.messages.length === 0 ? (
+                    {conversationMessages.length === 0 ? (
                       <p className="mt-8 text-center text-xs uppercase tracking-[0.2em] text-[var(--fg-muted)]">
                         No messages yet. Say hello!
                       </p>
                     ) : (
-                      conversation.messages.map((message, index) => (
+                      conversationMessages.map((message, index) => (
                         <DirectMessageRow
                           key={message.id || message.clientId || createMessageTranslationKey(message, index)}
                           message={message}

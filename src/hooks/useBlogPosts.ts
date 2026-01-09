@@ -8,10 +8,31 @@ export type BlogPost = {
 
 const KEY = "bsq.blog.v1";
 
+const normalizeBlogPosts = (value: unknown): BlogPost[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter((entry): entry is BlogPost => {
+    if (!entry || typeof entry !== "object") {
+      return false;
+    }
+    const record = entry as BlogPost;
+    return (
+      typeof record.id === "string" &&
+      typeof record.title === "string" &&
+      typeof record.content === "string"
+    );
+  });
+};
+
 function load(): BlogPost[] {
   try {
     const raw = localStorage.getItem(KEY);
-    return raw ? (JSON.parse(raw) as BlogPost[]) : [];
+    if (!raw) {
+      return [];
+    }
+    const parsed = JSON.parse(raw) as unknown;
+    return normalizeBlogPosts(parsed);
   } catch {
     return [];
   }
@@ -28,7 +49,7 @@ export function getBlogPosts(): BlogPost[] {
 }
 
 export function setBlogPosts(list: BlogPost[]) {
-  save(list);
+  save(normalizeBlogPosts(list));
 }
 
 export function useBlogPosts() {
@@ -39,7 +60,7 @@ export function useBlogPosts() {
   const addPost = (post: BlogPost) => {
     const updated = [...posts, post];
     setPosts(updated);
-    save(updated);
+    save(normalizeBlogPosts(updated));
   };
   return { posts, addPost, setPosts };
 }

@@ -291,7 +291,7 @@ export async function getLessonPlans(locale: string): Promise<LessonPlan[]> {
   const path = `/api/lesson-plans?${params.toString()}`;
   const json = await strapiFetch(path);
 
-  const entries: any[] = json?.data || [];
+  const entries: any[] = Array.isArray(json?.data) ? json.data : [];
   return entries.map((entry) => {
     const unwrapped = unwrapLessonPlanEntry(entry);
     const course = (unwrapped?.LessonPlanJSON as AnyRecord | undefined)?.course || {};
@@ -347,7 +347,7 @@ export async function getLessonPlan(
   const path = `/api/lesson-plans?${params.toString()}`;
   const json = await strapiFetch(path);
 
-  const entries: any[] = json?.data || [];
+  const entries: any[] = Array.isArray(json?.data) ? json.data : [];
   const entry = entries.find((e) => {
     const unwrapped = unwrapLessonPlanEntry(e);
     const course = (unwrapped?.LessonPlanJSON as AnyRecord | undefined)?.course || {};
@@ -590,7 +590,7 @@ export async function fetchProducts(options: FetchProductsOptions = {}): Promise
   params.set("pagination[pageSize]", String(pageSize));
   params.set("locale", resolveLocale(locale));
   const json = await strapiFetch(`/api/products?${params.toString()}`);
-  return json?.data || [];
+  return Array.isArray(json?.data) ? json.data : [];
 }
 
 export async function fetchProduct(
