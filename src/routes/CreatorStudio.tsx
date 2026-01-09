@@ -379,13 +379,15 @@ export default function CreatorStudio() {
     };
 
     const loadCourse = async () => {
-      let record = await fetchCourseByNumericId('draft');
-      if (!record) {
-        record = await fetchCourseByNumericId('published');
+      const isNumericId = /^\d+$/.test(courseIdParam);
+      if (isNumericId) {
+        let record = await fetchCourseByNumericId('draft');
+        if (!record) {
+          record = await fetchCourseByNumericId('published');
+        }
+        return record;
       }
-      if (!record) {
-        record = await fetchCourseByDocumentId('draft');
-      }
+      let record = await fetchCourseByDocumentId('draft');
       if (!record) {
         record = await fetchCourseByDocumentId('published');
       }
