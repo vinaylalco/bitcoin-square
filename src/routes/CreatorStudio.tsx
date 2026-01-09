@@ -32,7 +32,7 @@ type MyCourseRecord = {
 
 type MyCourseItem = {
   id: number | string;
-  editId: number | string;
+  documentId: string;
   title: string;
   updatedAt?: string | null;
 };
@@ -346,25 +346,20 @@ export default function CreatorStudio() {
       return params;
     };
 
-    const fetchCourseById = async (status: 'draft' | 'published') => {
+    const fetchCourseByNumericId = async (status: 'draft' | 'published') => {
       const params = buildPopulateParams();
       params.set('status', status);
-      try {
-        const response = await strapiFetch<{ data?: CourseDetailRecord }>(
-          `/api/content-creator-courses/${courseIdParam}?${params.toString()}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
+      params.append('filters[id][$eq]', courseIdParam);
+      const response = await strapiFetch<{ data?: CourseDetailRecord[] }>(
+        `/api/content-creator-courses?${params.toString()}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
           },
-        );
-        return normalizeCourseRecord(response?.data ?? response);
-      } catch (error) {
-        if (error instanceof StrapiRequestError && error.status === 404) {
-          return null;
-        }
-        throw error;
-      }
+        },
+      );
+      const records = Array.isArray(response?.data) ? response.data : [];
+      return normalizeCourseRecord(records[0]);
     };
 
     const fetchCourseByDocumentId = async (status: 'draft' | 'published') => {
@@ -384,9 +379,9 @@ export default function CreatorStudio() {
     };
 
     const loadCourse = async () => {
-      let record = await fetchCourseById('published');
+      let record = await fetchCourseByNumericId('draft');
       if (!record) {
-        record = await fetchCourseById('draft');
+        record = await fetchCourseByNumericId('published');
       }
       if (!record) {
         record = await fetchCourseByDocumentId('draft');
@@ -486,14 +481,14 @@ export default function CreatorStudio() {
           const documentId = attributes.documentId ?? record.documentId;
           const key = documentId ?? recordId;
           if (key == null) return;
+          if (!documentId) return;
           const title = attributes.title?.trim() || 'Untitled course';
           const updatedAt = attributes.updatedAt ?? attributes.updated_at ?? null;
-          const editId = recordId ?? key;
           const existing = merged.get(key);
           if (!existing) {
             merged.set(key, {
               id: key,
-              editId,
+              documentId,
               title,
               updatedAt,
             });
@@ -502,7 +497,7 @@ export default function CreatorStudio() {
           if (status === 'draft') {
             merged.set(key, {
               ...existing,
-              editId,
+              documentId,
               title,
               updatedAt,
             });
@@ -1202,7 +1197,7 @@ export default function CreatorStudio() {
                           </div>
                         </div>
                         <Link
-                          to={`/creator/courses/${course.editId}/edit`}
+                          to={`/creator/courses/${course.documentId}/edit`}
                           className="inline-flex items-center justify-center rounded-full border border-neutral-300 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-600 transition hover:border-brand hover:text-brand dark:border-neutral-700 dark:text-neutral-200"
                         >
                           Edit
