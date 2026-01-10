@@ -38,6 +38,7 @@ import MembershipCancel from "./routes/MembershipCancel";
 import Affiliate from "./routes/Affiliate";
 import Admin from "./routes/Admin";
 import BtcBuyingStrategiesPage from "./routes/BtcBuyingStrategiesPage";
+import DcaBuysAdmin from "./routes/DcaBuysAdmin";
 import { ProfileIdentityProvider } from "./context/ProfileIdentityContext";
 import { DirectMessageProvider } from "./context/DirectMessageContext";
 import { ToastProvider } from "./context/ToastContext";
@@ -120,6 +121,29 @@ const router = createBrowserRouter([
             }}
           >
             <BtcBuyingStrategiesPage />
+          </ErrorBoundary>
+        ),
+      },
+      {
+        path: "tools/dca-buys",
+        element: (
+          <ErrorBoundary
+            fallback={
+              <div className="mx-auto max-w-3xl px-6 py-16 text-center text-[var(--fg-default)]">
+                <p className="text-sm font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">
+                  DCA Buys
+                </p>
+                <h1 className="mt-4 text-3xl font-bold">We hit a snag.</h1>
+                <p className="mt-3 text-sm text-[var(--fg-muted)]">
+                  Please refresh the page or try again in a moment.
+                </p>
+              </div>
+            }
+            onError={(error, info) => {
+              console.error("ErrorBoundary /tools/dca-buys", error, info);
+            }}
+          >
+            <DcaBuysAdmin />
           </ErrorBoundary>
         ),
       },
