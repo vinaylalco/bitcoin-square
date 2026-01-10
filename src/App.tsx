@@ -93,6 +93,7 @@ export default function App() {
     { label: "DCA Buying BTC", to: "/tools/btc-buying-strategies?tab=dca" },
     { label: "Bulk Buying BTC", to: "/tools/btc-buying-strategies?tab=bulk" },
     { label: t("nav.minerQuotation"), to: "/tools/miner-quote" },
+    ...(isAdmin ? [{ label: "Bitcoin DCA Buys (Draft)", to: "/tools/dca-buys" }] : []),
   ];
 
   const desktopNav = [
@@ -124,7 +125,8 @@ export default function App() {
   const isEducationActive = Boolean(educationRootMatch || educationDetailMatch);
   const toolsDetailMatch =
     useMatch("/tools/btc-buying-strategies") ||
-    useMatch("/tools/miner-quote");
+    useMatch("/tools/miner-quote") ||
+    useMatch("/tools/dca-buys");
   const isToolsActive = Boolean(toolsDetailMatch);
 
   useEffect(() => {
