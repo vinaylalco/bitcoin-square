@@ -9,7 +9,8 @@ interface Props {
 }
 
 export default function CourseCard({ course }: Props) {
-  const moduleCount = course.modules?.length ?? 0;
+  const modules = Array.isArray(course.modules) ? course.modules : [];
+  const moduleCount = modules.length;
   const slug = course.slug || (course.id != null ? String(course.id) : "");
   const isPaid = course.isPaid ?? false;
   const hasPrice = course.price !== undefined && course.price !== null;

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { strapiFetch } from "../api/strapi-client";
 import { useAuth } from "../context/AuthContext";
-import { isAdminUser, mapContentCreatorEntry } from "./useContentCreatorCourses";
+import { mapContentCreatorEntry } from "./useContentCreatorCourses";
 import type { ContentCreatorCourse } from "../types/course";
 
 type AnyRecord = Record<string, unknown>;
@@ -12,10 +12,9 @@ type StrapiCollectionResponse<T> = {
 
 export function useContentCreatorCourse(slug: string) {
   const { user, token } = useAuth();
-  const isAdmin = isAdminUser(user);
 
   return useQuery<ContentCreatorCourse | null, Error>({
-    queryKey: ["content-creator-course", slug, user?.id ?? null, isAdmin],
+    queryKey: ["content-creator-course", slug, user?.id ?? null],
     queryFn: async () => {
       if (!slug) {
         return null;
@@ -56,9 +55,7 @@ export function useContentCreatorCourse(slug: string) {
       if (canRequestDrafts) {
         const draftParams = new URLSearchParams(baseParams);
         draftParams.set("status", "draft");
-        if (!isAdmin) {
-          draftParams.append("filters[author][id][$eq]", String(user.id));
-        }
+        draftParams.append("filters[author][id][$eq]", String(user.id));
         const draftCourses = await fetchCourses(draftParams, true);
         for (const course of draftCourses) {
           const key = course.id ?? course.documentId ?? course.slug;

@@ -217,60 +217,45 @@ export function mapContentCreatorEntry(entry: unknown): ContentCreatorCourse {
 }
 
 export function useContentCreatorCourses() {
-  const { user, token } = useAuth();
-  const isAdmin = isAdminUser(user);
-
   return useQuery<ContentCreatorCourse[], Error>({
-    queryKey: ["content-creator-courses", user?.id ?? null, isAdmin],
+    queryKey: ["content-creator-courses"],
     queryFn: async () => {
       const baseParams = new URLSearchParams();
       baseParams.append("populate[0]", "coverImage");
       baseParams.append("populate[1]", "author");
-
-      const fetchCourses = async (
-        params: URLSearchParams,
-        includeAuth: boolean,
-      ): Promise<ContentCreatorCourse[]> => {
-        const path = `/api/content-creator-courses?${params.toString()}`;
-        const json = await strapiFetch<StrapiCollectionResponse<AnyRecord>>(
-          path,
-          includeAuth && token
-            ? { headers: { Authorization: `Bearer ${token}` } }
-            : undefined,
-        );
-        const entries = Array.isArray(json?.data) ? json.data : [];
-        return entries.map((entry) => mapContentCreatorEntry(entry));
-      };
-
       const publishedParams = new URLSearchParams(baseParams);
       publishedParams.set("status", "published");
-      const publishedCourses = await fetchCourses(publishedParams, Boolean(token));
+      const path = `/api/content-creator-courses?${publishedParams.toString()}`;
+      const json = await strapiFetch<StrapiCollectionResponse<AnyRecord>>(path);
+      const entries = Array.isArray(json?.data) ? json.data : [];
+      return entries.map((entry) => mapContentCreatorEntry(entry));
+    },
+    placeholderData: (prev) => prev,
+  });
+}
 
-      const merged = new Map<string | number, ContentCreatorCourse>();
-      for (const course of publishedCourses) {
-        const key = course.id ?? course.documentId ?? course.slug;
-        if (key != null && !merged.has(key)) {
-          merged.set(key, course);
-        }
+export function useContentCreatorDraftCourses() {
+  const { user, token } = useAuth();
+  const isCreator = user?.contentCreator === true;
+
+  return useQuery<ContentCreatorCourse[], Error>({
+    queryKey: ["content-creator-drafts", user?.id ?? null],
+    enabled: Boolean(user && token && isCreator),
+    queryFn: async () => {
+      if (!user || !token || !isCreator) {
+        return [];
       }
-
-      const canRequestDrafts = Boolean(user && token);
-      if (canRequestDrafts) {
-        const draftParams = new URLSearchParams(baseParams);
-        draftParams.set("status", "draft");
-        if (!isAdmin) {
-          draftParams.append("filters[author][id][$eq]", String(user.id));
-        }
-        const draftCourses = await fetchCourses(draftParams, true);
-        for (const course of draftCourses) {
-          const key = course.id ?? course.documentId ?? course.slug;
-          if (key != null && !merged.has(key)) {
-            merged.set(key, course);
-          }
-        }
-      }
-
-      return Array.from(merged.values());
+      const params = new URLSearchParams();
+      params.append("populate[0]", "coverImage");
+      params.append("populate[1]", "author");
+      params.set("status", "draft");
+      params.append("filters[author][id][$eq]", String(user.id));
+      const path = `/api/content-creator-courses?${params.toString()}`;
+      const json = await strapiFetch<StrapiCollectionResponse<AnyRecord>>(path, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const entries = Array.isArray(json?.data) ? json.data : [];
+      return entries.map((entry) => mapContentCreatorEntry(entry));
     },
     placeholderData: (prev) => prev,
   });

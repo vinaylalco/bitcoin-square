@@ -170,12 +170,19 @@ const fallbackMitigationSections: MitigationGroup[] = [
 
 export function RiskAndInsuranceSection() {
   const { t } = useTranslation();
-  const riskSections =
-    (t("minerQuotation.riskAndInsurance.risks", { returnObjects: true }) as RiskSection[] | undefined) ??
-    fallbackRiskSections;
-  const mitigationSections =
-    (t("minerQuotation.riskAndInsurance.mitigationGroups", { returnObjects: true }) as MitigationGroup[] | undefined) ??
-    fallbackMitigationSections;
+  const riskSectionsRaw = t("minerQuotation.riskAndInsurance.risks", {
+    returnObjects: true,
+  }) as RiskSection[] | undefined;
+  const mitigationSectionsRaw = t(
+    "minerQuotation.riskAndInsurance.mitigationGroups",
+    { returnObjects: true },
+  ) as MitigationGroup[] | undefined;
+  const riskSections = Array.isArray(riskSectionsRaw)
+    ? riskSectionsRaw
+    : fallbackRiskSections;
+  const mitigationSections = Array.isArray(mitigationSectionsRaw)
+    ? mitigationSectionsRaw
+    : fallbackMitigationSections;
   const risksHeading = t("minerQuotation.riskAndInsurance.risksHeading", {
     defaultValue: "Key Risks of Bitcoin Mining",
   });
@@ -219,16 +226,21 @@ export function RiskAndInsuranceSection() {
                 <h3 className="text-lg font-semibold text-[var(--fg-default)]">{section.title}</h3>
                 <p className="text-sm text-[var(--fg-muted)]">{section.description}</p>
               </div>
-              {section.practice?.length ? (
+              {(() => {
+                const practiceItems = Array.isArray(section.practice)
+                  ? section.practice
+                  : [];
+                return practiceItems.length > 0 ? (
                 <div className="space-y-2 text-sm text-[var(--fg-default)]">
                   <p className="font-semibold text-[var(--fg-default)]">{practiceLabel}</p>
                   <ul className="list-disc pl-5 space-y-1">
-                    {section.practice.map((item) => (
+                    {practiceItems.map((item) => (
                       <li key={item}>{item}</li>
                     ))}
                   </ul>
                 </div>
-              ) : null}
+                ) : null;
+              })()}
               <div className="text-sm text-[var(--fg-default)]">
                 <p className="font-semibold">{stressTestLabel}</p>
                 <p className="text-[var(--fg-muted)]">{section.stressTest}</p>
@@ -246,32 +258,38 @@ export function RiskAndInsuranceSection() {
             <div key={group.title} className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-lg p-4 space-y-3">
               <h3 className="text-lg font-semibold text-[var(--fg-default)]">{group.title}</h3>
               <div className="space-y-3">
-                {group.items.map((item) => (
-                  <div key={item.name} className="rounded-md border border-[var(--border-subtle)] p-3 space-y-2 bg-[var(--bg-card)]">
-                    <div>
-                      <p className="text-base font-semibold text-[var(--fg-default)]">{item.name}</p>
-                      <p className="text-sm text-[var(--fg-muted)]">{item.description}</p>
-                    </div>
-                    <div className="grid gap-3 md:grid-cols-2">
+                {(Array.isArray(group.items) ? group.items : []).map((item) => {
+                  const pros = Array.isArray(item.pros) ? item.pros : [];
+                  const limitations = Array.isArray(item.limitations)
+                    ? item.limitations
+                    : [];
+                  return (
+                    <div key={item.name} className="rounded-md border border-[var(--border-subtle)] p-3 space-y-2 bg-[var(--bg-card)]">
                       <div>
-                        <p className="text-sm font-semibold text-emerald-300">{prosLabel}</p>
-                        <ul className="list-disc pl-5 text-sm text-[var(--fg-default)] space-y-1">
-                          {(item.pros ?? []).map((pro) => (
-                            <li key={pro}>{pro}</li>
-                          ))}
-                        </ul>
+                        <p className="text-base font-semibold text-[var(--fg-default)]">{item.name}</p>
+                        <p className="text-sm text-[var(--fg-muted)]">{item.description}</p>
                       </div>
-                      <div>
-                        <p className="text-sm font-semibold text-rose-300">{limitationsLabel}</p>
-                        <ul className="list-disc pl-5 text-sm text-[var(--fg-default)] space-y-1">
-                          {(item.limitations ?? []).map((limitation) => (
-                            <li key={limitation}>{limitation}</li>
-                          ))}
-                        </ul>
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <div>
+                          <p className="text-sm font-semibold text-emerald-300">{prosLabel}</p>
+                          <ul className="list-disc pl-5 text-sm text-[var(--fg-default)] space-y-1">
+                            {pros.map((pro) => (
+                              <li key={pro}>{pro}</li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-rose-300">{limitationsLabel}</p>
+                          <ul className="list-disc pl-5 text-sm text-[var(--fg-default)] space-y-1">
+                            {limitations.map((limitation) => (
+                              <li key={limitation}>{limitation}</li>
+                            ))}
+                          </ul>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ))}
