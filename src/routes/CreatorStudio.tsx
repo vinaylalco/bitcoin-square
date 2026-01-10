@@ -206,6 +206,11 @@ function resolvePublishedAt(payload: unknown): string | null | undefined {
   return undefined;
 }
 
+const MAX_COVER_IMAGE_BYTES = 200 * 1024;
+const COVER_IMAGE_RECOMMENDED_ASPECT_RATIO = 35 / 200;
+const COVER_IMAGE_HELPER_TEXT =
+  'Please upload a small image suitable for the Education page thumbnail. Recommended size is approximately 35px × 200px (or similar aspect ratio). If your image is larger, resize/compress it before uploading. Max file size: 200KB.';
+
 export default function CreatorStudio() {
   const { t } = useTranslation();
   const { token, user } = useAuth();
@@ -230,6 +235,7 @@ export default function CreatorStudio() {
   const [coverImageStatus, setCoverImageStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
   const [coverImageError, setCoverImageError] = useState<string | null>(null);
   const [coverImageName, setCoverImageName] = useState<string | null>(null);
+  const [coverImageDimensionWarning, setCoverImageDimensionWarning] = useState<string | null>(null);
   const hasLoggedLessonPayload = useRef(false);
 
   const [myCourses, setMyCourses] = useState<MyCourseItem[]>([]);
@@ -793,6 +799,41 @@ export default function CreatorStudio() {
       if (!file) {
         return;
       }
+      setCoverImageError(null);
+      setCoverImageDimensionWarning(null);
+      if (file.size > MAX_COVER_IMAGE_BYTES) {
+        event.target.value = '';
+        setCoverImageStatus('error');
+        setCoverImageError('Image must be 200KB or less. Please resize/compress and try again.');
+        setCoverImageId(null);
+        setCoverImageName(null);
+        return;
+      }
+
+      const objectUrl = URL.createObjectURL(file);
+      const previewImage = new Image();
+      previewImage.onload = () => {
+        const width = previewImage.naturalWidth;
+        const height = previewImage.naturalHeight;
+        URL.revokeObjectURL(objectUrl);
+        if (!width || !height) {
+          return;
+        }
+        const ratio = width / height;
+        const isAspectFarOff = ratio < COVER_IMAGE_RECOMMENDED_ASPECT_RATIO * 0.5 ||
+          ratio > COVER_IMAGE_RECOMMENDED_ASPECT_RATIO * 2;
+        const isSizeLarge = width > 400 || height > 800;
+        if (isAspectFarOff || isSizeLarge) {
+          setCoverImageDimensionWarning(
+            `This image is ${width}×${height}. For best results on the Education page, use ~35×200px (or similar).`,
+          );
+        }
+      };
+      previewImage.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+      };
+      previewImage.src = objectUrl;
+
       if (!token) {
         setCoverImageStatus('error');
         setCoverImageError(t('creatorStudio.errors.loginToUploadCover'));
@@ -800,7 +841,6 @@ export default function CreatorStudio() {
       }
 
       setCoverImageStatus('uploading');
-      setCoverImageError(null);
       setCoverImageId(null);
       setCoverImageName(file.name);
 
@@ -1068,6 +1108,7 @@ export default function CreatorStudio() {
                   className="mt-2 w-full rounded-2xl border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 shadow-sm file:mr-4 file:rounded-full file:border-0 file:bg-brand/10 file:px-4 file:py-1 file:text-xs file:font-semibold file:uppercase file:tracking-[0.2em] file:text-brand focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
                   required={coverImageId == null}
                 />
+                <p className="mt-2 text-xs text-neutral-500">{COVER_IMAGE_HELPER_TEXT}</p>
                 {coverImageStatus === 'uploading' && (
                   <p className="mt-2 text-xs text-neutral-500">{t('creatorStudio.fields.coverUploading')}</p>
                 )}
@@ -1078,6 +1119,9 @@ export default function CreatorStudio() {
                       id: coverImageId,
                     })}
                   </p>
+                )}
+                {coverImageDimensionWarning && (
+                  <p className="mt-2 text-xs text-amber-600">{coverImageDimensionWarning}</p>
                 )}
                 {coverImageError && <p className="mt-2 text-xs text-red-500">{coverImageError}</p>}
               </div>
