@@ -102,7 +102,17 @@
     "label": "Centro educativo",
     "title": "Cursos diseñados para la claridad y un aprendizaje más efectivo",
     "description": "Nuestros cursos incorporan principios neurológicos para ayudarte a aprender de forma más efectiva. Personaliza las lecciones según tu 'estilo de aprendizaje' y prioriza los temas que más te interesan para mantenerte comprometido desde el inicio.",
-    "error": "No se pudieron cargar los cursos."
+    "error": "No se pudieron cargar los cursos.",
+    "drafts": {
+      "title": "Mis borradores de cursos",
+      "helper": "Solo tú puedes ver estos borradores hasta que se publiquen.",
+      "loading": "Cargando borradores…",
+      "empty": "Aún no hay borradores.",
+      "error": "No se pudieron cargar los borradores.",
+      "badge": "Borrador",
+      "edit": "Editar borrador",
+      "untitled": "Borrador sin título"
+    }
   },
   "newsletter": {
     "label": "Boletín",
@@ -688,6 +698,106 @@
       "private": "Clave privada",
       "connectPrompt": "Conecta tus llaves Nostr en Configuración para sincronizar en todo el ecosistema.",
       "privateSrOnly": "Clave privada oculta por seguridad. Usa el botón Copiar cuando la necesites."
+    },
+    "creator": {
+      "createCourse": "Crear un curso"
+    }
+  },
+  "creatorStudio": {
+    "title": "Estudio del creador",
+    "login": {
+      "prompt": "Por favor, inicia sesión.",
+      "cta": "Ir al inicio de sesión"
+    },
+    "access": {
+      "checking": "Comprobando acceso de creador…",
+      "deniedCreator": "Acceso denegado (no eres creador de contenido).",
+      "denied": "Acceso denegado."
+    },
+    "courseLoad": {
+      "loading": "Cargando curso…"
+    },
+    "header": {
+      "eyebrow": "Estudio del creador",
+      "title": "Crear un curso",
+      "subtitle": "Guarda el borrador de tu curso y añade lecciones."
+    },
+    "steps": {
+      "courseDetails": "Paso 1: Detalles del curso",
+      "lessons": "Paso 2: Lecciones"
+    },
+    "fields": {
+      "title": "Título",
+      "titlePlaceholder": "Título del curso",
+      "slug": "Slug",
+      "slugPlaceholder": "titulo-del-curso",
+      "slugHelp": "Se usa en la URL del curso.",
+      "description": "Descripción",
+      "descriptionPlaceholder": "Resumen breve",
+      "coverImage": "Imagen de portada",
+      "coverUploading": "Subiendo…",
+      "coverUploaded": "Subida{{name}} (ID: {{id}})"
+    },
+    "courseMeta": {
+      "courseId": "ID del curso: {{id}}",
+      "documentId": "ID del documento: {{id}}",
+      "na": "N/D"
+    },
+    "lessons": {
+      "helper": "Añade lecciones al curso.",
+      "lessonLabel": "Lección {{index}}",
+      "remove": "Eliminar",
+      "lessonTitle": "Título de la lección",
+      "lessonTitlePlaceholder": "Título de la lección",
+      "youtubeLabel": "URL de inserción de YouTube",
+      "youtubeHelpToggle": "¿Qué es esto?",
+      "youtubePlaceholder": "https://www.youtube.com/embed/...",
+      "youtubeHelpText": "La URL necesaria aquí es el enlace de inserción del código de YouTube — no el script completo, solo el enlace. No introduzcas la URL del navegador del video — no funcionará. Para obtener este enlace primero debes subir el video a YouTube (idealmente como privado/no listado) para que el público no pueda verlo, pero los usuarios de este sitio sí. Esto mantiene su exclusividad en esta plataforma.",
+      "lessonText": "Texto de la lección",
+      "lessonTextPlaceholder": "Texto de la lección",
+      "addLesson": "Añadir lección"
+    },
+    "myCourses": {
+      "title": "Mis cursos",
+      "helper": "Revisa tus cursos existentes.",
+      "loading": "Cargando cursos…",
+      "error": "No se pudieron cargar los cursos.",
+      "empty": "Aún no hay cursos.",
+      "lastUpdated": "Última actualización: {{date}}",
+      "edit": "Editar",
+      "untitled": "Curso sin título"
+    },
+    "actions": {
+      "saving": "Guardando…",
+      "saveDraft": "Guardar borrador",
+      "addLessonHint": "Añade al menos una lección para habilitar el guardado.",
+      "draftFooter": "Los cursos se guardan como borradores. Un administrador los revisará y publicará más tarde."
+    },
+    "notices": {
+      "draftSaved": "Borrador guardado.",
+      "draftUpdated": "Borrador actualizado."
+    },
+    "errors": {
+      "loadUser": "No se pudo cargar el usuario.",
+      "loadAccount": "No se pudo cargar tu cuenta.",
+      "loadCourse": "No se pudo cargar el curso.",
+      "createCourse": "No se pudo crear el curso.",
+      "publishUnexpected": "El curso se publicó inesperadamente. Ponte en contacto con soporte.",
+      "loginToCreate": "Inicia sesión para crear un curso.",
+      "titleRequired": "El título del curso es obligatorio.",
+      "slugRequired": "El slug del curso es obligatorio.",
+      "descriptionRequired": "La descripción del curso es obligatoria.",
+      "coverUploadWait": "Espera a que termine la subida de la imagen de portada.",
+      "coverRequired": "La imagen de portada es obligatoria.",
+      "lessonInvalid": "Cada lección necesita un título y texto. Añade una URL de inserción de YouTube válida si corresponde.",
+      "lessonRequired": "Añade al menos una lección antes de guardar.",
+      "saveDraftFailed": "No se pudo guardar el borrador del curso.",
+      "loginToUploadCover": "Inicia sesión para subir una imagen de portada.",
+      "baseUrlMissing": "La URL base de Strapi no está configurada.",
+      "uploadFailedStatus": "La subida falló con estado {{status}}",
+      "uploadFailed": "La subida falló. Inténtalo de nuevo.",
+      "youtubeInvalid": "Introduce una URL válida (no el código de inserción).",
+      "youtubeEmbedUrl": "Usa una URL de inserción de YouTube (youtube.com/embed/...)."
     }
   },
   "minerQuotation": {

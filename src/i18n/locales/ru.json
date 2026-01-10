@@ -102,7 +102,17 @@
     "label": "Education Hub",
     "title": "Courses engineered for clarity and more effective learning",
     "description": "Our courses incorporate neurological principles to help you learn more effectively. Customize lessons based on your 'learning style,' and prioritize the topics that interest you most so you stay engaged from the very start.",
-    "error": "Failed to load courses."
+    "error": "Failed to load courses.",
+    "drafts": {
+      "title": "Мои черновики курсов",
+      "helper": "Эти черновики видны только вам до публикации.",
+      "loading": "Загрузка черновиков…",
+      "empty": "Черновиков пока нет.",
+      "error": "Не удалось загрузить черновики.",
+      "badge": "Черновик",
+      "edit": "Редактировать черновик",
+      "untitled": "Черновик без названия"
+    }
   },
   "newsletter": {
     "label": "Newsletter",
@@ -688,6 +698,106 @@
       "private": "Приватный ключ",
       "connectPrompt": "Подключите ключи Nostr в настройках, чтобы синхронизироваться по экосистеме.",
       "privateSrOnly": "Приватный ключ скрыт для безопасности. Используйте кнопку копирования при необходимости."
+    },
+    "creator": {
+      "createCourse": "Создать курс"
+    }
+  },
+  "creatorStudio": {
+    "title": "Студия автора",
+    "login": {
+      "prompt": "Пожалуйста, войдите.",
+      "cta": "Перейти ко входу"
+    },
+    "access": {
+      "checking": "Проверяем доступ автора…",
+      "deniedCreator": "Доступ запрещен (вы не создатель контента).",
+      "denied": "Доступ запрещен."
+    },
+    "courseLoad": {
+      "loading": "Загрузка курса…"
+    },
+    "header": {
+      "eyebrow": "Студия автора",
+      "title": "Создать курс",
+      "subtitle": "Сохраните черновик курса и добавьте уроки."
+    },
+    "steps": {
+      "courseDetails": "Шаг 1: Данные курса",
+      "lessons": "Шаг 2: Уроки"
+    },
+    "fields": {
+      "title": "Название",
+      "titlePlaceholder": "Название курса",
+      "slug": "Слаг",
+      "slugPlaceholder": "nazvanie-kursa",
+      "slugHelp": "Используется в URL курса.",
+      "description": "Описание",
+      "descriptionPlaceholder": "Краткое описание",
+      "coverImage": "Обложка",
+      "coverUploading": "Загрузка…",
+      "coverUploaded": "Загружено{{name}} (ID: {{id}})"
+    },
+    "courseMeta": {
+      "courseId": "ID курса: {{id}}",
+      "documentId": "ID документа: {{id}}",
+      "na": "Н/Д"
+    },
+    "lessons": {
+      "helper": "Добавьте уроки в курс.",
+      "lessonLabel": "Урок {{index}}",
+      "remove": "Удалить",
+      "lessonTitle": "Название урока",
+      "lessonTitlePlaceholder": "Название урока",
+      "youtubeLabel": "URL для вставки YouTube",
+      "youtubeHelpToggle": "Что это?",
+      "youtubePlaceholder": "https://www.youtube.com/embed/...",
+      "youtubeHelpText": "Нужна именно ссылка для вставки из кода YouTube — не весь скрипт, только ссылка. Не вводите URL видео из браузера — он не сработает. Чтобы получить эту ссылку, сначала загрузите видео на YouTube (лучше как приватное/по ссылке), чтобы публика не могла его видеть, но пользователи этого сайта — могли. Это сохраняет эксклюзивность на платформе.",
+      "lessonText": "Текст урока",
+      "lessonTextPlaceholder": "Текст урока",
+      "addLesson": "Добавить урок"
+    },
+    "myCourses": {
+      "title": "Мои курсы",
+      "helper": "Просмотрите свои курсы.",
+      "loading": "Загрузка курсов…",
+      "error": "Не удалось загрузить курсы.",
+      "empty": "Курсов пока нет.",
+      "lastUpdated": "Последнее обновление: {{date}}",
+      "edit": "Редактировать",
+      "untitled": "Курс без названия"
+    },
+    "actions": {
+      "saving": "Сохранение…",
+      "saveDraft": "Сохранить черновик",
+      "addLessonHint": "Добавьте хотя бы один урок, чтобы включить сохранение.",
+      "draftFooter": "Курсы сохраняются как черновики. Администратор проверит и опубликует их позже."
+    },
+    "notices": {
+      "draftSaved": "Черновик сохранен.",
+      "draftUpdated": "Черновик обновлен."
+    },
+    "errors": {
+      "loadUser": "Не удалось загрузить пользователя.",
+      "loadAccount": "Не удалось загрузить вашу учетную запись.",
+      "loadCourse": "Не удалось загрузить курс.",
+      "createCourse": "Не удалось создать курс.",
+      "publishUnexpected": "Курс был неожиданно опубликован. Пожалуйста, свяжитесь с поддержкой.",
+      "loginToCreate": "Войдите, чтобы создать курс.",
+      "titleRequired": "Название курса обязательно.",
+      "slugRequired": "Слаг курса обязателен.",
+      "descriptionRequired": "Описание курса обязательно.",
+      "coverUploadWait": "Дождитесь завершения загрузки обложки.",
+      "coverRequired": "Обложка обязательна.",
+      "lessonInvalid": "Каждому уроку нужны название и текст. При необходимости добавьте корректный URL вставки YouTube.",
+      "lessonRequired": "Добавьте хотя бы один урок перед сохранением.",
+      "saveDraftFailed": "Не удалось сохранить черновик курса.",
+      "loginToUploadCover": "Войдите, чтобы загрузить обложку.",
+      "baseUrlMissing": "Базовый URL Strapi не настроен.",
+      "uploadFailedStatus": "Загрузка не удалась, статус {{status}}",
+      "uploadFailed": "Загрузка не удалась. Попробуйте снова.",
+      "youtubeInvalid": "Введите корректный URL (не код вставки).",
+      "youtubeEmbedUrl": "Используйте URL вставки YouTube (youtube.com/embed/...)."
     }
   },
   "minerQuotation": {

@@ -49,10 +49,17 @@ export default function ProductDetail() {
   }
 
   const product = data;
-  const images = product.ProductImages || [];
+  const images = Array.isArray(product.ProductImages) ? product.ProductImages : [];
+  const imageCount = images.length;
 
-  const prev = () => setIndex((i) => (i - 1 + images.length) % images.length);
-  const next = () => setIndex((i) => (i + 1) % images.length);
+  const prev = () => {
+    if (imageCount === 0) return;
+    setIndex((i) => (i - 1 + imageCount) % imageCount);
+  };
+  const next = () => {
+    if (imageCount === 0) return;
+    setIndex((i) => (i + 1) % imageCount);
+  };
 
   return (
     <div className="mx-auto max-w-5xl px-4 pb-24 pt-12 sm:px-6">
@@ -66,7 +73,7 @@ export default function ProductDetail() {
         <div className="grid gap-8 px-6 py-10 sm:px-10 lg:grid-cols-[1.2fr_1fr]">
           <div className="space-y-6">
             <div className="relative overflow-hidden rounded-3xl border border-brand/30 bg-black/10">
-              {images.length > 0 ? (
+              {imageCount > 0 ? (
                 <div className="relative">
                   <div
                     className="flex transition-transform duration-500 ease-out"
@@ -82,7 +89,7 @@ export default function ProductDetail() {
                       />
                     ))}
                   </div>
-                  {images.length > 1 && (
+                  {imageCount > 1 && (
                     <>
                       <button
                         type="button"

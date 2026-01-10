@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { getStrapiBaseUrl, strapiFetch, StrapiRequestError } from '../api/strapi-client';
 import { useAuth } from '../context/AuthContext';
@@ -91,43 +92,6 @@ function toSlug(value: string): string {
 
 function isLessonBlank(lesson: LessonDraft): boolean {
   return !lesson.lessonTitle.trim() && !hasLessonTextContent(lesson.lessonText) && !lesson.youtubeEmbedCode.trim();
-}
-
-function validateYouTubeEmbedCode(value: string): string | null {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return null;
-  }
-  const lower = trimmed.toLowerCase();
-  if (
-    trimmed.includes('<') ||
-    trimmed.includes('>') ||
-    lower.includes('<iframe') ||
-    lower.includes('<script') ||
-    lower.includes('src=') ||
-    lower.includes('javascript:') ||
-    lower.includes('data:')
-  ) {
-    return 'Please enter a valid URL (not embed code).';
-  }
-  let parsed: URL;
-  try {
-    parsed = new URL(trimmed);
-  } catch {
-    return 'Please enter a valid URL (not embed code).';
-  }
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-    return 'Please enter a valid URL (not embed code).';
-  }
-  const hostname = parsed.hostname.toLowerCase();
-  const allowedHosts = ['youtube.com', 'www.youtube.com', 'youtu.be'];
-  if (!allowedHosts.includes(hostname)) {
-    return 'Use a YouTube embed URL (youtube.com/embed/...).';
-  }
-  if (!parsed.pathname.startsWith('/embed/')) {
-    return 'Use a YouTube embed URL (youtube.com/embed/...).';
-  }
-  return null;
 }
 
 function hasLessonTextContent(lessonText: LessonTextValue): boolean {
@@ -243,6 +207,7 @@ function resolvePublishedAt(payload: unknown): string | null | undefined {
 }
 
 export default function CreatorStudio() {
+  const { t } = useTranslation();
   const { token, user } = useAuth();
   const { id: courseIdParam } = useParams<{ id?: string }>();
   const isEditing = Boolean(courseIdParam);
@@ -275,6 +240,46 @@ export default function CreatorStudio() {
   const [courseLoadError, setCourseLoadError] = useState<string | null>(null);
   const [courseAccessDenied, setCourseAccessDenied] = useState(false);
 
+  const validateYouTubeEmbedCode = useCallback(
+    (value: string): string | null => {
+      const trimmed = value.trim();
+      if (!trimmed) {
+        return null;
+      }
+      const lower = trimmed.toLowerCase();
+      if (
+        trimmed.includes('<') ||
+        trimmed.includes('>') ||
+        lower.includes('<iframe') ||
+        lower.includes('<script') ||
+        lower.includes('src=') ||
+        lower.includes('javascript:') ||
+        lower.includes('data:')
+      ) {
+        return t('creatorStudio.errors.youtubeInvalid');
+      }
+      let parsed: URL;
+      try {
+        parsed = new URL(trimmed);
+      } catch {
+        return t('creatorStudio.errors.youtubeInvalid');
+      }
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        return t('creatorStudio.errors.youtubeInvalid');
+      }
+      const hostname = parsed.hostname.toLowerCase();
+      const allowedHosts = ['youtube.com', 'www.youtube.com', 'youtu.be'];
+      if (!allowedHosts.includes(hostname)) {
+        return t('creatorStudio.errors.youtubeEmbedUrl');
+      }
+      if (!parsed.pathname.startsWith('/embed/')) {
+        return t('creatorStudio.errors.youtubeEmbedUrl');
+      }
+      return null;
+    },
+    [t],
+  );
+
   useEffect(() => {
     if (!token) {
       setCreatorStatus('idle');
@@ -298,7 +303,7 @@ export default function CreatorStudio() {
       })
       .catch((error) => {
         if (!active) return;
-        const message = error instanceof Error ? error.message : 'Unable to load user.';
+        const message = error instanceof Error ? error.message : t('creatorStudio.errors.loadUser');
         setCreatorError(message);
         setCreatorStatus('error');
       });
@@ -306,7 +311,7 @@ export default function CreatorStudio() {
     return () => {
       active = false;
     };
-  }, [token]);
+  }, [t, token]);
 
   const isCreator = useMemo(() => creatorProfile?.contentCreator === true, [creatorProfile]);
 
@@ -399,7 +404,7 @@ export default function CreatorStudio() {
         if (!active) return;
         if (!record) {
           setCourseLoadStatus('error');
-          setCourseLoadError('Unable to load course.');
+          setCourseLoadError(t('creatorStudio.errors.loadCourse'));
           return;
         }
         const authorId = resolveAuthorId(record);
@@ -435,7 +440,7 @@ export default function CreatorStudio() {
       })
       .catch((error) => {
         if (!active) return;
-        const message = error instanceof Error ? error.message : 'Unable to load course.';
+        const message = error instanceof Error ? error.message : t('creatorStudio.errors.loadCourse');
         setCourseLoadError(message);
         setCourseLoadStatus('error');
       });
@@ -443,7 +448,7 @@ export default function CreatorStudio() {
     return () => {
       active = false;
     };
-  }, [courseIdParam, token, user?.id]);
+  }, [courseIdParam, t, token, user?.id]);
 
   useEffect(() => {
     if (!token || !creatorProfile?.id) {
@@ -484,7 +489,7 @@ export default function CreatorStudio() {
           const key = documentId ?? recordId;
           if (key == null) return;
           if (!documentId) return;
-          const title = attributes.title?.trim() || 'Untitled course';
+          const title = attributes.title?.trim() || t('creatorStudio.myCourses.untitled');
           const updatedAt = attributes.updatedAt ?? attributes.updated_at ?? null;
           const existing = merged.get(key);
           if (!existing) {
@@ -512,7 +517,7 @@ export default function CreatorStudio() {
       })
       .catch((error) => {
         if (!active) return;
-        const message = error instanceof Error ? error.message : 'Unable to load courses.';
+        const message = error instanceof Error ? error.message : t('creatorStudio.myCourses.error');
         setMyCoursesError(message);
         setMyCoursesStatus('error');
       });
@@ -520,7 +525,7 @@ export default function CreatorStudio() {
     return () => {
       active = false;
     };
-  }, [creatorProfile?.id, token]);
+  }, [creatorProfile?.id, t, token]);
 
   const handleCourseChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -575,7 +580,7 @@ export default function CreatorStudio() {
     });
 
     return { validLessons, hasInvalidLesson };
-  }, [lessonDrafts]);
+  }, [lessonDrafts, validateYouTubeEmbedCode]);
 
   const buildCoursePayload = useCallback(
     (includeAuthor: boolean) => {
@@ -612,48 +617,48 @@ export default function CreatorStudio() {
   const handleCourseSaveDraft = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
-      const publishErrorMessage = 'Course was unexpectedly published. Please contact support.';
+      const publishErrorMessage = t('creatorStudio.errors.publishUnexpected');
       if (!token) {
         setCourseStatus('error');
-        setCourseError('Please log in to create a course.');
+        setCourseError(t('creatorStudio.errors.loginToCreate'));
         return;
       }
 
       if (!courseDraft.title.trim()) {
         setCourseStatus('error');
-        setCourseError('Course title is required.');
+        setCourseError(t('creatorStudio.errors.titleRequired'));
         return;
       }
 
       if (!courseDraft.slug.trim()) {
         setCourseStatus('error');
-        setCourseError('Course slug is required.');
+        setCourseError(t('creatorStudio.errors.slugRequired'));
         return;
       }
 
       if (!courseDraft.description.trim()) {
         setCourseStatus('error');
-        setCourseError('Course description is required.');
+        setCourseError(t('creatorStudio.errors.descriptionRequired'));
         return;
       }
 
       if (coverImageStatus === 'uploading') {
         setCourseStatus('error');
-        setCourseError('Please wait for the cover image upload to finish.');
+        setCourseError(t('creatorStudio.errors.coverUploadWait'));
         return;
       }
 
       if (!coverImageId) {
         setCourseStatus('error');
         setCourseError(null);
-        setCoverImageError('Cover image is required.');
+        setCoverImageError(t('creatorStudio.errors.coverRequired'));
         return;
       }
 
       if (validLessonDrafts.hasInvalidLesson) {
         setCourseStatus('error');
         setCourseError(null);
-        setLessonError('Each lesson needs a title and lesson text. Add a valid YouTube embed URL if provided.');
+        setLessonError(t('creatorStudio.errors.lessonInvalid'));
         const nextErrors: Record<string, { youtubeEmbedCode?: string }> = {};
         lessonDrafts.forEach((lesson) => {
           if (isLessonBlank(lesson)) {
@@ -671,7 +676,7 @@ export default function CreatorStudio() {
       if (validLessonDrafts.validLessons.length === 0) {
         setCourseStatus('error');
         setCourseError(null);
-        setLessonError('Add at least one lesson before saving.');
+        setLessonError(t('creatorStudio.errors.lessonRequired'));
         return;
       }
 
@@ -683,7 +688,7 @@ export default function CreatorStudio() {
       try {
         if (isEditing && !courseRecord?.documentId) {
           setCourseStatus('error');
-          setCourseError('Unable to save course draft.');
+          setCourseError(t('creatorStudio.errors.saveDraftFailed'));
           return;
         }
         const courseDocumentId = courseRecord?.documentId;
@@ -749,14 +754,18 @@ export default function CreatorStudio() {
         }
         setCourseRecord(record ?? null);
         setCourseStatus('success');
-        setCourseNotice(courseDocumentId ? 'Draft updated.' : 'Draft saved.');
+        setCourseNotice(
+          courseDocumentId
+            ? t('creatorStudio.notices.draftUpdated')
+            : t('creatorStudio.notices.draftSaved'),
+        );
       } catch (error) {
         const message =
           error instanceof StrapiRequestError
             ? error.message
             : error instanceof Error
               ? error.message
-              : 'Unable to create course.';
+              : t('creatorStudio.errors.createCourse');
         setCourseStatus('error');
         setCourseError(message);
       }
@@ -771,6 +780,7 @@ export default function CreatorStudio() {
       isEditing,
       courseRecord,
       lessonDrafts,
+      t,
       token,
       user?.id,
       validLessonDrafts,
@@ -785,7 +795,7 @@ export default function CreatorStudio() {
       }
       if (!token) {
         setCoverImageStatus('error');
-        setCoverImageError('Please log in to upload a cover image.');
+        setCoverImageError(t('creatorStudio.errors.loginToUploadCover'));
         return;
       }
 
@@ -797,7 +807,7 @@ export default function CreatorStudio() {
       try {
         const base = getStrapiBaseUrl();
         if (!base) {
-          throw new Error('Strapi base URL is not configured.');
+          throw new Error(t('creatorStudio.errors.baseUrlMissing'));
         }
         const formData = new FormData();
         formData.append('files', file);
@@ -809,7 +819,7 @@ export default function CreatorStudio() {
           body: formData,
         });
         if (!response.ok) {
-          let message = `Upload failed with status ${response.status}`;
+          let message = t('creatorStudio.errors.uploadFailedStatus', { status: response.status });
           try {
             const payload = await response.json();
             const extractedMessage =
@@ -829,18 +839,18 @@ export default function CreatorStudio() {
         const uploaded = Array.isArray(payload) ? payload[0] : payload?.[0];
         const uploadedId = uploaded?.id;
         if (!uploadedId) {
-          throw new Error('Upload failed. Please try again.');
+          throw new Error(t('creatorStudio.errors.uploadFailed'));
         }
         setCoverImageId(uploadedId);
         setCoverImageStatus('success');
         setCoverImageError(null);
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'Upload failed. Please try again.';
+        const message = error instanceof Error ? error.message : t('creatorStudio.errors.uploadFailed');
         setCoverImageStatus('error');
         setCoverImageError(message);
       }
     },
-    [token],
+    [t, token],
   );
 
   const handleLessonChange = useCallback(
@@ -884,7 +894,7 @@ export default function CreatorStudio() {
       }
       return next;
     });
-  }, []);
+  }, [validateYouTubeEmbedCode]);
 
   const requiredCourseFieldsValid = useMemo(() => {
     return Boolean(courseDraft.title.trim() && courseDraft.slug.trim() && courseDraft.description.trim());
@@ -906,13 +916,13 @@ export default function CreatorStudio() {
   if (!token) {
     return (
       <div className="mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center gap-3 px-6 py-16 text-center">
-        <h1 className="text-3xl font-semibold">Creator Studio</h1>
-        <p className="text-sm text-neutral-600">Please log in.</p>
+        <h1 className="text-3xl font-semibold">{t('creatorStudio.title')}</h1>
+        <p className="text-sm text-neutral-600">{t('creatorStudio.login.prompt')}</p>
         <Link
           to="/membership?view=login"
           className="rounded-full bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-white"
         >
-          Go to login
+          {t('creatorStudio.login.cta')}
         </Link>
       </div>
     );
@@ -921,8 +931,8 @@ export default function CreatorStudio() {
   if (creatorStatus === 'loading') {
     return (
       <div className="mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center gap-2 px-6 py-16 text-center">
-        <h1 className="text-3xl font-semibold">Creator Studio</h1>
-        <p className="text-sm text-neutral-600">Checking creator access…</p>
+        <h1 className="text-3xl font-semibold">{t('creatorStudio.title')}</h1>
+        <p className="text-sm text-neutral-600">{t('creatorStudio.access.checking')}</p>
       </div>
     );
   }
@@ -930,8 +940,10 @@ export default function CreatorStudio() {
   if (creatorStatus === 'error') {
     return (
       <div className="mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center gap-2 px-6 py-16 text-center">
-        <h1 className="text-3xl font-semibold">Creator Studio</h1>
-        <p className="text-sm text-red-500">{creatorError ?? 'Unable to load your account.'}</p>
+        <h1 className="text-3xl font-semibold">{t('creatorStudio.title')}</h1>
+        <p className="text-sm text-red-500">
+          {creatorError ?? t('creatorStudio.errors.loadAccount')}
+        </p>
       </div>
     );
   }
@@ -939,8 +951,8 @@ export default function CreatorStudio() {
   if (!isCreator) {
     return (
       <div className="mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center gap-2 px-6 py-16 text-center">
-        <h1 className="text-3xl font-semibold">Creator Studio</h1>
-        <p className="text-sm text-neutral-600">Access denied (not a content creator).</p>
+        <h1 className="text-3xl font-semibold">{t('creatorStudio.title')}</h1>
+        <p className="text-sm text-neutral-600">{t('creatorStudio.access.deniedCreator')}</p>
       </div>
     );
   }
@@ -948,8 +960,8 @@ export default function CreatorStudio() {
   if (isEditing && courseLoadStatus === 'loading') {
     return (
       <div className="mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center gap-2 px-6 py-16 text-center">
-        <h1 className="text-3xl font-semibold">Creator Studio</h1>
-        <p className="text-sm text-neutral-600">Loading course…</p>
+        <h1 className="text-3xl font-semibold">{t('creatorStudio.title')}</h1>
+        <p className="text-sm text-neutral-600">{t('creatorStudio.courseLoad.loading')}</p>
       </div>
     );
   }
@@ -957,8 +969,8 @@ export default function CreatorStudio() {
   if (isEditing && courseAccessDenied) {
     return (
       <div className="mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center gap-2 px-6 py-16 text-center">
-        <h1 className="text-3xl font-semibold">Creator Studio</h1>
-        <p className="text-sm text-neutral-600">Access denied.</p>
+        <h1 className="text-3xl font-semibold">{t('creatorStudio.title')}</h1>
+        <p className="text-sm text-neutral-600">{t('creatorStudio.access.denied')}</p>
       </div>
     );
   }
@@ -966,8 +978,10 @@ export default function CreatorStudio() {
   if (isEditing && courseLoadStatus === 'error') {
     return (
       <div className="mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center gap-2 px-6 py-16 text-center">
-        <h1 className="text-3xl font-semibold">Creator Studio</h1>
-        <p className="text-sm text-red-500">{courseLoadError ?? 'Unable to load course.'}</p>
+        <h1 className="text-3xl font-semibold">{t('creatorStudio.title')}</h1>
+        <p className="text-sm text-red-500">
+          {courseLoadError ?? t('creatorStudio.errors.loadCourse')}
+        </p>
       </div>
     );
   }
@@ -976,10 +990,12 @@ export default function CreatorStudio() {
     <div className="min-h-screen w-full bg-white text-neutral-900 transition-colors dark:bg-neutral-950 dark:text-neutral-100">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-4 py-10 sm:px-6 lg:px-8">
         <header className="rounded-3xl border border-neutral-200 bg-neutral-50 p-8 shadow-sm transition-colors dark:border-neutral-800 dark:bg-neutral-900">
-          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-brand">Creator Studio</p>
-          <h1 className="mt-4 text-3xl font-semibold">Create a Course</h1>
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-brand">
+            {t('creatorStudio.header.eyebrow')}
+          </p>
+          <h1 className="mt-4 text-3xl font-semibold">{t('creatorStudio.header.title')}</h1>
           <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
-            Save your course draft and add lessons under it.
+            {t('creatorStudio.header.subtitle')}
           </p>
         </header>
 
@@ -987,7 +1003,7 @@ export default function CreatorStudio() {
           <section className="rounded-3xl border border-neutral-200 bg-white p-8 shadow-sm transition-colors dark:border-neutral-800 dark:bg-neutral-900">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-3">
-                <h2 className="text-xl font-semibold">Step 1: Course details</h2>
+                <h2 className="text-xl font-semibold">{t('creatorStudio.steps.courseDetails')}</h2>
               </div>
               {courseStatus === 'success' && courseNotice && (
                 <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-500">
@@ -998,7 +1014,7 @@ export default function CreatorStudio() {
             <div className="mt-6 space-y-4">
               <div>
                 <label htmlFor="course-title" className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500">
-                  Title
+                  {t('creatorStudio.fields.title')}
                 </label>
                 <input
                   id="course-title"
@@ -1006,13 +1022,13 @@ export default function CreatorStudio() {
                   value={courseDraft.title}
                   onChange={handleCourseChange}
                   className="mt-2 w-full rounded-2xl border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 shadow-sm focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
-                  placeholder="Course title"
+                  placeholder={t('creatorStudio.fields.titlePlaceholder')}
                   required
                 />
               </div>
               <div>
                 <label htmlFor="course-slug" className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500">
-                  Slug
+                  {t('creatorStudio.fields.slug')}
                 </label>
                 <input
                   id="course-slug"
@@ -1020,14 +1036,14 @@ export default function CreatorStudio() {
                   value={courseDraft.slug}
                   onChange={handleCourseChange}
                   className="mt-2 w-full rounded-2xl border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 shadow-sm focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
-                  placeholder="course-title"
+                  placeholder={t('creatorStudio.fields.slugPlaceholder')}
                   required
                 />
-                <p className="mt-2 text-xs text-neutral-500">Used in the course URL.</p>
+                <p className="mt-2 text-xs text-neutral-500">{t('creatorStudio.fields.slugHelp')}</p>
               </div>
               <div>
                 <label htmlFor="course-description" className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500">
-                  Description
+                  {t('creatorStudio.fields.description')}
                 </label>
                 <textarea
                   id="course-description"
@@ -1036,13 +1052,13 @@ export default function CreatorStudio() {
                   onChange={handleCourseChange}
                   className="mt-2 w-full rounded-2xl border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 shadow-sm focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
                   rows={4}
-                  placeholder="Short summary"
+                  placeholder={t('creatorStudio.fields.descriptionPlaceholder')}
                   required
                 />
               </div>
               <div>
                 <label htmlFor="course-cover-image" className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500">
-                  Cover image
+                  {t('creatorStudio.fields.coverImage')}
                 </label>
                 <input
                   id="course-cover-image"
@@ -1053,11 +1069,14 @@ export default function CreatorStudio() {
                   required={coverImageId == null}
                 />
                 {coverImageStatus === 'uploading' && (
-                  <p className="mt-2 text-xs text-neutral-500">Uploading…</p>
+                  <p className="mt-2 text-xs text-neutral-500">{t('creatorStudio.fields.coverUploading')}</p>
                 )}
                 {coverImageStatus === 'success' && coverImageId && (
                   <p className="mt-2 text-xs text-emerald-500">
-                    Uploaded{coverImageName ? `: ${coverImageName}` : ''} (ID: {coverImageId})
+                    {t('creatorStudio.fields.coverUploaded', {
+                      name: coverImageName ? `: ${coverImageName}` : '',
+                      id: coverImageId,
+                    })}
                   </p>
                 )}
                 {coverImageError && <p className="mt-2 text-xs text-red-500">{coverImageError}</p>}
@@ -1065,8 +1084,14 @@ export default function CreatorStudio() {
               {courseError && <p className="text-sm text-red-500">{courseError}</p>}
               {courseRecord && (
                 <p className="text-xs text-neutral-500">
-                  Course ID: {courseRecord.id ?? 'N/A'}
-                  {courseRecord.documentId ? ` · Document ID: ${courseRecord.documentId}` : ''}
+                  {t('creatorStudio.courseMeta.courseId', {
+                    id: courseRecord.id ?? t('creatorStudio.courseMeta.na'),
+                  })}
+                  {courseRecord.documentId
+                    ? ` · ${t('creatorStudio.courseMeta.documentId', {
+                        id: courseRecord.documentId,
+                      })}`
+                    : ''}
                 </p>
               )}
             </div>
@@ -1074,10 +1099,10 @@ export default function CreatorStudio() {
 
           <section className="rounded-3xl border border-neutral-200 bg-white p-8 shadow-sm transition-colors dark:border-neutral-800 dark:bg-neutral-900">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-xl font-semibold">Step 2: Lessons</h2>
+              <h2 className="text-xl font-semibold">{t('creatorStudio.steps.lessons')}</h2>
             </div>
             <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
-              Add lessons to the course.
+              {t('creatorStudio.lessons.helper')}
             </p>
             <div className="mt-6 space-y-6">
               {lessonDrafts.map((lesson, index) => (
@@ -1087,7 +1112,7 @@ export default function CreatorStudio() {
                 >
                   <div className="flex items-center justify-between gap-2">
                     <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-neutral-500">
-                      Lesson {index + 1}
+                      {t('creatorStudio.lessons.lessonLabel', { index: index + 1 })}
                     </h3>
                     {lessonDrafts.length > 1 && (
                       <button
@@ -1095,26 +1120,26 @@ export default function CreatorStudio() {
                         onClick={() => removeLessonDraft(lesson.id)}
                         className="text-xs font-semibold uppercase tracking-[0.2em] text-red-500"
                       >
-                        Remove
+                        {t('creatorStudio.lessons.remove')}
                       </button>
                     )}
                   </div>
                   <div className="mt-4">
                     <label className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500">
-                      Lesson title
+                      {t('creatorStudio.lessons.lessonTitle')}
                     </label>
                     <input
                       value={lesson.lessonTitle}
                       onChange={(event) => handleLessonChange(lesson.id, 'lessonTitle', event.target.value)}
                       className="mt-2 w-full rounded-2xl border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 shadow-sm focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
-                      placeholder="Lesson title"
+                      placeholder={t('creatorStudio.lessons.lessonTitlePlaceholder')}
                       required
                     />
                   </div>
                   <div className="mt-4">
                     <div className="flex flex-wrap items-center gap-2">
                       <label className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500">
-                        YouTube embed URL
+                        {t('creatorStudio.lessons.youtubeLabel')}
                       </label>
                       <button
                         type="button"
@@ -1123,7 +1148,7 @@ export default function CreatorStudio() {
                         }
                         className="text-xs font-semibold uppercase tracking-[0.2em] text-brand"
                       >
-                        What&apos;s this?
+                        {t('creatorStudio.lessons.youtubeHelpToggle')}
                       </button>
                     </div>
                     <input
@@ -1131,15 +1156,11 @@ export default function CreatorStudio() {
                       onChange={(event) => handleLessonChange(lesson.id, 'youtubeEmbedCode', event.target.value)}
                       onBlur={(event) => handleYoutubeBlur(lesson.id, event.target.value)}
                       className="mt-2 w-full rounded-2xl border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 shadow-sm focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
-                      placeholder="https://www.youtube.com/embed/..."
+                      placeholder={t('creatorStudio.lessons.youtubePlaceholder')}
                     />
                     {youtubeInfoLessonId === lesson.id && (
                       <div className="mt-2 rounded-2xl border border-neutral-200 bg-white p-3 text-xs text-neutral-600 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
-                        The URL needed here is the embed URL link from the YouTube embed code — not the full script
-                        itself, just the link. Do not enter the browser URL for the video — it won&apos;t work. To
-                        get this link you need to first upload the video to YouTube (ideally as a private/unlisted
-                        video) so the public cannot view it, but users from this website can. This keeps its
-                        exclusivity to this platform.
+                        {t('creatorStudio.lessons.youtubeHelpText')}
                       </div>
                     )}
                     {lessonFieldErrors[lesson.id]?.youtubeEmbedCode && (
@@ -1148,14 +1169,14 @@ export default function CreatorStudio() {
                   </div>
                   <div className="mt-4">
                     <label className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500">
-                      Lesson text
+                      {t('creatorStudio.lessons.lessonText')}
                     </label>
                     <textarea
                       value={lessonTextToDisplay(lesson.lessonText)}
                       onChange={(event) => handleLessonChange(lesson.id, 'lessonText', event.target.value)}
                       className="mt-2 w-full rounded-2xl border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 shadow-sm focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
                       rows={4}
-                      placeholder="Lesson text"
+                      placeholder={t('creatorStudio.lessons.lessonTextPlaceholder')}
                       required
                     />
                   </div>
@@ -1168,7 +1189,7 @@ export default function CreatorStudio() {
                   onClick={addLessonDraft}
                   className="rounded-full border border-neutral-300 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-600 transition hover:border-brand hover:text-brand dark:border-neutral-700 dark:text-neutral-200"
                 >
-                  Add lesson
+                  {t('creatorStudio.lessons.addLesson')}
                 </button>
               </div>
             </div>
@@ -1176,18 +1197,22 @@ export default function CreatorStudio() {
 
           <section className="rounded-3xl border border-neutral-200 bg-white p-8 shadow-sm transition-colors dark:border-neutral-800 dark:bg-neutral-900">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-xl font-semibold">My Courses</h2>
+              <h2 className="text-xl font-semibold">{t('creatorStudio.myCourses.title')}</h2>
             </div>
             <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
-              Review your existing courses.
+              {t('creatorStudio.myCourses.helper')}
             </p>
             <div className="mt-6 space-y-4">
-              {myCoursesStatus === 'loading' && <p className="text-sm text-neutral-500">Loading courses…</p>}
+              {myCoursesStatus === 'loading' && (
+                <p className="text-sm text-neutral-500">{t('creatorStudio.myCourses.loading')}</p>
+              )}
               {myCoursesStatus === 'error' && (
-                <p className="text-sm text-red-500">{myCoursesError ?? 'Unable to load courses.'}</p>
+                <p className="text-sm text-red-500">
+                  {myCoursesError ?? t('creatorStudio.myCourses.error')}
+                </p>
               )}
               {myCoursesStatus !== 'loading' && myCourses.length === 0 && (
-                <p className="text-sm text-neutral-500">No courses yet.</p>
+                <p className="text-sm text-neutral-500">{t('creatorStudio.myCourses.empty')}</p>
               )}
               {myCourses.length > 0 && (
                 <ul className="space-y-3">
@@ -1201,14 +1226,18 @@ export default function CreatorStudio() {
                         <div className="flex flex-col gap-1">
                           <span className="font-semibold text-neutral-900 dark:text-neutral-100">{course.title}</span>
                           <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-500">
-                            {updatedAt && <span>Last updated: {updatedAt}</span>}
+                            {updatedAt && (
+                              <span>
+                                {t('creatorStudio.myCourses.lastUpdated', { date: updatedAt })}
+                              </span>
+                            )}
                           </div>
                         </div>
                         <Link
                           to={`/creator/courses/${course.documentId}/edit`}
                           className="inline-flex items-center justify-center rounded-full border border-neutral-300 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-600 transition hover:border-brand hover:text-brand dark:border-neutral-700 dark:text-neutral-200"
                         >
-                          Edit
+                          {t('creatorStudio.myCourses.edit')}
                         </Link>
                       </li>
                     );
@@ -1224,13 +1253,15 @@ export default function CreatorStudio() {
               disabled={!canSaveDraft}
               className="inline-flex items-center justify-center rounded-full bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-white transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:bg-brand/40"
             >
-              {courseStatus === 'saving' ? 'Saving…' : 'Save draft'}
+              {courseStatus === 'saving'
+                ? t('creatorStudio.actions.saving')
+                : t('creatorStudio.actions.saveDraft')}
             </button>
             {!canSaveDraft && validLessonDrafts.validLessons.length === 0 && (
-              <p className="text-xs text-neutral-500">Add at least one lesson to enable saving.</p>
+              <p className="text-xs text-neutral-500">{t('creatorStudio.actions.addLessonHint')}</p>
             )}
             <p className="text-xs text-neutral-500">
-              Courses are saved as drafts. An admin will review and publish them later.
+              {t('creatorStudio.actions.draftFooter')}
             </p>
           </div>
         </form>

@@ -28,6 +28,7 @@ i18n.use(initReactI18next).init({
   fallbackLng: "en",
   supportedLngs: ["en", "es", "id", "th", "ru"],
   interpolation: { escapeValue: false },
+  parseMissingKeyHandler: (key) => key,
 });
 
 i18n.on("languageChanged", (lng) => {

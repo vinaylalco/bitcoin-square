@@ -102,7 +102,17 @@
     "label": "Education Hub",
     "title": "Courses engineered for clarity and more effective learning",
     "description": "Our courses incorporate neurological principles to help you learn more effectively. Customize lessons based on your 'learning style,' and prioritize the topics that interest you most so you stay engaged from the very start.",
-    "error": "Failed to load courses."
+    "error": "Failed to load courses.",
+    "drafts": {
+      "title": "My Draft Courses",
+      "helper": "Only you can see these drafts until they are published.",
+      "loading": "Loading draft courses…",
+      "empty": "No draft courses yet.",
+      "error": "Unable to load draft courses.",
+      "badge": "Draft",
+      "edit": "Edit draft",
+      "untitled": "Untitled draft"
+    }
   },
   "newsletter": {
     "label": "Newsletter",
@@ -688,6 +698,106 @@
       "private": "Private key",
       "connectPrompt": "Connect your Nostr keys in Settings to sync across the ecosystem.",
       "privateSrOnly": "Private key hidden for security. Use the copy button to copy it when needed."
+    },
+    "creator": {
+      "createCourse": "Create a Course"
+    }
+  },
+  "creatorStudio": {
+    "title": "Creator Studio",
+    "login": {
+      "prompt": "Please log in.",
+      "cta": "Go to login"
+    },
+    "access": {
+      "checking": "Checking creator access…",
+      "deniedCreator": "Access denied (not a content creator).",
+      "denied": "Access denied."
+    },
+    "courseLoad": {
+      "loading": "Loading course…"
+    },
+    "header": {
+      "eyebrow": "Creator Studio",
+      "title": "Create a Course",
+      "subtitle": "Save your course draft and add lessons under it."
+    },
+    "steps": {
+      "courseDetails": "Step 1: Course details",
+      "lessons": "Step 2: Lessons"
+    },
+    "fields": {
+      "title": "Title",
+      "titlePlaceholder": "Course title",
+      "slug": "Slug",
+      "slugPlaceholder": "course-title",
+      "slugHelp": "Used in the course URL.",
+      "description": "Description",
+      "descriptionPlaceholder": "Short summary",
+      "coverImage": "Cover image",
+      "coverUploading": "Uploading…",
+      "coverUploaded": "Uploaded{{name}} (ID: {{id}})"
+    },
+    "courseMeta": {
+      "courseId": "Course ID: {{id}}",
+      "documentId": "Document ID: {{id}}",
+      "na": "N/A"
+    },
+    "lessons": {
+      "helper": "Add lessons to the course.",
+      "lessonLabel": "Lesson {{index}}",
+      "remove": "Remove",
+      "lessonTitle": "Lesson title",
+      "lessonTitlePlaceholder": "Lesson title",
+      "youtubeLabel": "YouTube embed URL",
+      "youtubeHelpToggle": "What's this?",
+      "youtubePlaceholder": "https://www.youtube.com/embed/...",
+      "youtubeHelpText": "The URL needed here is the embed URL link from the YouTube embed code — not the full script itself, just the link. Do not enter the browser URL for the video — it won't work. To get this link you need to first upload the video to YouTube (ideally as a private/unlisted video) so the public cannot view it, but users from this website can. This keeps its exclusivity to this platform.",
+      "lessonText": "Lesson text",
+      "lessonTextPlaceholder": "Lesson text",
+      "addLesson": "Add lesson"
+    },
+    "myCourses": {
+      "title": "My Courses",
+      "helper": "Review your existing courses.",
+      "loading": "Loading courses…",
+      "error": "Unable to load courses.",
+      "empty": "No courses yet.",
+      "lastUpdated": "Last updated: {{date}}",
+      "edit": "Edit",
+      "untitled": "Untitled course"
+    },
+    "actions": {
+      "saving": "Saving…",
+      "saveDraft": "Save draft",
+      "addLessonHint": "Add at least one lesson to enable saving.",
+      "draftFooter": "Courses are saved as drafts. An admin will review and publish them later."
+    },
+    "notices": {
+      "draftSaved": "Draft saved.",
+      "draftUpdated": "Draft updated."
+    },
+    "errors": {
+      "loadUser": "Unable to load user.",
+      "loadAccount": "Unable to load your account.",
+      "loadCourse": "Unable to load course.",
+      "createCourse": "Unable to create course.",
+      "publishUnexpected": "Course was unexpectedly published. Please contact support.",
+      "loginToCreate": "Please log in to create a course.",
+      "titleRequired": "Course title is required.",
+      "slugRequired": "Course slug is required.",
+      "descriptionRequired": "Course description is required.",
+      "coverUploadWait": "Please wait for the cover image upload to finish.",
+      "coverRequired": "Cover image is required.",
+      "lessonInvalid": "Each lesson needs a title and lesson text. Add a valid YouTube embed URL if provided.",
+      "lessonRequired": "Add at least one lesson before saving.",
+      "saveDraftFailed": "Unable to save course draft.",
+      "loginToUploadCover": "Please log in to upload a cover image.",
+      "baseUrlMissing": "Strapi base URL is not configured.",
+      "uploadFailedStatus": "Upload failed with status {{status}}",
+      "uploadFailed": "Upload failed. Please try again.",
+      "youtubeInvalid": "Please enter a valid URL (not embed code).",
+      "youtubeEmbedUrl": "Use a YouTube embed URL (youtube.com/embed/...)."
     }
   },
   "minerQuotation": {

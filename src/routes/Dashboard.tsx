@@ -119,8 +119,6 @@ export default function Dashboard() {
       0,
     );
   }, [user.lessonCompletions]);
-  const isContentCreator = user.contentCreator === true;
-
   const heroTitle = t('dashboard.hero.title', {
     name: user.screenName || user.username || user.email,
   });
@@ -434,24 +432,22 @@ export default function Dashboard() {
               <p className="text-sm text-neutral-600 dark:text-neutral-300">{t('dashboard.stats.lessons.helper')}</p>
             </article>
           </div>
-          {isContentCreator && (
-            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm transition-colors dark:border-neutral-800 dark:bg-neutral-900">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">
-                  Creator Studio
-                </p>
-                <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
-                  Create a course and add lessons for the community.
-                </p>
-              </div>
-              <Link
-                to="/creator/courses/new"
-                className="inline-flex items-center justify-center rounded-full bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-white transition hover:bg-brand/90"
-              >
-                Create a Course
-              </Link>
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm transition-colors dark:border-neutral-800 dark:bg-neutral-900">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">
+                Creator Studio
+              </p>
+              <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
+                Create a course and add lessons for the community.
+              </p>
             </div>
-          )}
+            <Link
+              to="/creator/courses/new"
+              className="inline-flex items-center justify-center rounded-full bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-white transition hover:bg-brand/90"
+            >
+              {t('dashboard.creator.createCourse')}
+            </Link>
+          </div>
         </header>
 
         <section className="grid gap-6 lg:grid-cols-2">

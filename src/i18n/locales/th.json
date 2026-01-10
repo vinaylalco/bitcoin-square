@@ -102,7 +102,17 @@
     "label": "Education Hub",
     "title": "Courses engineered for clarity and more effective learning",
     "description": "Our courses incorporate neurological principles to help you learn more effectively. Customize lessons based on your 'learning style,' and prioritize the topics that interest you most so you stay engaged from the very start.",
-    "error": "Failed to load courses."
+    "error": "Failed to load courses.",
+    "drafts": {
+      "title": "คอร์สฉบับร่างของฉัน",
+      "helper": "เฉพาะคุณเท่านั้นที่เห็นฉบับร่างจนกว่าจะเผยแพร่.",
+      "loading": "กำลังโหลดฉบับร่าง…",
+      "empty": "ยังไม่มีฉบับร่าง.",
+      "error": "ไม่สามารถโหลดฉบับร่างได้.",
+      "badge": "ฉบับร่าง",
+      "edit": "แก้ไขฉบับร่าง",
+      "untitled": "ฉบับร่างไม่มีชื่อ"
+    }
   },
   "newsletter": {
     "label": "Newsletter",
@@ -688,6 +698,106 @@
       "private": "คีย์ส่วนตัว",
       "connectPrompt": "เชื่อมต่อกุญแจ Nostr ในการตั้งค่าเพื่อซิงก์ทั่วทั้งระบบนิเวศ.",
       "privateSrOnly": "คีย์ส่วนตัวถูกซ่อนเพื่อความปลอดภัย ใช้ปุ่มคัดลอกเมื่อจำเป็น."
+    },
+    "creator": {
+      "createCourse": "สร้างคอร์ส"
+    }
+  },
+  "creatorStudio": {
+    "title": "สตูดิโอผู้สร้าง",
+    "login": {
+      "prompt": "กรุณาเข้าสู่ระบบ.",
+      "cta": "ไปที่หน้าเข้าสู่ระบบ"
+    },
+    "access": {
+      "checking": "กำลังตรวจสอบสิทธิ์ผู้สร้าง…",
+      "deniedCreator": "ปฏิเสธการเข้าถึง (คุณไม่ใช่ผู้สร้างเนื้อหา).",
+      "denied": "ปฏิเสธการเข้าถึง."
+    },
+    "courseLoad": {
+      "loading": "กำลังโหลดคอร์ส…"
+    },
+    "header": {
+      "eyebrow": "สตูดิโอผู้สร้าง",
+      "title": "สร้างคอร์ส",
+      "subtitle": "บันทึกฉบับร่างคอร์สของคุณและเพิ่มบทเรียน."
+    },
+    "steps": {
+      "courseDetails": "ขั้นตอนที่ 1: รายละเอียดคอร์ส",
+      "lessons": "ขั้นตอนที่ 2: บทเรียน"
+    },
+    "fields": {
+      "title": "ชื่อเรื่อง",
+      "titlePlaceholder": "ชื่อคอร์ส",
+      "slug": "Slug",
+      "slugPlaceholder": "ชื่อคอร์ส",
+      "slugHelp": "ใช้ใน URL ของคอร์ส.",
+      "description": "คำอธิบาย",
+      "descriptionPlaceholder": "สรุปสั้น ๆ",
+      "coverImage": "ภาพหน้าปก",
+      "coverUploading": "กำลังอัปโหลด…",
+      "coverUploaded": "อัปโหลดแล้ว{{name}} (ID: {{id}})"
+    },
+    "courseMeta": {
+      "courseId": "รหัสคอร์ส: {{id}}",
+      "documentId": "รหัสเอกสาร: {{id}}",
+      "na": "ไม่มีข้อมูล"
+    },
+    "lessons": {
+      "helper": "เพิ่มบทเรียนให้กับคอร์ส.",
+      "lessonLabel": "บทเรียน {{index}}",
+      "remove": "ลบ",
+      "lessonTitle": "ชื่อบทเรียน",
+      "lessonTitlePlaceholder": "ชื่อบทเรียน",
+      "youtubeLabel": "URL ฝัง YouTube",
+      "youtubeHelpToggle": "คืออะไร?",
+      "youtubePlaceholder": "https://www.youtube.com/embed/...",
+      "youtubeHelpText": "ลิงก์ที่ต้องใช้คือ URL สำหรับฝังจากโค้ด YouTube — ไม่ใช่สคริปต์ทั้งหมด แค่ลิงก์เท่านั้น ห้ามใส่ URL จากเบราว์เซอร์ของวิดีโอ — ใช้งานไม่ได้ หากต้องการลิงก์นี้ให้คุณอัปโหลดวิดีโอไปยัง YouTube ก่อน (ควรตั้งเป็นส่วนตัว/ไม่แสดงรายการ) เพื่อให้คนทั่วไปดูไม่ได้ แต่ผู้ใช้จากเว็บไซต์นี้ดูได้ วิธีนี้ช่วยคงความเอ็กซ์คลูซีฟบนแพลตฟอร์มนี้.",
+      "lessonText": "ข้อความบทเรียน",
+      "lessonTextPlaceholder": "ข้อความบทเรียน",
+      "addLesson": "เพิ่มบทเรียน"
+    },
+    "myCourses": {
+      "title": "คอร์สของฉัน",
+      "helper": "ตรวจทานคอร์สที่มีอยู่.",
+      "loading": "กำลังโหลดคอร์ส…",
+      "error": "ไม่สามารถโหลดคอร์สได้.",
+      "empty": "ยังไม่มีคอร์ส.",
+      "lastUpdated": "อัปเดตล่าสุด: {{date}}",
+      "edit": "แก้ไข",
+      "untitled": "คอร์สไม่มีชื่อ"
+    },
+    "actions": {
+      "saving": "กำลังบันทึก…",
+      "saveDraft": "บันทึกฉบับร่าง",
+      "addLessonHint": "เพิ่มอย่างน้อยหนึ่งบทเรียนเพื่อให้บันทึกได้.",
+      "draftFooter": "คอร์สจะถูกบันทึกเป็นฉบับร่าง ผู้ดูแลจะตรวจสอบและเผยแพร่ภายหลัง."
+    },
+    "notices": {
+      "draftSaved": "บันทึกฉบับร่างแล้ว.",
+      "draftUpdated": "อัปเดตฉบับร่างแล้ว."
+    },
+    "errors": {
+      "loadUser": "ไม่สามารถโหลดผู้ใช้ได้.",
+      "loadAccount": "ไม่สามารถโหลดบัญชีของคุณได้.",
+      "loadCourse": "ไม่สามารถโหลดคอร์สได้.",
+      "createCourse": "ไม่สามารถสร้างคอร์สได้.",
+      "publishUnexpected": "คอร์สถูกเผยแพร่อย่างไม่คาดคิด กรุณาติดต่อฝ่ายสนับสนุน.",
+      "loginToCreate": "กรุณาเข้าสู่ระบบเพื่อสร้างคอร์ส.",
+      "titleRequired": "ต้องระบุชื่อคอร์ส.",
+      "slugRequired": "ต้องระบุ slug ของคอร์ส.",
+      "descriptionRequired": "ต้องระบุคำอธิบายคอร์ส.",
+      "coverUploadWait": "กรุณารอให้การอัปโหลดภาพหน้าปกเสร็จสิ้น.",
+      "coverRequired": "ต้องมีภาพหน้าปก.",
+      "lessonInvalid": "แต่ละบทเรียนต้องมีชื่อและข้อความบทเรียน เพิ่ม URL ฝัง YouTube ที่ถูกต้องหากมี.",
+      "lessonRequired": "เพิ่มอย่างน้อยหนึ่งบทเรียนก่อนบันทึก.",
+      "saveDraftFailed": "ไม่สามารถบันทึกฉบับร่างคอร์สได้.",
+      "loginToUploadCover": "กรุณาเข้าสู่ระบบเพื่ออัปโหลดภาพหน้าปก.",
+      "baseUrlMissing": "ไม่ได้ตั้งค่า URL พื้นฐานของ Strapi.",
+      "uploadFailedStatus": "อัปโหลดล้มเหลวด้วยสถานะ {{status}}",
+      "uploadFailed": "อัปโหลดล้มเหลว โปรดลองอีกครั้ง.",
+      "youtubeInvalid": "โปรดป้อน URL ที่ถูกต้อง (ไม่ใช่โค้ดฝัง).",
+      "youtubeEmbedUrl": "ใช้ URL ฝังของ YouTube (youtube.com/embed/...)."
     }
   },
   "minerQuotation": {

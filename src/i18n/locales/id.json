@@ -102,7 +102,17 @@
     "label": "Education Hub",
     "title": "Courses engineered for clarity and more effective learning",
     "description": "Our courses incorporate neurological principles to help you learn more effectively. Customize lessons based on your 'learning style,' and prioritize the topics that interest you most so you stay engaged from the very start.",
-    "error": "Failed to load courses."
+    "error": "Failed to load courses.",
+    "drafts": {
+      "title": "Draf Kursus Saya",
+      "helper": "Hanya Anda yang dapat melihat draf ini sampai dipublikasikan.",
+      "loading": "Memuat draf…",
+      "empty": "Belum ada draf.",
+      "error": "Tidak dapat memuat draf.",
+      "badge": "Draf",
+      "edit": "Edit draf",
+      "untitled": "Draf tanpa judul"
+    }
   },
   "newsletter": {
     "label": "Newsletter",
@@ -688,6 +698,106 @@
       "private": "Kunci privat",
       "connectPrompt": "Sambungkan kunci Nostr Anda di Pengaturan untuk sinkron di seluruh ekosistem.",
       "privateSrOnly": "Kunci privat disembunyikan demi keamanan. Gunakan tombol salin saat diperlukan."
+    },
+    "creator": {
+      "createCourse": "Buat Kursus"
+    }
+  },
+  "creatorStudio": {
+    "title": "Studio Kreator",
+    "login": {
+      "prompt": "Silakan masuk.",
+      "cta": "Ke halaman masuk"
+    },
+    "access": {
+      "checking": "Memeriksa akses kreator…",
+      "deniedCreator": "Akses ditolak (bukan kreator konten).",
+      "denied": "Akses ditolak."
+    },
+    "courseLoad": {
+      "loading": "Memuat kursus…"
+    },
+    "header": {
+      "eyebrow": "Studio Kreator",
+      "title": "Buat Kursus",
+      "subtitle": "Simpan draf kursus Anda dan tambahkan pelajaran."
+    },
+    "steps": {
+      "courseDetails": "Langkah 1: Detail kursus",
+      "lessons": "Langkah 2: Pelajaran"
+    },
+    "fields": {
+      "title": "Judul",
+      "titlePlaceholder": "Judul kursus",
+      "slug": "Slug",
+      "slugPlaceholder": "judul-kursus",
+      "slugHelp": "Digunakan di URL kursus.",
+      "description": "Deskripsi",
+      "descriptionPlaceholder": "Ringkasan singkat",
+      "coverImage": "Gambar sampul",
+      "coverUploading": "Mengunggah…",
+      "coverUploaded": "Diunggah{{name}} (ID: {{id}})"
+    },
+    "courseMeta": {
+      "courseId": "ID kursus: {{id}}",
+      "documentId": "ID dokumen: {{id}}",
+      "na": "Tidak tersedia"
+    },
+    "lessons": {
+      "helper": "Tambahkan pelajaran ke kursus.",
+      "lessonLabel": "Pelajaran {{index}}",
+      "remove": "Hapus",
+      "lessonTitle": "Judul pelajaran",
+      "lessonTitlePlaceholder": "Judul pelajaran",
+      "youtubeLabel": "URL embed YouTube",
+      "youtubeHelpToggle": "Apa ini?",
+      "youtubePlaceholder": "https://www.youtube.com/embed/...",
+      "youtubeHelpText": "URL yang diperlukan di sini adalah tautan embed dari kode sematan YouTube — bukan skrip lengkapnya, hanya tautannya. Jangan masukkan URL browser untuk video — tidak akan berfungsi. Untuk mendapatkan tautan ini Anda perlu mengunggah video ke YouTube terlebih dahulu (idealnya sebagai privat/tidak terdaftar) agar publik tidak bisa melihatnya, tetapi pengguna situs ini bisa. Ini menjaga eksklusivitasnya di platform ini.",
+      "lessonText": "Teks pelajaran",
+      "lessonTextPlaceholder": "Teks pelajaran",
+      "addLesson": "Tambah pelajaran"
+    },
+    "myCourses": {
+      "title": "Kursus Saya",
+      "helper": "Tinjau kursus Anda.",
+      "loading": "Memuat kursus…",
+      "error": "Tidak dapat memuat kursus.",
+      "empty": "Belum ada kursus.",
+      "lastUpdated": "Terakhir diperbarui: {{date}}",
+      "edit": "Edit",
+      "untitled": "Kursus tanpa judul"
+    },
+    "actions": {
+      "saving": "Menyimpan…",
+      "saveDraft": "Simpan draf",
+      "addLessonHint": "Tambahkan setidaknya satu pelajaran untuk mengaktifkan penyimpanan.",
+      "draftFooter": "Kursus disimpan sebagai draf. Admin akan meninjau dan menerbitkannya nanti."
+    },
+    "notices": {
+      "draftSaved": "Draf disimpan.",
+      "draftUpdated": "Draf diperbarui."
+    },
+    "errors": {
+      "loadUser": "Tidak dapat memuat pengguna.",
+      "loadAccount": "Tidak dapat memuat akun Anda.",
+      "loadCourse": "Tidak dapat memuat kursus.",
+      "createCourse": "Tidak dapat membuat kursus.",
+      "publishUnexpected": "Kursus dipublikasikan secara tidak sengaja. Silakan hubungi dukungan.",
+      "loginToCreate": "Masuk untuk membuat kursus.",
+      "titleRequired": "Judul kursus wajib diisi.",
+      "slugRequired": "Slug kursus wajib diisi.",
+      "descriptionRequired": "Deskripsi kursus wajib diisi.",
+      "coverUploadWait": "Harap tunggu hingga unggahan gambar sampul selesai.",
+      "coverRequired": "Gambar sampul wajib diisi.",
+      "lessonInvalid": "Setiap pelajaran memerlukan judul dan teks pelajaran. Tambahkan URL embed YouTube yang valid jika ada.",
+      "lessonRequired": "Tambahkan setidaknya satu pelajaran sebelum menyimpan.",
+      "saveDraftFailed": "Tidak dapat menyimpan draf kursus.",
+      "loginToUploadCover": "Masuk untuk mengunggah gambar sampul.",
+      "baseUrlMissing": "URL dasar Strapi belum dikonfigurasi.",
+      "uploadFailedStatus": "Unggahan gagal dengan status {{status}}",
+      "uploadFailed": "Unggahan gagal. Silakan coba lagi.",
+      "youtubeInvalid": "Masukkan URL yang valid (bukan kode embed).",
+      "youtubeEmbedUrl": "Gunakan URL embed YouTube (youtube.com/embed/...)."
     }
   },
   "minerQuotation": {
