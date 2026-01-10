@@ -14,6 +14,7 @@ import { type RoiScenarioPoint } from "../hooks/useRoiScenarios";
 import { getThemeColor } from "../utils/themeColors";
 import { ScenarioDataTable } from "./ScenarioDataTable";
 import { InfoModal } from "./InfoModal";
+import { safeArray } from "../utils/safeTypes";
 
 interface CumulativeNetChartProps {
   points: RoiScenarioPoint[];
@@ -26,6 +27,7 @@ const formatCurrency = (value: number) =>
 
 export function CumulativeNetChart({ points }: CumulativeNetChartProps) {
   const { t } = useTranslation();
+  const safePoints = safeArray(points);
   const [viewMode, setViewMode] = useState<"chart" | "table">("chart");
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const axisColor = useMemo(
@@ -74,11 +76,11 @@ export function CumulativeNetChart({ points }: CumulativeNetChartProps) {
     [t],
   );
 
-  if (!points.length) {
+  if (!safePoints.length) {
     return null;
   }
 
-  const hasUltra = points.some((point) => point.cumNet_ultra !== undefined);
+  const hasUltra = safePoints.some((point) => point.cumNet_ultra !== undefined);
   const lineConfigs = hasUltra
     ? scenarioLines
     : scenarioLines.filter((line) => line.key !== "cumNet_ultra");
@@ -200,7 +202,7 @@ export function CumulativeNetChart({ points }: CumulativeNetChartProps) {
         <div className="h-64 w-full sm:h-80">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
-              data={points}
+              data={safePoints}
               margin={{ top: 8, right: 16, bottom: 8, left: 0 }}
             >
               <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
@@ -234,7 +236,7 @@ export function CumulativeNetChart({ points }: CumulativeNetChartProps) {
           </ResponsiveContainer>
         </div>
       ) : (
-        <ScenarioDataTable variant="cumulativeNet" points={points} />
+        <ScenarioDataTable variant="cumulativeNet" points={safePoints} />
       )}
       <InfoModal
         title={infoTitle}

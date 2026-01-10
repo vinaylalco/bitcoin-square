@@ -1,19 +1,22 @@
 import React from "react";
 import { useContactContent } from "../hooks/useContactContent";
+import { safeArray, safeString } from "../utils/safeTypes";
 
 export default function Contact() {
   const { content } = useContactContent();
-  const socials = Array.isArray(content.socials) ? content.socials : [];
+  const socials = safeArray(content?.socials);
+  const title = safeString(content?.title);
+  const body = safeString(content?.body);
   return (
     <div className="px-4 sm:px-6 py-6 space-y-4">
       <h1
         className="text-3xl font-bold"
-        dangerouslySetInnerHTML={{ __html: content.title }}
+        dangerouslySetInnerHTML={{ __html: title }}
       />
-      {content.body && (
+      {body && (
         <div
           className="prose dark:prose-invert max-w-none"
-          dangerouslySetInnerHTML={{ __html: content.body }}
+          dangerouslySetInnerHTML={{ __html: body }}
         />
       )}
       {socials.length > 0 && (

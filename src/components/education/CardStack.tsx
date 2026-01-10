@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import LessonCard from "./LessonCard";
 import type { LessonCardData } from "./types";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { safeArray } from "../../utils/safeTypes";
 
 type Props = {
   lessons: LessonCardData[];
@@ -10,7 +11,8 @@ type Props = {
 };
 
 export default function CardStack({ lessons, onAdvance }: Props) {
-  const total = lessons.length;
+  const safeLessons = safeArray(lessons);
+  const total = safeLessons.length;
   const trackRef = useRef<HTMLDivElement>(null);
 
   const [activeIndex, setActiveIndex] = useState(0);
@@ -140,7 +142,7 @@ export default function CardStack({ lessons, onAdvance }: Props) {
           className="flex gap-4 overflow-x-auto snap-x snap-mandatory scroll-smooth no-scrollbar touch-momentum px-0 relative z-10"
           style={{ scrollPadding: "0px" }}
         >
-          {lessons.map((l) => (
+          {safeLessons.map((l) => (
             <div key={l.id} className="snap-center w-full flex-shrink-0">
               <LessonCard lesson={l} />
             </div>

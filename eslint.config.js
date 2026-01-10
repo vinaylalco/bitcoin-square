@@ -21,6 +21,13 @@ export default tseslint.config([
     },
     rules: {
       'no-unsafe-optional-chaining': 'error',
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'ChainExpression > MemberExpression[property.name="length"]',
+          message: 'Normalize optional values before reading .length (use safeArray/safeString).',
+        },
+      ],
     },
   },
 ])
