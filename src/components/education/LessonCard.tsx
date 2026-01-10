@@ -1,8 +1,11 @@
 import React, { useState } from "react";
 import type { LessonCardData } from "./types";
+import { safeArray } from "../../utils/safeTypes";
 
 export default function LessonCard({ lesson }: { lesson: LessonCardData }) {
   const { id, title, content, objectives, quiz, duration_min, topicName } = lesson;
+  const safeObjectives = safeArray(objectives);
+  const safeOptions = safeArray(quiz.options);
 
   // Local UI state (no gating)
   const [selected, setSelected] = useState<string>("");
@@ -38,7 +41,7 @@ export default function LessonCard({ lesson }: { lesson: LessonCardData }) {
         <section className="mt-6">
           <h3 className="text-base font-semibold mb-2">Learning objectives</h3>
           <ul className="list-disc pl-5 space-y-1 text-lg">
-            {objectives.map((o, i) => (
+            {safeObjectives.map((o, i) => (
               <li key={i}>{o}</li>
             ))}
           </ul>
@@ -50,7 +53,7 @@ export default function LessonCard({ lesson }: { lesson: LessonCardData }) {
 
           {quiz.type === "multiple_choice" ? (
             <div className="space-y-2">
-              {quiz.options.map((opt, i) => (
+              {safeOptions.map((opt, i) => (
                 <label key={i} className="flex items-center gap-2 cursor-pointer text-lg">
                   <input
                     type="radio"

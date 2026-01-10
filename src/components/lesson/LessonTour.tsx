@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { safeArray } from "../../utils/safeTypes";
 
 const HIGHLIGHT_PADDING = 16;
 const DESKTOP_BREAKPOINT = 1024;
@@ -52,6 +53,7 @@ export default function LessonTour({
   onComplete,
 }: LessonTourProps) {
   const { t, i18n } = useTranslation();
+  const safeSteps = safeArray(steps);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [highlightRect, setHighlightRect] = useState<HighlightRect | null>(
     null,
@@ -63,8 +65,8 @@ export default function LessonTour({
     setCurrentIndex(0);
   }, [open]);
 
-  const activeStep = steps[currentIndex];
-  const totalSteps = steps.length;
+  const activeStep = safeSteps[currentIndex];
+  const totalSteps = safeSteps.length;
 
   const tourHeading = useMemo(
     () =>
@@ -352,4 +354,3 @@ export default function LessonTour({
     </div>
   );
 }
-

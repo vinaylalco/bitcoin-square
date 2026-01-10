@@ -1,6 +1,7 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
 import { type RoiScenarioPoint } from "../hooks/useRoiScenarios";
+import { safeArray } from "../utils/safeTypes";
 
 interface ScenarioDataTableProps {
   points: Array<
@@ -24,8 +25,9 @@ const formatCurrency = (value: number | undefined) => {
 
 export function ScenarioDataTable({ points, variant }: ScenarioDataTableProps) {
   const { t } = useTranslation();
+  const safePoints = safeArray(points);
 
-  if (!points.length) {
+  if (!safePoints.length) {
     return null;
   }
 
@@ -43,7 +45,7 @@ export function ScenarioDataTable({ points, variant }: ScenarioDataTableProps) {
       "bullish",
       "ultra",
     ];
-    const hasUltra = points.some((point) => point.cumNet_ultra !== undefined);
+    const hasUltra = safePoints.some((point) => point.cumNet_ultra !== undefined);
     const activeScenarios = hasUltra
       ? scenarios
       : scenarios.filter((scenario) => scenario !== "ultra");
@@ -76,7 +78,7 @@ export function ScenarioDataTable({ points, variant }: ScenarioDataTableProps) {
             </tr>
           </thead>
           <tbody>
-            {points.map((point) => (
+            {safePoints.map((point) => (
               <tr
                 key={`${point.month}-${point.date}`}
                 className="odd:bg-white even:bg-gray-50 dark:odd:bg-gray-900 dark:even:bg-gray-800"
@@ -117,7 +119,7 @@ export function ScenarioDataTable({ points, variant }: ScenarioDataTableProps) {
           </tr>
         </thead>
         <tbody>
-          {points.map((point) => (
+          {safePoints.map((point) => (
             <tr
               key={`${point.month}-${point.date}`}
               className="odd:bg-white even:bg-gray-50 dark:odd:bg-gray-900 dark:even:bg-gray-800"

@@ -14,6 +14,7 @@ import { type RoiScenarioPoint } from "../hooks/useRoiScenarios";
 import { getThemeColor } from "../utils/themeColors";
 import { ScenarioDataTable } from "./ScenarioDataTable";
 import { InfoModal } from "./InfoModal";
+import { safeArray } from "../utils/safeTypes";
 
 interface MiningVsHodlChartProps {
   points: RoiScenarioPoint[];
@@ -28,6 +29,7 @@ export function MiningVsHodlChart({
   totalCapexUsd,
 }: MiningVsHodlChartProps) {
   const { t } = useTranslation();
+  const safePoints = safeArray(points);
   const [viewMode, setViewMode] = useState<"chart" | "table">("chart");
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const axisColor = useMemo(
@@ -52,15 +54,15 @@ export function MiningVsHodlChart({
 
   const chartData = useMemo(
     () =>
-      points.map((point) => ({
+      safePoints.map((point) => ({
         ...point,
         miningValue: point.cumNet_conservative + totalCapexUsd,
         hodlValue: point.hodl_conservative,
       })),
-    [points, totalCapexUsd],
+    [safePoints, totalCapexUsd],
   );
 
-  if (!points.length) {
+  if (!safePoints.length) {
     return null;
   }
 
