@@ -17,11 +17,6 @@ import type {
 } from "../types/lesson-plan";
 import type { ContentCreatorCourse, UnifiedCourse } from "../types/course";
 import { useAuth } from "../context/AuthContext";
-import { useCurrentUserMembership } from "../hooks/useCurrentUserMembership";
-import {
-  extractGrandfatheredFlag,
-  normalizeMembershipStatus,
-} from "../utils/membership";
 import {
   canViewCourse,
   normalizeContentCreatorCourse,
@@ -759,25 +754,8 @@ export default function CourseDetail() {
   const { t, i18n } = useTranslation();
   const { slug = "" } = useParams();
   const locale = resolveLocale(i18n.language);
-  const { token, user } = useAuth();
-  const {
-    me: membershipInfo,
-    loading: membershipLoading,
-    error: membershipError,
-  } = useCurrentUserMembership({ enabled: Boolean(token) });
-  const membershipStatus = normalizeMembershipStatus(membershipInfo);
-  const grandfathered =
-    extractGrandfatheredFlag(
-      membershipInfo?.["grandfathered"] ??
-        membershipInfo?.["isGrandfathered"],
-    ) || extractGrandfatheredFlag(membershipInfo?.["membership"]);
-  const hasLessonAccess = Boolean(token)
-    ? membershipStatus.isActive || grandfathered
-    : false;
-  const membershipResolved = !token || !membershipLoading;
-  const restrictLessons =
-    !token ||
-    (membershipResolved && (!hasLessonAccess || Boolean(membershipError)));
+  const { user } = useAuth();
+  const restrictLessons = !user;
   const {
     data: lessonPlanData,
     isLoading: lessonPlanLoading,
@@ -926,6 +904,7 @@ export default function CourseDetail() {
             lessonSlug={lessonPlanData?.slug || slug}
             enableCustomize={enableCustomize}
             isLessonAccessRestricted={restrictLessons}
+            isAuthenticated={Boolean(user)}
           />
           ) : (
             <p className="px-6 py-12 text-center text-sm font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">

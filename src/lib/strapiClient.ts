@@ -94,7 +94,10 @@ export async function strapiRequest<T>(
 }
 
 export async function getMe<T>(token: string): Promise<T> {
-  const response = await strapiRequest<unknown>('/api/profile', { token });
+  const response = await strapiRequest<unknown>(
+    '/api/profile?fields[0]=grandfathered&fields[1]=membership_status',
+    { token },
+  );
   if (response && typeof response === 'object' && 'data' in response) {
     return (response as { data: T }).data;
   }

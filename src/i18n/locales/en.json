@@ -450,6 +450,15 @@
       "customize": "Customize",
       "close": "Close"
     },
+    "accessRequired": {
+      "title": "Unlock this lesson",
+      "titleLoggedIn": "Membership needed",
+      "body": "Log in to continue, or start a membership (annual and lifetime options available).",
+      "bodyLoggedIn": "Start a membership (annual and lifetime options available) to unlock this lesson.",
+      "login": "Log in",
+      "viewMemberships": "View memberships",
+      "close": "Close"
+    },
     "tour": {
       "heading": "Welcome tour {{current}} / {{total}}",
       "skip": "Skip tour",

@@ -2,6 +2,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import LessonGridSkeleton from "../components/education/LessonGridSkeleton";
 import { useStrapiQuery } from "../hooks/useStrapiQuery";
 import type { Lesson } from "../types/strapi";
+import { asArray } from "../utils/safeTypes";
 
 export default function LessonsPage() {
   const [params] = useSearchParams();
@@ -16,7 +17,7 @@ export default function LessonsPage() {
   if (isLoading) return <LessonGridSkeleton />;
   if (error) return <p className="mx-auto max-w-3xl px-4 py-16 text-center text-brand">Failed to load lessons.</p>;
 
-  const lessons = Array.isArray(data?.data) ? data.data : [];
+  const lessons = asArray(data?.data);
   return (
     <div className="mx-auto max-w-6xl px-4 pb-20 pt-12 sm:px-6">
       <header className="space-y-4 text-center sm:text-left">
