@@ -19,6 +19,7 @@ import FocusTrap from "./components/FocusTrap";
 import { useSwipe } from "./hooks/useSwipe";
 import { useTheme } from "./context/ThemeContext";
 import { useAuth } from "./context/AuthContext";
+import PageDataGate from "./components/PageDataGate";
 import Footer from "./components/Footer";
 import ProfileModalPortal from "./components/profile/ProfileModal";
 import { cn } from "./utils/cn";
@@ -761,7 +762,9 @@ export default function App() {
       </aside>
 
       <main className="flex-1">
-        <Outlet />
+        <PageDataGate>
+          <Outlet />
+        </PageDataGate>
         {!hideFooterOnPage && <Footer />}
       </main>
       <ProfileModalPortal />

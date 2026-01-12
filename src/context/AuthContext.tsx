@@ -653,6 +653,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (me && typeof me === 'object') {
+      if (import.meta.env?.DEV) {
+        const record = me as Record<string, unknown>;
+        const hasGrandfathered = 'grandfathered' in record;
+        const hasMembershipStatus = 'membership_status' in record;
+        if (!hasGrandfathered || !hasMembershipStatus) {
+          console.info('Auth profile missing membership fields', {
+            hasGrandfathered,
+            hasMembershipStatus,
+          });
+        }
+      }
       updateUser((prev) => {
         if (!prev) {
           return me;

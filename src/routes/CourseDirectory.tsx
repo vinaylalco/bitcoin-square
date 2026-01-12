@@ -14,6 +14,7 @@ import {
   normalizeLessonPlanCourse,
 } from "../utils/courseNormalization";
 import { resolveLocale } from "../utils/locale";
+import { asArray } from "../utils/safeTypes";
 
 export default function CourseDirectory() {
   const { t, i18n } = useTranslation();
@@ -49,15 +50,15 @@ export default function CourseDirectory() {
     );
   }
 
-  const normalizedLessonPlans = Array.isArray(lessonPlans)
-    ? lessonPlans.map((course) => normalizeLessonPlanCourse(course))
-    : [];
-  const normalizedCreatorCourses = Array.isArray(contentCreatorCourses)
-    ? contentCreatorCourses.map((course) => normalizeContentCreatorCourse(course))
-    : [];
-  const normalizedDraftCourses = Array.isArray(draftCourses)
-    ? draftCourses.map((course) => normalizeContentCreatorCourse(course))
-    : [];
+  const normalizedLessonPlans = asArray(lessonPlans).map((course) =>
+    normalizeLessonPlanCourse(course),
+  );
+  const normalizedCreatorCourses = asArray(contentCreatorCourses).map((course) =>
+    normalizeContentCreatorCourse(course),
+  );
+  const normalizedDraftCourses = asArray(draftCourses).map((course) =>
+    normalizeContentCreatorCourse(course),
+  );
   const visibleCourses = [...normalizedLessonPlans, ...normalizedCreatorCourses].filter((course) =>
     canViewCourse(course, user),
   );

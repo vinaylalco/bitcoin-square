@@ -11,6 +11,7 @@ import {
 } from "recharts";
 import { useSearchParams } from "react-router-dom";
 import { fetchBtcDailyHistory } from "../utils/coindesk";
+import { asArray } from "../utils/safeTypes";
 
 const HISTORICAL_CACHE_KEY = "btc-buying-strategies-historical-cache";
 const SETTINGS_CACHE_KEY = "btc-buying-strategies-settings";
@@ -171,7 +172,7 @@ function DetailTable({
   rows: BacktestPoint[];
   emptyMessage: string;
 }) {
-  const safeRows = Array.isArray(rows) ? rows : [];
+  const safeRows = asArray(rows);
   return safeRows.length ? (
     <table className="min-w-full text-left text-sm">
       <thead className="text-xs uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
@@ -372,7 +373,7 @@ function saveCachedHistorical(limit: number, start: string, end: string, rows: H
 }
 
 function calculateMaxDrawdown(values?: number[] | null): number | null {
-  const safeValues = Array.isArray(values) ? values : [];
+  const safeValues = asArray(values);
   if (!safeValues.length) return null;
   let peak = safeValues[0];
   let maxDrawdown = 0;
@@ -392,7 +393,7 @@ function calculateXirr(
   cashflows?: Array<{ date: Date; amount: number }> | null,
   maxIterations = 50,
 ): number | null {
-  const safeCashflows = Array.isArray(cashflows) ? cashflows : [];
+  const safeCashflows = asArray(cashflows);
   if (safeCashflows.length < 2) return null;
   const hasPositive = safeCashflows.some((flow) => flow.amount > 0);
   const hasNegative = safeCashflows.some((flow) => flow.amount < 0);
@@ -740,7 +741,7 @@ export default function BtcBuyingStrategiesPage() {
   useEffect(() => {
     setError(null);
     const fetchKey = `${historyStart}|${historyEnd}`;
-    const currentRows = Array.isArray(rows) ? rows : [];
+    const currentRows = asArray(rows);
     const canReuse = lastFetchKeyRef.current === fetchKey && currentRows.length > 0;
     if (canReuse) {
       runBacktestWithRows(currentRows);
@@ -810,7 +811,7 @@ export default function BtcBuyingStrategiesPage() {
   useEffect(() => {
     setBulkError(null);
     const fetchKey = `${bulkHistoryStart}|${bulkHistoryEnd}`;
-    const currentRows = Array.isArray(bulkRows) ? bulkRows : [];
+    const currentRows = asArray(bulkRows);
     const canReuse = bulkLastFetchKeyRef.current === fetchKey && currentRows.length > 0;
     if (canReuse) {
       runBulkBacktestWithRows(currentRows);
@@ -851,8 +852,8 @@ export default function BtcBuyingStrategiesPage() {
     };
   }, [bulkHistoryStart, bulkHistoryEnd, bulkAmount, bulkFeeRate, bulkRows]);
 
-  const safeRows = Array.isArray(rows) ? rows : [];
-  const backtestHistory = Array.isArray(backtest?.history) ? backtest?.history : [];
+  const safeRows = asArray(rows);
+  const backtestHistory = asArray(backtest?.history);
   const lastBacktestPoint = backtestHistory.at(-1);
   const hasHistory = safeRows.length > 0;
   const startDate = hasHistory ? safeRows[0].dateStr : defaultEnd;
@@ -1019,7 +1020,7 @@ export default function BtcBuyingStrategiesPage() {
   };
 
   const runBulkBacktest = () => {
-    runBulkBacktestWithRows(Array.isArray(bulkRows) ? bulkRows : []);
+    runBulkBacktestWithRows(asArray(bulkRows));
   };
 
   const priceChartData = safeRows.length
@@ -1032,10 +1033,10 @@ export default function BtcBuyingStrategiesPage() {
   const valueChartData = backtestHistory.length ? buildValueChartData(backtestHistory) : [];
   const roiChartData = backtestHistory.length ? buildRoiChartData(backtestHistory) : [];
 
-  const auditRows = Array.isArray(backtestHistory) ? backtestHistory : [];
+  const auditRows = asArray(backtestHistory);
 
-  const bulkSafeRows = Array.isArray(bulkRows) ? bulkRows : [];
-  const bulkBacktestHistory = Array.isArray(bulkBacktest?.history) ? bulkBacktest?.history : [];
+  const bulkSafeRows = asArray(bulkRows);
+  const bulkBacktestHistory = asArray(bulkBacktest?.history);
   const bulkHasHistory = bulkSafeRows.length > 0;
   const bulkStartDate = bulkHasHistory ? bulkSafeRows[0].dateStr : defaultEnd;
   const bulkEndDate = bulkHasHistory ? bulkSafeRows[bulkSafeRows.length - 1].dateStr : defaultEnd;
@@ -1050,17 +1051,17 @@ export default function BtcBuyingStrategiesPage() {
     ? buildValueChartData(bulkBacktestHistory)
     : [];
   const bulkRoiChartData = bulkBacktestHistory.length ? buildRoiChartData(bulkBacktestHistory) : [];
-  const bulkAuditRows = Array.isArray(bulkBacktestHistory) ? bulkBacktestHistory : [];
+  const bulkAuditRows = asArray(bulkBacktestHistory);
 
   const handleExportCsv = () => {
     if (!backtest) return;
-    const exportHistory = Array.isArray(backtest?.history) ? backtest?.history ?? [] : [];
+    const exportHistory = asArray(backtest?.history);
     exportBacktestCsv(exportHistory, `normal-dca-backtest-${startDate}-${endDate}.csv`);
   };
 
   const handleBulkExportCsv = () => {
     if (!bulkBacktest) return;
-    const exportHistory = Array.isArray(bulkBacktest?.history) ? bulkBacktest?.history ?? [] : [];
+    const exportHistory = asArray(bulkBacktest?.history);
     exportBacktestCsv(exportHistory, `bulk-buy-backtest-${bulkStartDate}-${bulkEndDate}.csv`);
   };
 

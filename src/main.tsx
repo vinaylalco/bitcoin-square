@@ -42,9 +42,11 @@ import DcaBuysAdmin from "./routes/DcaBuysAdmin";
 import { ProfileIdentityProvider } from "./context/ProfileIdentityContext";
 import { DirectMessageProvider } from "./context/DirectMessageContext";
 import { ToastProvider } from "./context/ToastContext";
+import RequireLogin from "./components/RequireLogin";
 import RequireMembership from "./components/RequireMembership";
 import { MinerQuotation2Page } from "./pages/MinerQuotation2Page";
 import ErrorBoundary from "./components/ErrorBoundary";
+import GlobalErrorBoundary from "./components/GlobalErrorBoundary";
 
 const membershipRouteElement = (
   <ErrorBoundary
@@ -70,7 +72,11 @@ const membershipRouteElement = (
 const router = createBrowserRouter([
   {
     path: "/",
-    element: <App />,
+    element: (
+      <GlobalErrorBoundary>
+        <App />
+      </GlobalErrorBoundary>
+    ),
     errorElement: <RouteError />,              // ✅ friendly error UI
     children: [
       { index: true, element: <Home /> },
@@ -155,9 +161,9 @@ const router = createBrowserRouter([
       {
         path: "community",
         element: (
-          <RequireMembership>
+          <RequireLogin redirectTo="/membership">
             <Community />
-          </RequireMembership>
+          </RequireLogin>
         ),
       },
       {

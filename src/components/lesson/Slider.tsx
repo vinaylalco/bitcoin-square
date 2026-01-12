@@ -100,6 +100,7 @@ export default function Slider({
   lessonSlug,
   enableCustomize = true,
   isLessonAccessRestricted = false,
+  isAuthenticated,
 }: {
   cards: LessonCard[];
   modules: Module[];
@@ -107,6 +108,7 @@ export default function Slider({
   lessonSlug?: string;
   enableCustomize?: boolean;
   isLessonAccessRestricted?: boolean;
+  isAuthenticated?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const [index, setIndex] = useState(0);
@@ -128,6 +130,7 @@ export default function Slider({
   const shouldRestoreProgressRef = useRef(true);
   const [navHeight, setNavHeight] = useState<number | null>(null);
   const { user, token, updateUser } = useAuth();
+  const isLoggedIn = isAuthenticated ?? Boolean(user);
   const initialLocalProgress = useMemo(() => readLocalProgress(), []);
   const [localProgress, setLocalProgress] = useState<LocalProgress>(initialLocalProgress);
   const [displayPoints, setDisplayPoints] = useState<number>(
@@ -1365,36 +1368,62 @@ export default function Slider({
             id="lesson-access-required-title"
             className="text-lg font-semibold text-neutral-900 dark:text-neutral-100"
           >
-            {t("lesson.accessRequired.title", {
-              defaultValue: "Membership required",
-            })}
+            {isLoggedIn
+              ? t("lesson.accessRequired.titleLoggedIn", {
+                  defaultValue: "Membership needed",
+                })
+              : t("lesson.accessRequired.title", {
+                  defaultValue: "Unlock this lesson",
+                })}
           </h2>
           <p className="mt-3 text-sm text-neutral-600 dark:text-neutral-300">
-            <span role="img" aria-label="locked">
-              🔐
-            </span>{" "}
-            Ready to unlock this lesson? Join the fun with a
-            {" "}
-            <a
-              href="/membership"
-              className="font-semibold text-brand underline hover:text-brand/80"
-            >
-              membership
-            </a>
-            {" "}
-            and keep learning!
-            {" "}
-            <span role="img" aria-label="rocket">
-              🚀
-            </span>
+            {isLoggedIn
+              ? t("lesson.accessRequired.bodyLoggedIn", {
+                  defaultValue:
+                    "Start a membership (annual and lifetime options available) to unlock this lesson.",
+                })
+              : t("lesson.accessRequired.body", {
+                  defaultValue:
+                    "Log in to continue, or start a membership (annual and lifetime options available).",
+                })}
           </p>
-          <button
-            type="button"
-            onClick={() => setShowAccessModal(false)}
-            className="mt-6 inline-flex items-center justify-center rounded-full bg-brand px-6 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-white transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
-          >
-            {t("lesson.accessRequired.close", { defaultValue: "Close" })}
-          </button>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            {isLoggedIn ? (
+              <a
+                href="/membership"
+                className="inline-flex items-center justify-center rounded-full bg-brand px-6 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-white transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+              >
+                {t("lesson.accessRequired.viewMemberships", {
+                  defaultValue: "View memberships",
+                })}
+              </a>
+            ) : (
+              <a
+                href="/login"
+                className="inline-flex items-center justify-center rounded-full bg-brand px-6 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-white transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+              >
+                {t("lesson.accessRequired.login", { defaultValue: "Log in" })}
+              </a>
+            )}
+            {isLoggedIn ? (
+              <button
+                type="button"
+                onClick={() => setShowAccessModal(false)}
+                className="inline-flex items-center justify-center rounded-full border border-brand/40 px-6 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-brand transition hover:border-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+              >
+                {t("lesson.accessRequired.close", { defaultValue: "Close" })}
+              </button>
+            ) : (
+              <a
+                href="/membership"
+                className="inline-flex items-center justify-center rounded-full border border-brand/40 px-6 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-brand transition hover:border-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+              >
+                {t("lesson.accessRequired.viewMemberships", {
+                  defaultValue: "View memberships",
+                })}
+              </a>
+            )}
+          </div>
         </div>
       </Modal>
     </>
