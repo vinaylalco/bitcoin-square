@@ -7,6 +7,14 @@ export interface ScreenNameUser {
   nostrPubkey: string | null;
 }
 
+export interface CreatorProfileUser {
+  id: number;
+  username: string;
+  avatarUrl: string | null;
+  contentCreatorProfileDescription: string | null;
+  contentCreatorYoutubeIntroEmbed: string | null;
+}
+
 const normalizeMaybeString = (value: unknown): string | null => {
   if (typeof value !== "string") {
     return null;
@@ -51,6 +59,48 @@ const normalizeUserEntry = (raw: unknown): ScreenNameUser | null => {
   };
 };
 
+const normalizeCreatorProfileEntry = (raw: unknown): CreatorProfileUser | null => {
+  if (!raw || typeof raw !== "object") {
+    return null;
+  }
+
+  const withAttributes = (raw as { attributes?: unknown }).attributes;
+  const source = withAttributes && typeof withAttributes === "object" ? withAttributes : raw;
+
+  const idCandidate = (raw as { id?: unknown }).id;
+  const altIdCandidate = (source as { id?: unknown }).id;
+  const idValue = typeof idCandidate === "number" ? idCandidate : typeof altIdCandidate === "number" ? altIdCandidate : null;
+
+  const username =
+    normalizeMaybeString((source as { username?: unknown }).username) ||
+    normalizeMaybeString((source as { screen_name?: unknown }).screen_name) ||
+    normalizeMaybeString((source as { screenName?: unknown }).screenName);
+
+  if (!idValue || !username) {
+    return null;
+  }
+
+  const avatarUrl =
+    normalizeMaybeString((source as { avatar_url?: unknown }).avatar_url) ||
+    normalizeMaybeString((source as { avatarUrl?: unknown }).avatarUrl);
+
+  const contentCreatorProfileDescription = normalizeMaybeString(
+    (source as { contentCreatorProfileDescription?: unknown }).contentCreatorProfileDescription,
+  );
+
+  const contentCreatorYoutubeIntroEmbed = normalizeMaybeString(
+    (source as { contentCreatorYoutubeIntroEmbed?: unknown }).contentCreatorYoutubeIntroEmbed,
+  );
+
+  return {
+    id: idValue,
+    username,
+    avatarUrl,
+    contentCreatorProfileDescription,
+    contentCreatorYoutubeIntroEmbed,
+  };
+};
+
 const extractUsers = (payload: unknown): ScreenNameUser[] => {
   const entries: unknown[] = Array.isArray(payload)
     ? payload
@@ -78,6 +128,17 @@ const appendFieldParams = (params: URLSearchParams) => {
 const appendSortParams = (params: URLSearchParams) => {
   params.append("sort[0]", "screen_name:asc");
   params.append("sort[1]", "screenName:asc");
+};
+
+const appendCreatorProfileFieldParams = (params: URLSearchParams) => {
+  params.append("fields[0]", "id");
+  params.append("fields[1]", "username");
+  params.append("fields[2]", "screen_name");
+  params.append("fields[3]", "screenName");
+  params.append("fields[4]", "avatar_url");
+  params.append("fields[5]", "avatarUrl");
+  params.append("fields[6]", "contentCreatorProfileDescription");
+  params.append("fields[7]", "contentCreatorYoutubeIntroEmbed");
 };
 
 export async function searchUsersByScreenName(
@@ -140,4 +201,18 @@ export async function fetchUsersByScreenNames(
 
   const allowed = new Set(normalizedUnique);
   return users.filter((user) => allowed.has(user.screenName.toLowerCase()));
+}
+
+export async function fetchCreatorProfileUserById(
+  userId: number,
+): Promise<CreatorProfileUser | null> {
+  if (!Number.isFinite(userId)) {
+    return null;
+  }
+
+  const params = new URLSearchParams();
+  appendCreatorProfileFieldParams(params);
+
+  const payload = await strapiFetch<unknown>(`/api/users/${userId}?${params.toString()}`);
+  return normalizeCreatorProfileEntry(payload);
 }
