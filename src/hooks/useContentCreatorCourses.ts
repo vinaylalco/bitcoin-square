@@ -234,6 +234,23 @@ export function useContentCreatorCourses() {
   });
 }
 
+export async function fetchContentCreatorCoursesByAuthorId(
+  userId: number,
+): Promise<ContentCreatorCourse[]> {
+  if (!Number.isFinite(userId)) {
+    return [];
+  }
+  const params = new URLSearchParams();
+  params.append("populate[0]", "coverImage");
+  params.append("populate[1]", "author");
+  params.set("status", "published");
+  params.append("filters[author][id][$eq]", String(userId));
+  const path = `/api/content-creator-courses?${params.toString()}`;
+  const json = await strapiFetch<StrapiCollectionResponse<AnyRecord>>(path);
+  const entries = Array.isArray(json?.data) ? json.data : [];
+  return entries.map((entry) => mapContentCreatorEntry(entry));
+}
+
 export function useContentCreatorDraftCourses() {
   const { user, token } = useAuth();
   const isCreator = user?.contentCreator === true;
