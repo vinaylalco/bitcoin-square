@@ -10,6 +10,7 @@ export interface ScreenNameUser {
 export interface CreatorProfileUser {
   id: number;
   username: string;
+  screenName: string;
   avatarUrl: string | null;
   contentCreatorProfileDescription: string | null;
   contentCreatorYoutubeIntroEmbed: string | null;
@@ -72,12 +73,12 @@ const normalizeCreatorProfileEntry = (raw: unknown): CreatorProfileUser | null =
   const altIdCandidate = (source as { id?: unknown }).id;
   const idValue = typeof idCandidate === "number" ? idCandidate : typeof altIdCandidate === "number" ? altIdCandidate : null;
 
-  const username =
-    normalizeMaybeString((source as { username?: unknown }).username) ||
+  const screenName =
     normalizeMaybeString((source as { screenName?: unknown }).screenName) ||
     normalizeMaybeString((source as { screen_name?: unknown }).screen_name);
+  const username = normalizeMaybeString((source as { username?: unknown }).username);
 
-  if (!idValue || !username) {
+  if (!idValue || (!screenName && !username)) {
     return null;
   }
 
@@ -95,7 +96,8 @@ const normalizeCreatorProfileEntry = (raw: unknown): CreatorProfileUser | null =
 
   return {
     id: idValue,
-    username,
+    username: username ?? screenName ?? "",
+    screenName: screenName ?? username ?? "",
     avatarUrl,
     contentCreatorProfileDescription,
     contentCreatorYoutubeIntroEmbed,

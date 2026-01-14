@@ -53,6 +53,9 @@ const resolveYouTubeEmbedUrl = (value: string | null | undefined): string | null
   return parsed.toString();
 };
 
+const getCreatorDisplayName = (profile: CreatorProfileUser | null): string =>
+  profile?.screenName?.trim() || profile?.username?.trim() || "Creator";
+
 const getCreatorShortDescription = (profile: CreatorProfileUser | null): string =>
   profile?.contentCreatorProfileDescription?.trim() || "Creator profile details coming soon.";
 
@@ -259,12 +262,14 @@ export default function CourseDirectory() {
   const creatorAvatarUrl = creatorProfile
     ? normalizeAvatarUrl(creatorProfile.avatarUrl, creatorProfile.username)
     : null;
+  const creatorDisplayName = getCreatorDisplayName(creatorProfile);
   const publishedCreatorCourses = Array.isArray(creatorCourses) ? creatorCourses : [];
   const creatorProfilesList = Array.isArray(creatorProfiles) ? creatorProfiles : [];
   const activeCreatorAvatarUrl = activeCreator
     ? normalizeAvatarUrl(activeCreator.avatarUrl, activeCreator.username)
     : null;
   const activeCreatorLongDescription = activeCreator?.contentCreatorProfileDescription?.trim();
+  const activeCreatorDisplayName = getCreatorDisplayName(activeCreator);
   const activeCreatorEmbedUrl = resolveYouTubeEmbedUrl(
     activeCreator?.contentCreatorYoutubeIntroEmbed,
   );
@@ -315,7 +320,7 @@ export default function CourseDirectory() {
                   <div className="h-16 w-16 overflow-hidden rounded-full border border-neutral-200/70 bg-white/70 shadow-sm dark:border-neutral-800/70 dark:bg-neutral-900/70">
                     <img
                       src={creatorAvatarUrl}
-                      alt={creatorProfile.username}
+                      alt={creatorDisplayName}
                       className="h-full w-full object-cover"
                       loading="lazy"
                     />
@@ -326,7 +331,7 @@ export default function CourseDirectory() {
                     Creator
                   </p>
                   <p className="text-2xl font-bold text-[var(--fg-default)]">
-                    {creatorProfile.username}
+                    {creatorDisplayName}
                   </p>
                 </div>
               </div>
@@ -339,7 +344,7 @@ export default function CourseDirectory() {
                 <div className="mt-6 overflow-hidden rounded-2xl border border-neutral-200/70 bg-black shadow-sm dark:border-neutral-800/70">
                   <iframe
                     src={creatorEmbedUrl}
-                    title={`${creatorProfile.username} introduction`}
+                    title={`${creatorDisplayName} introduction`}
                     className="h-64 w-full md:h-80"
                     loading="lazy"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -349,7 +354,7 @@ export default function CourseDirectory() {
                 </div>
               )}
               <h2 className="mt-6 text-xl font-bold text-[var(--fg-default)]">
-                {creatorProfile.username}
+                {creatorDisplayName}
                 {"'s Live Courses"}
               </h2>
               {creatorCoursesStatus === "loading" && (
@@ -483,37 +488,39 @@ export default function CourseDirectory() {
                 {creatorProfilesList.map((profile) => {
                   const avatarUrl = normalizeAvatarUrl(profile.avatarUrl, profile.username);
                   const shortDescription = getCreatorShortDescription(profile);
+                  const displayName = getCreatorDisplayName(profile);
                   return (
                     <article
                       key={profile.id}
-                      className="flex h-full flex-col gap-4 rounded-2xl border border-neutral-200/70 bg-white/70 p-6 shadow-sm dark:border-neutral-800/70 dark:bg-neutral-900/70"
+                      onClick={() => setActiveCreator(profile)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setActiveCreator(profile);
+                        }
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      className="flex h-full cursor-pointer flex-col gap-4 rounded-2xl border border-neutral-200/70 bg-white/70 p-6 text-left shadow-sm transition hover:border-brand/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 dark:border-neutral-800/70 dark:bg-neutral-900/70"
                     >
                       <div className="flex items-center gap-4">
                         {avatarUrl ? (
-                          <button
-                            type="button"
-                            onClick={() => setActiveCreator(profile)}
-                            className="h-12 w-12 overflow-hidden rounded-full border border-neutral-200/70 bg-white/70 shadow-sm transition hover:border-brand/60 dark:border-neutral-800/70 dark:bg-neutral-900/70"
-                          >
+                          <div className="h-12 w-12 overflow-hidden rounded-full border border-neutral-200/70 bg-white/70 shadow-sm dark:border-neutral-800/70 dark:bg-neutral-900/70">
                             <img
                               src={avatarUrl}
-                              alt={profile.username}
+                              alt={displayName}
                               className="h-full w-full object-cover"
                               loading="lazy"
                             />
-                          </button>
+                          </div>
                         ) : (
-                          <button
-                            type="button"
-                            onClick={() => setActiveCreator(profile)}
-                            className="flex h-12 w-12 items-center justify-center rounded-full border border-neutral-200/70 bg-neutral-100 text-sm font-semibold uppercase text-neutral-500 shadow-sm transition hover:border-brand/60 dark:border-neutral-800/70 dark:bg-neutral-800 dark:text-neutral-200"
-                          >
-                            {profile.username.slice(0, 1)}
-                          </button>
+                          <div className="flex h-12 w-12 items-center justify-center rounded-full border border-neutral-200/70 bg-neutral-100 text-sm font-semibold uppercase text-neutral-500 shadow-sm dark:border-neutral-800/70 dark:bg-neutral-800 dark:text-neutral-200">
+                            {displayName.slice(0, 1)}
+                          </div>
                         )}
                         <div>
                           <p className="text-base font-semibold text-[var(--fg-default)]">
-                            {profile.username}
+                            {displayName}
                           </p>
                           <p className="text-xs uppercase tracking-[0.3em] text-brand">
                             Creator
@@ -539,28 +546,29 @@ export default function CourseDirectory() {
       >
         {activeCreator && (
           <div className="max-h-[85vh] overflow-y-auto rounded-3xl border border-neutral-200/70 bg-white p-6 text-neutral-700 shadow-xl dark:border-neutral-800/70 dark:bg-neutral-900 dark:text-neutral-200 sm:p-8">
+            {activeCreatorAvatarUrl && (
+              <div className="mb-6 overflow-hidden rounded-2xl border border-neutral-200/70 bg-white/70 shadow-sm dark:border-neutral-800/70 dark:bg-neutral-900/70">
+                <img
+                  src={activeCreatorAvatarUrl}
+                  alt={activeCreatorDisplayName}
+                  className="h-48 w-full object-cover sm:h-56"
+                  loading="lazy"
+                />
+              </div>
+            )}
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-4">
-                {activeCreatorAvatarUrl ? (
-                  <div className="h-14 w-14 overflow-hidden rounded-full border border-neutral-200/70 bg-white/70 shadow-sm dark:border-neutral-800/70 dark:bg-neutral-900/70">
-                    <img
-                      src={activeCreatorAvatarUrl}
-                      alt={activeCreator.username}
-                      className="h-full w-full object-cover"
-                      loading="lazy"
-                    />
-                  </div>
-                ) : (
+                {!activeCreatorAvatarUrl ? (
                   <div className="flex h-14 w-14 items-center justify-center rounded-full border border-neutral-200/70 bg-neutral-100 text-base font-semibold uppercase text-neutral-500 shadow-sm dark:border-neutral-800/70 dark:bg-neutral-800 dark:text-neutral-200">
-                    {activeCreator.username.slice(0, 1)}
+                    {activeCreatorDisplayName.slice(0, 1)}
                   </div>
-                )}
+                ) : null}
                 <div>
                   <p
                     id="creator-modal-title"
                     className="text-xl font-bold text-[var(--fg-default)]"
                   >
-                    {activeCreator.username}
+                    {activeCreatorDisplayName}
                   </p>
                   <p className="text-xs uppercase tracking-[0.3em] text-brand">Creator</p>
                 </div>
@@ -594,7 +602,7 @@ export default function CourseDirectory() {
                 <div className="mt-3 overflow-hidden rounded-2xl border border-neutral-200/70 bg-black shadow-sm dark:border-neutral-800/70">
                   <iframe
                     src={activeCreatorEmbedUrl}
-                    title={`${activeCreator.username} introduction`}
+                    title={`${activeCreatorDisplayName} introduction`}
                     className="h-64 w-full md:h-72"
                     loading="lazy"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -606,7 +614,7 @@ export default function CourseDirectory() {
             )}
             <div className="mt-8">
               <h3 className="text-lg font-bold text-[var(--fg-default)]">
-                {activeCreator.username}
+                {activeCreatorDisplayName}
                 {"'s courses"}
               </h3>
               {creatorModalCoursesStatus === "loading" && (
