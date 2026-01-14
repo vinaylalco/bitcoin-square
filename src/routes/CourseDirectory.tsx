@@ -542,7 +542,7 @@ export default function CourseDirectory() {
         open={Boolean(activeCreator)}
         onClose={() => setActiveCreator(null)}
         labelledBy="creator-modal-title"
-        describedBy="creator-modal-description"
+        describedBy={activeCreatorLongDescription ? "creator-modal-description" : undefined}
       >
         {activeCreator && (
           <div className="max-h-[85vh] overflow-y-auto rounded-3xl border border-neutral-200/70 bg-white p-6 text-neutral-700 shadow-xl dark:border-neutral-800/70 dark:bg-neutral-900 dark:text-neutral-200 sm:p-8">
@@ -581,15 +581,12 @@ export default function CourseDirectory() {
                 Close
               </button>
             </div>
-            <p id="creator-modal-description" className="mt-4 text-sm text-[var(--fg-muted)]">
-              {getCreatorShortDescription(activeCreator)}
-            </p>
             {activeCreatorLongDescription && (
               <div className="mt-6">
                 <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-brand">
                   About
                 </h3>
-                <p className="mt-2 text-sm text-[var(--fg-muted)]">
+                <p id="creator-modal-description" className="mt-2 text-sm text-[var(--fg-muted)]">
                   {activeCreatorLongDescription}
                 </p>
               </div>
