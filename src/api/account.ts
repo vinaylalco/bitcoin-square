@@ -10,12 +10,16 @@ export interface UpdateLightningAddressResponse {
   screenName?: string | null;
   avatarUrl?: string | null;
   commissionBtcAddress?: string | null;
+  contentCreatorProfileDescription?: string | null;
+  contentCreatorYoutubeIntroEmbed?: string | null;
 }
 
 export interface UpdateProfileSettingsPayload {
   lnWalletAddress?: string | null;
   screenName?: string | null;
   avatarUrl?: string | null;
+  contentCreatorProfileDescription?: string | null;
+  contentCreatorYoutubeIntroEmbed?: string | null;
 }
 
 export interface UpdateMyProfilePayload {

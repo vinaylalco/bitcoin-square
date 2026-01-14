@@ -87,6 +87,14 @@ export default function Dashboard() {
   const [commissionStatus, setCommissionStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const [commissionError, setCommissionError] = useState<string | null>(null);
   const [commissionWarning, setCommissionWarning] = useState<string | null>(null);
+  const [creatorProfileDescription, setCreatorProfileDescription] = useState(
+    () => user?.contentCreatorProfileDescription ?? '',
+  );
+  const [creatorYoutubeEmbed, setCreatorYoutubeEmbed] = useState(
+    () => user?.contentCreatorYoutubeIntroEmbed ?? '',
+  );
+  const [creatorProfileStatus, setCreatorProfileStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+  const [creatorProfileError, setCreatorProfileError] = useState<string | null>(null);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -103,6 +111,13 @@ export default function Dashboard() {
     setCommissionError(null);
     setCommissionWarning(null);
   }, [user?.commissionBtcAddress]);
+
+  useEffect(() => {
+    setCreatorProfileDescription(user?.contentCreatorProfileDescription ?? '');
+    setCreatorYoutubeEmbed(user?.contentCreatorYoutubeIntroEmbed ?? '');
+    setCreatorProfileStatus('idle');
+    setCreatorProfileError(null);
+  }, [user?.contentCreatorProfileDescription, user?.contentCreatorYoutubeIntroEmbed]);
 
   if (!user) return <Navigate to="/membership?view=login" replace />;
 
@@ -253,6 +268,7 @@ export default function Dashboard() {
 
   const isProfileSaving = profileStatus === 'saving';
   const isCommissionSaving = commissionStatus === 'saving';
+  const isCreatorProfileSaving = creatorProfileStatus === 'saving';
 
   const isValidBtcAddress = useCallback((address: string) => {
     const normalized = address.trim();
@@ -369,6 +385,53 @@ export default function Dashboard() {
       }
     },
     [buildProfileErrorMessage, commissionBtcAddress, isValidBtcAddress, resolveProfileResponse, showToast, t, token, updateUser],
+  );
+
+  const handleCreatorProfileSubmit = useCallback(
+    async (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      if (!user || !token) return;
+
+      const trimmedDescription = creatorProfileDescription.trim();
+      const trimmedEmbed = creatorYoutubeEmbed.trim();
+      const payload = {
+        contentCreatorProfileDescription: trimmedDescription.length > 0 ? trimmedDescription : null,
+        contentCreatorYoutubeIntroEmbed: trimmedEmbed.length > 0 ? trimmedEmbed : null,
+      };
+
+      setCreatorProfileStatus('saving');
+      setCreatorProfileError(null);
+
+      try {
+        const response = await updateProfileSettings(token, payload);
+        const nextDescription = response.data?.contentCreatorProfileDescription ?? payload.contentCreatorProfileDescription ?? '';
+        const nextEmbed = response.data?.contentCreatorYoutubeIntroEmbed ?? payload.contentCreatorYoutubeIntroEmbed ?? '';
+        setCreatorProfileDescription(nextDescription);
+        setCreatorYoutubeEmbed(nextEmbed);
+        updateUser((prev) =>
+          prev
+            ? {
+                ...prev,
+                contentCreatorProfileDescription: nextDescription || null,
+                contentCreatorYoutubeIntroEmbed: nextEmbed || null,
+              }
+            : prev,
+        );
+        setCreatorProfileStatus('success');
+        showToast(t('dashboard.common.saved'), { tone: 'success' });
+      } catch (error) {
+        const message =
+          error instanceof StrapiRequestError
+            ? buildProfileErrorMessage(error)
+            : error instanceof Error
+              ? error.message
+              : t('dashboard.account.errors.profile');
+        setCreatorProfileStatus('error');
+        setCreatorProfileError(message);
+        showToast(message, { tone: 'error' });
+      }
+    },
+    [buildProfileErrorMessage, creatorProfileDescription, creatorYoutubeEmbed, showToast, t, token, updateUser, user],
   );
 
   return (
@@ -587,6 +650,76 @@ export default function Dashboard() {
                 </button>
               </div>
             </form>
+
+            {user.contentCreator && (
+              <div className="mt-6 rounded-2xl border border-neutral-200 bg-neutral-50 p-4 transition-colors dark:border-neutral-800 dark:bg-neutral-950/40">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h4 className="text-sm font-semibold uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">
+                    Creator Profile
+                  </h4>
+                  {creatorProfileStatus === 'success' && (
+                    <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-500">
+                      {t('dashboard.common.saved')}
+                    </span>
+                  )}
+                </div>
+                <form onSubmit={handleCreatorProfileSubmit} className="mt-4 space-y-3">
+                  <label
+                    htmlFor="creator-profile-description"
+                    className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400"
+                  >
+                    Description
+                  </label>
+                  <textarea
+                    id="creator-profile-description"
+                    value={creatorProfileDescription}
+                    onChange={(event) => {
+                      setCreatorProfileDescription(event.target.value);
+                      if (creatorProfileStatus === 'success') {
+                        setCreatorProfileStatus('idle');
+                      }
+                      if (creatorProfileError) {
+                        setCreatorProfileError(null);
+                      }
+                    }}
+                    className="min-h-[120px] w-full rounded-2xl border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 transition focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+                    placeholder="Share what learners can expect from your creator profile."
+                  />
+                  <label
+                    htmlFor="creator-youtube-embed"
+                    className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400"
+                  >
+                    YouTube embed URL
+                  </label>
+                  <input
+                    id="creator-youtube-embed"
+                    value={creatorYoutubeEmbed}
+                    onChange={(event) => {
+                      setCreatorYoutubeEmbed(event.target.value);
+                      if (creatorProfileStatus === 'success') {
+                        setCreatorProfileStatus('idle');
+                      }
+                      if (creatorProfileError) {
+                        setCreatorProfileError(null);
+                      }
+                    }}
+                    className="w-full rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 transition focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+                    placeholder="https://www.youtube.com/embed/..."
+                    autoComplete="off"
+                  />
+                  {creatorProfileError && (
+                    <p className="text-xs text-red-500">{creatorProfileError}</p>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={isCreatorProfileSaving}
+                    className="inline-flex items-center justify-center rounded-full bg-brand px-5 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-white transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:bg-brand/40"
+                  >
+                    {isCreatorProfileSaving ? t('dashboard.common.saving') : 'Save creator profile'}
+                  </button>
+                </form>
+              </div>
+            )}
 
             <div className="mt-6 rounded-2xl border border-neutral-200 bg-neutral-50 p-4 transition-colors dark:border-neutral-800 dark:bg-neutral-950/40">
               <div className="flex flex-wrap items-center justify-between gap-3">

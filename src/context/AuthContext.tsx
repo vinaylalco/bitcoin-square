@@ -43,6 +43,8 @@ export interface User {
   nostrEncryptedKey?: string;
   lnWalletAddress?: string | null;
   commissionBtcAddress?: string | null;
+  contentCreatorProfileDescription?: string | null;
+  contentCreatorYoutubeIntroEmbed?: string | null;
   points: number;
   lessonCompletions: LessonCompletionMap;
   studyStreak: number;
