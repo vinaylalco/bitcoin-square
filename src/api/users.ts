@@ -115,6 +115,18 @@ const extractUsers = (payload: unknown): ScreenNameUser[] => {
   return mapped;
 };
 
+const extractCreatorProfiles = (payload: unknown): CreatorProfileUser[] => {
+  const entries: unknown[] = Array.isArray(payload)
+    ? payload
+    : Array.isArray((payload as { data?: unknown })?.data)
+      ? (((payload as { data?: unknown }).data as unknown[]) ?? [])
+      : [];
+
+  return entries
+    .map((entry) => normalizeCreatorProfileEntry(entry))
+    .filter((entry): entry is CreatorProfileUser => Boolean(entry?.username));
+};
+
 const appendFieldParams = (params: URLSearchParams) => {
   params.append("fields[0]", "id");
   params.append("fields[1]", "screen_name");
@@ -215,4 +227,14 @@ export async function fetchCreatorProfileUserById(
 
   const payload = await strapiFetch<unknown>(`/api/users/${userId}?${params.toString()}`);
   return normalizeCreatorProfileEntry(payload);
+}
+
+export async function fetchContentCreatorProfiles(): Promise<CreatorProfileUser[]> {
+  const params = new URLSearchParams();
+  appendCreatorProfileFieldParams(params);
+  params.append("filters[contentCreator][$eq]", "true");
+  params.append("pagination[pageSize]", "100");
+
+  const payload = await strapiFetch<unknown>(`/api/users?${params.toString()}`);
+  return extractCreatorProfiles(payload);
 }

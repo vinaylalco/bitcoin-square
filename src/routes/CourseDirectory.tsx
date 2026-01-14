@@ -2,8 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router-dom";
 import CourseCard from "../components/course/CourseCard";
+import Modal from "../components/ui/Modal";
 import CourseDirectorySkeleton from "../components/course/CourseDirectorySkeleton";
-import { fetchCreatorProfileUserById, type CreatorProfileUser } from "../api/users";
+import {
+  fetchContentCreatorProfiles,
+  fetchCreatorProfileUserById,
+  type CreatorProfileUser,
+} from "../api/users";
 import { useAuth } from "../context/AuthContext";
 import {
   fetchContentCreatorCoursesByAuthorId,
@@ -59,6 +64,15 @@ export default function CourseDirectory() {
   const [creatorProfileStatus, setCreatorProfileStatus] = useState<"idle" | "loading" | "error" | "success">("idle");
   const [creatorCoursesStatus, setCreatorCoursesStatus] = useState<"idle" | "loading" | "error" | "success">("idle");
   const [creatorCourses, setCreatorCourses] = useState<ContentCreatorCourse[]>([]);
+  const [creatorProfiles, setCreatorProfiles] = useState<CreatorProfileUser[]>([]);
+  const [creatorProfilesStatus, setCreatorProfilesStatus] = useState<
+    "idle" | "loading" | "error" | "success"
+  >("idle");
+  const [activeCreator, setActiveCreator] = useState<CreatorProfileUser | null>(null);
+  const [creatorModalCourses, setCreatorModalCourses] = useState<ContentCreatorCourse[]>([]);
+  const [creatorModalCoursesStatus, setCreatorModalCoursesStatus] = useState<
+    "idle" | "loading" | "error" | "success"
+  >("idle");
   const isCreator = user?.contentCreator === true;
   const locale = resolveLocale(i18n.language);
   const contentLocale = locale === "es" || locale === "id" ? locale : "en";
@@ -103,6 +117,62 @@ export default function CourseDirectory() {
   useEffect(() => {
     setActiveTab(refParam ? "creator" : "education");
   }, [refParam]);
+
+  useEffect(() => {
+    let active = true;
+    setCreatorProfilesStatus("loading");
+
+    fetchContentCreatorProfiles()
+      .then((profiles) => {
+        if (!active) {
+          return;
+        }
+        setCreatorProfiles(Array.isArray(profiles) ? profiles : []);
+        setCreatorProfilesStatus("success");
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+        setCreatorProfiles([]);
+        setCreatorProfilesStatus("error");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!activeCreator?.id) {
+      setCreatorModalCourses([]);
+      setCreatorModalCoursesStatus("idle");
+      return;
+    }
+
+    let active = true;
+    setCreatorModalCoursesStatus("loading");
+
+    fetchContentCreatorCoursesByAuthorId(activeCreator.id)
+      .then((courses) => {
+        if (!active) {
+          return;
+        }
+        setCreatorModalCourses(Array.isArray(courses) ? courses : []);
+        setCreatorModalCoursesStatus("success");
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+        setCreatorModalCourses([]);
+        setCreatorModalCoursesStatus("error");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [activeCreator]);
 
   const refUserId = useMemo(() => {
     if (!refParam) {
@@ -187,6 +257,15 @@ export default function CourseDirectory() {
     ? normalizeAvatarUrl(creatorProfile.avatarUrl, creatorProfile.username)
     : null;
   const publishedCreatorCourses = Array.isArray(creatorCourses) ? creatorCourses : [];
+  const creatorProfilesList = Array.isArray(creatorProfiles) ? creatorProfiles : [];
+  const activeCreatorAvatarUrl = activeCreator
+    ? normalizeAvatarUrl(activeCreator.avatarUrl, activeCreator.username)
+    : null;
+  const activeCreatorDescription = activeCreator?.contentCreatorProfileDescription?.trim();
+  const activeCreatorEmbedUrl = activeCreator?.contentCreatorYoutubeIntroEmbed?.trim() || null;
+  const normalizedCreatorModalCourses = creatorModalCourses.map((course) =>
+    normalizeContentCreatorCourse(course),
+  );
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-20 pt-12 sm:px-6">
@@ -206,7 +285,7 @@ export default function CourseDirectory() {
           }`}
           onClick={() => setActiveTab("education")}
         >
-          {t("nav.education")}
+          All Courses
         </button>
         <button
           type="button"
@@ -219,7 +298,7 @@ export default function CourseDirectory() {
           }`}
           onClick={() => setActiveTab("creator")}
         >
-          Creator
+          Content Creators
         </button>
       </div>
       {activeTab === "education" ? (
@@ -368,15 +447,185 @@ export default function CourseDirectory() {
           )}
         </div>
       ) : (
-        <div className="mt-10 rounded-3xl border border-neutral-200/70 bg-white/80 p-8 text-neutral-700 shadow-sm dark:border-neutral-800/70 dark:bg-neutral-900/70 dark:text-neutral-200">
-          <h2 className="text-2xl font-bold uppercase tracking-[0.12em] text-[var(--fg-default)]">
-            Creator
-          </h2>
-          <p className="mt-3 text-sm text-[var(--fg-muted)]">
-            Explore creator-focused tools and highlights here.
-          </p>
+        <div className="mt-10 space-y-6">
+          <header className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.42em] text-brand">
+              Content Creators
+            </p>
+            <h2 className="text-2xl font-bold uppercase tracking-[0.12em] text-[var(--fg-default)]">
+              Meet the creators
+            </h2>
+            <p className="text-sm text-[var(--fg-muted)]">
+              Browse the creators sharing their latest courses and insights.
+            </p>
+          </header>
+          <div className="rounded-3xl border border-neutral-200/70 bg-white/80 p-8 text-neutral-700 shadow-sm dark:border-neutral-800/70 dark:bg-neutral-900/70 dark:text-neutral-200">
+            {creatorProfilesStatus === "loading" && (
+              <p className="text-sm text-[var(--fg-muted)]">Loading content creators...</p>
+            )}
+            {creatorProfilesStatus === "error" && (
+              <p className="text-sm text-[var(--fg-muted)]">
+                Unable to load creator profiles right now.
+              </p>
+            )}
+            {creatorProfilesStatus === "success" && creatorProfilesList.length === 0 && (
+              <p className="text-sm text-[var(--fg-muted)]">
+                No content creators are available yet. Check back soon.
+              </p>
+            )}
+            {creatorProfilesStatus === "success" && creatorProfilesList.length > 0 && (
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {creatorProfilesList.map((profile) => {
+                  const avatarUrl = normalizeAvatarUrl(profile.avatarUrl, profile.username);
+                  const description = profile.contentCreatorProfileDescription?.trim();
+                  return (
+                    <article
+                      key={profile.id}
+                      className="flex h-full flex-col gap-4 rounded-2xl border border-neutral-200/70 bg-white/70 p-6 shadow-sm dark:border-neutral-800/70 dark:bg-neutral-900/70"
+                    >
+                      <div className="flex items-center gap-4">
+                        {avatarUrl ? (
+                          <button
+                            type="button"
+                            onClick={() => setActiveCreator(profile)}
+                            className="h-12 w-12 overflow-hidden rounded-full border border-neutral-200/70 bg-white/70 shadow-sm transition hover:border-brand/60 dark:border-neutral-800/70 dark:bg-neutral-900/70"
+                          >
+                            <img
+                              src={avatarUrl}
+                              alt={profile.username}
+                              className="h-full w-full object-cover"
+                              loading="lazy"
+                            />
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setActiveCreator(profile)}
+                            className="flex h-12 w-12 items-center justify-center rounded-full border border-neutral-200/70 bg-neutral-100 text-sm font-semibold uppercase text-neutral-500 shadow-sm transition hover:border-brand/60 dark:border-neutral-800/70 dark:bg-neutral-800 dark:text-neutral-200"
+                          >
+                            {profile.username.slice(0, 1)}
+                          </button>
+                        )}
+                        <div>
+                          <p className="text-base font-semibold text-[var(--fg-default)]">
+                            {profile.username}
+                          </p>
+                          <p className="text-xs uppercase tracking-[0.3em] text-brand">
+                            Creator
+                          </p>
+                        </div>
+                      </div>
+                      <p className="text-sm text-[var(--fg-muted)]">
+                        {description ?? "Creator profile details coming soon."}
+                      </p>
+                    </article>
+                  );
+                })}
+              </div>
+              )}
+          </div>
         </div>
       )}
+      <Modal
+        open={Boolean(activeCreator)}
+        onClose={() => setActiveCreator(null)}
+        labelledBy="creator-modal-title"
+        describedBy="creator-modal-description"
+      >
+        {activeCreator && (
+          <div className="max-h-[85vh] overflow-y-auto rounded-3xl border border-neutral-200/70 bg-white p-6 text-neutral-700 shadow-xl dark:border-neutral-800/70 dark:bg-neutral-900 dark:text-neutral-200 sm:p-8">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                {activeCreatorAvatarUrl ? (
+                  <div className="h-14 w-14 overflow-hidden rounded-full border border-neutral-200/70 bg-white/70 shadow-sm dark:border-neutral-800/70 dark:bg-neutral-900/70">
+                    <img
+                      src={activeCreatorAvatarUrl}
+                      alt={activeCreator.username}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full border border-neutral-200/70 bg-neutral-100 text-base font-semibold uppercase text-neutral-500 shadow-sm dark:border-neutral-800/70 dark:bg-neutral-800 dark:text-neutral-200">
+                    {activeCreator.username.slice(0, 1)}
+                  </div>
+                )}
+                <div>
+                  <p
+                    id="creator-modal-title"
+                    className="text-xl font-bold text-[var(--fg-default)]"
+                  >
+                    {activeCreator.username}
+                  </p>
+                  <p className="text-xs uppercase tracking-[0.3em] text-brand">Creator</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveCreator(null)}
+                className="rounded-full border border-neutral-200/70 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-600 transition hover:border-brand/60 hover:text-brand dark:border-neutral-800/70 dark:text-neutral-200"
+              >
+                Close
+              </button>
+            </div>
+            <p id="creator-modal-description" className="mt-4 text-sm text-[var(--fg-muted)]">
+              {activeCreatorDescription ?? "Creator profile details coming soon."}
+            </p>
+            {activeCreatorDescription && (
+              <div className="mt-6">
+                <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-brand">
+                  About
+                </h3>
+                <p className="mt-2 text-sm text-[var(--fg-muted)]">{activeCreatorDescription}</p>
+              </div>
+            )}
+            {activeCreatorEmbedUrl && (
+              <div className="mt-6">
+                <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-brand">
+                  Intro Video
+                </h3>
+                <div className="mt-3 overflow-hidden rounded-2xl border border-neutral-200/70 bg-black shadow-sm dark:border-neutral-800/70">
+                  <iframe
+                    src={activeCreatorEmbedUrl}
+                    title={`${activeCreator.username} introduction`}
+                    className="h-64 w-full md:h-72"
+                    loading="lazy"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    referrerPolicy="strict-origin-when-cross-origin"
+                    allowFullScreen
+                  />
+                </div>
+              </div>
+            )}
+            <div className="mt-8">
+              <h3 className="text-lg font-bold text-[var(--fg-default)]">
+                {activeCreator.username}
+                {"'s courses"}
+              </h3>
+              {creatorModalCoursesStatus === "loading" && (
+                <p className="mt-3 text-sm text-[var(--fg-muted)]">Loading courses...</p>
+              )}
+              {creatorModalCoursesStatus === "error" && (
+                <p className="mt-3 text-sm text-[var(--fg-muted)]">
+                  Unable to load courses for this creator.
+                </p>
+              )}
+              {creatorModalCoursesStatus === "success" && normalizedCreatorModalCourses.length === 0 && (
+                <p className="mt-3 text-sm text-[var(--fg-muted)]">
+                  No published courses yet. Check back soon.
+                </p>
+              )}
+              {creatorModalCoursesStatus === "success" && normalizedCreatorModalCourses.length > 0 && (
+                <div className="mt-4 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  {normalizedCreatorModalCourses.map((course) => (
+                    <CourseCard key={String(course.id || course.slug)} course={course} />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
