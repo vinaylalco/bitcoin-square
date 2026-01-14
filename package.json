@@ -11,21 +11,15 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@tanstack/react-query": "^5.59.16",
     "i18next": "^25.4.2",
-    "lucide-react": "^0.542.0",
-    "nostr-tools": "^2.10.4",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-i18next": "^15.7.3",
     "react-router-dom": "^7.8.2",
-    "recharts": "^2.12.7",
-    "zod": "^3.23.8"
+    "recharts": "^2.12.7"
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",
-    "@testing-library/jest-dom": "^6.6.3",
-    "@testing-library/react": "^16.3.0",
     "@types/node": "^24.3.0",
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",
@@ -40,7 +34,6 @@
     "tsx": "^4.20.5",
     "typescript": "~5.8.3",
     "typescript-eslint": "^8.39.1",
-    "vite": "^7.1.2",
-    "vitest": "^2.1.9"
+    "vite": "^7.1.2"
   }
 }

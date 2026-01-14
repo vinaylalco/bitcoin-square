@@ -229,8 +229,6 @@
         }
       },
       "errors": {
-        "config": "Membership status is unavailable because the Strapi API URL is not configured.",
-        "network": "We couldn't reach Strapi to check your membership. We'll keep trying automatically.",
         "generic": "Something went wrong while checking your membership. We'll retry automatically."
       }
     },
@@ -802,7 +800,6 @@
       "lessonRequired": "Add at least one lesson before saving.",
       "saveDraftFailed": "Unable to save course draft.",
       "loginToUploadCover": "Please log in to upload a cover image.",
-      "baseUrlMissing": "Strapi base URL is not configured.",
       "uploadFailedStatus": "Upload failed with status {{status}}",
       "uploadFailed": "Upload failed. Please try again.",
       "youtubeInvalid": "Please enter a valid URL (not embed code).",
