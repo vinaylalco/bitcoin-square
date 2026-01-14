@@ -36,20 +36,21 @@ const normalizeUserEntry = (raw: unknown): ScreenNameUser | null => {
   const idValue = typeof idCandidate === "number" ? idCandidate : typeof altIdCandidate === "number" ? altIdCandidate : null;
 
   const screenName =
-    normalizeMaybeString((source as { screen_name?: unknown }).screen_name) ||
-    normalizeMaybeString((source as { screenName?: unknown }).screenName);
+    normalizeMaybeString((source as { screenName?: unknown }).screenName) ||
+    normalizeMaybeString((source as { screen_name?: unknown }).screen_name);
 
   if (!idValue || !screenName) {
     return null;
   }
 
   const avatarUrl =
-    normalizeMaybeString((source as { avatar_url?: unknown }).avatar_url) ||
-    normalizeMaybeString((source as { avatarUrl?: unknown }).avatarUrl);
+    normalizeMaybeString((source as { avatarUrl?: unknown }).avatarUrl) ||
+    normalizeMaybeString((source as { avatar_url?: unknown }).avatar_url);
 
   const nostrPubkey =
-    normalizeMaybeString((source as { nostr_pubkey?: unknown }).nostr_pubkey) ||
-    normalizeMaybeString((source as { nostrPubkey?: unknown }).nostrPubkey);
+    normalizeMaybeString((source as { nostrPublicKey?: unknown }).nostrPublicKey) ||
+    normalizeMaybeString((source as { nostrPubkey?: unknown }).nostrPubkey) ||
+    normalizeMaybeString((source as { nostr_pubkey?: unknown }).nostr_pubkey);
 
   return {
     id: idValue,
@@ -73,16 +74,16 @@ const normalizeCreatorProfileEntry = (raw: unknown): CreatorProfileUser | null =
 
   const username =
     normalizeMaybeString((source as { username?: unknown }).username) ||
-    normalizeMaybeString((source as { screen_name?: unknown }).screen_name) ||
-    normalizeMaybeString((source as { screenName?: unknown }).screenName);
+    normalizeMaybeString((source as { screenName?: unknown }).screenName) ||
+    normalizeMaybeString((source as { screen_name?: unknown }).screen_name);
 
   if (!idValue || !username) {
     return null;
   }
 
   const avatarUrl =
-    normalizeMaybeString((source as { avatar_url?: unknown }).avatar_url) ||
-    normalizeMaybeString((source as { avatarUrl?: unknown }).avatarUrl);
+    normalizeMaybeString((source as { avatarUrl?: unknown }).avatarUrl) ||
+    normalizeMaybeString((source as { avatar_url?: unknown }).avatar_url);
 
   const contentCreatorProfileDescription = normalizeMaybeString(
     (source as { contentCreatorProfileDescription?: unknown }).contentCreatorProfileDescription,
@@ -134,28 +135,22 @@ const fetchCreatorProfilesFromPath = async (path: string): Promise<CreatorProfil
 
 const appendFieldParams = (params: URLSearchParams) => {
   params.append("fields[0]", "id");
-  params.append("fields[1]", "screen_name");
-  params.append("fields[2]", "screenName");
-  params.append("fields[3]", "avatar_url");
-  params.append("fields[4]", "avatarUrl");
-  params.append("fields[5]", "nostr_pubkey");
-  params.append("fields[6]", "nostrPubkey");
+  params.append("fields[1]", "screenName");
+  params.append("fields[2]", "avatarUrl");
+  params.append("fields[3]", "nostrPublicKey");
 };
 
 const appendSortParams = (params: URLSearchParams) => {
-  params.append("sort[0]", "screen_name:asc");
-  params.append("sort[1]", "screenName:asc");
+  params.append("sort[0]", "screenName:asc");
 };
 
 const appendCreatorProfileFieldParams = (params: URLSearchParams) => {
   params.append("fields[0]", "id");
   params.append("fields[1]", "username");
-  params.append("fields[2]", "screen_name");
-  params.append("fields[3]", "screenName");
-  params.append("fields[4]", "avatar_url");
-  params.append("fields[5]", "avatarUrl");
-  params.append("fields[6]", "contentCreatorProfileDescription");
-  params.append("fields[7]", "contentCreatorYoutubeIntroEmbed");
+  params.append("fields[2]", "screenName");
+  params.append("fields[3]", "avatarUrl");
+  params.append("fields[4]", "contentCreatorProfileDescription");
+  params.append("fields[5]", "contentCreatorYoutubeIntroEmbed");
 };
 
 export async function searchUsersByScreenName(
@@ -171,8 +166,7 @@ export async function searchUsersByScreenName(
   params.append("pagination[pageSize]", String(trimmedLimit));
 
   if (normalizedQuery) {
-    params.append("filters[$or][0][screen_name][$containsi]", normalizedQuery);
-    params.append("filters[$or][1][screenName][$containsi]", normalizedQuery);
+    params.append("filters[$or][0][screenName][$containsi]", normalizedQuery);
   }
 
   const payload = await strapiFetch<unknown>(`/api/users?${params.toString()}`);
@@ -209,8 +203,7 @@ export async function fetchUsersByScreenNames(
   params.append("pagination[pageSize]", String(Math.min(normalizedUnique.length * 2, 50)));
 
   normalizedUnique.forEach((handle, index) => {
-    params.append(`filters[$or][${index}][screen_name][$eqi]`, handle);
-    params.append(`filters[$or][${index + normalizedUnique.length}][screenName][$eqi]`, handle);
+    params.append(`filters[$or][${index}][screenName][$eqi]`, handle);
   });
 
   const payload = await strapiFetch<unknown>(`/api/users?${params.toString()}`);
