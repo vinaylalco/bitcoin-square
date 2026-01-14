@@ -83,10 +83,9 @@ export function BreakevenHeatmap({
 
   const getCellStyle = (value: number) => {
     const ratio = Math.min(Math.abs(value) / absMax, 1);
-    const hue = value >= 0 ? 140 : 0; // green for profit, red for loss
-    const lightness = 92 - ratio * 50; // brighter near zero, darker at extremes
+    const lightness = 96 - ratio * 40;
     return {
-      backgroundColor: `hsl(${hue}, 65%, ${lightness}%)`,
+      backgroundColor: `hsl(0, 85%, ${lightness}%)`,
       color: "var(--fg-default)",
     } as const;
   };
@@ -181,8 +180,8 @@ export function BreakevenHeatmap({
             onClick={() => setViewMode(mode)}
             className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors sm:text-sm ${
               viewMode === mode
-                ? "border-orange-500 bg-orange-500 text-white"
-                : "border-gray-300 text-gray-600 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+                ? "border-[var(--accent-red)] bg-[var(--accent-red)] text-white"
+                : "border-[var(--border-subtle)] text-[var(--fg-default)] hover:bg-[var(--bg-elevated)]"
             }`}
             aria-pressed={viewMode === mode}
           >

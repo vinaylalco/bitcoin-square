@@ -31,11 +31,11 @@ export function CumulativeNetChart({ points }: CumulativeNetChartProps) {
   const [viewMode, setViewMode] = useState<"chart" | "table">("chart");
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const axisColor = useMemo(
-    () => getThemeColor("--fg-muted", "#d1d5db"),
+    () => getThemeColor("--fg-muted", "#000000"),
     [],
   );
   const gridColor = useMemo(
-    () => getThemeColor("--border-subtle", "#374151"),
+    () => getThemeColor("--border-subtle", "#000000"),
     [],
   );
   const legendWrapperStyle = useMemo(
@@ -55,22 +55,22 @@ export function CumulativeNetChart({ points }: CumulativeNetChartProps) {
       {
         key: "cumNet_flat",
         label: t("minerQuotation.charts.scenario.flat"),
-        color: "#fbbf24",
+        color: "var(--accent-red)",
       },
       {
         key: "cumNet_conservative",
         label: t("minerQuotation.charts.scenario.conservative"),
-        color: "#60a5fa",
+        color: "var(--accent-red)",
       },
       {
         key: "cumNet_bullish",
         label: t("minerQuotation.charts.scenario.bullish"),
-        color: "#34d399",
+        color: "var(--accent-red)",
       },
       {
         key: "cumNet_ultra",
         label: t("minerQuotation.charts.scenario.ultra"),
-        color: "#f472b6",
+        color: "var(--accent-red)",
       },
     ],
     [t],
@@ -186,8 +186,8 @@ export function CumulativeNetChart({ points }: CumulativeNetChartProps) {
               onClick={() => setViewMode(mode)}
               className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors sm:text-sm ${
                 viewMode === mode
-                  ? "border-orange-500 bg-orange-500 text-white"
-                  : "border-gray-300 text-gray-600 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+                ? "border-[var(--accent-red)] bg-[var(--accent-red)] text-white"
+                : "border-[var(--border-subtle)] text-[var(--fg-default)] hover:bg-[var(--bg-elevated)]"
               }`}
               aria-pressed={viewMode === mode}
             >

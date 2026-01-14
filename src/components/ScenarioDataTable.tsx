@@ -53,7 +53,7 @@ export function ScenarioDataTable({ points, variant }: ScenarioDataTableProps) {
     return (
       <div className="-mx-2 overflow-x-auto rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] sm:mx-0">
         <table className="min-w-full text-left text-[0.7rem] sm:text-xs">
-          <thead className="bg-gray-50 text-gray-600 dark:bg-gray-800 dark:text-gray-200">
+          <thead className="bg-white text-[var(--fg-default)]">
             <tr>
               <th className="px-1.5 py-1 font-medium sm:px-2 sm:py-1.5">{monthLabel}</th>
               <th className="px-1.5 py-1 font-medium sm:px-2 sm:py-1.5">{dateLabel}</th>
@@ -81,7 +81,7 @@ export function ScenarioDataTable({ points, variant }: ScenarioDataTableProps) {
             {safePoints.map((point) => (
               <tr
                 key={`${point.month}-${point.date}`}
-                className="odd:bg-white even:bg-gray-50 dark:odd:bg-gray-900 dark:even:bg-gray-800"
+                className="border-t border-[var(--border-subtle)] bg-white"
               >
                 <td className="whitespace-nowrap px-1.5 py-1 sm:px-2 sm:py-1.5">{point.month}</td>
                 <td className="whitespace-nowrap px-1.5 py-1 sm:px-2 sm:py-1.5">{point.date}</td>
@@ -106,7 +106,7 @@ export function ScenarioDataTable({ points, variant }: ScenarioDataTableProps) {
   return (
     <div className="-mx-2 overflow-x-auto rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] sm:mx-0">
       <table className="min-w-full text-left text-[0.7rem] sm:text-xs">
-        <thead className="bg-gray-50 text-gray-600 dark:bg-gray-800 dark:text-gray-200">
+        <thead className="bg-white text-[var(--fg-default)]">
           <tr>
             <th className="px-1.5 py-1 font-medium sm:px-2 sm:py-1.5">{monthLabel}</th>
             <th className="px-1.5 py-1 font-medium sm:px-2 sm:py-1.5">{dateLabel}</th>
@@ -122,7 +122,7 @@ export function ScenarioDataTable({ points, variant }: ScenarioDataTableProps) {
           {safePoints.map((point) => (
             <tr
               key={`${point.month}-${point.date}`}
-              className="odd:bg-white even:bg-gray-50 dark:odd:bg-gray-900 dark:even:bg-gray-800"
+              className="border-t border-[var(--border-subtle)] bg-white"
             >
               <td className="whitespace-nowrap px-1.5 py-1 sm:px-2 sm:py-1.5">{point.month}</td>
               <td className="whitespace-nowrap px-1.5 py-1 sm:px-2 sm:py-1.5">{point.date}</td>

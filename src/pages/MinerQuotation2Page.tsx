@@ -36,6 +36,17 @@ const parseDateInputValue = (value: string) => {
   return parsed;
 };
 
+const getDeterministicBtcPrice = (date: Date) => {
+  const startOfYear = new Date(date.getFullYear(), 0, 0);
+  const dayOfYear = Math.floor(
+    (date.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24),
+  );
+  const seasonalSwing = Math.sin((dayOfYear / 365) * Math.PI * 2) * 5000;
+  const weeklyPulse = ((dayOfYear % 7) - 3) * 120;
+  const price = 60000 + seasonalSwing + weeklyPulse;
+  return Math.round(price / 10) * 10;
+};
+
 interface QuoteState {
   units: number;
   electricityPricePerKwhUsd: number;
@@ -233,32 +244,8 @@ export function MinerQuotation2Page() {
 
   useEffect(() => {
     if (!autoBtcPrice) return;
-
-    let isMounted = true;
-
-    const fetchPrice = async () => {
-      try {
-        const response = await fetch(
-          "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd",
-        );
-        if (!response.ok) return;
-        const data = (await response.json()) as {
-          bitcoin?: { usd?: number };
-        };
-        const nextPrice = data.bitcoin?.usd;
-        if (Number.isFinite(nextPrice) && isMounted) {
-          setQuote((prev) => ({ ...prev, btcPriceUsd: nextPrice as number }));
-        }
-      } catch (error) {
-        // ignore network errors and keep existing price
-      }
-    };
-
-    fetchPrice();
-
-    return () => {
-      isMounted = false;
-    };
+    const nextPrice = getDeterministicBtcPrice(new Date());
+    setQuote((prev) => ({ ...prev, btcPriceUsd: nextPrice }));
   }, [autoBtcPrice]);
 
   const formatNumber = (value: number, decimals = 2) =>
@@ -336,14 +323,14 @@ export function MinerQuotation2Page() {
         <header className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 shadow-[var(--shadow-soft)] sm:p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-sm uppercase tracking-[0.3em] text-amber-300 mb-2">
+              <p className="mb-2 text-sm uppercase tracking-[0.3em] text-[var(--accent-red)]">
                 {t("minerQuotation.title")}
               </p>
               <h1 className="text-3xl font-bold text-[var(--fg-default)]">
                 {t("minerQuotation.subtitle")}
               </h1>
-              <div className="mt-4 rounded-xl border border-amber-200/60 bg-amber-50/70 p-3 text-xs text-amber-900 dark:border-amber-300/30 dark:bg-amber-400/10 dark:text-amber-100">
-                <p className="font-semibold uppercase tracking-[0.24em]">Beta notice</p>
+              <div className="mt-4 rounded-xl border border-[var(--accent-red)] bg-white p-3 text-xs text-[var(--fg-default)]">
+                <p className="font-semibold uppercase tracking-[0.24em] text-[var(--accent-red)]">Beta notice</p>
                 <p className="mt-2">
                   This page is a proof of concept and should not be considered accurate until site
                   admins have verified the data.
@@ -358,7 +345,7 @@ export function MinerQuotation2Page() {
                 id="model-select"
                 value={quote.model}
                 onChange={handleModelChange}
-                className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-amber-300"
+                className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--accent-red)]"
               >
                 <option value="s21">{t("minerQuotation.options.s21")}</option>
                 <option value="custom">{t("minerQuotation.options.custom")}</option>
@@ -369,7 +356,9 @@ export function MinerQuotation2Page() {
 
         <section className="flex flex-col gap-6 md:grid md:grid-cols-2">
           <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 shadow-[var(--shadow-soft)] sm:p-6">
-            <h2 className="text-xl font-semibold mb-4 text-amber-200">{t("minerQuotation.generalInformation")}</h2>
+            <h2 className="mb-4 text-xl font-semibold text-[var(--fg-default)]">
+              {t("minerQuotation.generalInformation")}
+            </h2>
             <dl className="space-y-2 text-sm sm:text-base text-[var(--fg-default)]">
               <div className="flex justify-between gap-4">
                 <dt className="text-[var(--fg-muted)]">{t("minerQuotation.equipmentModel")}</dt>
@@ -387,7 +376,9 @@ export function MinerQuotation2Page() {
           </div>
 
           <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 shadow-[var(--shadow-soft)] sm:p-6">
-            <h2 className="text-xl font-semibold mb-4 text-amber-200">{t("minerQuotation.technicalSpecifications")}</h2>
+            <h2 className="mb-4 text-xl font-semibold text-[var(--fg-default)]">
+              {t("minerQuotation.technicalSpecifications")}
+            </h2>
             <dl className="space-y-2 text-sm sm:text-base text-[var(--fg-default)]">
               <div className="flex justify-between gap-4">
                 <dt className="text-[var(--fg-muted)]">{t("minerQuotation.unitPowerConsumption")}</dt>
@@ -397,7 +388,7 @@ export function MinerQuotation2Page() {
                     inputMode="decimal"
                     value={quote.unitPowerKw}
                     onChange={handleNumberChange("unitPowerKw")}
-                    className="w-24 bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded px-2 py-1 text-right text-sm focus:outline-none focus:ring-1 focus:ring-amber-300"
+                    className="w-24 bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded px-2 py-1 text-right text-sm focus:outline-none focus:ring-1 focus:ring-[var(--accent-red)]"
                   />
                   <span className="ml-2 text-[var(--fg-muted)] text-xs">kW</span>
                 </dd>
@@ -410,7 +401,7 @@ export function MinerQuotation2Page() {
                     inputMode="decimal"
                     value={quote.unitHashrateTh}
                     onChange={handleNumberChange("unitHashrateTh")}
-                    className="w-24 bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded px-2 py-1 text-right text-sm focus:outline-none focus:ring-1 focus:ring-amber-300"
+                    className="w-24 bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded px-2 py-1 text-right text-sm focus:outline-none focus:ring-1 focus:ring-[var(--accent-red)]"
                   />
                   <span className="ml-2 text-[var(--fg-muted)] text-xs">TH/s</span>
                 </dd>
@@ -427,7 +418,7 @@ export function MinerQuotation2Page() {
                     inputMode="numeric"
                     value={quote.units}
                     onChange={handleNumberChange("units")}
-                    className="w-24 bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded px-2 py-1 text-right text-sm focus:outline-none focus:ring-1 focus:ring-amber-300"
+                    className="w-24 bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded px-2 py-1 text-right text-sm focus:outline-none focus:ring-1 focus:ring-[var(--accent-red)]"
                   />
                 </dd>
               </div>
@@ -444,7 +435,7 @@ export function MinerQuotation2Page() {
                     step="0.001"
                     value={quote.electricityPricePerKwhUsd}
                     onChange={handleNumberChange("electricityPricePerKwhUsd")}
-                    className="w-28 bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded px-2 py-1 text-right text-sm focus:outline-none focus:ring-1 focus:ring-amber-300"
+                    className="w-28 bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded px-2 py-1 text-right text-sm focus:outline-none focus:ring-1 focus:ring-[var(--accent-red)]"
                   />
                   <span className="ml-2 text-[var(--fg-muted)] text-xs">USD/kWh</span>
                 </dd>
@@ -455,7 +446,9 @@ export function MinerQuotation2Page() {
 
         <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 shadow-[var(--shadow-soft)] sm:p-6">
           <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="text-xl font-semibold text-amber-200">{t("minerQuotation.profitabilityProjection")}</h2>
+            <h2 className="text-xl font-semibold text-[var(--fg-default)]">
+              {t("minerQuotation.profitabilityProjection")}
+            </h2>
             <p className="text-sm text-[var(--fg-muted)]">{t("minerQuotation.projectionHelper")}</p>
           </div>
           <div className="flex flex-col gap-4 md:grid md:grid-cols-3">
@@ -464,7 +457,7 @@ export function MinerQuotation2Page() {
                 key={bucket.label}
                 className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-4 shadow"
               >
-                <h3 className="text-lg font-semibold text-amber-300">{bucket.label}</h3>
+                <h3 className="text-lg font-semibold text-[var(--accent-red)]">{bucket.label}</h3>
                 <dl className="space-y-3 text-sm sm:text-base">
                   {bucket.rows.map((row) => (
                     <div key={row.title} className="border-t border-[var(--border-subtle)] pt-3 first:border-t-0 first:pt-0">
@@ -482,7 +475,9 @@ export function MinerQuotation2Page() {
         </section>
 
         <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 shadow-[var(--shadow-soft)] sm:p-6">
-          <h2 className="text-xl font-semibold mb-4 text-amber-200">{t("minerQuotation.investmentStructure")}</h2>
+          <h2 className="mb-4 text-xl font-semibold text-[var(--fg-default)]">
+            {t("minerQuotation.investmentStructure")}
+          </h2>
           <div className="-mx-2 overflow-x-auto sm:mx-0">
             <table className="w-full text-left text-xs text-[var(--fg-default)] sm:text-sm">
               <thead>
@@ -502,7 +497,7 @@ export function MinerQuotation2Page() {
                       inputMode="decimal"
                       value={quote.minerPricePerUnitUsd}
                       onChange={handleNumberChange("minerPricePerUnitUsd")}
-                      className="w-28 bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded px-2 py-1 text-right text-sm focus:outline-none focus:ring-1 focus:ring-amber-300"
+                      className="w-28 bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded px-2 py-1 text-right text-sm focus:outline-none focus:ring-1 focus:ring-[var(--accent-red)]"
                     />
                   </td>
                   <td className="py-3">{quote.units}</td>
@@ -516,7 +511,7 @@ export function MinerQuotation2Page() {
                       inputMode="decimal"
                       value={quote.logisticsPerUnitUsd}
                       onChange={handleNumberChange("logisticsPerUnitUsd")}
-                      className="w-28 bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded px-2 py-1 text-right text-sm focus:outline-none focus:ring-1 focus:ring-amber-300"
+                      className="w-28 bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded px-2 py-1 text-right text-sm focus:outline-none focus:ring-1 focus:ring-[var(--accent-red)]"
                     />
                   </td>
                   <td className="py-3">{quote.units}</td>
@@ -530,13 +525,13 @@ export function MinerQuotation2Page() {
                       inputMode="decimal"
                       value={quote.taxesPerUnitUsd}
                       onChange={handleNumberChange("taxesPerUnitUsd")}
-                      className="w-28 bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded px-2 py-1 text-right text-sm focus:outline-none focus:ring-1 focus:ring-amber-300"
+                      className="w-28 bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded px-2 py-1 text-right text-sm focus:outline-none focus:ring-1 focus:ring-[var(--accent-red)]"
                     />
                   </td>
                   <td className="py-3">{quote.units}</td>
                   <td className="py-3">$ {formatNumber(taxesUsd)}</td>
                 </tr>
-                <tr className="font-semibold text-amber-200">
+                <tr className="font-semibold text-[var(--accent-red)]">
                   <td className="py-3">{t("minerQuotation.total")}</td>
                   <td className="py-3">$ {formatNumber(totalPerUnit)}</td>
                   <td className="py-3">{quote.units}</td>
@@ -550,7 +545,9 @@ export function MinerQuotation2Page() {
         <section className="space-y-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 shadow-[var(--shadow-soft)] sm:p-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-xl font-semibold text-amber-200">{t("minerQuotation.deepDive.title")}</h2>
+              <h2 className="text-xl font-semibold text-[var(--fg-default)]">
+                {t("minerQuotation.deepDive.title")}
+              </h2>
               <p className="text-sm text-[var(--fg-muted)]">
                 {t("minerQuotation.deepDive.description")}
               </p>
@@ -568,8 +565,8 @@ export function MinerQuotation2Page() {
                   onClick={() => setActiveTab(tab.key as typeof activeTab)}
                   className={`w-full rounded-lg border px-3 py-2 text-sm font-medium transition-colors sm:w-auto ${
                     activeTab === tab.key
-                      ? "bg-amber-300 text-slate-900 border-amber-300"
-                      : "bg-[var(--bg-elevated)] border-[var(--border-subtle)] text-[var(--fg-default)] hover:border-amber-300/60"
+                      ? "bg-[var(--accent-red)] text-white border-[var(--accent-red)]"
+                      : "bg-[var(--bg-elevated)] border-[var(--border-subtle)] text-[var(--fg-default)] hover:border-[var(--accent-red)]"
                   }`}
                 >
                   {tab.label}
@@ -616,7 +613,7 @@ export function MinerQuotation2Page() {
                         type="date"
                         value={simulationStartDate}
                         onChange={(event) => setSimulationStartDate(event.target.value)}
-                        className="rounded border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-2 text-xs text-[var(--fg-default)] focus:outline-none focus:ring-1 focus:ring-amber-300 sm:text-sm"
+                        className="rounded border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-2 text-xs text-[var(--fg-default)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-red)] sm:text-sm"
                       />
                     </label>
                   </div>
@@ -690,8 +687,10 @@ export function MinerQuotation2Page() {
           </div>
         </section>
 
-        <aside className="space-y-3 rounded-xl border border-amber-300/40 bg-[var(--bg-card)] p-4 shadow-[var(--shadow-soft)] sm:p-6">
-          <p className="text-sm uppercase tracking-[0.25em] text-amber-300">{t("minerQuotation.totalInvestment")}</p>
+        <aside className="space-y-3 rounded-xl border border-[var(--accent-red)] bg-[var(--bg-card)] p-4 shadow-[var(--shadow-soft)] sm:p-6">
+          <p className="text-sm uppercase tracking-[0.25em] text-[var(--accent-red)]">
+            {t("minerQuotation.totalInvestment")}
+          </p>
           <h3 className="text-3xl font-bold text-[var(--fg-default)]">USD $ {formatNumber(totalCapexUsd)}</h3>
           <p className="text-lg text-[var(--fg-default)]">
             {t("minerQuotation.estimatedPayback")}: {paybackSummaryText ?? "–"}
@@ -707,7 +706,7 @@ export function MinerQuotation2Page() {
                 inputMode="decimal"
                 value={quote.btcPriceUsd}
                 onChange={handleBtcPriceChange}
-                className="w-32 bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded px-2 py-1 text-right text-sm focus:outline-none focus:ring-1 focus:ring-amber-300"
+                className="w-32 bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded px-2 py-1 text-right text-sm focus:outline-none focus:ring-1 focus:ring-[var(--accent-red)]"
               />
             </div>
             <label className="flex items-center justify-end gap-2 text-xs text-[var(--fg-muted)]">
@@ -715,7 +714,7 @@ export function MinerQuotation2Page() {
                 type="checkbox"
                 checked={autoBtcPrice}
                 onChange={(event) => setAutoBtcPrice(event.target.checked)}
-                className="h-4 w-4 rounded border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-amber-300 focus:ring-amber-300"
+                className="h-4 w-4 rounded border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--accent-red)] focus:ring-[var(--accent-red)]"
               />
               {t("minerQuotation.autoUpdate")}
             </label>

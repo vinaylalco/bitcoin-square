@@ -1,16 +1,10 @@
 # Bitcoin Square
 
-React + Strapi integration demo. The frontend uses Vite and TanStack Query to consume content from a Strapi v5 instance.
+React single-page frontend for the Miner Quote tool, built with Vite.
 
 ## Setup
 
-1. Copy `.env.example` to `.env` and fill in your Strapi URL and token.
-2. Ensure Strapi v5 is running with the content types from `strapi/`.
-3. Import legacy data:
-   ```bash
-   node scripts/import-strapi.ts
-   ```
-4. Start the dev server:
+1. Start the dev server:
    ```bash
    npm run dev
    ```
@@ -23,6 +17,6 @@ Vitest is configured for unit tests. Run:
 npm test
 ```
 
-## Strapi
+## App
 
-The `strapi` directory contains schema definitions for Home, Lesson and Language as well as reusable SEO and rich text components. See `docs/strapi-plan.md` for more details.
+Navigate to `/tools/miner-quote` to view the single-page experience.

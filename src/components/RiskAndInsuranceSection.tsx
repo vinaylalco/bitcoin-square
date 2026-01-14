@@ -214,7 +214,7 @@ export function RiskAndInsuranceSection() {
   return (
     <section className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl p-6 shadow-[var(--shadow-soft)] space-y-6">
       <div>
-        <h2 className="text-2xl font-semibold text-amber-200">{risksHeading}</h2>
+        <h2 className="text-2xl font-semibold text-[var(--fg-default)]">{risksHeading}</h2>
         <p className="mt-2 text-sm text-[var(--fg-muted)]">{risksIntro}</p>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           {riskSections.map((section) => (
@@ -251,7 +251,7 @@ export function RiskAndInsuranceSection() {
       </div>
 
       <div>
-        <h2 className="text-2xl font-semibold text-amber-200">{mitigationHeading}</h2>
+        <h2 className="text-2xl font-semibold text-[var(--fg-default)]">{mitigationHeading}</h2>
         <p className="text-sm text-[var(--fg-muted)]">{mitigationIntro}</p>
         <div className="mt-4 space-y-4">
           {mitigationSections.map((group) => (
