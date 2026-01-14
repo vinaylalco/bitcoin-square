@@ -1,4 +1,4 @@
-import { strapiFetch } from "./strapi-client";
+import { StrapiRequestError, strapiFetch } from "./strapi-client";
 
 export interface ScreenNameUser {
   id: number;
@@ -127,6 +127,11 @@ const extractCreatorProfiles = (payload: unknown): CreatorProfileUser[] => {
     .filter((entry): entry is CreatorProfileUser => Boolean(entry?.username));
 };
 
+const fetchCreatorProfilesFromPath = async (path: string): Promise<CreatorProfileUser[]> => {
+  const payload = await strapiFetch<unknown>(path);
+  return extractCreatorProfiles(payload);
+};
+
 const appendFieldParams = (params: URLSearchParams) => {
   params.append("fields[0]", "id");
   params.append("fields[1]", "screen_name");
@@ -234,7 +239,14 @@ export async function fetchContentCreatorProfiles(): Promise<CreatorProfileUser[
   appendCreatorProfileFieldParams(params);
   params.append("filters[contentCreator][$eq]", "true");
   params.append("pagination[pageSize]", "100");
+  const query = params.toString();
 
-  const payload = await strapiFetch<unknown>(`/api/users?${params.toString()}`);
-  return extractCreatorProfiles(payload);
+  try {
+    return await fetchCreatorProfilesFromPath(`/api/users?${query}`);
+  } catch (error) {
+    if (error instanceof StrapiRequestError && [400, 403].includes(error.status)) {
+      return fetchCreatorProfilesFromPath(`/api/profile?${query}`);
+    }
+    throw error;
+  }
 }
