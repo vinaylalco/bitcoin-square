@@ -53,6 +53,9 @@ const resolveYouTubeEmbedUrl = (value: string | null | undefined): string | null
   return parsed.toString();
 };
 
+const getCreatorShortDescription = (profile: CreatorProfileUser | null): string =>
+  profile?.contentCreatorProfileDescription?.trim() || "Creator profile details coming soon.";
+
 export default function CourseDirectory() {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
@@ -261,8 +264,10 @@ export default function CourseDirectory() {
   const activeCreatorAvatarUrl = activeCreator
     ? normalizeAvatarUrl(activeCreator.avatarUrl, activeCreator.username)
     : null;
-  const activeCreatorDescription = activeCreator?.contentCreatorProfileDescription?.trim();
-  const activeCreatorEmbedUrl = activeCreator?.contentCreatorYoutubeIntroEmbed?.trim() || null;
+  const activeCreatorLongDescription = activeCreator?.contentCreatorProfileDescription?.trim();
+  const activeCreatorEmbedUrl = resolveYouTubeEmbedUrl(
+    activeCreator?.contentCreatorYoutubeIntroEmbed,
+  );
   const normalizedCreatorModalCourses = creatorModalCourses.map((course) =>
     normalizeContentCreatorCourse(course),
   );
@@ -477,7 +482,7 @@ export default function CourseDirectory() {
               <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {creatorProfilesList.map((profile) => {
                   const avatarUrl = normalizeAvatarUrl(profile.avatarUrl, profile.username);
-                  const description = profile.contentCreatorProfileDescription?.trim();
+                  const shortDescription = getCreatorShortDescription(profile);
                   return (
                     <article
                       key={profile.id}
@@ -516,7 +521,7 @@ export default function CourseDirectory() {
                         </div>
                       </div>
                       <p className="text-sm text-[var(--fg-muted)]">
-                        {description ?? "Creator profile details coming soon."}
+                        {shortDescription}
                       </p>
                     </article>
                   );
@@ -569,14 +574,16 @@ export default function CourseDirectory() {
               </button>
             </div>
             <p id="creator-modal-description" className="mt-4 text-sm text-[var(--fg-muted)]">
-              {activeCreatorDescription ?? "Creator profile details coming soon."}
+              {getCreatorShortDescription(activeCreator)}
             </p>
-            {activeCreatorDescription && (
+            {activeCreatorLongDescription && (
               <div className="mt-6">
                 <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-brand">
                   About
                 </h3>
-                <p className="mt-2 text-sm text-[var(--fg-muted)]">{activeCreatorDescription}</p>
+                <p className="mt-2 text-sm text-[var(--fg-muted)]">
+                  {activeCreatorLongDescription}
+                </p>
               </div>
             )}
             {activeCreatorEmbedUrl && (
