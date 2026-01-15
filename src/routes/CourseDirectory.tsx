@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router-dom";
 import CourseCard from "../components/course/CourseCard";
 import Modal from "../components/ui/Modal";
-import CourseDirectorySkeleton from "../components/course/CourseDirectorySkeleton";
+import LoadingSpinner from "../components/LoadingSpinner";
 import {
   fetchContentCreatorProfiles,
   fetchCreatorProfileUserById,
@@ -15,16 +15,143 @@ import {
   useContentCreatorCourses,
   useContentCreatorDraftCourses,
 } from "../hooks/useContentCreatorCourses";
-import { useLessonPlans } from "../hooks/useLessonPlans";
+import { useStrapiQuery } from "../hooks/useStrapiQuery";
 import {
   canViewCourse,
   normalizeContentCreatorCourse,
   normalizeLessonPlanCourse,
 } from "../utils/courseNormalization";
+import { resolveMedia } from "../lib/strapi";
 import { resolveLocale } from "../utils/locale";
 import { normalizeAvatarUrl } from "../utils/profileDefaults";
 import { asArray } from "../utils/safeTypes";
 import type { ContentCreatorCourse } from "../types/course";
+import type { LessonPlan } from "../types/lesson-plan";
+
+type LessonPlanResponse = {
+  data?: unknown[];
+};
+
+type LessonPlanEntry = Record<string, unknown>;
+
+const parseNumber = (value: unknown): number | undefined => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return undefined;
+};
+
+const coerceBoolean = (value: unknown): boolean | undefined => {
+  if (typeof value === "boolean") {
+    return value;
+  }
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "true") return true;
+    if (normalized === "false") return false;
+  }
+  if (typeof value === "number") {
+    if (value === 1) return true;
+    if (value === 0) return false;
+  }
+  return undefined;
+};
+
+const toSlug = (title?: string): string =>
+  title
+    ?.toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "") || "";
+
+const extractMediaUrl = (value: unknown): string | undefined => {
+  if (!value) return undefined;
+  if (typeof value === "string") return value;
+  if (typeof value !== "object") return undefined;
+  const record = value as LessonPlanEntry;
+  if (typeof record.url === "string") {
+    return record.url;
+  }
+  const data = record.data;
+  if (Array.isArray(data)) {
+    for (const item of data) {
+      const resolved = extractMediaUrl(
+        typeof item === "object" && item
+          ? ((item as LessonPlanEntry).attributes as unknown) ?? item
+          : item,
+      );
+      if (resolved) return resolved;
+    }
+  } else if (data && typeof data === "object") {
+    return extractMediaUrl(((data as LessonPlanEntry).attributes as unknown) ?? data);
+  }
+  return undefined;
+};
+
+const normalizeLessonPlanEntry = (entry: unknown, locale: string): LessonPlan | null => {
+  if (!entry || typeof entry !== "object") {
+    return null;
+  }
+  const record = entry as LessonPlanEntry;
+  const attributes =
+    record.attributes && typeof record.attributes === "object"
+      ? (record.attributes as LessonPlanEntry)
+      : record;
+  const course =
+    (attributes.LessonPlanJSON as LessonPlanEntry | undefined)?.course ||
+    (attributes.lessonPlanJSON as LessonPlanEntry | undefined)?.course ||
+    {};
+  const title =
+    (course.name as string | undefined) ||
+    (attributes.title as string | undefined) ||
+    undefined;
+  const slug =
+    (attributes.slug as string | undefined) ||
+    toSlug(title) ||
+    (course.id != null ? String(course.id) : undefined) ||
+    (record.id != null ? String(record.id) : undefined);
+  const coverUrl = extractMediaUrl(attributes.coverImage);
+  const price =
+    parseNumber(attributes.price) ??
+    parseNumber(attributes.Price) ??
+    parseNumber(attributes.price_usd) ??
+    parseNumber(course.price);
+  const stripePriceId =
+    (attributes.stripePriceId as string | undefined) ||
+    (attributes.stripe_price_id as string | undefined) ||
+    (course.stripePriceId as string | undefined);
+  const stripeProductId =
+    (attributes.stripeProductId as string | undefined) ||
+    (attributes.stripe_product_id as string | undefined) ||
+    (course.stripeProductId as string | undefined);
+  const isPaid =
+    coerceBoolean(
+      attributes.isPaid ??
+        attributes.is_paid ??
+        course.isPaid ??
+        course.is_paid,
+    ) ?? false;
+  const modules = Array.isArray(course.modules) ? course.modules : [];
+  return {
+    id: typeof record.id === "number" ? record.id : undefined,
+    documentId: typeof record.documentId === "string" ? record.documentId : undefined,
+    title,
+    slug,
+    description: typeof attributes.description === "string" ? attributes.description : undefined,
+    coverImage: resolveMedia(coverUrl),
+    modules,
+    locale: typeof attributes.locale === "string" ? attributes.locale : locale,
+    price,
+    stripePriceId,
+    stripeProductId,
+    isPaid,
+  };
+};
 
 const resolveYouTubeEmbedUrl = (value: string | null | undefined): string | null => {
   if (!value) {
@@ -82,37 +209,66 @@ export default function CourseDirectory() {
   const isCreator = user?.contentCreator === true;
   const locale = resolveLocale(i18n.language);
   const contentLocale = locale === "es" || locale === "id" ? locale : "en";
+  const lessonPlanParams = new URLSearchParams();
+  lessonPlanParams.set("filters[locale][$eq]", contentLocale);
+  lessonPlanParams.append("populate[0]", "coverImage");
+  const lessonPlanPath = `/api/lesson-plans?${lessonPlanParams.toString()}`;
   const {
-    data: lessonPlans,
+    data: lessonPlansResponse,
     isLoading: lessonPlansLoading,
     error: lessonPlansError,
-  } = useLessonPlans(contentLocale);
+    refetch: refetchLessonPlans,
+  } = useStrapiQuery<LessonPlanResponse>(
+    `lesson-plans-${contentLocale}`,
+    lessonPlanPath,
+  );
   const {
     data: contentCreatorCourses,
     isLoading: contentCreatorLoading,
+    refetch: refetchContentCreatorCourses,
   } = useContentCreatorCourses();
   const {
     data: draftCourses,
     isLoading: draftCoursesLoading,
     error: draftCoursesError,
+    refetch: refetchDraftCourses,
   } = useContentCreatorDraftCourses();
   const description = t("courses.description");
 
-  if (lessonPlansLoading && !lessonPlans) {
-    return <CourseDirectorySkeleton />;
-  }
-
-  if (lessonPlansError) {
+  if (lessonPlansLoading) {
     return (
-      <div className="mx-auto max-w-4xl px-4 py-16 text-center text-brand">
-        {t("courses.error")}
+      <div className="flex min-h-[60vh] items-center justify-center px-4 py-16">
+        <LoadingSpinner />
       </div>
     );
   }
 
-  const normalizedLessonPlans = asArray(lessonPlans).map((course) =>
-    normalizeLessonPlanCourse(course),
-  );
+  if (lessonPlansError) {
+    return (
+      <div className="mx-auto max-w-4xl px-4 py-16 text-center">
+        <p className="text-brand">{t("courses.error")}</p>
+        <button
+          type="button"
+          onClick={() => {
+            refetchLessonPlans();
+            refetchContentCreatorCourses();
+            refetchDraftCourses();
+          }}
+          className="mt-6 inline-flex items-center justify-center rounded-full border border-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-brand transition hover:bg-brand hover:text-white"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  const lessonPlanEntries = Array.isArray(lessonPlansResponse?.data)
+    ? lessonPlansResponse.data
+    : [];
+  const normalizedLessonPlans = lessonPlanEntries
+    .map((entry) => normalizeLessonPlanEntry(entry, contentLocale))
+    .filter((course): course is LessonPlan => Boolean(course))
+    .map((course) => normalizeLessonPlanCourse(course));
   const normalizedCreatorCourses = asArray(contentCreatorCourses).map((course) =>
     normalizeContentCreatorCourse(course),
   );

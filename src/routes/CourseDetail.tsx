@@ -2,7 +2,8 @@ import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
 import Slider from "../components/lesson/Slider";
-import CourseDetailSkeleton from "../components/course/CourseDetailSkeleton";
+import ErrorState from "../components/ui/ErrorState";
+import LoadingScreen from "../components/ui/LoadingScreen";
 import fallbackEn from "../data/lessons.en.json";
 import fallbackEs from "../data/lessons.es.json";
 import { resolveLocale } from "../utils/locale";
@@ -760,10 +761,13 @@ export default function CourseDetail() {
     data: lessonPlanData,
     isLoading: lessonPlanLoading,
     error: lessonPlanError,
+    refetch: refetchLessonPlan,
   } = useLessonPlan(locale, slug);
   const {
     data: contentCreatorData,
     isLoading: contentCreatorLoading,
+    error: contentCreatorError,
+    refetch: refetchContentCreator,
   } = useContentCreatorCourse(slug);
   const fallbackPlan = useMemo(() => buildFallbackPlan(locale), [locale]);
   const lessonPlan =
@@ -866,14 +870,34 @@ export default function CourseDetail() {
       : contentCreatorModules.cards;
 
   if ((lessonPlanLoading || contentCreatorLoading) && !unifiedCourse) {
-    return <CourseDetailSkeleton />;
+    return <LoadingScreen label={t("common.loading")} />;
   }
 
   if (lessonPlanError && !unifiedCourse) {
     if (lessonPlanError.message === "Not Found") {
       return <div className="mx-auto max-w-3xl px-4 py-16 text-center text-[var(--fg-muted)]">Course not found.</div>;
     }
-    return <div className="mx-auto max-w-3xl px-4 py-16 text-center text-brand">Failed to load lesson plan.</div>;
+    return (
+      <ErrorState
+        message="Failed to load lesson plan."
+        onRetry={() => {
+          refetchLessonPlan();
+          refetchContentCreator();
+        }}
+      />
+    );
+  }
+
+  if (contentCreatorError && !unifiedCourse) {
+    return (
+      <ErrorState
+        message="Failed to load lesson plan."
+        onRetry={() => {
+          refetchLessonPlan();
+          refetchContentCreator();
+        }}
+      />
+    );
   }
 
   if (!unifiedCourse || !canViewCourse(unifiedCourse, user ?? null)) {
