@@ -1,28 +1,32 @@
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import ShopSkeleton from "../components/shop/ShopSkeleton";
 import ProductCard from "../components/shop/ProductCard";
+import ErrorState from "../components/ui/ErrorState";
+import LoadingScreen from "../components/ui/LoadingScreen";
 import { fetchProducts } from "../lib/strapi";
 import { resolveLocale } from "../utils/locale";
 
 export default function Shop() {
   const { t, i18n } = useTranslation();
   const locale = resolveLocale(i18n.language);
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["products", locale],
     queryFn: () => fetchProducts({ locale }),
   });
   const description = t("shop.description");
 
   if (isLoading) {
-    return <ShopSkeleton />;
+    return <LoadingScreen label={t("common.loading")} />;
   }
 
   if (error) {
     return (
-      <div className="mx-auto max-w-4xl px-4 py-16 text-center text-brand">
-        {t("shop.error")}
-      </div>
+      <ErrorState
+        message={t("shop.error")}
+        onRetry={() => {
+          refetch();
+        }}
+      />
     );
   }
 

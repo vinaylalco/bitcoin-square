@@ -1,5 +1,6 @@
 import { Link, useSearchParams } from "react-router-dom";
-import LessonGridSkeleton from "../components/education/LessonGridSkeleton";
+import ErrorState from "../components/ui/ErrorState";
+import LoadingScreen from "../components/ui/LoadingScreen";
 import { useStrapiQuery } from "../hooks/useStrapiQuery";
 import type { Lesson } from "../types/strapi";
 import { asArray } from "../utils/safeTypes";
@@ -13,9 +14,18 @@ export default function LessonsPage() {
   if (level) filters.push(`filters[level][$eq]=${level}`);
   const query = filters.length ? `?${filters.join("&")}` : "";
 
-  const { data, isLoading, error } = useStrapiQuery<{ data: Lesson[] }>("lessons", `/api/lessons${query}`);
-  if (isLoading) return <LessonGridSkeleton />;
-  if (error) return <p className="mx-auto max-w-3xl px-4 py-16 text-center text-brand">Failed to load lessons.</p>;
+  const { data, isLoading, error, refetch } = useStrapiQuery<{ data: Lesson[] }>("lessons", `/api/lessons${query}`);
+  if (isLoading) return <LoadingScreen label="Loading lessons..." />;
+  if (error) {
+    return (
+      <ErrorState
+        message="Failed to load lessons."
+        onRetry={() => {
+          refetch();
+        }}
+      />
+    );
+  }
 
   const lessons = asArray(data?.data);
   return (

@@ -1,11 +1,8 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import {
-  fetchActiveMemberCount,
-  fetchLessonPlanCount,
-  isHeadlessApiConfigured,
-} from "../api/headless-client";
+import LoadingSpinner from "../components/LoadingSpinner";
+import { useStrapiQuery } from "../hooks/useStrapiQuery";
 
 type CtaCard = {
   title: string;
@@ -48,62 +45,20 @@ const buttonBase =
 
 export default function HomePage() {
   const { t } = useTranslation();
-  const [memberCount, setMemberCount] = useState<number | null>(null);
-  const [isMembersLoading, setIsMembersLoading] = useState(true);
-  const [membersError, setMembersError] = useState(false);
-  const [lessonPlanCount, setLessonPlanCount] = useState<number | null>(null);
-  const [isLessonPlansLoading, setIsLessonPlansLoading] = useState(true);
-  const [lessonPlansError, setLessonPlansError] = useState(false);
+  const {
+    data: memberCountData,
+    isLoading: isMembersLoading,
+    error: membersError,
+    refetch: refetchMembers,
+  } = useStrapiQuery<number>("members-count", "/api/users/count");
+  const {
+    data: lessonPlanCountData,
+    isLoading: isLessonPlansLoading,
+    error: lessonPlansError,
+    refetch: refetchLessonPlans,
+  } = useStrapiQuery<number>("lesson-plans-count", "/api/lessonplans/count");
 
   const normalizeArray = <T,>(value: unknown): T[] => (Array.isArray(value) ? value : []);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const fetchMemberCount = async () => {
-      if (!isHeadlessApiConfigured()) {
-        if (isMounted) {
-          setMembersError(true);
-          setMemberCount(null);
-          setIsMembersLoading(false);
-        }
-        return;
-      }
-
-      try {
-        const total = await fetchActiveMemberCount();
-
-        if (!isMounted) {
-          return;
-        }
-
-        if (typeof total === "number" && Number.isFinite(total)) {
-          setMemberCount(total);
-          setMembersError(false);
-        } else {
-          setMembersError(true);
-          setMemberCount(null);
-        }
-      } catch {
-        if (!isMounted) {
-          return;
-        }
-
-        setMembersError(true);
-        setMemberCount(null);
-      } finally {
-        if (isMounted) {
-          setIsMembersLoading(false);
-        }
-      }
-    };
-
-    fetchMemberCount();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
 
   const howItWorks = useMemo(
     () =>
@@ -171,70 +126,47 @@ export default function HomePage() {
     [t],
   );
 
-  useEffect(() => {
-    let isMounted = true;
+  if (isMembersLoading || isLessonPlansLoading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center px-4 py-16">
+        <LoadingSpinner />
+      </div>
+    );
+  }
 
-    const fetchCoursesCount = async () => {
-      if (!isHeadlessApiConfigured()) {
-        if (isMounted) {
-          setLessonPlansError(true);
-          setLessonPlanCount(null);
-          setIsLessonPlansLoading(false);
-        }
-        return;
-      }
+  if (membersError || lessonPlansError) {
+    return (
+      <div className="mx-auto max-w-4xl px-4 py-16 text-center">
+        <p className="text-brand">Unable to load stats right now.</p>
+        <button
+          type="button"
+          onClick={() => {
+            refetchMembers();
+            refetchLessonPlans();
+          }}
+          className="mt-6 inline-flex items-center justify-center rounded-full border border-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-brand transition hover:bg-brand hover:text-white"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
-      try {
-        const total = await fetchLessonPlanCount();
-
-        if (!isMounted) {
-          return;
-        }
-
-        if (typeof total === "number" && Number.isFinite(total)) {
-          setLessonPlanCount(total);
-          setLessonPlansError(false);
-        } else {
-          setLessonPlanCount(null);
-          setLessonPlansError(true);
-        }
-      } catch {
-        if (!isMounted) {
-          return;
-        }
-
-        setLessonPlansError(true);
-        setLessonPlanCount(null);
-      } finally {
-        if (isMounted) {
-          setIsLessonPlansLoading(false);
-        }
-      }
-    };
-
-    fetchCoursesCount();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  const memberCount =
+    typeof memberCountData === "number" && Number.isFinite(memberCountData) ? memberCountData : 0;
+  const lessonPlanCount =
+    typeof lessonPlanCountData === "number" && Number.isFinite(lessonPlanCountData)
+      ? lessonPlanCountData
+      : 0;
 
   const heroStats = [
     {
       label: t("home.hero.stats.members"),
-      value: isMembersLoading
-        ? t("common.loading")
-        : membersError
-        ? t("home.hero.stats.unavailable")
-        : (memberCount ?? 0).toLocaleString(),
+      value: memberCount.toLocaleString(),
     },
     {
       label: t("home.hero.stats.courses"),
-      value: isLessonPlansLoading
-        ? t("common.loading")
-        : lessonPlansError
-        ? t("home.hero.stats.unavailable")
-        : (lessonPlanCount ?? 0).toLocaleString(),
+      value: lessonPlanCount.toLocaleString(),
     },
   ];
 
