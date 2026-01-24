@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { PartialBlock } from '@blocknote/core';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { getStrapiBaseUrl, strapiFetch, StrapiRequestError } from '../api/strapi-client';
-import LessonTextBlocksEditor, {
-  type LessonTextBlocks,
-  type RichTextBlock,
-} from '../components/editor/LessonTextBlocksEditor';
+import LessonTextBlocksEditor, { type LessonTextBlocks } from '../components/editor/LessonTextBlocksEditor';
 import { useAuth } from '../context/AuthContext';
 const EMPTY_COURSE = {
   title: '',
@@ -68,7 +66,54 @@ const EMPTY_LESSON = (): LessonDraft => ({
   lessonText: [],
 });
 
-type LessonTextValue = string | LessonTextBlocks;
+type LessonTextValue = string | LessonTextBlocks | LegacyLessonTextBlocks;
+
+type LegacyInlineText = {
+  type: 'text';
+  text: string;
+  bold?: boolean;
+  italic?: boolean;
+};
+
+type LegacyInlineLink = {
+  type: 'link';
+  url: string;
+  children: LegacyInlineText[];
+};
+
+type LegacyInline = LegacyInlineText | LegacyInlineLink;
+
+type LegacyParagraphBlock = {
+  type: 'paragraph';
+  children: LegacyInline[];
+};
+
+type LegacyHeadingBlock = {
+  type: 'heading';
+  level: 1 | 2 | 3;
+  children: LegacyInline[];
+};
+
+type LegacyListItemBlock = {
+  type: 'list-item';
+  children: LegacyInline[];
+};
+
+type LegacyListBlock = {
+  type: 'list';
+  format: 'ordered' | 'unordered';
+  children: LegacyListItemBlock[];
+};
+
+type LegacyImageBlock = {
+  type: 'image';
+  image: { url: string; alternativeText?: string | null; caption?: string | null };
+  children: LegacyInlineText[];
+};
+
+type LegacyLessonTextBlocks = Array<
+  LegacyParagraphBlock | LegacyHeadingBlock | LegacyListBlock | LegacyListItemBlock | LegacyImageBlock
+>;
 
 function normalizeText(value: string): string | null {
   const trimmed = value.trim();
@@ -88,36 +133,144 @@ function hasLessonTextContent(lessonText: LessonTextBlocks): boolean {
   return lessonText.some((block) => block.type === 'image' || hasBlockText(block));
 }
 
-function hasBlockText(node: { text?: string; children?: Array<{ text?: string; children?: unknown[] }> }): boolean {
-  if (typeof node.text === 'string' && node.text.trim().length > 0) {
+function hasBlockText(block: { content?: unknown; children?: unknown[] }): boolean {
+  const text = extractContentText(block.content);
+  if (text.trim().length > 0) {
     return true;
   }
-  if (Array.isArray(node.children)) {
-    return node.children.some((child) => hasBlockText(child));
+  if (Array.isArray(block.children)) {
+    return block.children.some((child) => hasBlockText(child as { content?: unknown; children?: unknown[] }));
   }
   return false;
 }
 
+function extractContentText(content: unknown): string {
+  if (typeof content === 'string') {
+    return content;
+  }
+  if (Array.isArray(content)) {
+    return content
+      .map((item) => {
+        if (!item || typeof item !== 'object') return '';
+        const candidate = item as { text?: string; content?: unknown };
+        if (typeof candidate.text === 'string') {
+          return candidate.text;
+        }
+        return extractContentText(candidate.content);
+      })
+      .join('');
+  }
+  return '';
+}
+
 function normalizeLessonTextBlocks(lessonText: LessonTextValue | null | undefined): LessonTextBlocks {
   if (Array.isArray(lessonText)) {
-    return lessonText;
+    if (isBlockNoteDocument(lessonText)) {
+      return lessonText;
+    }
+    if (isLegacyLessonTextBlocks(lessonText)) {
+      return legacyBlocksToBlockNote(lessonText);
+    }
   }
   const trimmed = lessonText?.trim?.() ?? '';
   if (!trimmed) return [];
-  return [
-    {
-      type: 'paragraph',
-      children: [
-        {
-          type: 'text',
-          text: trimmed,
-        },
-      ],
-    },
-  ];
+  if (trimmed.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        if (isBlockNoteDocument(parsed)) {
+          return parsed;
+        }
+        if (isLegacyLessonTextBlocks(parsed)) {
+          return legacyBlocksToBlockNote(parsed);
+        }
+      }
+    } catch {
+      // ignore parse errors, treat as plain text
+    }
+  }
+  return [{ type: 'paragraph', content: trimmed }] as LessonTextBlocks;
 }
 
-function lessonTextToBlocks(lessonText: LessonTextBlocks): RichTextBlock[] | null {
+function isBlockNoteDocument(value: unknown[]): value is LessonTextBlocks {
+  return value.every(
+    (block) =>
+      block &&
+      typeof block === 'object' &&
+      typeof (block as { id?: string }).id === 'string' &&
+      typeof (block as { type?: string }).type === 'string',
+  );
+}
+
+function isLegacyLessonTextBlocks(value: unknown[]): value is LegacyLessonTextBlocks {
+  return value.every(
+    (block) =>
+      block &&
+      typeof block === 'object' &&
+      typeof (block as { type?: string }).type === 'string' &&
+      Array.isArray((block as { children?: unknown[] }).children),
+  );
+}
+
+function legacyBlocksToBlockNote(blocks: LegacyLessonTextBlocks): LessonTextBlocks {
+  const converted: PartialBlock[] = [];
+  blocks.forEach((block) => {
+    switch (block.type) {
+      case 'heading':
+        converted.push({
+          type: 'heading',
+          props: { level: block.level },
+          content: legacyInlineToText(block.children),
+        });
+        break;
+      case 'list':
+        block.children.forEach((item) => {
+          converted.push({
+            type: block.format === 'ordered' ? 'numberedListItem' : 'bulletListItem',
+            content: legacyInlineToText(item.children),
+          });
+        });
+        break;
+      case 'list-item':
+        converted.push({
+          type: 'bulletListItem',
+          content: legacyInlineToText(block.children),
+        });
+        break;
+      case 'image':
+        converted.push({
+          type: 'image',
+          props: {
+            url: block.image.url,
+            alt: block.image.alternativeText ?? '',
+            caption: block.image.caption ?? '',
+          },
+        });
+        break;
+      case 'paragraph':
+      default:
+        converted.push({
+          type: 'paragraph',
+          content: legacyInlineToText(block.children),
+        });
+        break;
+    }
+  });
+  return converted as LessonTextBlocks;
+}
+
+function legacyInlineToText(inline: LegacyInline[]): string {
+  return inline
+    .map((child) => {
+      if (child.type === 'link') {
+        return legacyInlineToText(child.children);
+      }
+      return child.text;
+    })
+    .join('');
+}
+
+function lessonTextToBlocks(lessonText: LessonTextBlocks): LessonTextBlocks | null {
   return hasLessonTextContent(lessonText) ? lessonText : null;
 }
 
@@ -553,7 +706,7 @@ export default function CreatorStudio() {
   );
 
   const validLessonDrafts = useMemo(() => {
-    const validLessons: Array<{ lessonTitle: string; lessonText: RichTextBlock[]; youtubeEmbedCode?: string }> = [];
+    const validLessons: Array<{ lessonTitle: string; lessonText: LessonTextBlocks; youtubeEmbedCode?: string }> = [];
     let hasInvalidLesson = false;
 
     lessonDrafts.forEach((lesson) => {
@@ -587,7 +740,7 @@ export default function CreatorStudio() {
         title: string;
         slug: string;
         description: string;
-        lessons: Array<{ lessonTitle: string; lessonText: RichTextBlock[]; youtubeEmbedCode?: string }>;
+        lessons: Array<{ lessonTitle: string; lessonText: LessonTextBlocks; youtubeEmbedCode?: string }>;
         coverImage: number;
         author?: number | string;
       } = {
