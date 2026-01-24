@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Block, PartialBlock } from '@blocknote/core';
-import { BlockNoteView, useCreateBlockNote } from '@blocknote/react';
+import BlockNoteView, { useCreateBlockNote } from '@blocknote/react';
 import '@blocknote/core/fonts/inter.css';
 import '@blocknote/react/style.css';
 import { useAuth } from '../../context/AuthContext';
