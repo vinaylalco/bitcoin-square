@@ -5,9 +5,19 @@ import path from "node:path";
 export default defineConfig({
   plugins: [react()],
   resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
-      "prosemirror-view": path.resolve(__dirname, "./src/lib/prosemirrorViewShim.ts"),
-    },
+    alias: [
+      { find: "@", replacement: path.resolve(__dirname, "./src") },
+      {
+        find: /^prosemirror-view$/,
+        replacement: path.resolve(__dirname, "./src/lib/prosemirrorViewShim.ts"),
+      },
+      {
+        find: /^prosemirror-view\/dist\/index\.js$/,
+        replacement: path.resolve(
+          __dirname,
+          "./node_modules/prosemirror-view/dist/index.js",
+        ),
+      },
+    ],
   },
 });
