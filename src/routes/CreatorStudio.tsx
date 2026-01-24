@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { PartialBlock } from '@blocknote/core';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { getStrapiBaseUrl, strapiFetch, StrapiRequestError } from '../api/strapi-client';
-import LessonTextBlocksEditor, { type LessonTextBlocks } from '../components/editor/LessonTextBlocksEditor';
 import { useAuth } from '../context/AuthContext';
 const EMPTY_COURSE = {
   title: '',
@@ -56,64 +54,27 @@ type LessonDraft = {
   id: string;
   lessonTitle: string;
   youtubeEmbedCode: string;
-  lessonText: LessonTextBlocks;
+  lessonText: LessonTextValue;
 };
 
 const EMPTY_LESSON = (): LessonDraft => ({
   id: crypto.randomUUID?.() ?? `lesson-${Date.now()}-${Math.random().toString(36).slice(2)}`,
   lessonTitle: '',
   youtubeEmbedCode: '',
-  lessonText: [],
+  lessonText: '',
 });
 
-type LessonTextValue = string | LessonTextBlocks | LegacyLessonTextBlocks;
-
-type LegacyInlineText = {
+type RichTextChild = {
   type: 'text';
   text: string;
-  bold?: boolean;
-  italic?: boolean;
 };
 
-type LegacyInlineLink = {
-  type: 'link';
-  url: string;
-  children: LegacyInlineText[];
-};
-
-type LegacyInline = LegacyInlineText | LegacyInlineLink;
-
-type LegacyParagraphBlock = {
+type RichTextBlock = {
   type: 'paragraph';
-  children: LegacyInline[];
+  children: RichTextChild[];
 };
 
-type LegacyHeadingBlock = {
-  type: 'heading';
-  level: 1 | 2 | 3;
-  children: LegacyInline[];
-};
-
-type LegacyListItemBlock = {
-  type: 'list-item';
-  children: LegacyInline[];
-};
-
-type LegacyListBlock = {
-  type: 'list';
-  format: 'ordered' | 'unordered';
-  children: LegacyListItemBlock[];
-};
-
-type LegacyImageBlock = {
-  type: 'image';
-  image: { url: string; alternativeText?: string | null; caption?: string | null };
-  children: LegacyInlineText[];
-};
-
-type LegacyLessonTextBlocks = Array<
-  LegacyParagraphBlock | LegacyHeadingBlock | LegacyListBlock | LegacyListItemBlock | LegacyImageBlock
->;
+type LessonTextValue = string | RichTextBlock[];
 
 function normalizeText(value: string): string | null {
   const trimmed = value.trim();
@@ -129,153 +90,46 @@ function toSlug(value: string): string {
   return normalized.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 }
 
-function hasLessonTextContent(lessonText: LessonTextBlocks): boolean {
-  return lessonText.some((block) => block.type === 'image' || hasBlockText(block));
-}
-
-function hasBlockText(block: { content?: unknown; children?: unknown[] }): boolean {
-  const text = extractContentText(block.content);
-  if (text.trim().length > 0) {
-    return true;
-  }
-  if (Array.isArray(block.children)) {
-    return block.children.some((child) => hasBlockText(child as { content?: unknown; children?: unknown[] }));
-  }
-  return false;
-}
-
-function extractContentText(content: unknown): string {
-  if (typeof content === 'string') {
-    return content;
-  }
-  if (Array.isArray(content)) {
-    return content
-      .map((item) => {
-        if (!item || typeof item !== 'object') return '';
-        const candidate = item as { text?: string; content?: unknown };
-        if (typeof candidate.text === 'string') {
-          return candidate.text;
-        }
-        return extractContentText(candidate.content);
-      })
-      .join('');
-  }
-  return '';
-}
-
-function normalizeLessonTextBlocks(lessonText: LessonTextValue | null | undefined): LessonTextBlocks {
-  if (Array.isArray(lessonText)) {
-    if (isBlockNoteDocument(lessonText)) {
-      return lessonText;
-    }
-    if (isLegacyLessonTextBlocks(lessonText)) {
-      return legacyBlocksToBlockNote(lessonText);
-    }
-  }
-  const trimmed = lessonText?.trim?.() ?? '';
-  if (!trimmed) return [];
-  if (trimmed.startsWith('[')) {
-    try {
-      const parsed = JSON.parse(trimmed);
-      if (Array.isArray(parsed)) {
-        if (isBlockNoteDocument(parsed)) {
-          return parsed;
-        }
-        if (isLegacyLessonTextBlocks(parsed)) {
-          return legacyBlocksToBlockNote(parsed);
-        }
-      }
-    } catch {
-      // ignore parse errors, treat as plain text
-    }
-  }
-  return [{ type: 'paragraph', content: trimmed }] as LessonTextBlocks;
-}
-
-function isBlockNoteDocument(value: unknown[]): value is LessonTextBlocks {
-  return value.every(
-    (block) =>
-      block &&
-      typeof block === 'object' &&
-      typeof (block as { id?: string }).id === 'string' &&
-      typeof (block as { type?: string }).type === 'string',
-  );
-}
-
-function isLegacyLessonTextBlocks(value: unknown[]): value is LegacyLessonTextBlocks {
-  return value.every(
-    (block) =>
-      block &&
-      typeof block === 'object' &&
-      typeof (block as { type?: string }).type === 'string' &&
-      Array.isArray((block as { children?: unknown[] }).children),
-  );
-}
-
-function legacyBlocksToBlockNote(blocks: LegacyLessonTextBlocks): LessonTextBlocks {
-  const converted: PartialBlock[] = [];
-  blocks.forEach((block) => {
-    switch (block.type) {
-      case 'heading':
-        converted.push({
-          type: 'heading',
-          props: { level: block.level },
-          content: legacyInlineToText(block.children),
-        });
-        break;
-      case 'list':
-        block.children.forEach((item) => {
-          converted.push({
-            type: block.format === 'ordered' ? 'numberedListItem' : 'bulletListItem',
-            content: legacyInlineToText(item.children),
-          });
-        });
-        break;
-      case 'list-item':
-        converted.push({
-          type: 'bulletListItem',
-          content: legacyInlineToText(block.children),
-        });
-        break;
-      case 'image':
-        converted.push({
-          type: 'image',
-          props: {
-            url: block.image.url,
-            alt: block.image.alternativeText ?? '',
-            caption: block.image.caption ?? '',
-          },
-        });
-        break;
-      case 'paragraph':
-      default:
-        converted.push({
-          type: 'paragraph',
-          content: legacyInlineToText(block.children),
-        });
-        break;
-    }
-  });
-  return converted as LessonTextBlocks;
-}
-
-function legacyInlineToText(inline: LegacyInline[]): string {
-  return inline
-    .map((child) => {
-      if (child.type === 'link') {
-        return legacyInlineToText(child.children);
-      }
-      return child.text;
-    })
-    .join('');
-}
-
-function lessonTextToBlocks(lessonText: LessonTextBlocks): LessonTextBlocks | null {
-  return hasLessonTextContent(lessonText) ? lessonText : null;
-}
-
 function isLessonBlank(lesson: LessonDraft): boolean {
   return !lesson.lessonTitle.trim() && !hasLessonTextContent(lesson.lessonText) && !lesson.youtubeEmbedCode.trim();
+}
+
+function hasLessonTextContent(lessonText: LessonTextValue): boolean {
+  if (Array.isArray(lessonText)) {
+    return lessonText.some((block) => block.children?.some((child) => child.text.trim().length > 0));
+  }
+  return lessonText.trim().length > 0;
+}
+
+function lessonTextToBlocks(lessonText: LessonTextValue): RichTextBlock[] | null {
+  if (Array.isArray(lessonText)) {
+    return hasLessonTextContent(lessonText) ? lessonText : null;
+  }
+  const trimmed = lessonText.trim();
+  if (!trimmed) {
+    return null;
+  }
+  return [
+    {
+      type: 'paragraph',
+      children: [
+        {
+          type: 'text',
+          text: trimmed,
+        },
+      ],
+    },
+  ];
+}
+
+function lessonTextToDisplay(lessonText: LessonTextValue): string {
+  if (!Array.isArray(lessonText)) {
+    return lessonText;
+  }
+  return lessonText
+    .flatMap((block) => block.children?.map((child) => child.text) ?? [])
+    .join(' ')
+    .trim();
 }
 
 function resolveAuthorId(record: MyCourseRecord): number | string | null {
@@ -578,7 +432,7 @@ export default function CreatorStudio() {
             id: String(lesson.id ?? crypto.randomUUID?.() ?? `lesson-${Date.now()}-${Math.random().toString(36).slice(2)}`),
             lessonTitle: lesson.lessonTitle ?? '',
             youtubeEmbedCode: lesson.youtubeEmbedCode ?? '',
-            lessonText: normalizeLessonTextBlocks(lesson.lessonText),
+            lessonText: lesson.lessonText ?? '',
           }));
           setLessonDrafts(nextLessons);
         } else {
@@ -706,7 +560,7 @@ export default function CreatorStudio() {
   );
 
   const validLessonDrafts = useMemo(() => {
-    const validLessons: Array<{ lessonTitle: string; lessonText: LessonTextBlocks; youtubeEmbedCode?: string }> = [];
+    const validLessons: Array<{ lessonTitle: string; lessonText: RichTextBlock[]; youtubeEmbedCode?: string }> = [];
     let hasInvalidLesson = false;
 
     lessonDrafts.forEach((lesson) => {
@@ -740,7 +594,7 @@ export default function CreatorStudio() {
         title: string;
         slug: string;
         description: string;
-        lessons: Array<{ lessonTitle: string; lessonText: LessonTextBlocks; youtubeEmbedCode?: string }>;
+        lessons: Array<{ lessonTitle: string; lessonText: RichTextBlock[]; youtubeEmbedCode?: string }>;
         coverImage: number;
         author?: number | string;
       } = {
@@ -1040,7 +894,7 @@ export default function CreatorStudio() {
   );
 
   const handleLessonChange = useCallback(
-    <Field extends keyof LessonDraft>(id: string, field: Field, value: LessonDraft[Field]) => {
+    (id: string, field: keyof LessonDraft, value: string) => {
       setLessonDrafts((prev) =>
         prev.map((lesson) => (lesson.id === id ? { ...lesson, [field]: value } : lesson)),
       );
@@ -1358,11 +1212,16 @@ export default function CreatorStudio() {
                     )}
                   </div>
                   <div className="mt-4">
-                    <LessonTextBlocksEditor
-                      label={t('creatorStudio.lessons.lessonText')}
+                    <label className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500">
+                      {t('creatorStudio.lessons.lessonText')}
+                    </label>
+                    <textarea
+                      value={lessonTextToDisplay(lesson.lessonText)}
+                      onChange={(event) => handleLessonChange(lesson.id, 'lessonText', event.target.value)}
+                      className="mt-2 w-full rounded-2xl border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 shadow-sm focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+                      rows={4}
                       placeholder={t('creatorStudio.lessons.lessonTextPlaceholder')}
-                      value={lesson.lessonText}
-                      onChange={(nextBlocks) => handleLessonChange(lesson.id, 'lessonText', nextBlocks)}
+                      required
                     />
                   </div>
                 </div>

@@ -68,29 +68,6 @@ function createBezier(x1: number, y1: number, x2: number, y2: number) {
 const clampPoints = (value: number) => Math.max(0, value);
 const LESSON_TOUR_STORAGE_KEY = "lessonPlanTourSeen";
 const DESKTOP_BREAKPOINT = 1024;
-const MOBILE_TOUR_QUERY = "(max-width: 768px)";
-
-const useIsMobile = (query: string = MOBILE_TOUR_QUERY) => {
-  const [isMobile, setIsMobile] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.matchMedia(query).matches;
-  });
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const media = window.matchMedia(query);
-    const handleChange = () => setIsMobile(media.matches);
-    handleChange();
-    if ("addEventListener" in media) {
-      media.addEventListener("change", handleChange);
-      return () => media.removeEventListener("change", handleChange);
-    }
-    media.addListener(handleChange);
-    return () => media.removeListener(handleChange);
-  }, [query]);
-
-  return isMobile;
-};
 
 const getModuleId = (module: Module, moduleIndex: number) =>
   module?.id != null ? String(module.id) : `module-${moduleIndex}`;
@@ -165,7 +142,6 @@ export default function Slider({
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [customizeOpen, setCustomizeOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
-  const isMobileTour = useIsMobile();
   const [showAccessModal, setShowAccessModal] = useState(false);
   const [surveyAnswers, setSurveyAnswers] = useState<SurveyAnswers | null>(null);
   const [personalizedPlan, setPersonalizedPlan] = useState<FlatPlan | null>(null);
@@ -1058,15 +1034,11 @@ export default function Slider({
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!cards.length) return;
-    if (isMobileTour) {
-      setTourOpen(false);
-      return;
-    }
     const seen = window.localStorage.getItem(LESSON_TOUR_STORAGE_KEY);
     if (seen) return;
     const timer = window.setTimeout(() => setTourOpen(true), 600);
     return () => window.clearTimeout(timer);
-  }, [cards.length, isMobileTour]);
+  }, [cards.length]);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -1367,14 +1339,12 @@ export default function Slider({
           onRevert={personalizedPlan ? handleCustomizeRevert : undefined}
         />
       )}
-      {!isMobileTour && (
-        <LessonTour
-          open={tourOpen}
-          steps={tourSteps}
-          onDismiss={handleTourDismiss}
-          onComplete={handleTourDismiss}
-        />
-      )}
+      <LessonTour
+        open={tourOpen}
+        steps={tourSteps}
+        onDismiss={handleTourDismiss}
+        onComplete={handleTourDismiss}
+      />
       <LessonPointsCounter
         points={displayPoints}
         studyStreak={displayStreak}
