@@ -15,6 +15,9 @@ React + Strapi integration demo. The frontend uses Vite and TanStack Query to co
    npm run dev
    ```
 
+When adding or updating dependencies, run `npm install` and commit the updated
+`package-lock.json` so CI `npm ci` stays in sync.
+
 ## Testing
 
 Vitest is configured for unit tests. Run:
