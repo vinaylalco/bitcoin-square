@@ -2,6 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { getStrapiBaseUrl, strapiFetch, StrapiRequestError } from '../api/strapi-client';
+import LessonTextBlocksEditor, {
+  type LessonTextBlocks,
+  type RichTextBlock,
+} from '../components/editor/LessonTextBlocksEditor';
 import { useAuth } from '../context/AuthContext';
 const EMPTY_COURSE = {
   title: '',
@@ -54,27 +58,17 @@ type LessonDraft = {
   id: string;
   lessonTitle: string;
   youtubeEmbedCode: string;
-  lessonText: LessonTextValue;
+  lessonText: LessonTextBlocks;
 };
 
 const EMPTY_LESSON = (): LessonDraft => ({
   id: crypto.randomUUID?.() ?? `lesson-${Date.now()}-${Math.random().toString(36).slice(2)}`,
   lessonTitle: '',
   youtubeEmbedCode: '',
-  lessonText: '',
+  lessonText: [],
 });
 
-type RichTextChild = {
-  type: 'text';
-  text: string;
-};
-
-type RichTextBlock = {
-  type: 'paragraph';
-  children: RichTextChild[];
-};
-
-type LessonTextValue = string | RichTextBlock[];
+type LessonTextValue = string | LessonTextBlocks;
 
 function normalizeText(value: string): string | null {
   const trimmed = value.trim();
@@ -90,25 +84,26 @@ function toSlug(value: string): string {
   return normalized.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 }
 
-function isLessonBlank(lesson: LessonDraft): boolean {
-  return !lesson.lessonTitle.trim() && !hasLessonTextContent(lesson.lessonText) && !lesson.youtubeEmbedCode.trim();
+function hasLessonTextContent(lessonText: LessonTextBlocks): boolean {
+  return lessonText.some((block) => block.type === 'image' || hasBlockText(block));
 }
 
-function hasLessonTextContent(lessonText: LessonTextValue): boolean {
-  if (Array.isArray(lessonText)) {
-    return lessonText.some((block) => block.children?.some((child) => child.text.trim().length > 0));
+function hasBlockText(node: { text?: string; children?: Array<{ text?: string; children?: unknown[] }> }): boolean {
+  if (typeof node.text === 'string' && node.text.trim().length > 0) {
+    return true;
   }
-  return lessonText.trim().length > 0;
+  if (Array.isArray(node.children)) {
+    return node.children.some((child) => hasBlockText(child));
+  }
+  return false;
 }
 
-function lessonTextToBlocks(lessonText: LessonTextValue): RichTextBlock[] | null {
+function normalizeLessonTextBlocks(lessonText: LessonTextValue | null | undefined): LessonTextBlocks {
   if (Array.isArray(lessonText)) {
-    return hasLessonTextContent(lessonText) ? lessonText : null;
+    return lessonText;
   }
-  const trimmed = lessonText.trim();
-  if (!trimmed) {
-    return null;
-  }
+  const trimmed = lessonText?.trim?.() ?? '';
+  if (!trimmed) return [];
   return [
     {
       type: 'paragraph',
@@ -122,14 +117,12 @@ function lessonTextToBlocks(lessonText: LessonTextValue): RichTextBlock[] | null
   ];
 }
 
-function lessonTextToDisplay(lessonText: LessonTextValue): string {
-  if (!Array.isArray(lessonText)) {
-    return lessonText;
-  }
-  return lessonText
-    .flatMap((block) => block.children?.map((child) => child.text) ?? [])
-    .join(' ')
-    .trim();
+function lessonTextToBlocks(lessonText: LessonTextBlocks): RichTextBlock[] | null {
+  return hasLessonTextContent(lessonText) ? lessonText : null;
+}
+
+function isLessonBlank(lesson: LessonDraft): boolean {
+  return !lesson.lessonTitle.trim() && !hasLessonTextContent(lesson.lessonText) && !lesson.youtubeEmbedCode.trim();
 }
 
 function resolveAuthorId(record: MyCourseRecord): number | string | null {
@@ -432,7 +425,7 @@ export default function CreatorStudio() {
             id: String(lesson.id ?? crypto.randomUUID?.() ?? `lesson-${Date.now()}-${Math.random().toString(36).slice(2)}`),
             lessonTitle: lesson.lessonTitle ?? '',
             youtubeEmbedCode: lesson.youtubeEmbedCode ?? '',
-            lessonText: lesson.lessonText ?? '',
+            lessonText: normalizeLessonTextBlocks(lesson.lessonText),
           }));
           setLessonDrafts(nextLessons);
         } else {
@@ -894,7 +887,7 @@ export default function CreatorStudio() {
   );
 
   const handleLessonChange = useCallback(
-    (id: string, field: keyof LessonDraft, value: string) => {
+    <Field extends keyof LessonDraft>(id: string, field: Field, value: LessonDraft[Field]) => {
       setLessonDrafts((prev) =>
         prev.map((lesson) => (lesson.id === id ? { ...lesson, [field]: value } : lesson)),
       );
@@ -1212,16 +1205,11 @@ export default function CreatorStudio() {
                     )}
                   </div>
                   <div className="mt-4">
-                    <label className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500">
-                      {t('creatorStudio.lessons.lessonText')}
-                    </label>
-                    <textarea
-                      value={lessonTextToDisplay(lesson.lessonText)}
-                      onChange={(event) => handleLessonChange(lesson.id, 'lessonText', event.target.value)}
-                      className="mt-2 w-full rounded-2xl border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 shadow-sm focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
-                      rows={4}
+                    <LessonTextBlocksEditor
+                      label={t('creatorStudio.lessons.lessonText')}
                       placeholder={t('creatorStudio.lessons.lessonTextPlaceholder')}
-                      required
+                      value={lesson.lessonText}
+                      onChange={(nextBlocks) => handleLessonChange(lesson.id, 'lessonText', nextBlocks)}
                     />
                   </div>
                 </div>
