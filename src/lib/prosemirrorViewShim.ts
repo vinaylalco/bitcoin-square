@@ -15,10 +15,11 @@ type ProsemirrorExports = typeof prosemirrorView & {
   serializeForClipboard?: SerializeForClipboard;
 };
 
-const { __serializeForClipboard, serializeForClipboard } = prosemirrorView as ProsemirrorExports;
+const { __serializeForClipboard: internalSerializeForClipboard, serializeForClipboard } =
+  prosemirrorView as ProsemirrorExports;
 
 export const __serializeForClipboard: SerializeForClipboard =
-  __serializeForClipboard ??
+  internalSerializeForClipboard ??
   serializeForClipboard ??
   ((..._args) => {
     throw new Error('Clipboard serialization is unavailable in this build.');
