@@ -1,12 +1,17 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ComponentType } from 'react';
 import type { Block, PartialBlock } from '@blocknote/core';
-import { BlockNoteView, useCreateBlockNote } from '@blocknote/react';
+import * as BlockNoteReact from '@blocknote/react';
 import '@blocknote/core/fonts/inter.css';
 import '@blocknote/react/style.css';
 import { useAuth } from '../../context/AuthContext';
 import { uploadToStrapi } from '../../lib/strapiUpload';
 
 export type LessonTextBlocks = Block[];
+
+const { useCreateBlockNote } = BlockNoteReact;
+const BlockNoteView =
+  (BlockNoteReact as { BlockNoteView?: ComponentType<Record<string, unknown>> }).BlockNoteView ??
+  (BlockNoteReact as { default?: ComponentType<Record<string, unknown>> }).default;
 
 type LessonTextBlocksEditorProps = {
   value: LessonTextBlocks;
