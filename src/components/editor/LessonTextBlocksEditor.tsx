@@ -112,6 +112,7 @@ export default function LessonTextBlocksEditor({
   const editorRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isSyncingRef = useRef(false);
+  const isFocusedRef = useRef(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
@@ -121,6 +122,9 @@ export default function LessonTextBlocksEditor({
     const editor = editorRef.current;
     if (!editor) return;
     const nextHtml = blocksToHtml(normalizedValue);
+    if (isFocusedRef.current) {
+      return;
+    }
     if (editor.innerHTML !== nextHtml) {
       isSyncingRef.current = true;
       editor.innerHTML = nextHtml;
@@ -253,13 +257,19 @@ export default function LessonTextBlocksEditor({
         </div>
         <div
           ref={editorRef}
-          className="min-h-[140px] px-4 py-3 text-sm text-neutral-900 outline-none focus-visible:ring-2 focus-visible:ring-brand/40 dark:text-neutral-100"
+          className="prose prose-sm prose-neutral min-h-[140px] max-w-none px-4 py-3 text-neutral-900 outline-none focus-visible:ring-2 focus-visible:ring-brand/40 dark:prose-invert dark:text-neutral-100 prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-headings:font-semibold prose-headings:tracking-tight"
           aria-label="Lesson text"
           contentEditable
           suppressContentEditableWarning
           data-placeholder={placeholder ?? 'Write the lesson text...'}
           onInput={syncBlocks}
-          onBlur={syncBlocks}
+          onFocus={() => {
+            isFocusedRef.current = true;
+          }}
+          onBlur={() => {
+            isFocusedRef.current = false;
+            syncBlocks();
+          }}
           onKeyDown={(event) => {
             if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'b') {
               event.preventDefault();
