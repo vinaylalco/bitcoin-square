@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { getStrapiBaseUrl, strapiFetch, StrapiRequestError } from '../api/strapi-client';
 import { useAuth } from '../context/AuthContext';
 const EMPTY_COURSE = {
@@ -214,8 +214,9 @@ const COVER_IMAGE_HELPER_TEXT =
 export default function CreatorStudio() {
   const { t } = useTranslation();
   const { token, user } = useAuth();
-  const { id: courseIdParam } = useParams<{ id?: string }>();
-  const isEditing = Boolean(courseIdParam);
+  const { id: courseDocumentIdParam } = useParams<{ id?: string }>();
+  const navigate = useNavigate();
+  const isEditing = Boolean(courseDocumentIdParam);
   const [creatorStatus, setCreatorStatus] = useState<'idle' | 'loading' | 'error' | 'success'>('idle');
   const [creatorError, setCreatorError] = useState<string | null>(null);
   const [creatorProfile, setCreatorProfile] = useState<CreatorMe | null>(null);
@@ -322,7 +323,7 @@ export default function CreatorStudio() {
   const isCreator = useMemo(() => creatorProfile?.contentCreator === true, [creatorProfile]);
 
   useEffect(() => {
-    if (!courseIdParam) {
+    if (!courseDocumentIdParam) {
       setCourseLoadStatus('idle');
       setCourseLoadError(null);
       setCourseAccessDenied(false);
@@ -349,60 +350,18 @@ export default function CreatorStudio() {
     setCourseLoadError(null);
     setCourseAccessDenied(false);
 
-    const buildPopulateParams = () => {
-      const params = new URLSearchParams();
-      params.append('populate[0]', 'lessons');
-      params.append('populate[1]', 'coverImage');
-      params.append('populate[2]', 'author');
-      return params;
-    };
-
-    const fetchCourseByNumericId = async (status: 'draft' | 'published') => {
-      const params = buildPopulateParams();
-      params.set('status', status);
-      params.append('filters[id][$eq]', courseIdParam);
-      const response = await strapiFetch<{ data?: CourseDetailRecord[] }>(
-        `/api/content-creator-courses?${params.toString()}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
-      const records = Array.isArray(response?.data) ? response.data : [];
-      return normalizeCourseRecord(records[0]);
-    };
-
-    const fetchCourseByDocumentId = async (status: 'draft' | 'published') => {
-      const params = buildPopulateParams();
-      params.set('status', status);
-      params.append('filters[documentId][$eq]', courseIdParam);
-      const response = await strapiFetch<{ data?: CourseDetailRecord[] }>(
-        `/api/content-creator-courses?${params.toString()}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
-      const records = Array.isArray(response?.data) ? response.data : [];
-      return normalizeCourseRecord(records[0]);
-    };
-
     const loadCourse = async () => {
-      const isNumericId = /^\d+$/.test(courseIdParam);
-      if (isNumericId) {
-        let record = await fetchCourseByNumericId('draft');
-        if (!record) {
-          record = await fetchCourseByNumericId('published');
-        }
-        return record;
-      }
-      let record = await fetchCourseByDocumentId('draft');
-      if (!record) {
-        record = await fetchCourseByDocumentId('published');
-      }
-      return record;
+      const params = new URLSearchParams();
+      params.append('populate', 'author,lessons,coverImage');
+      const response = await strapiFetch<{ data?: CourseDetailRecord }>(
+        `/api/content-creator-courses/document/${courseDocumentIdParam}?${params.toString()}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+      return normalizeCourseRecord(response?.data);
     };
 
     loadCourse()
@@ -454,7 +413,7 @@ export default function CreatorStudio() {
     return () => {
       active = false;
     };
-  }, [courseIdParam, t, token, user?.id]);
+  }, [courseDocumentIdParam, t, token, user?.id]);
 
   useEffect(() => {
     if (!token || !creatorProfile?.id) {
@@ -692,22 +651,20 @@ export default function CreatorStudio() {
       setCourseNotice(null);
 
       try {
-        const courseId = courseRecord?.id;
-        const hasNumericCourseId = courseId != null && /^\d+$/.test(String(courseId));
-        if (isEditing && !hasNumericCourseId) {
+        const courseDocumentId = courseRecord?.documentId;
+        if (isEditing && !courseDocumentId) {
           setCourseStatus('error');
           setCourseError(t('creatorStudio.errors.saveDraftFailed'));
           return;
         }
-        const courseIdParam = hasNumericCourseId ? String(courseId) : null;
         const statusParam = 'status=draft';
-        const path = courseIdParam
-          ? `/api/content-creator-courses/${courseIdParam}?${statusParam}`
+        const path = courseDocumentId
+          ? `/api/content-creator-courses/document/${courseDocumentId}`
           : `/api/content-creator-courses?${statusParam}`;
         const attemptRequest = async (includeAuthor: boolean) => {
-          const method = courseIdParam ? 'PUT' : 'POST';
+          const method = courseDocumentId ? 'PUT' : 'POST';
           if (import.meta.env.DEV) {
-            console.debug('Course save request', { method, path, id: courseIdParam ?? null });
+            console.debug('Course save request', { method, path, documentId: courseDocumentId ?? null });
           }
           return strapiFetch<{ data?: CourseRecord }>(path, {
             method,
@@ -722,7 +679,7 @@ export default function CreatorStudio() {
 
         let response: { data?: CourseRecord };
         try {
-          response = await attemptRequest(!courseIdParam);
+          response = await attemptRequest(!courseDocumentId);
         } catch (error) {
           if (error instanceof StrapiRequestError && error.status === 400 && user?.id) {
             response = await attemptRequest(true);
@@ -736,36 +693,26 @@ export default function CreatorStudio() {
         if (publishedAt) {
           throw new Error(publishErrorMessage);
         }
-        if (!courseIdParam) {
-          const createdId = record?.id;
+        if (!courseDocumentId) {
           const createdDocumentId = record?.documentId;
-          const hasNumericCreatedId = createdId != null && /^\d+$/.test(String(createdId));
-          if (hasNumericCreatedId || createdDocumentId) {
+          if (createdDocumentId) {
             try {
               const populateParams = new URLSearchParams();
-              populateParams.set('populate', 'author');
-              populateParams.set('status', 'draft');
-              if (hasNumericCreatedId) {
-                populateParams.append('filters[id][$eq]', String(createdId));
-              } else if (createdDocumentId) {
-                populateParams.append('filters[documentId][$eq]', createdDocumentId);
-              }
-              const followUpPath = `/api/content-creator-courses?${populateParams.toString()}`;
+              populateParams.set('populate', 'author,lessons,coverImage');
+              const followUpPath = `/api/content-creator-courses/document/${createdDocumentId}?${populateParams.toString()}`;
               if (import.meta.env.DEV) {
                 console.debug('Course save follow-up', {
                   method: 'GET',
                   path: followUpPath,
-                  id: hasNumericCreatedId ? String(createdId) : null,
-                  documentId: createdDocumentId ?? null,
+                  documentId: createdDocumentId,
                 });
               }
-              const populated = await strapiFetch<{ data?: CourseRecord[] }>(followUpPath, {
+              const populated = await strapiFetch<{ data?: CourseDetailRecord }>(followUpPath, {
                 headers: {
                   Authorization: `Bearer ${token}`,
                 },
               });
-              const populatedRecords = Array.isArray(populated?.data) ? populated.data : [];
-              const normalizedRecord = normalizeCourseRecord(populatedRecords[0]);
+              const normalizedRecord = normalizeCourseRecord(populated?.data);
               if (normalizedRecord) {
                 record = normalizedRecord;
               }
@@ -774,8 +721,6 @@ export default function CreatorStudio() {
                 throw new Error(publishErrorMessage);
               }
             } catch (error) {
-              // ignore follow-up fetch failures
-              // unless we unexpectedly detect a published course
               if (error instanceof Error && error.message === publishErrorMessage) {
                 throw error;
               }
@@ -785,8 +730,14 @@ export default function CreatorStudio() {
         setCourseRecord(record ?? null);
         setCourseStatus('success');
         setCourseNotice(
-          courseIdParam ? t('creatorStudio.notices.draftUpdated') : t('creatorStudio.notices.draftSaved'),
+          courseDocumentId ? t('creatorStudio.notices.draftUpdated') : t('creatorStudio.notices.draftSaved'),
         );
+        if (!courseDocumentId) {
+          const createdDocumentId = record?.documentId;
+          if (createdDocumentId) {
+            navigate(`/creator/courses/${createdDocumentId}`);
+          }
+        }
       } catch (error) {
         const message =
           error instanceof StrapiRequestError
@@ -812,6 +763,7 @@ export default function CreatorStudio() {
       token,
       user?.id,
       validLessonDrafts,
+      navigate,
     ],
   );
 
