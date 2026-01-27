@@ -505,25 +505,12 @@ export async function createMembershipCheckout({
     userEmail: normalizedEmail,
   };
 
-  const normalizedUserId = parseNumber(userId);
-  if (
-    typeof normalizedUserId === "number" &&
-    Number.isInteger(normalizedUserId) &&
-    normalizedUserId > 0
-  ) {
-    payload.userId = normalizedUserId;
-  }
+  void userId;
+  void referrerId;
+  void txHash;
 
   if (isNonEmptyString(discountCode)) {
     payload.discountCode = discountCode.trim();
-  }
-
-  if (isNonEmptyString(referrerId)) {
-    payload.referrerId = referrerId.trim();
-  }
-
-  if (isNonEmptyString(txHash)) {
-    payload.txHash = txHash.trim();
   }
 
   const headers: HeadersInit = {};

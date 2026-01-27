@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { useAuth } from "../context/AuthContext";
+import { MEMBERSHIP_PRICES_USD } from "../config/membershipPricing";
 import { useMembershipCheckout } from "../hooks/useMembershipCheckout";
 import type { MembershipType } from "../utils/membership";
 import { rememberMembershipCheckoutPlan } from "../utils/membership";
@@ -38,10 +39,28 @@ const formatDiscountTxHash = (discountCode: string | undefined, email: string) =
   return `DISCOUNT-${codeSegment}-${emailSegment}`;
 };
 
+const formatMembershipPrice = (type: MembershipType, locale?: string): string => {
+  const price = MEMBERSHIP_PRICES_USD[type];
+  return new Intl.NumberFormat(locale || "en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(price);
+};
+
+const withFormattedMembershipPrice = (
+  template: string,
+  type: MembershipType,
+  locale?: string,
+): string => {
+  const price = formatMembershipPrice(type, locale);
+  return template.replace(/\$[0-9]+(?:\.[0-9]+)?/g, price);
+};
+
 type PortalView = "login" | "signup";
 
 export default function Membership() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { login, register, user, completeAuthFromResponse } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -520,7 +539,11 @@ export default function Membership() {
                           {t(`membership.portal.planLabels.${option}`)}
                         </span>
                         <span className="mt-2 block text-sm font-medium tracking-[0.12em] text-[var(--fg-muted)]">
-                          {t(`membership.form.${option}`)}
+                          {withFormattedMembershipPrice(
+                            t(`membership.form.${option}`),
+                            option,
+                            i18n.language,
+                          )}
                         </span>
                       </button>
                     ))}
