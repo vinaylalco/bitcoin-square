@@ -270,7 +270,7 @@
           {
             "step": "2️⃣",
             "title": "Choose Your Plan",
-            "description": "Annual membership ($5/month) or lifetime access ($80). Both with complete access from day one."
+            "description": "Annual membership ($500/year) or lifetime access ($600). Both with complete access from day one."
           },
           {
             "step": "3️⃣",
@@ -343,9 +343,9 @@
         "items": [
           {
             "name": "Annual",
-            "price": "$5",
-            "highlight": "Billed annually ($60/year)",
-            "suffix": "/month",
+            "price": "$500",
+            "highlight": "Billed annually ($500/year)",
+            "suffix": "/year",
             "features": [
               "Complete course library access",
               "Unlimited Nostr community",
@@ -358,9 +358,9 @@
           },
           {
             "name": "Lifetime",
-            "price": "$80",
+            "price": "$600",
             "highlight": "Permanent and unlimited access",
-            "suffix": "/one time",
+            "suffix": "/one-time",
             "features": [
               "Complete course library access",
               "Unlimited Nostr community",

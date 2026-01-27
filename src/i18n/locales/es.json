@@ -270,7 +270,7 @@
           {
             "step": "2️⃣",
             "title": "Elige tu plan",
-            "description": "Membresía anual (5 $/mes) o acceso de por vida (80 $). Ambos con acceso completo desde el primer día."
+            "description": "Membresía anual (500 $/año) o acceso de por vida (600 $). Ambos con acceso completo desde el primer día."
           },
           {
             "step": "3️⃣",
@@ -343,9 +343,9 @@
         "items": [
           {
             "name": "Anual",
-            "price": "$5",
-            "highlight": "Facturación anual (60 $ al año)",
-            "suffix": "/mes",
+            "price": "$500",
+            "highlight": "Facturación anual (500 $ al año)",
+            "suffix": "/año",
             "features": [
               "Acceso completo a la biblioteca de cursos",
               "Comunidad Nostr ilimitada",
@@ -358,7 +358,7 @@
           },
           {
             "name": "De por vida",
-            "price": "$80",
+            "price": "$600",
             "highlight": "Acceso permanente e ilimitado",
             "suffix": "/pago único",
             "features": [
