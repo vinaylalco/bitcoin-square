@@ -270,7 +270,7 @@
           {
             "step": "2️⃣",
             "title": "Pilih paket",
-            "description": "Keanggotaan tahunan ($5/bulan) atau akses seumur hidup ($80). Keduanya dengan akses penuh sejak hari pertama."
+            "description": "Keanggotaan tahunan ($500/tahun) atau akses seumur hidup ($600). Keduanya dengan akses penuh sejak hari pertama."
           },
           {
             "step": "3️⃣",
@@ -343,9 +343,9 @@
         "items": [
           {
             "name": "Tahunan",
-            "price": "$5",
-            "highlight": "Ditagih tahunan ($60/tahun)",
-            "suffix": "/bulan",
+            "price": "$500",
+            "highlight": "Ditagih tahunan ($500/tahun)",
+            "suffix": "/tahun",
             "features": [
               "Akses penuh ke pustaka kursus",
               "Komunitas Nostr tanpa batas",
@@ -358,7 +358,7 @@
           },
           {
             "name": "Seumur hidup",
-            "price": "$80",
+            "price": "$600",
             "highlight": "Akses permanen dan tidak terbatas",
             "suffix": "/sekali bayar",
             "features": [
