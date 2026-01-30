@@ -23,9 +23,14 @@ class GlobalErrorBoundary extends React.Component<
 > {
   private reloadTimeout: number | null = null;
 
-  private shouldSuppressRouteErrors() {
+  private isCommunityPath(pathname: string) {
+    return pathname.startsWith("/community");
+  }
+
+  private shouldSuppress(pathname: string) {
     return (
-      window.location.pathname.startsWith("/tools/btc-buying-strategies")
+      import.meta.env.VITE_SILENT_BOOT_ERRORS === "true" &&
+      !this.isCommunityPath(pathname)
     );
   }
 
@@ -45,7 +50,7 @@ class GlobalErrorBoundary extends React.Component<
     if (!LENGTH_ERROR_PATTERN.test(message)) {
       return;
     }
-    if (this.shouldSuppressRouteErrors()) {
+    if (this.shouldSuppress(window.location.pathname)) {
       return;
     }
     const now = Date.now();
@@ -72,7 +77,7 @@ class GlobalErrorBoundary extends React.Component<
       return this.props.children;
     }
 
-    if (this.shouldSuppressRouteErrors()) {
+    if (this.shouldSuppress(window.location.pathname)) {
       return (
         <div
           className="flex w-full items-center justify-center py-16"

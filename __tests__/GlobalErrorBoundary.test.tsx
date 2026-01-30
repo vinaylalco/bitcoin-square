@@ -100,4 +100,27 @@ describe("GlobalErrorBoundary length-error suppression", () => {
 
     expect(window.location.reload).toHaveBeenCalledTimes(1);
   });
+
+  it("keeps error UI for community routes when flagged", () => {
+    vi.stubEnv("VITE_SILENT_BOOT_ERRORS", "true");
+    Object.defineProperty(window, "location", {
+      value: {
+        ...window.location,
+        pathname: "/community",
+        reload: vi.fn(),
+      },
+      writable: true,
+    });
+
+    render(
+      <GlobalErrorBoundary>
+        <ThrowLengthError />
+      </GlobalErrorBoundary>,
+    );
+
+    expect(
+      screen.getByText(/We hit a loading hiccup/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("global-error-spinner")).toBeNull();
+  });
 });
