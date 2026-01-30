@@ -1,6 +1,7 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { Loader2 } from "lucide-react";
 import {
   fetchActiveMemberCount,
   fetchLessonPlanCount,
@@ -54,6 +55,13 @@ export default function HomePage() {
   const [lessonPlanCount, setLessonPlanCount] = useState<number | null>(null);
   const [isLessonPlansLoading, setIsLessonPlansLoading] = useState(true);
   const [lessonPlansError, setLessonPlansError] = useState(false);
+  const memberRetryAttemptRef = useRef(0);
+  const memberRetryTimeoutRef = useRef<number | null>(null);
+  const lessonRetryAttemptRef = useRef(0);
+  const lessonRetryTimeoutRef = useRef<number | null>(null);
+  const MAX_RETRY_ATTEMPTS = 6;
+  const BASE_RETRY_DELAY_MS = 500;
+  const MAX_RETRY_DELAY_MS = 8000;
 
   const normalizeArray = <T,>(value: unknown): T[] => (Array.isArray(value) ? value : []);
 
@@ -80,28 +88,44 @@ export default function HomePage() {
         if (typeof total === "number" && Number.isFinite(total)) {
           setMemberCount(total);
           setMembersError(false);
-        } else {
-          setMembersError(true);
-          setMemberCount(null);
+          setIsMembersLoading(false);
+          memberRetryAttemptRef.current = 0;
+          if (memberRetryTimeoutRef.current) {
+            window.clearTimeout(memberRetryTimeoutRef.current);
+          }
+          return;
         }
       } catch {
         if (!isMounted) {
           return;
         }
-
-        setMembersError(true);
-        setMemberCount(null);
-      } finally {
-        if (isMounted) {
-          setIsMembersLoading(false);
-        }
       }
+
+      setMembersError(true);
+      setMemberCount(null);
+
+      if (memberRetryAttemptRef.current >= MAX_RETRY_ATTEMPTS) {
+        setIsMembersLoading(false);
+        return;
+      }
+
+      const delay = Math.min(
+        BASE_RETRY_DELAY_MS * 2 ** memberRetryAttemptRef.current,
+        MAX_RETRY_DELAY_MS,
+      );
+      memberRetryTimeoutRef.current = window.setTimeout(() => {
+        memberRetryAttemptRef.current += 1;
+        void fetchMemberCount();
+      }, delay);
     };
 
     fetchMemberCount();
 
     return () => {
       isMounted = false;
+      if (memberRetryTimeoutRef.current) {
+        window.clearTimeout(memberRetryTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -194,36 +218,58 @@ export default function HomePage() {
         if (typeof total === "number" && Number.isFinite(total)) {
           setLessonPlanCount(total);
           setLessonPlansError(false);
-        } else {
-          setLessonPlanCount(null);
-          setLessonPlansError(true);
+          setIsLessonPlansLoading(false);
+          lessonRetryAttemptRef.current = 0;
+          if (lessonRetryTimeoutRef.current) {
+            window.clearTimeout(lessonRetryTimeoutRef.current);
+          }
+          return;
         }
       } catch {
         if (!isMounted) {
           return;
         }
-
-        setLessonPlansError(true);
-        setLessonPlanCount(null);
-      } finally {
-        if (isMounted) {
-          setIsLessonPlansLoading(false);
-        }
       }
+
+      setLessonPlansError(true);
+      setLessonPlanCount(null);
+
+      if (lessonRetryAttemptRef.current >= MAX_RETRY_ATTEMPTS) {
+        setIsLessonPlansLoading(false);
+        return;
+      }
+
+      const delay = Math.min(
+        BASE_RETRY_DELAY_MS * 2 ** lessonRetryAttemptRef.current,
+        MAX_RETRY_DELAY_MS,
+      );
+      lessonRetryTimeoutRef.current = window.setTimeout(() => {
+        lessonRetryAttemptRef.current += 1;
+        void fetchCoursesCount();
+      }, delay);
     };
 
     fetchCoursesCount();
 
     return () => {
       isMounted = false;
+      if (lessonRetryTimeoutRef.current) {
+        window.clearTimeout(lessonRetryTimeoutRef.current);
+      }
     };
   }, []);
+
+  const statSpinner = (
+    <span className="inline-flex items-center justify-center">
+      <Loader2 className="h-5 w-5 animate-spin text-[var(--fg-muted)]" aria-hidden />
+    </span>
+  );
 
   const heroStats = [
     {
       label: t("home.hero.stats.members"),
       value: isMembersLoading
-        ? t("common.loading")
+        ? statSpinner
         : membersError
         ? t("home.hero.stats.unavailable")
         : (memberCount ?? 0).toLocaleString(),
@@ -231,7 +277,7 @@ export default function HomePage() {
     {
       label: t("home.hero.stats.courses"),
       value: isLessonPlansLoading
-        ? t("common.loading")
+        ? statSpinner
         : lessonPlansError
         ? t("home.hero.stats.unavailable")
         : (lessonPlanCount ?? 0).toLocaleString(),

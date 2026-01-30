@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router-dom";
 import CourseCard from "../components/course/CourseCard";
@@ -86,6 +86,7 @@ export default function CourseDirectory() {
     data: lessonPlans,
     isLoading: lessonPlansLoading,
     error: lessonPlansError,
+    refetch: refetchLessonPlans,
   } = useLessonPlans(contentLocale);
   const {
     data: contentCreatorCourses,
@@ -96,18 +97,47 @@ export default function CourseDirectory() {
     isLoading: draftCoursesLoading,
     error: draftCoursesError,
   } = useContentCreatorDraftCourses();
+  const lessonPlanRetryAttemptRef = useRef(0);
+  const lessonPlanRetryTimeoutRef = useRef<number | null>(null);
+  const MAX_RETRY_ATTEMPTS = 6;
+  const BASE_RETRY_DELAY_MS = 500;
+  const MAX_RETRY_DELAY_MS = 8000;
   const description = t("courses.description");
 
-  if (lessonPlansLoading && !lessonPlans) {
-    return <CourseDirectorySkeleton />;
-  }
+  useEffect(() => {
+    if (!lessonPlans) {
+      return;
+    }
+    lessonPlanRetryAttemptRef.current = 0;
+    if (lessonPlanRetryTimeoutRef.current) {
+      window.clearTimeout(lessonPlanRetryTimeoutRef.current);
+    }
+  }, [lessonPlans]);
 
-  if (lessonPlansError) {
-    return (
-      <div className="mx-auto max-w-4xl px-4 py-16 text-center text-brand">
-        {t("courses.error")}
-      </div>
+  useEffect(() => {
+    if (!lessonPlansError || lessonPlans) {
+      return;
+    }
+    if (lessonPlanRetryAttemptRef.current >= MAX_RETRY_ATTEMPTS) {
+      return;
+    }
+    const delay = Math.min(
+      BASE_RETRY_DELAY_MS * 2 ** lessonPlanRetryAttemptRef.current,
+      MAX_RETRY_DELAY_MS,
     );
+    lessonPlanRetryTimeoutRef.current = window.setTimeout(() => {
+      lessonPlanRetryAttemptRef.current += 1;
+      void refetchLessonPlans();
+    }, delay);
+    return () => {
+      if (lessonPlanRetryTimeoutRef.current) {
+        window.clearTimeout(lessonPlanRetryTimeoutRef.current);
+      }
+    };
+  }, [lessonPlansError, lessonPlans, refetchLessonPlans]);
+
+  if ((lessonPlansLoading || lessonPlansError) && !lessonPlans) {
+    return <CourseDirectorySkeleton />;
   }
 
   const normalizedLessonPlans = asArray(lessonPlans).map((course) =>

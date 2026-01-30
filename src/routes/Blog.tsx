@@ -1,12 +1,21 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
+import { Loader2 } from "lucide-react";
 import { useBlogPosts } from "../hooks/useBlogPosts";
 import { safeArray, safeString } from "../utils/safeTypes";
 
 export default function Blog() {
   const { t } = useTranslation();
-  const { posts } = useBlogPosts();
+  const { posts, isLoading } = useBlogPosts();
   const safePosts = safeArray(posts);
+
+  if (isLoading) {
+    return (
+      <div className="flex w-full items-center justify-center py-16">
+        <Loader2 className="h-5 w-5 animate-spin text-[var(--fg-muted)]" aria-hidden />
+      </div>
+    );
+  }
 
   return (
     <div className="px-4 sm:px-6 py-6 space-y-8">
