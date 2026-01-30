@@ -74,6 +74,14 @@ describe("GlobalErrorBoundary length-error suppression", () => {
 
   it("keeps hiccup UI and reload when flag disabled", () => {
     vi.stubEnv("VITE_SILENT_BOOT_ERRORS", "false");
+    Object.defineProperty(window, "location", {
+      value: {
+        ...window.location,
+        pathname: "/another-route",
+        reload: vi.fn(),
+      },
+      writable: true,
+    });
 
     render(
       <GlobalErrorBoundary>

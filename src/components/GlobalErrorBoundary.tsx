@@ -25,7 +25,6 @@ class GlobalErrorBoundary extends React.Component<
 
   private shouldSuppressRouteErrors() {
     return (
-      import.meta.env.VITE_SILENT_BOOT_ERRORS === "true" &&
       window.location.pathname.startsWith("/tools/btc-buying-strategies")
     );
   }
