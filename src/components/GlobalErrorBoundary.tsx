@@ -23,7 +23,7 @@ class GlobalErrorBoundary extends React.Component<
 > {
   private reloadTimeout: number | null = null;
 
-  private shouldSuppressLengthErrorReload() {
+  private shouldSuppressRouteErrors() {
     return (
       import.meta.env.VITE_SILENT_BOOT_ERRORS === "true" &&
       window.location.pathname.startsWith("/tools/btc-buying-strategies")
@@ -46,7 +46,7 @@ class GlobalErrorBoundary extends React.Component<
     if (!LENGTH_ERROR_PATTERN.test(message)) {
       return;
     }
-    if (this.shouldSuppressLengthErrorReload()) {
+    if (this.shouldSuppressRouteErrors()) {
       return;
     }
     const now = Date.now();
@@ -73,17 +73,18 @@ class GlobalErrorBoundary extends React.Component<
       return this.props.children;
     }
 
+    if (this.shouldSuppressRouteErrors()) {
+      return (
+        <div
+          className="flex w-full items-center justify-center py-16"
+          data-testid="global-error-spinner"
+        >
+          <Loader2 className="h-5 w-5 animate-spin text-[var(--fg-muted)]" aria-hidden />
+        </div>
+      );
+    }
+
     if (isLengthError) {
-      if (this.shouldSuppressLengthErrorReload()) {
-        return (
-          <div
-            className="flex w-full items-center justify-center py-16"
-            data-testid="global-error-spinner"
-          >
-            <Loader2 className="h-5 w-5 animate-spin text-[var(--fg-muted)]" aria-hidden />
-          </div>
-        );
-      }
       return (
         <div className="p-6 max-w-2xl mx-auto">
           <div className="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-6 shadow-sm">

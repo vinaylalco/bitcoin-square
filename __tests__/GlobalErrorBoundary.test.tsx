@@ -8,6 +8,10 @@ const ThrowLengthError = () => {
   throw new Error("Cannot read property 'length' of undefined");
 };
 
+const ThrowGenericError = () => {
+  throw new Error("Boom");
+};
+
 describe("GlobalErrorBoundary length-error suppression", () => {
   const originalLocation = window.location;
 
@@ -53,6 +57,19 @@ describe("GlobalErrorBoundary length-error suppression", () => {
     });
 
     expect(window.location.reload).not.toHaveBeenCalled();
+  });
+
+  it("suppresses generic error UI when flagged", () => {
+    vi.stubEnv("VITE_SILENT_BOOT_ERRORS", "true");
+
+    render(
+      <GlobalErrorBoundary>
+        <ThrowGenericError />
+      </GlobalErrorBoundary>,
+    );
+
+    expect(screen.getByTestId("global-error-spinner")).toBeInTheDocument();
+    expect(screen.queryByText(/Something went wrong/i)).toBeNull();
   });
 
   it("keeps hiccup UI and reload when flag disabled", () => {

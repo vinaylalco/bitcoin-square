@@ -45,6 +45,7 @@ import { ToastProvider } from "./context/ToastContext";
 import RequireLogin from "./components/RequireLogin";
 import RequireMembership from "./components/RequireMembership";
 import { MinerQuotation2Page } from "./pages/MinerQuotation2Page";
+import { Loader2 } from "lucide-react";
 import ErrorBoundary from "./components/ErrorBoundary";
 import GlobalErrorBoundary from "./components/GlobalErrorBoundary";
 import SilentBootBoundary from "./components/boot/SilentBootBoundary";
@@ -71,6 +72,15 @@ const membershipRouteElement = (
 );
 
 const silentBootEnabled = import.meta.env.VITE_SILENT_BOOT_ERRORS === "true";
+
+const btcBuyingStrategiesErrorElement = silentBootEnabled ? (
+  <div
+    className="flex w-full items-center justify-center py-16"
+    data-testid="btc-strategies-spinner"
+  >
+    <Loader2 className="h-5 w-5 animate-spin text-[var(--fg-muted)]" aria-hidden />
+  </div>
+) : undefined;
 
 const btcBuyingStrategiesRouteElement = silentBootEnabled ? (
   <SilentBootBoundary>
@@ -138,6 +148,7 @@ const router = createBrowserRouter([
       {
         path: "tools/btc-buying-strategies",
         element: btcBuyingStrategiesRouteElement,
+        errorElement: btcBuyingStrategiesErrorElement,
       },
       {
         path: "tools/dca-buys",
