@@ -1,5 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 
 const LENGTH_ERROR_KEY = "bitcoin-square:length-error-reload-at";
 const RELOAD_WINDOW_MS = 30_000;
@@ -22,6 +23,13 @@ class GlobalErrorBoundary extends React.Component<
 > {
   private reloadTimeout: number | null = null;
 
+  private shouldSuppressLengthErrorReload() {
+    return (
+      import.meta.env.VITE_SILENT_BOOT_ERRORS === "true" &&
+      window.location.pathname.startsWith("/tools/btc-buying-strategies")
+    );
+  }
+
   constructor(props: GlobalErrorBoundaryProps) {
     super(props);
     this.state = { error: null, isLengthError: false };
@@ -36,6 +44,9 @@ class GlobalErrorBoundary extends React.Component<
   componentDidCatch(error: Error) {
     const message = String(error?.message ?? "");
     if (!LENGTH_ERROR_PATTERN.test(message)) {
+      return;
+    }
+    if (this.shouldSuppressLengthErrorReload()) {
       return;
     }
     const now = Date.now();
@@ -63,6 +74,16 @@ class GlobalErrorBoundary extends React.Component<
     }
 
     if (isLengthError) {
+      if (this.shouldSuppressLengthErrorReload()) {
+        return (
+          <div
+            className="flex w-full items-center justify-center py-16"
+            data-testid="global-error-spinner"
+          >
+            <Loader2 className="h-5 w-5 animate-spin text-[var(--fg-muted)]" aria-hidden />
+          </div>
+        );
+      }
       return (
         <div className="p-6 max-w-2xl mx-auto">
           <div className="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-6 shadow-sm">
