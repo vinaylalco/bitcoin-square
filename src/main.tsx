@@ -50,7 +50,13 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import GlobalErrorBoundary from "./components/GlobalErrorBoundary";
 import SilentBootBoundary from "./components/boot/SilentBootBoundary";
 
-const membershipRouteElement = (
+const silentBootEnabled = import.meta.env.VITE_SILENT_BOOT_ERRORS === "true";
+
+const membershipRouteElement = silentBootEnabled ? (
+  <SilentBootBoundary>
+    <Membership />
+  </SilentBootBoundary>
+) : (
   <ErrorBoundary
     fallback={
       <div className="mx-auto max-w-3xl px-6 py-16 text-center text-[var(--fg-default)]">
@@ -70,8 +76,6 @@ const membershipRouteElement = (
     <Membership />
   </ErrorBoundary>
 );
-
-const silentBootEnabled = import.meta.env.VITE_SILENT_BOOT_ERRORS === "true";
 
 const btcBuyingStrategiesErrorElement = silentBootEnabled ? (
   <div
@@ -152,7 +156,11 @@ const router = createBrowserRouter([
       },
       {
         path: "tools/dca-buys",
-        element: (
+        element: silentBootEnabled ? (
+          <SilentBootBoundary>
+            <DcaBuysAdmin />
+          </SilentBootBoundary>
+        ) : (
           <ErrorBoundary
             fallback={
               <div className="mx-auto max-w-3xl px-6 py-16 text-center text-[var(--fg-default)]">
@@ -196,7 +204,11 @@ const router = createBrowserRouter([
       },
       {
         path: "tools/miner-quote",
-        element: (
+        element: silentBootEnabled ? (
+          <SilentBootBoundary>
+            <MinerQuotation2Page />
+          </SilentBootBoundary>
+        ) : (
           <ErrorBoundary
             fallback={
               <div className="mx-auto max-w-3xl px-6 py-16 text-center text-[var(--fg-default)]">
