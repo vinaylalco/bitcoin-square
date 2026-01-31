@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, ReactNode } from "react";
 import {
   CartesianGrid,
@@ -10,6 +10,7 @@ import {
   YAxis,
 } from "recharts";
 import { useSearchParams } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 import { fetchBtcDailyHistory } from "../utils/coindesk";
 import { asArray } from "../utils/safeTypes";
 
@@ -592,6 +593,9 @@ export default function BtcBuyingStrategiesPage() {
   const bulkDebounceRef = useRef<number | null>(null);
   const bulkRequestIdRef = useRef(0);
   const bulkLastFetchKeyRef = useRef<string | null>(null);
+  const retryAttemptRef = useRef(0);
+  const retryTimeoutRef = useRef<number | null>(null);
+  const silentBootEnabled = import.meta.env.VITE_SILENT_BOOT_ERRORS === "true";
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -712,7 +716,7 @@ export default function BtcBuyingStrategiesPage() {
     return filtered;
   };
 
-  const fetchHistorical = async () => {
+  const fetchHistorical = useCallback(async () => {
     setError(null);
     setLoading(true);
     const fetchKey = `${historyStart}|${historyEnd}`;
@@ -727,6 +731,7 @@ export default function BtcBuyingStrategiesPage() {
       lastFetchKeyRef.current = fetchKey;
       setRows(nextRows);
       runBacktestWithRows(nextRows);
+      retryAttemptRef.current = 0;
     } catch (err) {
       if (requestId !== requestIdRef.current) return;
       const message = err instanceof Error ? err.message : "Unable to load historical prices.";
@@ -736,7 +741,7 @@ export default function BtcBuyingStrategiesPage() {
         setLoading(false);
       }
     }
-  };
+  }, [historyStart, historyEnd, amountPerPeriod, feeRate, schedule]);
 
   useEffect(() => {
     setError(null);
@@ -853,6 +858,23 @@ export default function BtcBuyingStrategiesPage() {
   }, [bulkHistoryStart, bulkHistoryEnd, bulkAmount, bulkFeeRate, bulkRows]);
 
   const safeRows = asArray(rows);
+  useEffect(() => {
+    if (!silentBootEnabled) return;
+    if (!error || loading || safeRows.length > 0) return;
+    if (retryTimeoutRef.current) {
+      window.clearTimeout(retryTimeoutRef.current);
+    }
+    const delay = Math.min(500 * 2 ** retryAttemptRef.current, 8000);
+    retryTimeoutRef.current = window.setTimeout(() => {
+      retryAttemptRef.current += 1;
+      void fetchHistorical();
+    }, delay);
+    return () => {
+      if (retryTimeoutRef.current) {
+        window.clearTimeout(retryTimeoutRef.current);
+      }
+    };
+  }, [error, loading, safeRows.length, silentBootEnabled, fetchHistorical]);
   const backtestHistory = asArray(backtest?.history);
   const lastBacktestPoint = backtestHistory.at(-1);
   const hasHistory = safeRows.length > 0;
@@ -1065,7 +1087,15 @@ export default function BtcBuyingStrategiesPage() {
     exportBacktestCsv(exportHistory, `bulk-buy-backtest-${bulkStartDate}-${bulkEndDate}.csv`);
   };
 
-  if (error && !loading && !safeRows.length) {
+  if (silentBootEnabled && (loading || error) && !safeRows.length) {
+    return (
+      <div className="flex w-full items-center justify-center py-16" data-testid="btc-strategies-spinner">
+        <Loader2 className="h-5 w-5 animate-spin text-[var(--fg-muted)]" aria-hidden />
+      </div>
+    );
+  }
+
+  if (!silentBootEnabled && error && !loading && !safeRows.length) {
     return (
       <div className="bg-[var(--bg-app)] text-[var(--fg-default)]">
         <main className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-12 text-center sm:px-6 lg:px-8">

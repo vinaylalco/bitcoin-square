@@ -45,10 +45,18 @@ import { ToastProvider } from "./context/ToastContext";
 import RequireLogin from "./components/RequireLogin";
 import RequireMembership from "./components/RequireMembership";
 import { MinerQuotation2Page } from "./pages/MinerQuotation2Page";
+import { Loader2 } from "lucide-react";
 import ErrorBoundary from "./components/ErrorBoundary";
 import GlobalErrorBoundary from "./components/GlobalErrorBoundary";
+import SilentBootBoundary from "./components/boot/SilentBootBoundary";
 
-const membershipRouteElement = (
+const silentBootEnabled = import.meta.env.VITE_SILENT_BOOT_ERRORS === "true";
+
+const membershipRouteElement = silentBootEnabled ? (
+  <SilentBootBoundary>
+    <Membership />
+  </SilentBootBoundary>
+) : (
   <ErrorBoundary
     fallback={
       <div className="mx-auto max-w-3xl px-6 py-16 text-center text-[var(--fg-default)]">
@@ -66,6 +74,40 @@ const membershipRouteElement = (
     }}
   >
     <Membership />
+  </ErrorBoundary>
+);
+
+const btcBuyingStrategiesErrorElement = silentBootEnabled ? (
+  <div
+    className="flex w-full items-center justify-center py-16"
+    data-testid="btc-strategies-spinner"
+  >
+    <Loader2 className="h-5 w-5 animate-spin text-[var(--fg-muted)]" aria-hidden />
+  </div>
+) : undefined;
+
+const btcBuyingStrategiesRouteElement = silentBootEnabled ? (
+  <SilentBootBoundary>
+    <BtcBuyingStrategiesPage />
+  </SilentBootBoundary>
+) : (
+  <ErrorBoundary
+    fallback={
+      <div className="mx-auto max-w-3xl px-6 py-16 text-center text-[var(--fg-default)]">
+        <p className="text-sm font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">
+          BTC Buying Strategies
+        </p>
+        <h1 className="mt-4 text-3xl font-bold">We hit a snag.</h1>
+        <p className="mt-3 text-sm text-[var(--fg-muted)]">
+          Please refresh the page or try again in a moment.
+        </p>
+      </div>
+    }
+    onError={(error, info) => {
+      console.error("ErrorBoundary /tools/btc-buying-strategies", error, info);
+    }}
+  >
+    <BtcBuyingStrategiesPage />
   </ErrorBoundary>
 );
 
@@ -109,30 +151,16 @@ const router = createBrowserRouter([
       { path: "admin", element: <Admin /> },
       {
         path: "tools/btc-buying-strategies",
-        element: (
-          <ErrorBoundary
-            fallback={
-              <div className="mx-auto max-w-3xl px-6 py-16 text-center text-[var(--fg-default)]">
-                <p className="text-sm font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">
-                  BTC Buying Strategies
-                </p>
-                <h1 className="mt-4 text-3xl font-bold">We hit a snag.</h1>
-                <p className="mt-3 text-sm text-[var(--fg-muted)]">
-                  Please refresh the page or try again in a moment.
-                </p>
-              </div>
-            }
-            onError={(error, info) => {
-              console.error("ErrorBoundary /tools/btc-buying-strategies", error, info);
-            }}
-          >
-            <BtcBuyingStrategiesPage />
-          </ErrorBoundary>
-        ),
+        element: btcBuyingStrategiesRouteElement,
+        errorElement: btcBuyingStrategiesErrorElement,
       },
       {
         path: "tools/dca-buys",
-        element: (
+        element: silentBootEnabled ? (
+          <SilentBootBoundary>
+            <DcaBuysAdmin />
+          </SilentBootBoundary>
+        ) : (
           <ErrorBoundary
             fallback={
               <div className="mx-auto max-w-3xl px-6 py-16 text-center text-[var(--fg-default)]">
@@ -176,7 +204,11 @@ const router = createBrowserRouter([
       },
       {
         path: "tools/miner-quote",
-        element: (
+        element: silentBootEnabled ? (
+          <SilentBootBoundary>
+            <MinerQuotation2Page />
+          </SilentBootBoundary>
+        ) : (
           <ErrorBoundary
             fallback={
               <div className="mx-auto max-w-3xl px-6 py-16 text-center text-[var(--fg-default)]">

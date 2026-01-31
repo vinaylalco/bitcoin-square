@@ -54,13 +54,15 @@ export function setBlogPosts(list: BlogPost[]) {
 
 export function useBlogPosts() {
   const [posts, setPosts] = useState<BlogPost[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   useEffect(() => {
     setPosts(load());
+    setIsLoading(false);
   }, []);
   const addPost = (post: BlogPost) => {
     const updated = [...posts, post];
     setPosts(updated);
     save(normalizeBlogPosts(updated));
   };
-  return { posts, addPost, setPosts };
+  return { posts, addPost, setPosts, isLoading };
 }

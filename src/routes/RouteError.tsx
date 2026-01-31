@@ -1,7 +1,21 @@
 import React from "react";
 import { isRouteErrorResponse, useRouteError, Link } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 
 export default function RouteError() {
+  const pathname = typeof window !== "undefined" ? window.location.pathname : "";
+  const isCommunityPath = (path: string) => path.startsWith("/community");
+  const shouldSuppress =
+    import.meta.env.VITE_SILENT_BOOT_ERRORS === "true" && !isCommunityPath(pathname);
+
+  if (shouldSuppress) {
+    return (
+      <div className="flex w-full items-center justify-center py-16">
+        <Loader2 className="h-5 w-5 animate-spin text-[var(--fg-muted)]" aria-hidden />
+      </div>
+    );
+  }
+
   const err = useRouteError() as any;
   const isResp = isRouteErrorResponse(err);
   const status = isResp ? err.status : 500;

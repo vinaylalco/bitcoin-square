@@ -1,5 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 
 const LENGTH_ERROR_KEY = "bitcoin-square:length-error-reload-at";
 const RELOAD_WINDOW_MS = 30_000;
@@ -22,6 +23,17 @@ class GlobalErrorBoundary extends React.Component<
 > {
   private reloadTimeout: number | null = null;
 
+  private isCommunityPath(pathname: string) {
+    return pathname.startsWith("/community");
+  }
+
+  private shouldSuppress(pathname: string) {
+    return (
+      import.meta.env.VITE_SILENT_BOOT_ERRORS === "true" &&
+      !this.isCommunityPath(pathname)
+    );
+  }
+
   constructor(props: GlobalErrorBoundaryProps) {
     super(props);
     this.state = { error: null, isLengthError: false };
@@ -36,6 +48,9 @@ class GlobalErrorBoundary extends React.Component<
   componentDidCatch(error: Error) {
     const message = String(error?.message ?? "");
     if (!LENGTH_ERROR_PATTERN.test(message)) {
+      return;
+    }
+    if (this.shouldSuppress(window.location.pathname)) {
       return;
     }
     const now = Date.now();
@@ -60,6 +75,17 @@ class GlobalErrorBoundary extends React.Component<
 
     if (!error) {
       return this.props.children;
+    }
+
+    if (this.shouldSuppress(window.location.pathname)) {
+      return (
+        <div
+          className="flex w-full items-center justify-center py-16"
+          data-testid="global-error-spinner"
+        >
+          <Loader2 className="h-5 w-5 animate-spin text-[var(--fg-muted)]" aria-hidden />
+        </div>
+      );
     }
 
     if (isLengthError) {
