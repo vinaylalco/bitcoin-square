@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
+import { useJournalSession } from '../hooks/useJournalSession';
 import { supabase } from '../lib/supabaseClient';
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -14,6 +15,7 @@ function normalizeInput(value: string): string {
 
 export default function Signup() {
   const navigate = useNavigate();
+  const { setDecryptedJournalEntries, setJournalSecret, setSession } = useJournalSession();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -77,10 +79,10 @@ export default function Signup() {
       }
 
       if (data.session) {
-        navigate('/login', {
-          replace: true,
-          state: { message: 'Account created. You can now log in.' },
-        });
+        setSession(data.session);
+        setJournalSecret(currentSecret);
+        setDecryptedJournalEntries([]);
+        navigate('/', { replace: true });
         return;
       }
 

@@ -7,7 +7,6 @@ import App from "./App";
 import "./index.css";
 import "./i18n";
 
-import Home from "./routes/Home";
 import CourseDirectory from "./routes/CourseDirectory";
 import CourseDetail from "./routes/CourseDetail";
 import Settings from "./routes/Settings";
@@ -83,7 +82,7 @@ const router = createBrowserRouter([
     ),
     errorElement: <RouteError />,              // ✅ friendly error UI
     children: [
-      { index: true, element: <Home /> },
+      { index: true, element: <Journal /> },
       {
         path: "education",
         element: <CourseDirectory />,

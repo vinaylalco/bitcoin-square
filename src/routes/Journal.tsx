@@ -56,7 +56,7 @@ const EMPTY_FORM: JournalFormData = {
 
 const JOURNAL_STEPS: JournalStep[] = [
   {
-    title: 'Name the moment',
+    title: 'Choose a memory or event',
     description: 'Capture the event and the factual memory without trying to solve it yet.',
     fields: [
       {
@@ -72,7 +72,7 @@ const JOURNAL_STEPS: JournalStep[] = [
     ],
   },
   {
-    title: 'Map the emotions',
+    title: 'Achieve Balance',
     description: 'Notice what was present and whether any opposite emotion also existed.',
     fields: [
       {
@@ -88,7 +88,7 @@ const JOURNAL_STEPS: JournalStep[] = [
     ],
   },
   {
-    title: 'Balance the memory',
+    title: 'Tap into the wisest parts of you',
     description: 'Bring in balancing memories and reflect on positive emotional evidence.',
     fields: [
       {
@@ -104,7 +104,7 @@ const JOURNAL_STEPS: JournalStep[] = [
     ],
   },
   {
-    title: 'Find perspective',
+    title: 'Understand',
     description: 'Look for the wisest interpretation and the pattern underneath.',
     fields: [
       {
@@ -125,7 +125,7 @@ const JOURNAL_STEPS: JournalStep[] = [
     ],
   },
   {
-    title: 'Plan forward',
+    title: 'Accept',
     description: 'Choose mitigation and concrete next actions.',
     fields: [
       {
@@ -146,7 +146,7 @@ const JOURNAL_STEPS: JournalStep[] = [
     ],
   },
   {
-    title: 'Forgive and close',
+    title: 'Forgive',
     description: 'Close with forgiveness, integration, or release.',
     fields: [
       {
@@ -332,6 +332,19 @@ export default function Journal() {
   };
 
   useEffect(() => {
+    if (currentUser && hasJournalSecret) {
+      return;
+    }
+
+    setCurrentEntryId(null);
+    setCurrentStep(0);
+    setFormData(EMPTY_FORM);
+    setSaveError(null);
+    setSaveSuccess(null);
+    setLoadError(null);
+  }, [currentUser, hasJournalSecret]);
+
+  useEffect(() => {
     if (!currentUser || !session?.access_token || !journalSecret) {
       return;
     }
@@ -416,7 +429,7 @@ export default function Journal() {
             Sign in to journal
           </h1>
           <p className="mt-4 text-sm font-medium leading-relaxed text-[var(--fg-muted)]">
-            Log in or create an account before opening your encrypted journal.
+            Log in or sign up to access your private journaling space.
           </p>
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
             <Link
@@ -462,7 +475,7 @@ export default function Journal() {
         <section className="rounded-3xl border border-brand/20 bg-[var(--bg-card)] p-6 shadow-[var(--shadow-soft)] sm:p-8">
           <h2 className="text-xl font-bold text-[var(--fg-default)]">Unlock your journal</h2>
           <p className="mt-3 text-sm font-medium leading-relaxed text-[var(--fg-muted)]">
-            Enter your secret to decrypt journal entries on this device. The secret stays in memory only and is not sent or stored.
+            Your secret is used only in this browser session to unlock your encrypted journal. It is not stored or sent to Supabase.
           </p>
           <form onSubmit={handleUnlock} className="mt-6 space-y-4">
             <div className="space-y-2">
