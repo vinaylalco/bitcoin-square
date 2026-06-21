@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Link, NavLink, Outlet, useLocation, useMatch } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation, useMatch, useNavigate } from "react-router-dom";
 import {
   BookOpen,
   ChevronDown,
@@ -26,6 +26,7 @@ import { cn } from "./utils/cn";
 import { useLessonPlans } from "./hooks/useLessonPlans";
 import { resolveLocale } from "./utils/locale";
 import LanguageSwitcher from "./components/LanguageSwitcher";
+import { useJournalSession } from "./hooks/useJournalSession";
 
 export default function App() {
   const [open, setOpen] = useState(false);
@@ -36,13 +37,20 @@ export default function App() {
 
   const { t, i18n } = useTranslation();
   const loc = useLocation();
+  const navigate = useNavigate();
   const { theme } = useTheme(); // ensures theme context is mounted
   const { user, logout } = useAuth();
+  const { currentUser: journalUser, logout: logoutJournalSession } = useJournalSession();
 
   const isAdmin = Boolean(user?.isAdmin);
   const isAuthenticated = Boolean(user);
 
   const isCommunityRoute = loc.pathname.startsWith("/community");
+  const isJournalAppRoute =
+    loc.pathname === "/" ||
+    loc.pathname === "/journal" ||
+    loc.pathname === "/login" ||
+    loc.pathname === "/signup";
   const hideFooterOnPage = /^\/education\/[\w-]+/.test(loc.pathname) || isCommunityRoute;
 
   const locale = resolveLocale(i18n.language);
@@ -121,14 +129,18 @@ export default function App() {
     highlight?: boolean;
   }>;
 
+  const handleJournalLogout = async () => {
+    await logoutJournalSession();
+    navigate("/", { replace: true });
+  };
+
   const educationRootMatch = useMatch("/education");
   const educationDetailMatch = useMatch("/education/:slug");
   const isEducationActive = Boolean(educationRootMatch || educationDetailMatch);
-  const toolsDetailMatch =
-    useMatch("/tools/btc-buying-strategies") ||
-    useMatch("/tools/miner-quote") ||
-    useMatch("/tools/dca-buys");
-  const isToolsActive = Boolean(toolsDetailMatch);
+  const btcBuyingStrategiesMatch = useMatch("/tools/btc-buying-strategies");
+  const minerQuoteMatch = useMatch("/tools/miner-quote");
+  const dcaBuysMatch = useMatch("/tools/dca-buys");
+  const isToolsActive = Boolean(btcBuyingStrategiesMatch || minerQuoteMatch || dcaBuysMatch);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -463,10 +475,18 @@ export default function App() {
             </div>
 
             <nav className="hidden lg:flex items-center gap-8 text-sm font-semibold uppercase tracking-[0.22em]">
-              {desktopNav.map((item) => {
+              {isJournalAppRoute ? (
+                <NavLink
+                  to="/"
+                  className={({ isActive }) =>
+                    cn("inline-flex items-center gap-2 py-2 transition text-[var(--fg-muted)] hover:text-brand", isActive && "text-brand")
+                  }
+                >
+                  Home
+                </NavLink>
+              ) : desktopNav.map((item) => {
                 if (Array.isArray(item.dropdown)) {
                   const isEducationMenu = item.id === "education";
-                  const isToolsMenu = item.id === "tools";
                   return (
                     <MenuItem
                       key={item.to}
@@ -512,7 +532,41 @@ export default function App() {
           </nav>
 
             <div className="hidden items-center gap-3 lg:flex">
-              {user ? (
+              {isJournalAppRoute ? (
+                journalUser ? (
+                  <button
+                    onClick={handleJournalLogout}
+                    className="rounded-full border border-[var(--border-subtle)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)] transition hover:text-brand hover:shadow-sm"
+                  >
+                    Logout
+                  </button>
+                ) : (
+                  <>
+                    <NavLink
+                      to="/login"
+                      className={({ isActive }) =>
+                        cn(
+                          "rounded-full border border-[var(--border-subtle)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)] transition hover:text-brand hover:shadow-sm",
+                          isActive && "border-brand text-brand",
+                        )
+                      }
+                    >
+                      Login
+                    </NavLink>
+                    <NavLink
+                      to="/signup"
+                      className={({ isActive }) =>
+                        cn(
+                          "rounded-full border border-brand px-4 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-white transition hover:-translate-y-0.5 hover:shadow-[0_12px_30px_rgba(169,21,255,0.35)]",
+                          isActive ? "bg-brand" : "bg-gradient-to-r from-brand via-brand/90 to-[#FFF582]",
+                        )
+                      }
+                    >
+                      Sign up
+                    </NavLink>
+                  </>
+                )
+              ) : user ? (
                 <>
                   <NavLink
                     to="/dashboard"
@@ -599,6 +653,47 @@ export default function App() {
               >
                 <HomeIcon className="h-5 w-5" /> {t("nav.home")}
               </NavLink>
+              {isJournalAppRoute ? (
+                journalUser ? (
+                  <button
+                    onClick={() => {
+                      void handleJournalLogout();
+                      setOpen(false);
+                    }}
+                    className="inline-flex items-center gap-3 rounded-2xl border border-transparent px-4 py-3 text-left text-[var(--fg-muted)] transition hover:border-brand/40 hover:bg-brand/5 hover:text-brand"
+                  >
+                    Logout
+                  </button>
+                ) : (
+                  <>
+                    <NavLink
+                      to="/login"
+                      onClick={() => setOpen(false)}
+                      className={({ isActive }) =>
+                        cn(
+                          "inline-flex items-center gap-3 rounded-2xl border border-transparent px-4 py-3 transition hover:border-brand/40 hover:bg-brand/5",
+                          isActive && "border-brand bg-brand/10 text-brand",
+                        )
+                      }
+                    >
+                      Login
+                    </NavLink>
+                    <NavLink
+                      to="/signup"
+                      onClick={() => setOpen(false)}
+                      className={({ isActive }) =>
+                        cn(
+                          "inline-flex items-center gap-3 rounded-2xl border border-transparent px-4 py-3 transition hover:border-brand/40 hover:bg-brand/5",
+                          isActive && "border-brand bg-brand/10 text-brand",
+                        )
+                      }
+                    >
+                      Sign up
+                    </NavLink>
+                  </>
+                )
+              ) : (
+                <>
               <MenuItem
                 id="mobile-education"
                 label={t("nav.education")}
@@ -752,6 +847,8 @@ export default function App() {
                 >
                   {t("nav.login")}
                 </NavLink>
+              )}
+                </>
               )}
             </nav>
             <div className="px-5 pb-6">

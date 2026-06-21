@@ -3,6 +3,8 @@
 interface ImportMetaEnv {
   readonly VITE_STRAPI_URL?: string;
   readonly VITE_STRIPE_PUBLIC_KEY?: string;
+  readonly VITE_SUPABASE_URL?: string;
+  readonly VITE_SUPABASE_ANON_KEY?: string;
   readonly VITE_SITE_URL?: string;
   readonly VITE_FRONTEND_URL?: string;
   readonly VITE_CASUAL_ROOM_KEY?: string;

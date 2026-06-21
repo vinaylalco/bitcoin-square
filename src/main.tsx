@@ -1,16 +1,18 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { Navigate, createBrowserRouter, RouterProvider } from "react-router-dom";
+import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import App from "./App";
 import "./index.css";
 import "./i18n";
 
-import Home from "./routes/Home";
 import CourseDirectory from "./routes/CourseDirectory";
 import CourseDetail from "./routes/CourseDetail";
 import Settings from "./routes/Settings";
+import Login from "./routes/Login";
+import Journal from "./routes/Journal";
+import Signup from "./routes/Signup";
 import Blog from "./routes/Blog";
 import Contact from "./routes/Contact";
 import Lessons from "./routes/Lessons";
@@ -42,6 +44,7 @@ import DcaBuysAdmin from "./routes/DcaBuysAdmin";
 import { ProfileIdentityProvider } from "./context/ProfileIdentityContext";
 import { DirectMessageProvider } from "./context/DirectMessageContext";
 import { ToastProvider } from "./context/ToastContext";
+import { JournalSessionProvider } from "./context/JournalSessionContext";
 import RequireLogin from "./components/RequireLogin";
 import RequireMembership from "./components/RequireMembership";
 import { MinerQuotation2Page } from "./pages/MinerQuotation2Page";
@@ -79,7 +82,7 @@ const router = createBrowserRouter([
     ),
     errorElement: <RouteError />,              // ✅ friendly error UI
     children: [
-      { index: true, element: <Home /> },
+      { index: true, element: <Journal /> },
       {
         path: "education",
         element: <CourseDirectory />,
@@ -89,6 +92,8 @@ const router = createBrowserRouter([
         element: <CourseDetail />,
       },
       { path: "settings", element: <Settings /> },
+      { path: "signup", element: <Signup /> },
+      { path: "journal", element: <Journal /> },
       { path: "blog", element: <Blog /> },
       { path: "contact", element: <Contact /> },
       { path: "lessons", element: <Lessons /> },
@@ -153,7 +158,7 @@ const router = createBrowserRouter([
           </ErrorBoundary>
         ),
       },
-      { path: "login", element: <Navigate to="/membership" replace /> },
+      { path: "login", element: <Login /> },
       { path: "membership/success", element: <MembershipSuccess /> },
       { path: "membership/cancel", element: <MembershipCancel /> },
       { path: "checkout/success", element: <CheckoutSuccess /> },
@@ -211,12 +216,13 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <ThemeProvider>
-          <PreferencesProvider>
-            <ProfileIdentityProvider>
-              <DirectMessageProvider>
-                <ToastProvider>
-                  <ErrorBoundary
-                    fallback={
+          <JournalSessionProvider>
+            <PreferencesProvider>
+              <ProfileIdentityProvider>
+                <DirectMessageProvider>
+                  <ToastProvider>
+                    <ErrorBoundary
+                      fallback={
                       <div className="mx-auto max-w-3xl px-6 py-16 text-center text-[var(--fg-default)]">
                         <p className="text-sm font-semibold uppercase tracking-[0.32em] text-[var(--fg-muted)]">
                           Something went wrong
@@ -226,17 +232,18 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
                           Please refresh the page or try again in a moment.
                         </p>
                       </div>
-                    }
-                    onError={(error, info) => {
+                      }
+                      onError={(error, info) => {
                       console.error("App ErrorBoundary caught an error", error, info);
-                    }}
-                  >
-                    <RouterProvider router={router} />
-                  </ErrorBoundary>
-                </ToastProvider>
-              </DirectMessageProvider>
-            </ProfileIdentityProvider>
-          </PreferencesProvider>
+                      }}
+                    >
+                      <RouterProvider router={router} />
+                    </ErrorBoundary>
+                  </ToastProvider>
+                </DirectMessageProvider>
+              </ProfileIdentityProvider>
+            </PreferencesProvider>
+          </JournalSessionProvider>
         </ThemeProvider>
       </AuthProvider>
     </QueryClientProvider>
